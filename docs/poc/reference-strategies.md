@@ -14,7 +14,7 @@
 3. 执行下午动作并冻结服务计划；
 4. `AdvancePhase`；
 5. 执行表格列出的营业前晚间动作；
-6. `ResolveService`；
+6. 把玩法 shorthand `ResolveService` 固定展开为相邻的 `StartOpening`、`FinalizeOpening`；七日 Story 不在两者之间插入其他命令；
 7. `AdvancePhase` 完成日终。
 
 D6 的第 7 步进入 D7 上午。D7 不执行普通动作：先用一次 `AdvancePhase` 进入下午，再立即执行 `PayLevy`。终局固定停在 `day=7`、`phase=afternoon`；所有 driver 都必须包含这两条命令。
@@ -28,7 +28,7 @@ D6 的第 7 步进入 D7 上午。D7 不执行普通动作：先用一次 `Advan
 3. 其余需要 AP 的动作按列表顺序放入最早可用且能完整支付该命令的上午或下午；同一命令不可跨时段拆分；
 4. `ChooseAdventurePreparation(prepared)` 紧邻 `BeginAdventure` 之前执行，不扣 AP 或现金；`BeginAdventure` 原子扣除基础物资与准备包合计 8 现金；
 5. `SetServicePlan` 或 `ChoosePlannedClosure` 在所有下午动作之后、第二次 `AdvancePhase` 之前提交。计划停业固定到下午末尾声明；
-6. “晚上服务前”动作按列表顺序执行，然后才调用 `ResolveService`。
+6. “晚上服务前”动作按列表顺序执行，然后才相邻调用 `StartOpening` 与 `FinalizeOpening`；任一失败都使 driver 失败，不能只重试第二条、绕过开始成本或插入额外动作。
 
 若预留固定窗口后，普通动作无法按上述规则排入合法时段，则 driver 直接失败。生成 fixture 时必须保存带明确 `day`、`phase` 和顺序号的最终命令列表；表格本身不在测试运行时临时解释。
 

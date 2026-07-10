@@ -8,22 +8,21 @@
 
 - 高层游戏设计已经形成基线；
 - 七日 PoC 的范围、规则、首轮数值与测试场景已经落盘；
-- React 游戏 Harness 与 StoryPackage 架构已经形成书面规格，等待最终评审；
+- React 游戏 Harness、StoryPackage 与首批 Image Gen 视觉包已经形成书面规格，等待最终确认；
 - 尚未创建前端脚手架；
-- 正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围。
+- 大规模正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围；首批原创 Image Gen Web 视觉包属于 PoC 交付。
 
 ## 文档入口
 
 - [项目文档地图](docs/README.md)
 - [游戏设计基线](docs/design/game-design-baseline.md)
 - [React 游戏 Harness 与 StoryPackage 架构](docs/superpowers/specs/2026-07-10-react-game-harness-design.md)
-- [七日 PoC 设计评审摘要（非权威）](docs/superpowers/specs/2026-07-10-seven-day-tavern-poc-design.md)
+- [首批 Web 视觉包与 Image Gen 基线](docs/art/first-web-visual-pack.md)
 - [PoC 游戏合同](docs/poc/poc-charter.md)
 - [模拟规则与结算顺序](docs/poc/simulation-rules.md)
 - [首轮数值草案](docs/poc/balance-v0.md)
 - [内容场景与试玩矩阵](docs/poc/content-and-playtest.md)
 - [确定性参考策略](docs/poc/reference-strategies.md)
-- [Web PoC 架构](docs/architecture/web-poc-architecture.md)
 - [参考项目研究](docs/research/degrees-of-lewdity-notes.md)
 - [本地参考资料登记表](docs/research/reference-register.md)
 
@@ -33,4 +32,4 @@
 
 ## 下一道闸门
 
-先复核并修订上述规格。规格确认后，再编写逐任务实现计划并搭建 React + TypeScript 原型。
+确认 Harness 与视觉规格后，编写逐任务实现计划；计划评审通过后再设置长期 Goal，搭建 React + TypeScript Harness。

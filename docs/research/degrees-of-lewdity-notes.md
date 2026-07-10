@@ -79,7 +79,7 @@
 - 用特殊权重同时表达优先级和概率；
 - 任意条件树难以静态验证。
 
-项目自有规范见 [`../architecture/web-poc-architecture.md`](../architecture/web-poc-architecture.md) 的内容模型与确定性随机。本研究笔记不规定接口形状。
+项目自有规范见 [`../superpowers/specs/2026-07-10-react-game-harness-design.md`](../superpowers/specs/2026-07-10-react-game-harness-design.md) 的 StoryPackage、内容 IR 与确定性随机。本研究笔记不规定接口形状。
 
 ## 5. 状态与数据组织
 
@@ -106,7 +106,7 @@
 - 数字文件名前缀承担隐式加载依赖；
 - 字符串 key 与数组位置混用，位置变化会污染存档。
 
-项目自有规范见 [`../poc/simulation-rules.md`](../poc/simulation-rules.md) 与 [`../architecture/web-poc-architecture.md`](../architecture/web-poc-architecture.md)。
+项目自有规范见 [`../poc/simulation-rules.md`](../poc/simulation-rules.md) 与 [`../superpowers/specs/2026-07-10-react-game-harness-design.md`](../superpowers/specs/2026-07-10-react-game-harness-design.md)。
 
 ## 6. 存档与迁移
 
@@ -135,7 +135,7 @@
 - metadata 与主状态分开更新导致不同步风险；
 - 新旧迁移体系长期并存。
 
-项目自有存档合同见 [`../architecture/web-poc-architecture.md`](../architecture/web-poc-architecture.md)。
+项目自有存档合同见 [`../superpowers/specs/2026-07-10-react-game-harness-design.md`](../superpowers/specs/2026-07-10-react-game-harness-design.md) 第 15 节。
 
 ## 7. 构建与内容检查
 
@@ -191,7 +191,7 @@
 - 调试状态混入正常存档；
 - 手工测试房间替代自动化规则测试。
 
-项目自有调试和测试合同见 [`../architecture/web-poc-architecture.md`](../architecture/web-poc-architecture.md)。
+项目自有调试和测试合同见 [`../superpowers/specs/2026-07-10-react-game-harness-design.md`](../superpowers/specs/2026-07-10-react-game-harness-design.md) 第 16、20 节。
 
 ## 9. 使用边界
 

@@ -15,10 +15,9 @@ Read these before changing behavior:
 5. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
 6. `docs/poc/reference-strategies.md` — deterministic reference inputs.
 7. `docs/design/game-design-baseline.md` — long-term product direction.
+8. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Image Gen asset IDs, safe zones, provenance, and acceptance.
 
-Authority is domain-specific: the Harness design governs technical architecture even when an older PoC document contains historical UI, storage, or content-loading instructions; the PoC documents govern the seven-day gameplay and numbers inside those interfaces. Record intentional changes in the relevant authoritative document in the same change as the code.
-
-`docs/architecture/web-poc-architecture.md` and `docs/superpowers/specs/2026-07-10-seven-day-tavern-poc-design.md` preserve the earlier graybox architecture and reasoning. They are non-normative wherever the new Harness design differs.
+Authority is domain-specific: the Harness design governs technical architecture; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and asset contracts. Record intentional changes in the relevant authoritative document in the same change as the code.
 
 ## Scope constraints
 
@@ -29,6 +28,7 @@ Authority is domain-specific: the Harness design governs technical architecture 
 - Use only the minimal Auras listed by the PoC spec. Do not build a general rules language or arbitrary callback registry.
 - Do not add features merely because the long-term design mentions them.
 - A small coherent web visual pack is allowed; final-scale art/audio production is not.
+- Image Gen UI mockups are design references only. Runtime controls, text, HUD, focus states, and small symbols remain code-native; commercial screenshots and `references/` are never generation inputs.
 
 ## Architecture constraints
 

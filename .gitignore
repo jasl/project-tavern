@@ -11,6 +11,8 @@
 /diagnostics/
 /save-data/
 /generated/
+/art-source/**/candidates/
+/art-source/**/work/
 /.superpowers/
 
 # Dependencies and package-manager caches.
