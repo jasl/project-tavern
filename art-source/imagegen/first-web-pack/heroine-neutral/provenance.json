@@ -9,6 +9,7 @@
   },
   "promptFile": "prompt.md",
   "inputAssets": [],
+  "inputUseReview": null,
   "termsReview": {
     "status": "pending",
     "reviewedAt": null,

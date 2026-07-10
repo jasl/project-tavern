@@ -9,6 +9,8 @@
 ## 当前七日 PoC
 
 - [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：当前技术架构权威；定义生产级 Web Harness、StoryPackage、中央舞台 UI、存档/调试、测试、构建与素材边界。
+- [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级 ABI 权威；穷举 Snapshot、命令/DomainFact/拒绝、规则输入输出、Narrative IR、BuildProvenance、Save/Debug、Strict JSON 与关键不变量。
+- [`superpowers/plans/2026-07-10-react-game-harness-roadmap.md`](superpowers/plans/2026-07-10-react-game-harness-roadmap.md)：已写好的五阶段实施总路线、Goal 边界、规格覆盖矩阵、人工闸门与停止线；各阶段计划由该文档链接。
 - [`art/first-web-visual-pack.md`](art/first-web-visual-pack.md)：首批 Image Gen 视觉语言、场景/人物锚点、Asset ID、安全区、来源记录与验收。
 - [`poc/poc-charter.md`](poc/poc-charter.md)：为什么做、做多少、怎样判断通过。
 - [`poc/simulation-rules.md`](poc/simulation-rules.md)：状态模型、命令、时间推进、事件与结算顺序。
@@ -16,7 +18,7 @@
 - [`poc/content-and-playtest.md`](poc/content-and-playtest.md)：固定七日场景、教学节奏与策略测试矩阵。
 - [`poc/reference-strategies.md`](poc/reference-strategies.md)：把六种 reference 策略展开为唯一命令序列的确定性 driver。
 
-权威按领域划分并写在仓库根目录 `AGENTS.md`：新 Harness 规格负责技术边界，`docs/poc/` 负责七日玩法与数值。
+权威按领域划分并写在仓库根目录 `AGENTS.md`：Harness 规格负责技术边界，Contract Catalog 负责字段级 ABI，`docs/poc/` 负责七日玩法与数值。
 
 ## 研究
 
@@ -25,7 +27,7 @@
 
 ## 决策状态
 
-- **已形成基线、待最终确认**：首个可玩物是七日网页 Story；Harness 代码按生产级维护；模拟核心与 UI 分离；无后端；固定种子；IndexedDB 本地存档；Story 可实现受控强类型规则接口；首批 Web 视觉包使用原创 Image Gen 素材。
+- **已确认，待计划评审后实施**：首个可玩物是七日网页 Story；Harness 代码按生产级维护；模拟核心与 UI 分离；无后端；固定种子；IndexedDB 本地存档；Story 可实现受控强类型规则接口；首批 Web 视觉包使用原创 Image Gen 素材。
 - **本轮可调**：所有经济数值、行动/体力强度、需求与委托效率。
 - **等待试玩**：行动点与体力是否重复、经营步骤是否疲劳、预测信息量、三种营业模式是否都有用途。
 - **明确延后**：Unity、大规模正式美术、完整关系阶段、完整设施树、多周目、Mod、运行时 LLM、成人版本。

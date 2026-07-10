@@ -8,7 +8,8 @@
 
 - 高层游戏设计已经形成基线；
 - 七日 PoC 的范围、规则、首轮数值与测试场景已经落盘；
-- React 游戏 Harness、StoryPackage 与首批 Image Gen 视觉包已经形成书面规格，等待最终确认；
+- React 游戏 Harness、StoryPackage 与首批 Image Gen 视觉包的书面规格已经确认；
+- 五阶段逐任务实施计划和总路线图已经落盘，等待计划评审与显式创建 Goal；
 - Phase A 的 UI、酒馆、女主与招牌四张 Image Gen 校准候选已经归档，尚未选为运行时素材；
 - 尚未创建前端脚手架；
 - 大规模正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围；首批原创 Image Gen Web 视觉包属于 PoC 交付。
@@ -18,6 +19,8 @@
 - [项目文档地图](docs/README.md)
 - [游戏设计基线](docs/design/game-design-baseline.md)
 - [React 游戏 Harness 与 StoryPackage 架构](docs/superpowers/specs/2026-07-10-react-game-harness-design.md)
+- [Engine Contract Catalog v1](docs/superpowers/specs/2026-07-10-engine-contract-catalog.md)
+- [React 游戏 Harness 第一轮实施路线图](docs/superpowers/plans/2026-07-10-react-game-harness-roadmap.md)
 - [首批 Web 视觉包与 Image Gen 基线](docs/art/first-web-visual-pack.md)
 - [PoC 游戏合同](docs/poc/poc-charter.md)
 - [模拟规则与结算顺序](docs/poc/simulation-rules.md)
@@ -33,4 +36,4 @@
 
 ## 下一道闸门
 
-确认 Harness 与视觉规格后，编写逐任务实现计划；计划评审通过后再设置长期 Goal，搭建 React + TypeScript Harness。
+评审逐任务实施计划；确认无调整后再显式创建长期 Goal，严格按五个阶段搭建 React + TypeScript Harness。Phase A 候选素材的选择和条款审批仍是独立的人工作业，不应被含混地视为已批准。

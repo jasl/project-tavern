@@ -4,6 +4,7 @@
 
 # Local scratch work, diagnostics, generated exports, and disposable data.
 /tmp/
+/.tmp/
 /work/
 /scratch/
 /artifacts/
