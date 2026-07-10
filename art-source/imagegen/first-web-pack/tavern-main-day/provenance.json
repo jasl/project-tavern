@@ -1,0 +1,32 @@
+{
+  "assetId": "background.tavern.main.day",
+  "sourceType": "ai_generated",
+  "generator": {
+    "service": "OpenAI Image Gen",
+    "surface": "Codex built-in image_gen",
+    "model": "undisclosed-by-tool",
+    "generatedAt": "2026-07-10T03:17:14Z"
+  },
+  "promptFile": "prompt.md",
+  "inputAssets": [],
+  "termsReview": {
+    "status": "pending",
+    "reviewedAt": null,
+    "sourceUrl": null,
+    "allowedUses": [],
+    "restrictions": []
+  },
+  "modifications": [],
+  "source": {
+    "path": "source.png",
+    "format": "png",
+    "width": 1568,
+    "height": 1003
+  },
+  "sourceSha256": "sha256:a7bd30b46497617b9d0f576879cb20a8f6596f77359ba4b879b0bcc8794b903e",
+  "runtime": null,
+  "review": {
+    "status": "candidate",
+    "selectionReason": null
+  }
+}

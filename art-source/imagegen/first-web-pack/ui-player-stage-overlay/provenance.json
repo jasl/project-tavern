@@ -1,0 +1,32 @@
+{
+  "assetId": "concept.ui.player-stage-overlay",
+  "sourceType": "ai_generated",
+  "generator": {
+    "service": "OpenAI Image Gen",
+    "surface": "Codex built-in image_gen",
+    "model": "undisclosed-by-tool",
+    "generatedAt": "2026-07-10T03:15:48Z"
+  },
+  "promptFile": "prompt.md",
+  "inputAssets": [],
+  "termsReview": {
+    "status": "pending",
+    "reviewedAt": null,
+    "sourceUrl": null,
+    "allowedUses": [],
+    "restrictions": []
+  },
+  "modifications": [],
+  "source": {
+    "path": "source.png",
+    "format": "png",
+    "width": 1586,
+    "height": 992
+  },
+  "sourceSha256": "sha256:22fe706a39f2e791697e226aa58785b860047b827cc970e37f574cd828a616e7",
+  "runtime": null,
+  "review": {
+    "status": "candidate",
+    "selectionReason": null
+  }
+}

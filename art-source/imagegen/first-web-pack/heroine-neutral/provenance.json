@@ -1,0 +1,32 @@
+{
+  "assetId": "character.heroine.neutral",
+  "sourceType": "ai_generated",
+  "generator": {
+    "service": "OpenAI Image Gen",
+    "surface": "Codex built-in image_gen",
+    "model": "undisclosed-by-tool",
+    "generatedAt": "2026-07-10T03:19:33Z"
+  },
+  "promptFile": "prompt.md",
+  "inputAssets": [],
+  "termsReview": {
+    "status": "pending",
+    "reviewedAt": null,
+    "sourceUrl": null,
+    "allowedUses": [],
+    "restrictions": []
+  },
+  "modifications": [],
+  "source": {
+    "path": "source.png",
+    "format": "png",
+    "width": 864,
+    "height": 1821
+  },
+  "sourceSha256": "sha256:bcb5ed32eb745380506dab85ef76fb80dd99a1f202310549119052b92896c0bc",
+  "runtime": null,
+  "review": {
+    "status": "candidate",
+    "selectionReason": null
+  }
+}

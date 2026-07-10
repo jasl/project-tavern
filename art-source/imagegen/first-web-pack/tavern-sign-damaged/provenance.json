@@ -1,0 +1,32 @@
+{
+  "assetId": "prop.tavern.sign.damaged",
+  "sourceType": "ai_generated",
+  "generator": {
+    "service": "OpenAI Image Gen",
+    "surface": "Codex built-in image_gen",
+    "model": "undisclosed-by-tool",
+    "generatedAt": "2026-07-10T03:20:35Z"
+  },
+  "promptFile": "prompt.md",
+  "inputAssets": [],
+  "termsReview": {
+    "status": "pending",
+    "reviewedAt": null,
+    "sourceUrl": null,
+    "allowedUses": [],
+    "restrictions": []
+  },
+  "modifications": [],
+  "source": {
+    "path": "source.png",
+    "format": "png",
+    "width": 1254,
+    "height": 1254
+  },
+  "sourceSha256": "sha256:a50239899e028303dfd9793ba836dc3a13ea29561471a2f3fa5207e407a02b8d",
+  "runtime": null,
+  "review": {
+    "status": "candidate",
+    "selectionReason": null
+  }
+}

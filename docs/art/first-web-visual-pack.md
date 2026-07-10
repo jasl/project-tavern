@@ -1,7 +1,7 @@
 # 首批 Web 视觉包与 Image Gen 基线
 
 日期：2026-07-10
-状态：v1 临时视觉基线；用于非正史七日 PoC，正式美术可在试玩后重做
+状态：v1 临时视觉基线；Phase A 四张候选已生成，待用户确认锚点；正式美术可在试玩后重做
 适用范围：React Harness 的 Player 舞台、VN、Workspace Overlay 与七日 Story 素材
 
 ## 1. 目的
@@ -127,7 +127,7 @@ Avoid: photorealism, chibi proportions, excessive gold filigree, mobile gacha cl
 
 ```text
 Use case: stylized-concept
-Asset type: game environment background master
+Asset type: game environment background source candidate
 Primary request: an original low-magic fantasy trade-town tavern recently repaired after wartime damage and ready for modest business
 Scene/backdrop: timber beams, patched pale plaster, sturdy bar counter, small hearth, simple tables and chairs, window daylight, a visible passage toward the kitchen, subtle replacement boards and unfinished carpentry
 Subject: empty interior with no people; clear central standing area for a character; stable readable silhouettes at tablet size
@@ -157,10 +157,10 @@ Avoid: maid headpiece, excessive lace, cleavage, transparent fabric, fetish styl
 
 ```text
 Use case: stylized-concept
-Asset type: game prop state anchor
+Asset type: game prop state anchor source candidate
 Primary request: a damaged hanging tavern sign made from one thick wooden plank and simple dark iron brackets, repairable rather than destroyed
 Style/medium: hand-painted low-magic fantasy game prop, grounded worn wood and iron texture, clear silhouette
-Composition/framing: single object centered on a plain warm neutral backdrop, square canvas, generous padding, fixed three-quarter view for a later repaired-state edit
+Composition/framing: single complete object centered on a plain warm neutral backdrop, square canvas, generous padding, fixed three-quarter view for a later repaired-state edit
 Lighting/mood: soft neutral studio-like game asset lighting
 Constraints: no readable lettering or emblem; no text; no logo; no watermark; no background scene; no cast shadow; original design
 Avoid: splintered beyond repair, ornate royal crest, magical glow, modern hardware
@@ -288,3 +288,14 @@ src/stories/tavern-poc/assets/
 - 正式字体、音频、粒子和复杂 shader 管线。
 
 这些内容由真实试玩和正式世界观决定，不进入首轮 Goal。
+
+## 11. 当前 Phase A 候选
+
+四张候选均位于 `art-source/imagegen/first-web-pack/`，各自包含 `source.png`、最终 prompt 与 `provenance.json`：
+
+- `ui-player-stage-overlay/`；
+- `tavern-main-day/`；
+- `heroine-neutral/`；
+- `tavern-sign-damaged/`。
+
+它们的 `review.status` 与 `termsReview.status` 分别为 `candidate`、`pending`，因此当前不进入 Story manifest、Story digest、Player artifact 或 Pages。Phase B 必须等待用户逐项确认或要求重生成。
