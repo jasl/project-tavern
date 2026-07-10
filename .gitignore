@@ -1,0 +1,98 @@
+# Local reference repositories and research inputs. These are deliberately
+# kept outside this repository's history, including any nested .git folders.
+/references/
+
+# Local scratch work, diagnostics, generated exports, and disposable data.
+/tmp/
+/work/
+/scratch/
+/artifacts/
+/reports/
+/diagnostics/
+/save-data/
+/generated/
+/.superpowers/
+
+# Dependencies and package-manager caches.
+node_modules/
+.pnpm-store/
+.yarn/
+.pnp.*
+
+# Frontend build, test, and tooling output.
+dist/
+build/
+coverage/
+.vite/
+.vitest/
+.turbo/
+.cache/
+.eslintcache
+.stylelintcache
+.nyc_output/
+playwright-report/
+playwright/.auth/
+blob-report/
+test-results/
+vite.config.*.timestamp-*
+storybook-static/
+*.tsbuildinfo
+
+# Local environment and secrets. Keep documented examples in version control.
+.env
+.env.*
+!.env.example
+
+# Logs and temporary editor files.
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE-local state. Curated shared VS Code files may be committed later.
+.idea/
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.user
+*.suo
+
+# Operating-system metadata.
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Unity-generated files for the later production project. Source folders such
+# as Assets, Packages, and ProjectSettings remain trackable.
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+[Ee]xported[Oo]bj/
+.gradle/
+.consulo/
+*.csproj
+*.sln
+*.slnx
+*.unityproj
+*.userprefs
+*.apk
+*.aab
+*.unitypackage
+sysinfo.txt
