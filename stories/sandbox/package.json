@@ -10,11 +10,11 @@
   },
   "scripts": {
     "test": "pnpm --dir ../.. exec vitest run stories/sandbox/src",
-    "verify:fixtures": "node --experimental-transform-types scripts/verify-fixtures.mts",
-    "regenerate:fixtures": "node --experimental-transform-types scripts/regenerate-fixtures.mts",
-    "verify:golden": "node --experimental-transform-types scripts/verify-golden.mts",
-    "update:golden": "node --experimental-transform-types scripts/update-golden.mts",
-    "verify:balance": "node --experimental-transform-types scripts/verify-balance.mts"
+    "verify:fixtures": "node --experimental-strip-types scripts/verify-fixtures.mts",
+    "regenerate:fixtures": "node --experimental-strip-types scripts/regenerate-fixtures.mts",
+    "verify:golden": "node --experimental-strip-types scripts/verify-golden.mts",
+    "update:golden": "node --experimental-strip-types scripts/update-golden.mts",
+    "verify:balance": "node --experimental-strip-types scripts/verify-balance.mts"
   },
   "dependencies": {
     "@project-tavern/base": "workspace:*",

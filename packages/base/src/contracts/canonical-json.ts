@@ -15,12 +15,13 @@ export type CanonicalJsonErrorCodeV1 =
 
 export class CanonicalJsonError extends Error {
   readonly name = "CanonicalJsonError";
+  readonly code: CanonicalJsonErrorCodeV1;
+  readonly path: string;
 
-  constructor(
-    readonly code: CanonicalJsonErrorCodeV1,
-    readonly path: string,
-  ) {
+  constructor(code: CanonicalJsonErrorCodeV1, path: string) {
     super(`${code} at ${path || "/"}`);
+    this.code = code;
+    this.path = path;
   }
 }
 

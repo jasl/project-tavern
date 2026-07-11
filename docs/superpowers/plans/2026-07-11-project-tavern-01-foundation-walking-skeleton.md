@@ -1125,11 +1125,11 @@ Set these Sandbox package scripts before invoking them:
 ```json
 {
   "test": "pnpm --dir ../.. exec vitest run stories/sandbox/src",
-  "verify:fixtures": "node scripts/verify-fixtures.mts",
-  "regenerate:fixtures": "node scripts/regenerate-fixtures.mts",
-  "verify:golden": "node scripts/verify-golden.mts",
-  "update:golden": "node scripts/update-golden.mts",
-  "verify:balance": "node scripts/verify-balance.mts"
+  "verify:fixtures": "node --experimental-strip-types scripts/verify-fixtures.mts",
+  "regenerate:fixtures": "node --experimental-strip-types scripts/regenerate-fixtures.mts",
+  "verify:golden": "node --experimental-strip-types scripts/verify-golden.mts",
+  "update:golden": "node --experimental-strip-types scripts/update-golden.mts",
+  "verify:balance": "node --experimental-strip-types scripts/verify-balance.mts"
 }
 ```
 

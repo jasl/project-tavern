@@ -1415,8 +1415,8 @@ Add these exact scripts:
 // stories/e2e/package.json
 {
   "scripts": {
-    "regenerate:runtime-fixtures": "node scripts/regenerate-runtime-fixtures.mts",
-    "verify:runtime-fixtures": "node scripts/verify-runtime-fixtures.mts"
+    "regenerate:runtime-fixtures": "node --experimental-strip-types scripts/regenerate-runtime-fixtures.mts",
+    "verify:runtime-fixtures": "node --experimental-strip-types scripts/verify-runtime-fixtures.mts"
   }
 }
 
@@ -1545,7 +1545,7 @@ Add the exact root script:
 ```json
 {
   "scripts": {
-    "verify:persistence-diagnostics": "node scripts/verify-persistence-diagnostics.mts"
+    "verify:persistence-diagnostics": "node --experimental-strip-types scripts/verify-persistence-diagnostics.mts"
   }
 }
 ```

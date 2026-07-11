@@ -167,10 +167,13 @@ function decodeUtf8(bytes: Uint8Array): string | null {
 }
 
 class ParseFailure {
-  constructor(
-    readonly code: StrictJsonErrorCodeV1,
-    readonly offset: number,
-  ) {}
+  readonly code: StrictJsonErrorCodeV1;
+  readonly offset: number;
+
+  constructor(code: StrictJsonErrorCodeV1, offset: number) {
+    this.code = code;
+    this.offset = offset;
+  }
 }
 
 export function parseStrictJson(

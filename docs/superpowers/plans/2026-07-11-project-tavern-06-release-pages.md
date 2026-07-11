@@ -141,9 +141,9 @@ Replace the Phase 1 build-script implementations, without renaming the public co
 
 ```json
 {
-  "build:player": "node scripts/release/build-artifact.mts --story demo --flavor player --out-dir dist/player --sourcemap false",
-  "build:developer": "node scripts/release/build-artifact.mts --story demo --flavor developer --out-dir dist/developer --sourcemap true",
-  "build:e2e-player": "node scripts/release/build-artifact.mts --story e2e --flavor player --out-dir dist/e2e-player --sourcemap false"
+  "build:player": "node --experimental-strip-types scripts/release/build-artifact.mts --story demo --flavor player --out-dir dist/player --sourcemap false",
+  "build:developer": "node --experimental-strip-types scripts/release/build-artifact.mts --story demo --flavor developer --out-dir dist/developer --sourcemap true",
+  "build:e2e-player": "node --experimental-strip-types scripts/release/build-artifact.mts --story e2e --flavor player --out-dir dist/e2e-player --sourcemap false"
 }
 ```
 
@@ -226,7 +226,7 @@ Keep the Phase 1 public names and make their final behavior explicit:
 
 ```json
 {
-  "player:manifest": "node scripts/release/create-artifact-manifest.mts dist/player",
+  "player:manifest": "node --experimental-strip-types scripts/release/create-artifact-manifest.mts dist/player",
   "verify:artifact": "node scripts/verify-artifact.mjs",
   "release:prepare": "pnpm build:player"
 }
@@ -303,7 +303,7 @@ Add the exact scripts:
 
 ```json
 {
-  "release:repro": "node scripts/release/build-reproducibly.mts",
+  "release:repro": "node --experimental-strip-types scripts/release/build-reproducibly.mts",
   "test:e2e:prebuilt": "playwright test --config apps/web/playwright.prebuilt.config.ts"
 }
 ```
@@ -411,7 +411,7 @@ Use `spawnSync(command,args,{stdio:"inherit"})` without shell interpolation. Pri
 
 Preserve the stronger Phase 1 immutability guard: snapshot the sorted tracked path plus `digestBytes` of every `git ls-files -z` entry and `git status --porcelain=v1` before execution, compare both in `finally` even after a failing step, and reject unexpected untracked files outside the explicit ignored-output allowlist. Equal status text alone is insufficient because a dirty tracked file could change bytes while remaining `M`.
 
-Keep `verify="node scripts/verify.mjs"` and `verify:release="node scripts/verify-release.mjs"`; add `docs:links="node scripts/docs/check-links.mts"`. These wrappers import the ordered step data but never evaluate a command string through a shell.
+Keep `verify="node scripts/verify.mjs"` and `verify:release="node scripts/verify-release.mjs"`; add `docs:links="node --experimental-strip-types scripts/docs/check-links.mts"`. These wrappers import the ordered step data but never evaluate a command string through a shell.
 
 Finalize browser public names over the prebuilt three-root config: `test:e2e:smoke="playwright test --config apps/web/playwright.ui.config.ts --project=chromium --grep @smoke"` and `test:e2e:full="playwright test --config apps/web/playwright.ui.config.ts --project=chromium --project=webkit"`. Neither script starts Vite or builds. `verify:release` may invoke only the WebKit project after `pnpm verify` has already run Chromium; the all-project public command remains available for explicit full acceptance.
 
@@ -498,7 +498,7 @@ jobs:
 
 Every `actions/upload-artifact` use sets both `retention-days: 30` and `if-no-files-found: error`; failure evidence uploads only Playwright reports/traces, scrubbed diagnostics, and DebugBundles. The dependency audit workflow runs `pnpm audit --prod` on schedule/manual and uploads a report; it is not called by `pnpm verify`.
 
-Add `verify:workflows="node scripts/release/validate-workflows.mts"`; it parses every tracked workflow and validates the action lock identities, permissions, artifact retention, job dependencies, and no-build rules. It does not collect or validate per-action license evidence and performs no GitHub API call during ordinary verification.
+Add `verify:workflows="node --experimental-strip-types scripts/release/validate-workflows.mts"`; it parses every tracked workflow and validates the action lock identities, permissions, artifact retention, job dependencies, and no-build rules. It does not collect or validate per-action license evidence and performs no GitHub API call during ordinary verification.
 
 Only now append `verify:workflows` to `verify:release` and its exact-order test. Before this task the release gate intentionally has no workflow step; after this task the validator covers CI and dependency-audit, and Task 6 extends the same closed set with Pages.
 
@@ -576,7 +576,7 @@ The workflow refuses any ref other than the reviewed default branch before verif
 
 `smoke` needs `deploy`, consumes the exact `deploy.outputs.page_url`, manifest digest, and `${{ github.sha }}`, checks out exactly that SHA only for the allowlisted remote-test source, installs frozen dependencies and Chromium, and runs remote Playwright. Before interaction it polls the HTTPS deployment's `build-input.json` and `artifact-manifest.json` with bounded exponential backoff until source SHA and detached manifest digest match the expected current run (or a fixed deadline reports the last 404/stale identity). It never invokes Vite/build/upload/deploy and treats the URL as read-only.
 
-Add `test:e2e:remote="node scripts/release/post-deploy-smoke.mts"`. It requires an explicit HTTPS deployment URL argument/environment value, rejects localhost and credential-bearing URLs, invokes only `remote-pages-smoke.spec.ts`, and is called only by the authorized workflow or an operator following the runbook—not by local `verify:release`.
+Add `test:e2e:remote="node --experimental-strip-types scripts/release/post-deploy-smoke.mts"`. It requires an explicit HTTPS deployment URL argument/environment value, rejects localhost and credential-bearing URLs, invokes only `remote-pages-smoke.spec.ts`, and is called only by the authorized workflow or an operator following the runbook—not by local `verify:release`.
 
 - [ ] **Step 4: Validate locally without deploying**
 

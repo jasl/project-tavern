@@ -77,6 +77,7 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - Keep files focused and interfaces explicit. Enforce import boundaries and cycles in CI. Avoid a global mutable store, generic event bus, ECS, CQRS, or event sourcing for this PoC.
 - Use Node.js >=22.12.0 and pnpm >=11.0.0 with a frozen lockfile. `pnpm verify` is the full non-interactive local/CI verification entrypoint once scaffolded.
 - The current stable TypeScript 7 `tsc` is authoritative and must be pinned when the workspace is scaffolded. Tooling compatibility may not downgrade formal project typechecking or make project code depend on the legacy Compiler API.
+- Direct `.mts` tools run with Node's `--experimental-strip-types`; their complete import closure must remain erasable TypeScript with no enum, namespace, parameter property, or transform-required syntax. Formal diagnostics still come from TypeScript 7 `tsc`.
 - `engine.version` comes only from Application-owned build metadata and never enters engine/simulation roots.
 - Tracked persistence fixtures are provenance-bound. Any engine, state-contract, or simulation digest input change must explicitly regenerate and review fixture diffs through the eventual dedicated command; ordinary tests and CI only verify and never rewrite tracked baselines.
 - Use Chinese for player-facing/design prose and English for identifiers unless a document states otherwise.

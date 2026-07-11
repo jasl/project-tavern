@@ -245,6 +245,10 @@ git commit -m "docs: align plans with lightweight repository policy"
 - Consumes: Tasks 1–3.
 - Produces: fresh evidence that policy cleanup did not weaken runtime, architecture, artifact, or browser behavior.
 
+- [ ] **Step 0: Keep direct TypeScript tools strip-only compatible**
+
+Run `scripts/typescript-runtime.test.mjs` under the active Node runtime. If a supported Node release does not accept the former transform flag, change direct `.mts` commands to `--experimental-strip-types` and replace transform-required TypeScript in their import closure with equivalent erasable declarations. Do not branch on an exact Node version and do not add a second TypeScript runtime.
+
 - [ ] **Step 1: Run the complete retained verification surface**
 
 Run:
