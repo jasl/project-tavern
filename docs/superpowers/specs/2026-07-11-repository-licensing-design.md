@@ -2,9 +2,13 @@
 
 日期：2026-07-11
 
-状态：方案已确认；等待书面规格评审
+状态：已实施；标准许可证与治理文件见仓库根目录
 
 版权主体：Jun Jiang（互联网 ID：jasl）
+
+实施入口：[`../../../LICENSE.md`](../../../LICENSE.md)
+
+实施计划：[`../plans/2026-07-11-repository-licensing-implementation.md`](../plans/2026-07-11-repository-licensing-implementation.md)
 
 ## 1. 设计结论
 

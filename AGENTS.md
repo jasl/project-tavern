@@ -10,15 +10,16 @@ Read these before changing behavior:
 
 1. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — authoritative package, Base/UI, Module/Story, Loader/Host, Hotfix, save/debug, build, test, and asset boundaries.
 2. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete Demo Module/Story ABI; tavern-specific types in this file do not belong in Base.
-3. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
-4. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
-5. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
-6. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
-7. `docs/poc/reference-strategies.md` — deterministic reference inputs.
-8. `docs/design/game-design-baseline.md` — long-term product direction.
-9. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Image Gen asset IDs, safe zones, provenance, and acceptance.
+3. `docs/superpowers/specs/2026-07-11-repository-licensing-design.md` — authoritative MIT/PolyForm/CC scope, third-party material, trademark, and contribution boundaries.
+4. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
+5. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
+6. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
+7. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
+8. `docs/poc/reference-strategies.md` — deterministic reference inputs.
+9. `docs/design/game-design-baseline.md` — long-term product direction.
+10. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Image Gen asset IDs, safe zones, provenance, and acceptance.
 
-Authority is domain-specific: the Harness design governs technical architecture; the Contract Catalog freezes its field-level ABI; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and asset contracts. Record intentional changes in the relevant authoritative document in the same change as the code.
+Authority is domain-specific: the Harness design governs technical architecture; the Contract Catalog freezes its field-level ABI; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and asset contracts. Record intentional changes in the relevant authoritative document in the same change as the code.
 
 ## Scope constraints
 
@@ -52,6 +53,18 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - One EngineSession FIFO serializes every authoritative operation: Game dispatch, validated Save load/import (including explicit resolved-PatchSet adoption), lifecycle create/restart, replayable DebugCommand, and fixture anchor. Entry marks the Session busy synchronously; no Runtime service or UI may receive a direct Snapshot setter. Every successful replacement atomically establishes a new replay base and clears the old CommandLog.
 - Replayable gameplay DebugCommand semantics and validation live with the selected Modules/Profile and enter `simulationDigest`; admitted committed and faulted attempts both enter CommandLog, while validation failures never do. `debug.fixture.load` resolves only active-Story fixtures and establishes an anchor rather than a replayable log entry.
 - Asset provenance is strict-schema data. Only project-owned archived candidates are eligible for reviewed image-input reuse; non-empty `inputAssets` require an approved `inputUseReview`. Commercial material and `references/` remain categorically forbidden as generation inputs.
+
+## Licensing constraints
+
+- Copyright holder is `Jun Jiang (jasl)`. The whole repository must not be described as MIT or as an open-source game: only the generic Engine areas are MIT; game-specific software and original content are source-available for noncommercial use.
+- `packages/base`, `packages/ui`, and game-neutral `apps/web` code are MIT and must not import or embed PolyForm/CC game-specific implementations, IDs, rules, narrative, branding, or assets.
+- `packages/modules`, Story software, Hotfixes, fixtures, and game-specific tests use `PolyForm-Noncommercial-1.0.0`. Original narrative, localization, art, audio, and project design documents use `CC-BY-NC-SA-4.0` except where a third-party record says otherwise.
+- Every shipped third-party dependency or asset retains its original terms and needs an exact version/hash, authoritative source, license review, provenance, and required notice in `THIRD_PARTY_NOTICES.md` or the asset manifest.
+- A missing per-file copyright line is acceptable only when an authoritative upstream license clearly covers that exact file/version. Otherwise treat the material as `unverified/all-rights-reserved`; do not copy, adapt, translate, commit, test with, screenshot, distribute, or use it as AIGC input.
+- `references/` is outside every project license and must remain ignored, untracked, unread by production/test/generation code, and absent from every artifact.
+- Package `license` metadata must match `LICENSE.md`: single-license packages use the exact SPDX ID; mixed packages use `SEE LICENSE IN LICENSE.md`.
+- Restricted PolyForm/CC areas do not accept external contributions before the approved CLA or copyright-assignment gate. MIT Engine contributions are inbound=outbound MIT.
+- Run `node scripts/verify-licensing.mjs` after changes to legal files, package metadata, dependencies, assets, provenance, build manifests, or release contents.
 
 ## Quality and workflow
 

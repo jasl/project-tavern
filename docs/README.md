@@ -11,6 +11,7 @@
 - [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：当前技术架构权威；定义 package 化 Base/UI、Story-owned Modules/Scenes、Loader/Host、Hotfix、中央舞台、存档/调试、测试、构建与素材边界。
 - [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级合同；区分 Base 共享 envelope 与 Demo Module/Story 具体 ABI，穷举 Snapshot、命令/Fact/拒绝、规则、Narrative、resolved provenance、Save/Debug 和关键不变量。
 - [`superpowers/specs/2026-07-11-repository-licensing-design.md`](superpowers/specs/2026-07-11-repository-licensing-design.md)：MIT Engine、PolyForm 非商业游戏代码、CC BY-NC-SA 原创内容、第三方材料与无许可材料治理边界。
+- [`superpowers/plans/2026-07-11-repository-licensing-implementation.md`](superpowers/plans/2026-07-11-repository-licensing-implementation.md)：标准法律文本、范围声明、验证器、第三方/商标/贡献政策和公开入口的实施记录。
 - [`art/first-web-visual-pack.md`](art/first-web-visual-pack.md)：首批 Image Gen 视觉语言、场景/人物锚点、Asset ID、安全区、来源记录与验收。
 - [`poc/poc-charter.md`](poc/poc-charter.md)：为什么做、做多少、怎样判断通过。
 - [`poc/simulation-rules.md`](poc/simulation-rules.md)：状态模型、命令、时间推进、事件与结算顺序。
@@ -31,3 +32,4 @@
 - **本轮可调**：所有经济数值、行动/体力强度、需求与委托效率。
 - **等待试玩**：行动点与体力是否重复、经营步骤是否疲劳、预测信息量、三种营业模式是否都有用途。
 - **明确延后**：Unity、大规模正式美术、完整关系阶段、完整设施树、多周目、外部 Mod 管理器/安全沙箱、运行时 LLM、成人版本。
+- **许可已落盘**：通用 Engine 使用 MIT；游戏专用软件与原创内容允许非商业 Fork、Mod、汉化和改编；第三方与无许可材料遵循独立准入规则。

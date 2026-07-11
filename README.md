@@ -29,6 +29,20 @@
 - [参考项目研究](docs/research/degrees-of-lewdity-notes.md)
 - [本地参考资料登记表](docs/research/reference-register.md)
 
+## 许可证
+
+Copyright © 2026 Jun Jiang (jasl).
+
+引擎组件以 MIT License 开源；游戏专用软件和原创内容公开源码，仅许可非商业使用。本仓库采用按文件范围划分的多许可证方案：
+
+- `packages/base`、`packages/ui` 与通用 Web Loader/Host 使用 [MIT License](LICENSES/MIT.txt)；
+- 游戏 Modules、Stories、规则、Hotfix 和专用测试使用 [PolyForm Noncommercial 1.0.0](LICENSES/PolyForm-Noncommercial-1.0.0.txt)；
+- 项目原创剧情、本地化、美术、音频和设计文档使用 [CC BY-NC-SA 4.0](LICENSES/CC-BY-NC-SA-4.0.txt)。
+
+完整路径范围、复合网页制品和无许可材料规则见 [LICENSE.md](LICENSE.md)。第三方代码、素材和工具始终遵守其原始条款，不被项目许可证重新授权；实际进入源码或发布物的项目登记在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。项目名称和品牌权利见 [TRADEMARKS.md](TRADEMARKS.md)，贡献边界见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+没有可验证许可证、书面授权或公共领域声明的第三方材料不会进入仓库、构建、发布包或 AIGC 输入。
+
 ## Reference 目录
 
 `references/` 保存本地参考项目，不进入本仓库版本历史。参考资料必须登记在 `docs/research/reference-register.md`；参考代码只用于理解通用工程模式，不得复制第三方代码、文本、资源或数据到本项目。生产构建、测试和代码生成不得读取该目录。
