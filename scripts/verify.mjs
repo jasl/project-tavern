@@ -26,6 +26,11 @@ export const coreVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["test:contract"]],
   ["pnpm", ["test:property"]],
   ["pnpm", ["build"]],
+  ["pnpm", ["build:player"]],
+  ["pnpm", ["build:developer"]],
+  ["pnpm", ["verify:bundle"]],
+  ["pnpm", ["verify:artifact"]],
+  ["pnpm", ["test:e2e:smoke"]],
 ]);
 
 function trackedSnapshot(root) {

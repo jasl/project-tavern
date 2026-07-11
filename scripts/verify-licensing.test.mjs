@@ -118,3 +118,14 @@ test("documents the active Goal and Phase 1 stop boundary", async () => {
   assert.match(docsReadme, /完成全部 Phase 1.*阶段验收后暂停.*不进入 Phase 2/u);
   assert.doesNotMatch(docsReadme, /\*\*尚未启动\*\*：长期 Goal/u);
 });
+
+test("requires an exact license sidecar for every tracked E2E screenshot", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeValidPackageMetadata(root);
+  const screenshots = join(root, "apps/web/e2e/__screenshots__");
+  await mkdir(screenshots, { recursive: true });
+  await writeFile(join(screenshots, "sandbox-shell.png"), new Uint8Array([1, 2, 3]));
+  const errors = await verifyLicensing(root, { policy, trackedReferences: "" });
+  assert(errors.some((error) => error.includes("missing screenshot license sidecar")));
+});

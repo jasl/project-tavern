@@ -19,7 +19,9 @@
     "stories/**/*.tsx",
     "scripts/**/*.test.ts",
     "scripts/**/*.d.mts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "vite.config.ts",
+    "playwright.config.ts"
   ],
   "exclude": ["**/dist/**", "node_modules/**"]
 }

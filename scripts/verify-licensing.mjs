@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { access, readdir, readFile } from "node:fs/promises";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_POLICY = Object.freeze({
@@ -52,6 +52,60 @@ function normalizeTrackedPaths(value) {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string" || value === "") return [];
   return value.split(value.includes("\0") ? "\0" : /\r?\n/u).filter(Boolean);
+}
+
+const screenshotLicenseV1 = Object.freeze({
+  schemaRevision: 1,
+  copyright: "Copyright © 2026 Jun Jiang (jasl)",
+  license: "MIT",
+  origin: "project-playwright-code-native-sandbox",
+});
+
+async function verifyScreenshotLicenses(root) {
+  const screenshotsRoot = join(root, "apps/web/e2e/__screenshots__");
+  if (!(await exists(screenshotsRoot))) return [];
+  const files = [];
+  const walk = async (directory) => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) await walk(path);
+      else if (entry.isFile()) files.push(path);
+    }
+  };
+  await walk(screenshotsRoot);
+  const errors = [];
+  const relativePath = (path) => relative(root, path).split(sep).join("/");
+  const screenshots = files.filter((path) => path.endsWith(".png"));
+  const sidecars = files.filter((path) => path.endsWith(".png.license.json"));
+  for (const screenshot of screenshots) {
+    const sidecar = `${screenshot}.license.json`;
+    if (!sidecars.includes(sidecar)) {
+      errors.push(`missing screenshot license sidecar: ${relativePath(screenshot)}`);
+      continue;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(await readFile(sidecar, "utf8"));
+    } catch {
+      errors.push(`invalid screenshot license sidecar: ${relativePath(sidecar)}`);
+      continue;
+    }
+    const expected = { ...screenshotLicenseV1, file: basename(screenshot) };
+    const keys = Object.keys(parsed).toSorted();
+    if (
+      JSON.stringify(keys) !== JSON.stringify(Object.keys(expected).toSorted()) ||
+      Object.entries(expected).some(([key, value]) => parsed[key] !== value)
+    ) {
+      errors.push(`invalid screenshot license sidecar: ${relativePath(sidecar)}`);
+    }
+  }
+  for (const sidecar of sidecars) {
+    const screenshot = sidecar.slice(0, -".license.json".length);
+    if (!screenshots.includes(screenshot)) {
+      errors.push(`orphan screenshot license sidecar: ${relativePath(sidecar)}`);
+    }
+  }
+  return errors;
 }
 
 export async function verifyLicensing(root, options = {}) {
@@ -119,6 +173,8 @@ export async function verifyLicensing(root, options = {}) {
       errors.push(`${relativePath}: expected license ${expected}, got ${String(parsed.license)}`);
     }
   }
+
+  errors.push(...(await verifyScreenshotLicenses(root)));
 
   return errors;
 }
