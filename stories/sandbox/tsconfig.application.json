@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "./tsconfig.application.tsbuildinfo",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src/application/**/*.ts", "src/application/**/*.tsx"],
+  "exclude": ["src/application/**/*.test.ts", "src/application/**/*.test.tsx"],
+  "references": [
+    { "path": "." },
+    { "path": "../../packages/base" },
+    { "path": "../../packages/ui" },
+    { "path": "../../apps/web" }
+  ]
+}

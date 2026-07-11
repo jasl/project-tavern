@@ -5,7 +5,11 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./developer": "./src/developer/index.ts"
+  },
+  "scripts": {
+    "test": "pnpm --dir ../.. exec vitest run apps/web/src"
   },
   "dependencies": {
     "@project-tavern/base": "workspace:*",

@@ -21,6 +21,7 @@
     "@project-tavern/ui": "workspace:*",
     "@project-tavern/assets": "workspace:*",
     "@project-tavern/web": "workspace:*",
+    "react": "19.2.7",
     "zod": "4.4.3"
   }
 }
