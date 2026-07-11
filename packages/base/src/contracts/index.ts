@@ -6,6 +6,23 @@ export {
 export type { CanonicalJsonErrorCodeV1 } from "./canonical-json.js";
 export { digestBytes, digestCanonical } from "./digest.js";
 export type { DigestDomainV1 } from "./digest.js";
+export {
+  commitAttemptV1,
+  faultAttemptV1,
+  rejectAttemptV1,
+} from "./execution.js";
+export type {
+  CommandExecutionAttemptEnvelopeV1,
+  CommandExecutionDiagnosticsEnvelopeV1,
+  CommandExecutionResultEnvelopeV1,
+} from "./execution.js";
+export { createTransactionalRngV1, rngStateV1Schema } from "./rng.js";
+export type {
+  RngDrawTraceV1,
+  RngStateV1,
+  RuleDrawRequestV1,
+  RuleRngV1,
+} from "./rng.js";
 export { createGameSnapshotEnvelopeSchemaV1 } from "./snapshot.js";
 export type { GameSnapshotEnvelopeV1 } from "./snapshot.js";
 export {
