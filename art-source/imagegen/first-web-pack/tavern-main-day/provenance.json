@@ -14,7 +14,7 @@
     "status": "approved",
     "reviewId": "openai.imagegen.first-web-pack.2026-07-11",
     "reviewPath": "art-source/imagegen/first-web-pack/openai-service-terms-review.v1.json",
-    "reviewDigest": "sha256:db4875c9d800cf56a93b88523e927c99a578ae58bce73d906a53112a575ccdfd"
+    "reviewDigest": "sha256:3c00ff62b89baddfe01d11499aed2e946ddacf977e66bc3a951f08d3c8677c42"
   },
   "contentAdmissionReview": {
     "status": "approved",

@@ -225,11 +225,11 @@ AI 输出必须依次区分，且不得互相推导：
 
 1. **仓库准入**：精确输出先通过生成服务条款与权利受益人授权评审，再通过逐输出的有限内容观察，才可提交 source/prompt/provenance；
 2. **运行时选定**：仓库准入不表示主观选图。只有 `review.status="selected"`、存在受预算约束的 runtime export 且 Asset validator 通过时，才可进入 Asset Pack、`ResolvedAssetManifest`、presentation digest、截图、Player 或 Pages；
-3. **生成输入复用**：服务条款评审绝不授予 AIGC 输入权。每个非空输入必须在生成前由独立 `inputUseReview` 按原顺序绑定 Asset ID 与当前归档 source SHA-256，并明确允许 `generation_input` 或 `image_edit_input`。
+3. **生成输入复用**：服务条款评审绝不授予 AIGC 输入权。每个非空输入必须在生成前由独立 `inputUseReview` 按原顺序绑定 Asset ID 与当前归档 source SHA-256，并明确允许 `generation_input` 或 `image_edit_input`。每个 Asset ID 必须解析到精确、已跟踪且已准入的先前输出，实际 source bytes 仍匹配评审 digest；输入生成时间必须严格早于消费者生成时间，输入的 service-terms review、rights attestation 与 content-admission review 都不得晚于消费者的 `inputUseReview.reviewedAt`，且整个 prior-input graph 禁止 self-edge 和有向循环。
 
-`termsReview.status` 为 `pending` 或 `rejected` 的输出是 local-only：不得跟踪、由仓库代码或 Developer preview 读取、打包、部署、截图或作为生成输入。Git 中的 AI provenance 必须引用同一 Image Gen pack 内的严格、versioned service-terms review，并以 `reviewId` 与 review semantic digest 防止静默替换。评审还必须绑定精确的 service/surface、Asset ID、`generator.generatedAt` 与 `sourceSha256`，记录每份官方协议的名称、适用 scope、effective/updated date、证据检索日期与 HTTPS 来源。
+`termsReview.status` 为 `pending` 或 `rejected` 的输出是 local-only：不得跟踪、由仓库代码或 Developer preview 读取、打包、部署、截图或作为生成输入。Git 中的 AI provenance 必须精确位于五段 POSIX 路径 `art-source/imagegen/<pack>/<asset>/provenance.json`，引用同 pack 内严格、versioned service-terms review，并以 `reviewId` 与 review semantic digest 防止静默替换。评审还必须绑定精确的 service/surface、Asset ID、`generator.generatedAt` 与 `sourceSha256`，记录每份官方协议的名称、适用 scope、effective/updated date、证据检索日期与 HTTPS 来源。日历日期和 RFC3339 分量必须真实存在，不能接受解析器规范化后的不可能日期。
 
-若生成 surface 无法证明使用的是个人账号还是 business/developer Customer，评审必须覆盖两个实际可能的 account agreement：个人侧 OpenAI Terms of Use 与 business/developer 侧 OpenAI Services Agreement；同时记录冲突时优先适用的 OpenAI Service Terms、生成时有效的 Usage Policies 和 Sharing & Publication Policy。公共条款中的共同结论只能表述为：在用户/Customer 与 OpenAI 之间，适用用户/Customer 拥有 Output，OpenAI 转让其可能拥有的 Output 权利。仓库批准还必须由 `Jun Jiang (jasl)` 作为实际 rights beneficiary 记录 project-controlled generation account 与 repository-owner authorization，并明确授权以下 closed uses：
+若生成 surface 无法证明使用的是个人账号还是 business/developer Customer，评审必须覆盖两个实际可能的 account agreement：个人侧 OpenAI Terms of Use 与 business/developer 侧 OpenAI Services Agreement；同时记录冲突时优先适用的 OpenAI Service Terms、生成时有效的 Usage Policies 和 Sharing & Publication Policy。静态 OpenAI profile 固定协议/版本身份但不固定一次 `retrievedAt`；每个实际 evidence record 仍携带检索日期，并对每个 covered output 满足 `agreement date <= generation UTC calendar date <= retrievedAt <= review UTC calendar date`。公共条款中的共同结论只能表述为：在用户/Customer 与 OpenAI 之间，适用用户/Customer 拥有 Output，OpenAI 转让其可能拥有的 Output 权利。仓库批准还必须由 `Jun Jiang (jasl)` 作为实际 rights beneficiary 记录 project-controlled generation account 与 repository-owner authorization，并明确授权以下 closed uses：
 
 ```text
 repository_archival
@@ -240,7 +240,7 @@ runtime_distribution
 project_relicensing
 ```
 
-`project_relicensing` 只授权在版权或其他可许可项目权利确实存在的范围内采用项目 CC 许可；不得声称输出必然可版权、具有独占性或不存在第三方权利问题。评审固定保留 human review/适用 disclosure 与 attribution、输入权利责任、输出非唯一性和无 non-infringement warranty 四项限制。
+`project_relicensing` 只授权在版权或其他可许可项目权利确实存在的范围内采用项目 CC 许可；不得声称输出必然可版权、具有独占性或不存在第三方权利问题。评审用 closed token 分别保留 `manual_review_before_sharing`、`attribution_to_rights_beneficiary_required`、`conspicuous_ai_origin_disclosure_required`、`input_rights_required`、`output_may_not_be_unique` 与 `no_non_infringement_warranty`。实际发布必须把候选署名给 `Jun Jiang (jasl)`，并显著说明其由 OpenAI Image Gen 通过 Codex 内置 `image_gen` 生成；人工复核、受益人署名和 AI 来源披露是三个独立义务。
 
 逐输出 `contentAdmissionReview` 只记录有限视觉观察：未观察到可见 Logo/水印、具名公众人物或明显第三方角色/品牌，并绑定同一 Asset ID、生成时间与 source SHA-256。它不是侵权检索、商标检索、肖像权审查或 non-infringement clearance，也不能替代主观选图。
 

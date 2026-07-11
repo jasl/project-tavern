@@ -8,7 +8,7 @@ No third-party production or runtime material is currently committed or shipped.
 
 The ignored `references/` directory is not part of this inventory. It is local research input, is not tracked, and must not enter builds, tests, documentation screenshots, releases, or AIGC inputs. Its contents retain their original terms.
 
-The four OpenAI Image Gen files under `art-source/imagegen/first-web-pack/` are repository-admitted project source candidates, not selected production/runtime material. Their exact-output service-terms evidence and project-owner authority attestation are recorded in `openai-service-terms-review.v1.json`; every candidate remains `review.status="candidate"` with `runtime: null`. They therefore do not enter an Asset Pack, Player, screenshot baseline, or release inventory. The recorded assignment/authorization is qualified to rights that exist and makes no claim of exclusivity, copyrightability, or non-infringement.
+The four outputs under `art-source/imagegen/first-web-pack/` are AI-generated project source candidates made with OpenAI Image Gen through Codex's built-in `image_gen` surface. They were manually reviewed before repository sharing and are attributed to Jun Jiang (jasl). Their exact-output service-terms evidence and project-owner authority attestation are recorded in `openai-service-terms-review.v1.json`; every candidate remains `review.status="candidate"` with `runtime: null`. They therefore do not enter an Asset Pack, Player, screenshot baseline, or release inventory. The recorded assignment/authorization is qualified to rights that exist and makes no claim of exclusivity, copyrightability, or non-infringement.
 
 ## Admission record
 

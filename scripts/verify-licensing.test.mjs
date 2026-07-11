@@ -36,7 +36,9 @@ const approvedUses = [
   "project_relicensing",
 ];
 const reviewRestrictions = [
-  "human_review_and_disclosure_where_applicable",
+  "manual_review_before_sharing",
+  "attribution_to_rights_beneficiary_required",
+  "conspicuous_ai_origin_disclosure_required",
   "input_rights_required",
   "output_may_not_be_unique",
   "no_non_infringement_warranty",
@@ -207,6 +209,17 @@ async function writeApprovedAiFixture(
   );
   await writeFile(join(root, approvedPromptPath), "test prompt\n", "utf8");
   return { provenancePath: approvedProvenancePath, reviewPath: approvedReviewPath };
+}
+
+function approvedInputUseReview(assetId, sourceSha256, reviewedAt) {
+  return {
+    status: "approved",
+    reviewedAt,
+    sourceUrl: "https://example.com/input-rights",
+    reviewedInputs: [{ assetId, sourceSha256 }],
+    allowedInputUses: ["generation_input"],
+    restrictions: [],
+  };
 }
 
 test("accepts a complete repository fixture", async (t) => {
@@ -755,4 +768,460 @@ test("rejects structurally valid input reviews with stale source hashes", async 
       error.includes(`input-use review source digest mismatch: ${approvedOutput.assetId}`),
     ),
   );
+});
+
+test("requires separate closed publication-obligation tokens", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.restrictions = reviewRestrictions;
+    },
+  });
+
+  assert.deepEqual(
+    await verifyLicensing(root, {
+      policy,
+      trackedReferences: "",
+      trackedProvenanceFiles: [provenancePath],
+      trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+    }),
+    [],
+  );
+});
+
+test("reports each missing closed publication obligation", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.restrictions = reviewRestrictions.filter(
+        (restriction) =>
+          restriction !== "attribution_to_rights_beneficiary_required",
+      );
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(
+    errors.some((error) =>
+      error.includes(
+        "missing required service-terms restriction: attribution_to_rights_beneficiary_required",
+      ),
+    ),
+  );
+});
+
+test("rejects agreement evidence retrieved before a covered output was generated", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const generatedAt = "2026-07-12T00:00:00Z";
+  const reviewedAt = "2026-07-13T00:00:00Z";
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.reviewedAt = reviewedAt;
+      review.rightsHolderAttestation.attestedAt = reviewedAt;
+      review.coveredOutputs[0].generatedAt = generatedAt;
+    },
+    mutateProvenance(provenance) {
+      provenance.generator.generatedAt = generatedAt;
+      provenance.contentAdmissionReview.reviewedAt = reviewedAt;
+      provenance.contentAdmissionReview.output.generatedAt = generatedAt;
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(
+    errors.some((error) =>
+      error.includes("agreement evidence chronology is invalid for covered output"),
+    ),
+  );
+});
+
+test("returns a structured error for non-array covered outputs", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.coveredOutputs = {};
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(errors.some((error) => error.includes("invalid service-terms review record")));
+});
+
+test("rejects agreement versions dated after a covered output was generated", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const generatedAt = "2025-12-31T12:00:00Z";
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.coveredOutputs[0].generatedAt = generatedAt;
+    },
+    mutateProvenance(provenance) {
+      provenance.generator.generatedAt = generatedAt;
+      provenance.contentAdmissionReview.output.generatedAt = generatedAt;
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(
+    errors.some((error) =>
+      error.includes("agreement evidence chronology is invalid for covered output"),
+    ),
+  );
+});
+
+test("rejects agreement evidence retrieved after the review UTC date", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.reviewedAt = "2026-07-10T23:59:59Z";
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(
+    errors.some((error) =>
+      error.includes("agreement evidence chronology is invalid for covered output"),
+    ),
+  );
+});
+
+test("accepts an evidence retrieval date chosen for the covered output", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const generatedAt = "2026-07-12T00:00:00Z";
+  const reviewedAt = "2026-07-13T00:00:00Z";
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.reviewedAt = reviewedAt;
+      review.rightsHolderAttestation.attestedAt = reviewedAt;
+      review.coveredOutputs[0].generatedAt = generatedAt;
+      for (const agreement of review.agreements) agreement.retrievedAt = "2026-07-12";
+    },
+    mutateProvenance(provenance) {
+      provenance.generator.generatedAt = generatedAt;
+      provenance.contentAdmissionReview.reviewedAt = reviewedAt;
+      provenance.contentAdmissionReview.output.generatedAt = generatedAt;
+    },
+  });
+
+  assert.deepEqual(
+    await verifyLicensing(root, {
+      policy,
+      trackedReferences: "",
+      trackedProvenanceFiles: [provenancePath],
+      trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+    }),
+    [],
+  );
+});
+
+test("accepts an acyclic previously admitted AIGC input", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath, reviewPath } = await writeApprovedAiFixture(root);
+  const producer = JSON.parse(await readFile(join(root, provenancePath), "utf8"));
+  const consumer = structuredClone(producer);
+  const consumerReview = JSON.parse(await readFile(join(root, reviewPath), "utf8"));
+  const consumerAssetId = "test.output.consumer";
+  const consumerDirectory = "art-source/imagegen/test-pack/consumer-output";
+  const consumerProvenancePath = `${consumerDirectory}/provenance.json`;
+  const consumerSourcePath = `${consumerDirectory}/source.png`;
+  const consumerPromptPath = `${consumerDirectory}/prompt.md`;
+  const consumerReviewPath =
+    "art-source/imagegen/test-pack/openai-service-terms-review.consumer.v1.json";
+  const consumerGeneratedAt = "2026-07-12T13:00:00Z";
+  const consumerReviewedAt = "2026-07-12T15:00:00Z";
+
+  consumer.assetId = consumerAssetId;
+  consumer.generator.generatedAt = consumerGeneratedAt;
+  consumer.inputAssets = [producer.assetId];
+  consumer.inputUseReview = approvedInputUseReview(
+    producer.assetId,
+    producer.sourceSha256,
+    "2026-07-11T14:00:00Z",
+  );
+  consumer.contentAdmissionReview.reviewedAt = consumerReviewedAt;
+  consumer.contentAdmissionReview.output = {
+    assetId: consumerAssetId,
+    generatedAt: consumerGeneratedAt,
+    sourceSha256: consumer.sourceSha256,
+  };
+  consumerReview.reviewId = "openai.imagegen.test-pack.consumer.2026-07-12";
+  consumerReview.reviewedAt = consumerReviewedAt;
+  consumerReview.rightsHolderAttestation.attestedAt = consumerReviewedAt;
+  for (const agreement of consumerReview.agreements) {
+    agreement.retrievedAt = "2026-07-12";
+  }
+  consumerReview.coveredOutputs = [{ ...consumer.contentAdmissionReview.output }];
+  consumer.termsReview = {
+    status: "approved",
+    reviewId: consumerReview.reviewId,
+    reviewPath: consumerReviewPath,
+    reviewDigest: semanticDigest(consumerReview),
+  };
+
+  await mkdir(join(root, consumerDirectory), { recursive: true });
+  await writeFile(join(root, consumerReviewPath), JSON.stringify(consumerReview), "utf8");
+  await writeFile(join(root, consumerProvenancePath), JSON.stringify(consumer), "utf8");
+  await writeFile(join(root, consumerSourcePath), new Uint8Array());
+  await writeFile(join(root, consumerPromptPath), "consumer prompt\n", "utf8");
+
+  assert.deepEqual(
+    await verifyLicensing(root, {
+      policy,
+      trackedReferences: "",
+      trackedProvenanceFiles: [provenancePath, consumerProvenancePath],
+      trackedArtSourceFiles: [
+        ...approvedTrackedArtSourceFiles,
+        consumerReviewPath,
+        consumerProvenancePath,
+        consumerSourcePath,
+        consumerPromptPath,
+      ],
+    }),
+    [],
+  );
+});
+
+test("rejects a self-referential AIGC input explicitly", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateProvenance(provenance) {
+      provenance.inputAssets = [approvedOutput.assetId];
+      provenance.inputUseReview = approvedInputUseReview(
+        approvedOutput.assetId,
+        approvedOutput.sourceSha256,
+        "2026-07-09T00:00:00Z",
+      );
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(errors.some((error) => error.includes("AIGC input cannot reference itself")));
+  assert(
+    errors.some((error) =>
+      error.includes("input generation must be earlier than consumer generation"),
+    ),
+  );
+  assert(
+    errors.some((error) =>
+      error.includes("input source admission completed after input-use review"),
+    ),
+  );
+});
+
+test("rejects a two-output AIGC input cycle explicitly", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath, reviewPath } = await writeApprovedAiFixture(root);
+  const first = JSON.parse(await readFile(join(root, provenancePath), "utf8"));
+  const review = JSON.parse(await readFile(join(root, reviewPath), "utf8"));
+  const secondAssetId = "test.output.second";
+  const secondDirectory = "art-source/imagegen/test-pack/second-output";
+  const secondProvenancePath = `${secondDirectory}/provenance.json`;
+  const secondSourcePath = `${secondDirectory}/source.png`;
+  const secondPromptPath = `${secondDirectory}/prompt.md`;
+  const second = structuredClone(first);
+  second.assetId = secondAssetId;
+  second.generator.generatedAt = "2026-07-10T01:00:00Z";
+  second.contentAdmissionReview.output = {
+    assetId: secondAssetId,
+    generatedAt: second.generator.generatedAt,
+    sourceSha256: second.sourceSha256,
+  };
+  first.inputAssets = [secondAssetId];
+  first.inputUseReview = approvedInputUseReview(
+    secondAssetId,
+    second.sourceSha256,
+    "2026-07-09T00:00:00Z",
+  );
+  second.inputAssets = [first.assetId];
+  second.inputUseReview = approvedInputUseReview(
+    first.assetId,
+    first.sourceSha256,
+    "2026-07-09T00:00:00Z",
+  );
+  review.coveredOutputs.push({ ...second.contentAdmissionReview.output });
+  const reviewDigest = semanticDigest(review);
+  first.termsReview.reviewDigest = reviewDigest;
+  second.termsReview.reviewDigest = reviewDigest;
+
+  await mkdir(join(root, secondDirectory), { recursive: true });
+  await writeFile(join(root, reviewPath), JSON.stringify(review), "utf8");
+  await writeFile(join(root, provenancePath), JSON.stringify(first), "utf8");
+  await writeFile(join(root, secondProvenancePath), JSON.stringify(second), "utf8");
+  await writeFile(join(root, secondSourcePath), new Uint8Array());
+  await writeFile(join(root, secondPromptPath), "second prompt\n", "utf8");
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath, secondProvenancePath],
+    trackedArtSourceFiles: [
+      ...approvedTrackedArtSourceFiles,
+      secondProvenancePath,
+      secondSourcePath,
+      secondPromptPath,
+    ],
+  });
+  assert(errors.some((error) => error.includes("AIGC input dependency cycle")));
+});
+
+test("rejects nested visual-pack provenance paths", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root);
+  const nestedDirectory = "art-source/imagegen/test-pack/group/test-output";
+  const nestedProvenancePath = `${nestedDirectory}/provenance.json`;
+  const nestedSourcePath = `${nestedDirectory}/source.png`;
+  const nestedPromptPath = `${nestedDirectory}/prompt.md`;
+  await mkdir(join(root, nestedDirectory), { recursive: true });
+  await writeFile(
+    join(root, nestedProvenancePath),
+    await readFile(join(root, provenancePath)),
+  );
+  await writeFile(join(root, nestedSourcePath), new Uint8Array());
+  await writeFile(join(root, nestedPromptPath), "nested prompt\n", "utf8");
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [nestedProvenancePath],
+    trackedArtSourceFiles: [
+      nestedProvenancePath,
+      approvedReviewPath,
+      nestedSourcePath,
+      nestedPromptPath,
+    ],
+  });
+  assert(
+    errors.some((error) => error.includes("must use exact visual-pack provenance layout")),
+  );
+});
+
+test("rejects impossible RFC3339 calendar dates", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const generatedAt = "2026-02-30T00:00:00Z";
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.coveredOutputs[0].generatedAt = generatedAt;
+    },
+    mutateProvenance(provenance) {
+      provenance.generator.generatedAt = generatedAt;
+      provenance.contentAdmissionReview.output.generatedAt = generatedAt;
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(errors.some((error) => error.includes("invalid AI provenance record")));
+});
+
+test("rejects impossible agreement evidence calendar dates structurally", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.agreements[0].retrievedAt = "2026-02-30";
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(errors.some((error) => error.includes("invalid service-terms review record")));
+});
+
+test("accepts valid leap-day fractional-offset timestamps", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateProvenance(provenance) {
+      provenance.modifications = [
+        {
+          kind: "color_correction",
+          performedAt: "2028-02-29T23:59:59.123+05:30",
+          tool: "Example Tool",
+          notes: "Valid timestamp boundary fixture.",
+        },
+      ];
+    },
+  });
+
+  assert.deepEqual(
+    await verifyLicensing(root, {
+      policy,
+      trackedReferences: "",
+      trackedProvenanceFiles: [provenancePath],
+      trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+    }),
+    [],
+  );
+});
+
+test("documents the active Goal and separate Phase A admission status", async () => {
+  const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
+  const docsReadme = await readFile(
+    new URL("../docs/README.md", import.meta.url),
+    "utf8",
+  );
+  assert.match(readme, /六阶段.*Goal.*已获授权.*进行中/u);
+  assert.match(readme, /Phase A.*四张.*条款.*仓库准入.*已批准/u);
+  assert.match(readme, /主观.*选择.*仍待/u);
+  assert.match(readme, /完成全部 Phase 1.*阶段验收后暂停.*不进入 Phase 2/u);
+  assert.doesNotMatch(readme, /尚未创建或启动长期 Goal/u);
+  assert.doesNotMatch(readme, /选择和条款审批仍是.*未批准/u);
+  assert.doesNotMatch(readme, /当前正完成 Phase 1 Task 1 之前的 R0A/u);
+  assert.match(docsReadme, /六阶段.*Goal.*已获授权.*进行中/u);
+  assert.match(docsReadme, /Phase A.*条款.*仓库准入.*已批准/u);
+  assert.match(
+    docsReadme,
+    /完成全部 Phase 1.*阶段验收后暂停.*不进入 Phase 2/u,
+  );
+  assert.doesNotMatch(docsReadme, /Image Gen 候选仍走独立人工准入/u);
+  assert.doesNotMatch(docsReadme, /\*\*尚未启动\*\*：长期 Goal/u);
 });

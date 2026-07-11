@@ -311,7 +311,9 @@ type RepositoryApprovedAiUseV1 =
   | "project_relicensing";
 
 type ServiceTermsRestrictionV1 =
-  | "human_review_and_disclosure_where_applicable"
+  | "manual_review_before_sharing"
+  | "attribution_to_rights_beneficiary_required"
+  | "conspicuous_ai_origin_disclosure_required"
   | "input_rights_required"
   | "output_may_not_be_unique"
   | "no_non_infringement_warranty";
@@ -398,13 +400,13 @@ interface ProvenanceV1 {
 }
 ```
 
-字符串还必须非空；timestamp 必须是合法 RFC3339，URL 必须是 HTTPS，SHA-256 必须是恰好 64 个小写十六进制字符；宽高和 byteLength 必须是正安全整数。selected/rejected 的 `selectionReason` 必须非空。`inputAssets` 是按输入顺序排列且唯一的稳定 AssetId，不是文件路径。
+字符串还必须非空；timestamp 必须是日历日期和时区分量都真实存在的合法 RFC3339，evidence date 必须是合法 Gregorian `YYYY-MM-DD`，不能依赖日期解析器把不可能日期规范化；URL 必须是 HTTPS，SHA-256 必须是恰好 64 个小写十六进制字符；宽高和 byteLength 必须是正安全整数。selected/rejected 的 `selectionReason` 必须非空。`inputAssets` 是按输入顺序排列且唯一的稳定 AssetId，不是文件路径。
 
-工具未披露模型时记录 `undisclosed-by-tool`，不得猜测。只有本项目自有、已经按本节归档的候选才有资格进入 `inputAssets`；商业素材、商业截图与 `references/` 无条件禁止。无输入的原始生成必须使用 `inputAssets: []` 与 `inputUseReview: null`；只要 `inputAssets` 非空，上传或编辑前必须有 `status: "approved"` 的独立 `inputUseReview`：`reviewedInputs` 必须与 `inputAssets` 数量、顺序和 Asset ID 完全相同，并绑定每个输入当时已归档 source 的 SHA-256；validator 在生成前再次核对当前归档 hash，`allowedInputUses` 包含本次操作，且 `reviewedAt <= generator.generatedAt`。服务条款批准不能填充或替代这个评审。
+工具未披露模型时记录 `undisclosed-by-tool`，不得猜测。只有本项目自有、已经按本节归档的候选才有资格进入 `inputAssets`；商业素材、商业截图与 `references/` 无条件禁止。无输入的原始生成必须使用 `inputAssets: []` 与 `inputUseReview: null`；只要 `inputAssets` 非空，上传或编辑前必须有 `status: "approved"` 的独立 `inputUseReview`：`reviewedInputs` 必须与 `inputAssets` 数量、顺序和 Asset ID 完全相同，并绑定每个输入当时已归档 source 的 SHA-256；validator 在生成前再次核对当前归档 hash，`allowedInputUses` 包含本次操作，且 `reviewedAt <= generator.generatedAt`。每个输入必须解析到另一个精确、已跟踪且已准入的 Asset ID，其实际 source bytes 必须仍匹配评审 digest；输入生成时间必须严格早于消费者生成时间，输入的 service-terms review、rights attestation 和 content-admission review 都必须不晚于消费者的 `inputUseReview.reviewedAt`。self-edge 和任意有向循环都显式拒绝。服务条款批准不能填充或替代这个评审。
 
-pack-level `ServiceTermsReviewV1` 拒绝 unknown keys，并由每个输出的 `termsReview` 引用。`reviewPath` 必须是同一 `art-source/imagegen/<pack>/` 内的安全仓库相对 POSIX 路径，不允许绝对路径、反斜杠、`.`、`..`、query、fragment 或 symlink；provenance、prompt、source 与 review 都必须已跟踪。`reviewDigest` 等于完整 `ServiceTermsReviewV1` semantic value 的 canonical JSON UTF-8 SHA-256：对象 key 按 Unicode code point 排序，数组保持 authored order，不包含自引用 digest 字段，因此格式化 JSON 不改变身份。引用的 `reviewId`、digest、service、surface 与 `coveredOutputs` 中的 Asset ID / `generatedAt` / `sourceSha256` 必须和 provenance 精确相等。
+pack-level `ServiceTermsReviewV1` 拒绝 unknown keys，并由每个输出的 `termsReview` 引用。每份 provenance 必须精确位于五段 POSIX 路径 `art-source/imagegen/<pack>/<asset>/provenance.json`；`reviewPath` 必须是同一 `art-source/imagegen/<pack>/` 内的安全仓库相对 POSIX 路径，不允许绝对路径、反斜杠、`.`、`..`、query、fragment 或 symlink；provenance、prompt、source 与 review 都必须已跟踪。`reviewDigest` 等于完整 `ServiceTermsReviewV1` semantic value 的 canonical JSON UTF-8 SHA-256：对象 key 按 Unicode code point 排序，数组保持 authored order，不包含自引用 digest 字段，因此格式化 JSON 不改变身份。引用的 `reviewId`、digest、service、surface 与 `coveredOutputs` 中的 Asset ID / `generatedAt` / `sourceSha256` 必须和 provenance 精确相等。
 
-当前 OpenAI profile 必须同时包含个人 scope 的 `OpenAI Terms of Use (Rest of World)`、business/developer scope 的 `OpenAI Services Agreement`、冲突时优先的 `OpenAI Service Terms`、生成时有效的 `OpenAI Usage Policies` 与 `OpenAI Sharing & Publication Policy`；每条 evidence 保存 effective/updated date、`retrievedAt` 与 HTTPS URL。`rightsHolderAttestation` 明确把适用 user/Customer 权利绑定到 `Jun Jiang (jasl)` 的 project-controlled generation account 与 repository-owner authorization，并覆盖全部六个 closed `allowedUses`。`reviewedAt`、`attestedAt` 和逐输出内容观察时间都不得早于生成时间。
+当前 OpenAI profile 必须同时包含个人 scope 的 `OpenAI Terms of Use (Rest of World)`、business/developer scope 的 `OpenAI Services Agreement`、冲突时优先的 `OpenAI Service Terms`、生成时有效的 `OpenAI Usage Policies` 与 `OpenAI Sharing & Publication Policy`；静态 profile 固定协议名称、scope、effective/updated 版本日期和 HTTPS URL，但不硬编码单一检索日期。每条实际 evidence 仍保存 `retrievedAt`；对每个 `coveredOutput`，所有协议都必须满足 `agreement date <= output generation UTC calendar date <= retrievedAt <= service-terms review UTC calendar date`。`rightsHolderAttestation` 明确把适用 user/Customer 权利绑定到 `Jun Jiang (jasl)` 的 project-controlled generation account 与 repository-owner authorization，并覆盖全部六个 closed `allowedUses`。发布前必须人工复核，发布时必须署名 `Jun Jiang (jasl)`，并显著披露素材由 OpenAI Image Gen 通过 Codex 内置 `image_gen` 生成；三项义务分别使用 closed restriction token 表达。`reviewedAt`、`attestedAt` 和逐输出内容观察时间都不得早于生成时间。
 
 `ContentAdmissionReviewV1` 只是一项绑定精确输出的有限视觉观察，证明未观察到可见 Logo/水印、具名公众人物或明显第三方角色/品牌；它明确不是 non-infringement clearance，不替代权利检索或主观选图。`termsReview.status` 为 `pending`/`rejected` 或缺少 approved 内容观察的输出只能保留在忽略的本地工作区：不得进入 Git、仓库代码/Developer preview、截图、构建、部署或 AIGC 输入。
 

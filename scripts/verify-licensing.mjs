@@ -49,7 +49,9 @@ const REQUIRED_AI_ALLOWED_USES = Object.freeze([
   "project_relicensing",
 ]);
 const REQUIRED_AI_RESTRICTIONS = Object.freeze([
-  "human_review_and_disclosure_where_applicable",
+  "manual_review_before_sharing",
+  "attribution_to_rights_beneficiary_required",
+  "conspicuous_ai_origin_disclosure_required",
   "input_rights_required",
   "output_may_not_be_unique",
   "no_non_infringement_warranty",
@@ -62,7 +64,6 @@ const OPENAI_IMAGE_GEN_SERVICE_TERMS_PROFILE_V1 = Object.freeze({
       scope: "individual",
       dateKind: "effective",
       date: "2026-01-01",
-      retrievedAt: "2026-07-11",
       sourceUrl: "https://openai.com/policies/row-terms-of-use/",
     }),
     Object.freeze({
@@ -70,7 +71,6 @@ const OPENAI_IMAGE_GEN_SERVICE_TERMS_PROFILE_V1 = Object.freeze({
       scope: "business_or_developer",
       dateKind: "effective",
       date: "2026-01-01",
-      retrievedAt: "2026-07-11",
       sourceUrl: "https://openai.com/policies/services-agreement/",
     }),
     Object.freeze({
@@ -78,7 +78,6 @@ const OPENAI_IMAGE_GEN_SERVICE_TERMS_PROFILE_V1 = Object.freeze({
       scope: "all_accounts",
       dateKind: "updated",
       date: "2026-06-12",
-      retrievedAt: "2026-07-11",
       sourceUrl: "https://openai.com/policies/service-terms/",
     }),
     Object.freeze({
@@ -86,7 +85,6 @@ const OPENAI_IMAGE_GEN_SERVICE_TERMS_PROFILE_V1 = Object.freeze({
       scope: "all_accounts",
       dateKind: "effective",
       date: "2025-10-29",
-      retrievedAt: "2026-07-11",
       sourceUrl: "https://openai.com/policies/usage-policies/",
     }),
     Object.freeze({
@@ -94,7 +92,6 @@ const OPENAI_IMAGE_GEN_SERVICE_TERMS_PROFILE_V1 = Object.freeze({
       scope: "publication",
       dateKind: "updated",
       date: "2022-11-14",
-      retrievedAt: "2026-07-11",
       sourceUrl: "https://openai.com/policies/sharing-publication-policy/",
     }),
   ]),
@@ -169,22 +166,51 @@ function isStringArray(value, { allowed, nonEmpty = false } = {}) {
   );
 }
 
+function hasValidCalendarDate(yearText, monthText, dayText) {
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [
+    31,
+    leapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1];
+}
+
 function isRfc3339Timestamp(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/u.exec(
+    value,
+  );
+  if (!match) return false;
+  const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] =
+    match;
   return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(
-      value,
-    ) &&
+    hasValidCalendarDate(year, month, day) &&
+    Number(hour) <= 23 &&
+    Number(minute) <= 59 &&
+    Number(second) <= 59 &&
+    (offsetHour === undefined || Number(offsetHour) <= 23) &&
+    (offsetMinute === undefined || Number(offsetMinute) <= 59) &&
     Number.isFinite(Date.parse(value))
   );
 }
 
 function isIsoDate(value) {
-  return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(value) &&
-    Number.isFinite(Date.parse(`${value}T00:00:00Z`))
-  );
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  return match !== null && hasValidCalendarDate(match[1], match[2], match[3]);
 }
 
 function isHttpsUrl(value) {
@@ -656,6 +682,25 @@ function hasRequiredOpenAiEvidence(agreements) {
   );
 }
 
+function hasValidAgreementEvidenceChronology(review, output) {
+  if (
+    !isRfc3339Timestamp(review?.reviewedAt) ||
+    !isOutputBinding(output) ||
+    !Array.isArray(review?.agreements) ||
+    !review.agreements.every(isAgreementEvidence)
+  ) {
+    return false;
+  }
+  const generatedDate = new Date(output.generatedAt).toISOString().slice(0, 10);
+  const reviewDate = new Date(review.reviewedAt).toISOString().slice(0, 10);
+  return review.agreements.every(
+    (agreement) =>
+      agreement.date <= generatedDate &&
+      agreement.retrievedAt >= generatedDate &&
+      agreement.retrievedAt <= reviewDate,
+  );
+}
+
 async function exists(path) {
   try {
     await access(path);
@@ -786,6 +831,18 @@ export async function verifyLicensing(root, options = {}) {
       errors.push(`unsafe tracked AI provenance path: ${relativePath}`);
       continue;
     }
+    const pathSegments = relativePath.split("/");
+    if (
+      pathSegments.length !== 5 ||
+      pathSegments[0] !== "art-source" ||
+      pathSegments[1] !== "imagegen" ||
+      pathSegments[4] !== "provenance.json"
+    ) {
+      errors.push(
+        `${relativePath}: must use exact visual-pack provenance layout art-source/imagegen/<pack>/<asset>/provenance.json`,
+      );
+      continue;
+    }
 
     if (!trackedArtSourceFileSet.has(relativePath)) {
       errors.push(`tracked AI provenance is not tracked: ${relativePath}`);
@@ -843,6 +900,7 @@ export async function verifyLicensing(root, options = {}) {
       relativePath,
       provenance,
       actualSourceDigest: null,
+      serviceTermsReview: null,
       admitted: false,
     };
     provenanceRecords.push(provenanceRecord);
@@ -942,12 +1000,8 @@ export async function verifyLicensing(root, options = {}) {
       errors.push(`${relativePath}: unsafe service-terms review path`);
       continue;
     }
-    const pathSegments = relativePath.split("/");
     const packRoot = pathSegments.slice(0, 3).join("/");
     if (
-      pathSegments.length < 5 ||
-      pathSegments[0] !== "art-source" ||
-      pathSegments[1] !== "imagegen" ||
       posix.dirname(reviewPath) !== packRoot
     ) {
       errors.push(`${relativePath}: service-terms review must stay inside its pack`);
@@ -1004,6 +1058,7 @@ export async function verifyLicensing(root, options = {}) {
       errors.push(`${reviewPath}: invalid service-terms review JSON`);
       continue;
     }
+    provenanceRecord.serviceTermsReview = serviceTermsReview;
 
     if (
       serviceTermsReview?.aigcInputUse !==
@@ -1058,6 +1113,16 @@ export async function verifyLicensing(root, options = {}) {
     ) {
       errors.push(`${reviewPath}: required OpenAI agreement evidence is incomplete`);
     }
+    const coveredOutputs = Array.isArray(serviceTermsReview?.coveredOutputs)
+      ? serviceTermsReview.coveredOutputs
+      : [];
+    for (const coveredOutput of coveredOutputs) {
+      if (!hasValidAgreementEvidenceChronology(serviceTermsReview, coveredOutput)) {
+        errors.push(
+          `${reviewPath}: agreement evidence chronology is invalid for covered output: ${String(coveredOutput?.assetId)}`,
+        );
+      }
+    }
     for (const use of REQUIRED_AI_ALLOWED_USES) {
       if (!serviceTermsReview?.allowedUses?.includes?.(use)) {
         errors.push(`${reviewPath}: missing required allowed use: ${use}`);
@@ -1074,8 +1139,12 @@ export async function verifyLicensing(root, options = {}) {
     ) {
       errors.push(`${reviewPath}: rights-holder attestation predates generation`);
     }
-    if (!includesEvery(serviceTermsReview?.restrictions, REQUIRED_AI_RESTRICTIONS)) {
-      errors.push(`${reviewPath}: required service-terms restrictions are incomplete`);
+    for (const restriction of REQUIRED_AI_RESTRICTIONS) {
+      if (!serviceTermsReview?.restrictions?.includes?.(restriction)) {
+        errors.push(
+          `${reviewPath}: missing required service-terms restriction: ${restriction}`,
+        );
+      }
     }
     const output = exactOutputBinding(provenance);
     if (
@@ -1111,6 +1180,52 @@ export async function verifyLicensing(root, options = {}) {
     recordsByAssetId.set(assetId, record);
   }
 
+  const inputGraph = new Map();
+  for (const record of provenanceRecords) {
+    const assetId = record.provenance.assetId;
+    const inputAssets = Array.isArray(record.provenance.inputAssets)
+      ? record.provenance.inputAssets
+      : [];
+    inputGraph.set(assetId, inputAssets);
+    if (inputAssets.includes(assetId)) {
+      errors.push(`${record.relativePath}: AIGC input cannot reference itself: ${assetId}`);
+      record.admitted = false;
+    }
+  }
+
+  const visitState = new Map();
+  const visitStack = [];
+  const reportedCycles = new Set();
+  const visitInputGraph = (assetId) => {
+    visitState.set(assetId, "visiting");
+    visitStack.push(assetId);
+    for (const inputAssetId of inputGraph.get(assetId) ?? []) {
+      if (inputAssetId === assetId || !inputGraph.has(inputAssetId)) continue;
+      if (visitState.get(inputAssetId) === "visiting") {
+        const cycleStart = visitStack.indexOf(inputAssetId);
+        const cycle = [...visitStack.slice(cycleStart), inputAssetId];
+        const cycleKey = [...new Set(cycle.slice(0, -1))].sort().join("\0");
+        if (!reportedCycles.has(cycleKey)) {
+          reportedCycles.add(cycleKey);
+          errors.push(`AIGC input dependency cycle: ${cycle.join(" -> ")}`);
+        }
+        for (const cycleAssetId of cycle.slice(0, -1)) {
+          const cycleRecord = recordsByAssetId.get(cycleAssetId);
+          if (cycleRecord) cycleRecord.admitted = false;
+        }
+        continue;
+      }
+      if (visitState.get(inputAssetId) !== "visited") {
+        visitInputGraph(inputAssetId);
+      }
+    }
+    visitStack.pop();
+    visitState.set(assetId, "visited");
+  };
+  for (const assetId of inputGraph.keys()) {
+    if (!visitState.has(assetId)) visitInputGraph(assetId);
+  }
+
   for (const record of provenanceRecords) {
     const { provenance, relativePath } = record;
     if (!Array.isArray(provenance.inputAssets) || provenance.inputAssets.length === 0) {
@@ -1134,6 +1249,14 @@ export async function verifyLicensing(root, options = {}) {
         continue;
       }
       if (
+        Date.parse(inputRecord.provenance.generator.generatedAt) >=
+        Date.parse(provenance.generator.generatedAt)
+      ) {
+        errors.push(
+          `${relativePath}: input generation must be earlier than consumer generation: ${reviewedInput.assetId}`,
+        );
+      }
+      if (
         reviewedInput.sourceSha256 !== inputRecord.provenance.sourceSha256 ||
         reviewedInput.sourceSha256 !== inputRecord.actualSourceDigest
       ) {
@@ -1144,6 +1267,23 @@ export async function verifyLicensing(root, options = {}) {
       if (!inputRecord.admitted) {
         errors.push(
           `${relativePath}: input-use review source is not repository-admitted: ${reviewedInput.assetId}`,
+        );
+      }
+      const inputUseReviewedAt = Date.parse(provenance.inputUseReview.reviewedAt);
+      const inputAdmissionTimestamps = [
+        inputRecord.serviceTermsReview?.reviewedAt,
+        inputRecord.serviceTermsReview?.rightsHolderAttestation?.attestedAt,
+        inputRecord.provenance.contentAdmissionReview?.reviewedAt,
+      ];
+      if (
+        inputAdmissionTimestamps.some(
+          (timestamp) =>
+            !isRfc3339Timestamp(timestamp) ||
+            Date.parse(timestamp) > inputUseReviewedAt,
+        )
+      ) {
+        errors.push(
+          `${relativePath}: input source admission completed after input-use review: ${reviewedInput.assetId}`,
         );
       }
     }

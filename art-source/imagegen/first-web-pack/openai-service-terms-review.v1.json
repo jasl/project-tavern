@@ -77,7 +77,9 @@
   ],
   "aigcInputUse": "requires_independent_input_use_review",
   "restrictions": [
-    "human_review_and_disclosure_where_applicable",
+    "manual_review_before_sharing",
+    "attribution_to_rights_beneficiary_required",
+    "conspicuous_ai_origin_disclosure_required",
     "input_rights_required",
     "output_may_not_be_unique",
     "no_non_infringement_warranty"
