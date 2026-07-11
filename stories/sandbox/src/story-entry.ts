@@ -61,10 +61,7 @@ function createDefinition() {
   });
 }
 
-export const sandboxStoryEntryV1: GamePackageV1<
-  ReturnType<typeof createDefinition>["simulation"],
-  ReturnType<typeof createDefinition>["presentation"]
-> = defineGamePackage({
+export const sandboxStoryEntryV1: GamePackageV1<unknown, unknown> = defineGamePackage({
   contractRevision: 1,
   identity: Object.freeze({
     id: "story.sandbox",
