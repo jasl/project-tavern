@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testkit": "./src/testkit/index.ts"
   },
   "dependencies": {
     "zod": "4.4.3"

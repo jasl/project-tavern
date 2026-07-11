@@ -12,6 +12,34 @@ export {
   rejectAttemptV1,
 } from "./execution.js";
 export type {
+  GamePackageV1,
+  PatchSurfaceValueMapWitnessV1,
+  ResolvedPatchValuesV1,
+  StoryDefinitionV1,
+  StoryDevelopmentEntryV1,
+  StoryDevelopmentSupportV1,
+  StoryPresentationFacetV1,
+  StorySimulationFacetV1,
+  StorySourceIdentityV1,
+} from "./game-package.js";
+export type {
+  BootstrapEntropyV1,
+  CommandCoordinatorV1,
+  GameBootstrapInputV1,
+  GameModuleBindingV1,
+  GameModuleDescriptorV1,
+  GameModuleSurfaceV1,
+  GameProfileTypeMapV1,
+  GameProfileTypeWitnessV1,
+  GameProfileV1,
+  ModuleInvariantViolationV1,
+  ModuleLocalInvariantV1,
+  ModuleOwnerProposalEnvelopeV1,
+  ModuleProposalResultV1,
+  StatefulGameModuleBindingV1,
+  StatelessGameModuleBindingV1,
+} from "./module.js";
+export type {
   CommandExecutionAttemptEnvelopeV1,
   CommandExecutionDiagnosticsEnvelopeV1,
   CommandExecutionResultEnvelopeV1,
