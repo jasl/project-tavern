@@ -10,6 +10,7 @@
 
 - [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：当前技术架构权威；定义 package 化 Base/UI、Story-owned Modules/Scenes、Loader/Host、Hotfix、中央舞台、存档/调试、测试、构建与素材边界。
 - [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级合同；区分 Base 共享 envelope 与 Demo Module/Story 具体 ABI，穷举 Snapshot、命令/Fact/拒绝、规则、Narrative、resolved provenance、Save/Debug 和关键不变量。
+- [`superpowers/specs/2026-07-11-repository-licensing-design.md`](superpowers/specs/2026-07-11-repository-licensing-design.md)：MIT Engine、PolyForm 非商业游戏代码、CC BY-NC-SA 原创内容、第三方材料与无许可材料治理边界。
 - [`art/first-web-visual-pack.md`](art/first-web-visual-pack.md)：首批 Image Gen 视觉语言、场景/人物锚点、Asset ID、安全区、来源记录与验收。
 - [`poc/poc-charter.md`](poc/poc-charter.md)：为什么做、做多少、怎样判断通过。
 - [`poc/simulation-rules.md`](poc/simulation-rules.md)：状态模型、命令、时间推进、事件与结算顺序。
