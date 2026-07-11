@@ -28,7 +28,7 @@ GameSnapshot
 └── commandSequence
 ```
 
-静态的原料、菜谱、基础需求、设施、事件、文本与素材引用属于 `StoryPackage` 的强类型 content/balance/manifest；Snapshot 记录稳定 ID、`StartRun` 抽出的每日/客群 base+random-offset seeds，以及当前营业日早晨物化后整日冻结的 `currentDemand`。Story/Engine 身份位于 SaveRecord/DebugBundle provenance，不复制进 `GameState`。
+静态的原料、菜谱、基础需求、设施、事件、文本与素材引用属于 Demo Story 的强类型 data facet；Story 还负责选择这些玩法 Modules、素材包和 Scene。Snapshot 记录稳定 ID、`StartRun` 抽出的每日/客群 base+random-offset seeds，以及当前营业日早晨物化后整日冻结的 `currentDemand`。Story/Engine/ResolvedStory 身份位于 SaveRecord/DebugBundle provenance，不复制进 `GameState`。
 
 CommandLog、每次 dispatch 返回的非权威 `DomainFactV1`、UI 状态和异常属于 Diagnostics，不进入 `GameSnapshot`。持久 `Story Fact`、Outcome、Quest 和 Narrative runtime 位于 `state.story`；所有现金与估值原因的权威 `LedgerEntryV1` 位于 `state.simulation.inventory.ledger`，营业历史只引用这些账本行。
 
@@ -344,11 +344,11 @@ WorldAction/StoryAction 自带的 scene request 与同一外层命令内 Schedul
 
 ## 12. 存档与确定性
 
-存档只捕获已经提交并通过不变量的完整 `GameSnapshot`。SaveRecord 的 `formatRevision`、Story/Engine provenance、state digest、Slot metadata、Auto/Quick/Manual 行为、导入限制和兼容策略完全遵守 Harness 规格第 15 节，不在七日 Story 另建 envelope。
+存档只捕获已经提交并通过不变量的完整 `GameSnapshot`。SaveRecord 的 `formatRevision`、Story/Engine provenance、state digest、Slot metadata、Auto/Quick/Manual 行为、导入限制和兼容策略完全遵守运行时与 Story 架构规格第 15 节，不在七日 Story 另建 envelope。
 
 Slot 语义在 D7 也不改变：`auto.current` 是滚动自动存档；它缺失或未通过完整验证时，合法的 `auto.previous` 只作为显式标记的 recovery candidate，不静默回退。`quick` 和 `manual` 是两个独立可替换 Slot，各自捕获调用瞬间的已提交 Snapshot。
 
-加载顺序为：严格解析隔离候选 → SaveRecord Schema 与上限 → state digest → 四元兼容键 → 稳定引用与当前 Story Schema → Engine invariants → 原子替换 Session。首版兼容键精确为 `story.id + story.revision + story.digest + engine.digest`，不包含 display-only `engine.version` 或 diagnostics-only `appBuildId`；任一字段不匹配都保留原文件、允许导出并拒绝建立可运行 Session。Developer 对 DebugBundle 的 best-effort inspection/replay 不得写入 Save Slot。
+加载顺序为：严格解析隔离候选 → SaveRecord Schema 与上限 → state digest → identity/compatibility → 稳定引用与当前 Story Schema → Base/Module/Profile invariants → 原子替换 Session。阻断键精确为 `story.id + story.revision + stateContractRevision + stateContractDigest + engine.digest + simulationDigest`；`story.digest`、`presentationDigest`、display-only `engine.version` 与 diagnostics-only `appBuildId` 只提示。只有独立 adoption declaration 精确匹配旧/新 simulation digest、状态合同 revision/digest 与当前 simulation PatchSet，且候选通过完整校验时可以收养；纯表现补丁不影响该资格。收养必须建立新 replay anchor并清空旧 CommandLog。其他阻断差异保留原文件、允许导出并拒绝建立可运行 Session。Developer 对 DebugBundle 的 best-effort inspection/replay 不得写入 Save Slot。
 
 至少保留一个 `SaveRecordV1` fixture，证明 Auto、Quick、Manual、OpeningSession、WorldActionSession 与周结算状态的 round-trip；另保留损坏、未来 formatRevision、revision mismatch、digest mismatch 和 current→previous recovery fixtures。首版 fixture 不虚构尚不存在的 migrator。
 

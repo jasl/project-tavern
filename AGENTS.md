@@ -2,14 +2,14 @@
 
 ## Mission and current phase
 
-This repository is for a solo tavern-management, relationship-sim, and text-adventure game. The current milestone is a maintained, production-grade React + TypeScript game-development harness whose first loaded Story is a non-canonical seven-day PoC. Gameplay and balance are provisional; architecture, tests, diagnostics, content contracts, and code quality are durable. Do not start Unity work or scaled formal content production until the PoC gate in `docs/poc/poc-charter.md` is passed.
+This repository is for a solo tavern-management, relationship-sim, and text-adventure game. The current milestone is a maintained, production-grade React + TypeScript game runtime and Story authoring harness whose first loaded Story is a non-canonical seven-day Demo. Gameplay modules, formulas, and balance are provisional; `@project-tavern/base`, `@project-tavern/ui`, Story loading, tests, diagnostics, and code quality are durable. Do not start Unity work or scaled formal content production until the PoC gate in `docs/poc/poc-charter.md` is passed.
 
 ## Sources of truth
 
 Read these before changing behavior:
 
-1. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — authoritative Harness, StoryPackage, UI, save/debug, build, test, and asset boundaries.
-2. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 ABI for Snapshot, commands, DomainFacts, rules, Story data, Save, DebugBundle, and strict import.
+1. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — authoritative package, Base/UI, Module/Story, Loader/Host, Hotfix, save/debug, build, test, and asset boundaries.
+2. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete Demo Module/Story ABI; tavern-specific types in this file do not belong in Base.
 3. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
 4. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
 5. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
@@ -24,7 +24,7 @@ Authority is domain-specific: the Harness design governs technical architecture;
 
 - Keep the PoC to one non-canonical seven-day week.
 - No backend, accounts, network runtime, analytics service, or runtime LLM.
-- No real-time exploration, combat, equipment, minigames, scheduling sandbox, free-form decoration, formal 3D, character creator, Mod SDK, or adult content.
+- No real-time exploration, combat, equipment, minigames, scheduling sandbox, free-form decoration, formal 3D, character creator, public Mod manager/sandbox, or adult content. The bootstrap-only trusted Hotfix PatchSurface is in scope.
 - The heroine is the only relationship focus. The helper is a background automation tool, not a story route.
 - Use only the minimal Auras listed by the PoC spec. Do not build a general rules language or arbitrary callback registry.
 - Do not add features merely because the long-term design mentions them.
@@ -33,21 +33,24 @@ Authority is domain-specific: the Harness design governs technical architecture;
 
 ## Architecture constraints
 
-- The simulation core owns all saveable state and must not import React, DOM, browser storage, renderer types, or a concrete Story.
+- `@project-tavern/base` owns the generic Snapshot/session/transaction/persistence machinery and must not import React, DOM, concrete gameplay modules, renderer types, or a concrete Story. Browser storage is supplied through a Host/runtime adapter.
 - UI sends typed commands/persistence operations and renders immutable Runtime ViewModels/projections. It never imports or receives `GameSnapshot`/`GameState`; transient `DomainFact` values are consumed by Runtime projection/diagnostics, not exposed as a second UI state API.
-- A neutral build-time `GameProfile` statically composes named modules. Modules own exact state paths; v1 has no direct Module-to-Module read edges, and only the single `CommandCoordinator` combines public read ports with owner-scoped proposal/apply capabilities. `calendar.advance_phase` is the sole time command, but it is not a second cross-module orchestrator. Do not add runtime module registration, callbacks, or dynamic Profile selection.
+- Each Story statically composes a typed `GameProfile` from public `@project-tavern/modules` entries before Session creation. Modules own exact state paths; the Demo v1 profile has no direct Module-to-Module read edges, and only its single `CommandCoordinator` combines public read ports with owner-scoped proposal/apply capabilities. Other Stories may declare an explicit acyclic public-port DAG. Do not add, remove, or replace Modules after `ResolvedStory` is frozen.
 - `EventId` is Scheduler-only. Player-invoked StoryAction, Facility opportunity, and WorldAction entries use stable `ActionId` values and typed commands; never add a no-op Event merely to reuse an Action name.
 - Randomness must use the serializable project PRNG. Never use `Math.random()` in simulation code.
-- Save plain versioned data and stable IDs, never component instances or rule functions. Ordinary Save/Quick/Auto/Manual load requires exact `(story.id, story.revision, story.digest, engine.digest)` compatibility; `engine.version` and `appBuildId` are display/diagnostic only. Only Developer DebugBundle tools may perform clearly labeled best-effort inspection/replay, never write it back as a compatible Save.
-- Story content and balance are inert, validated IR/data. Executable Story code is allowed only in the `rules` facet and only by implementing named engine-owned, synchronous, deterministic interfaces.
+- Save plain versioned data and stable IDs, never component instances or rule functions. Ordinary load requires matching Story ID/revision, state-contract revision/digest, engine digest, and resolved simulation digest. Story/presentation digests, engine version, and appBuildId are diagnostic. A managed Hotfix may explicitly adopt an older simulation digest only when the state contract is unchanged and full validation passes; adoption creates a new replay anchor.
+- Story content and balance use validated IR/data. A Story may also contain Scene/UI code and named synchronous deterministic rule implementations, but Scene code never writes Snapshot. Bootstrap Hotfix code is the only official executable replacement seam.
 - Keep content effects to a small, code-owned discriminated union. No `eval`, reflection, arbitrary expressions, script strings, or content-node callbacks.
-- Story rules receive deep-readonly inputs and engine RNG capabilities and return validated effect intents; they must not mutate state or call UI/storage/network/time globals.
+- Story rules receive deep-readonly inputs and Base RNG capabilities and return validated effect intents; official rules must not mutate state or read UI/storage/network/time globals. The runtime validates results even though arbitrary third-party JavaScript cannot be sandboxed by this contract.
+- Story exposes separate typed Simulation (`rule | value`) and Presentation (`value | text | asset`) Patch Surfaces. Managed Hotfixes execute deterministically after Story definition and before Session creation, are tracked by actual import-closure digest, and require explicit `supersedes` on collisions. Revoke/freeze surfaces before Session creation. Bypassing the PatchSurface is unsupported and receives no compatibility or replay guarantee.
+- Save adoption is authorized only by an exact resolved simulation-PatchSet declaration (`from → to` plus state-contract revision/digest), never by one Hotfix in isolation. Presentation-only patches do not affect adoption.
 - Player UI uses the central stage and in-stage overlays. Left/right sidebars are developer-only, toggleable surfaces.
+- Story runtime and `./development` are separate package exports. Player builds must not import or bundle fixtures, developer notes, DeveloperApplicationPort, or mutating DevTools.
 - Save/Quick Save use IndexedDB through the persistence facade. Diagnostics remain outside `GameState`.
 - Invalid commands return structured rejection reasons without partially mutating state.
 - `GameSnapshot` is authoritative; bounded `CommandLog` and emitted `DomainFact` values are diagnostic/non-authoritative and must never be reapplied as state.
-- One EngineSession FIFO serializes every authoritative operation: Game dispatch, exact Save load/import, start/restart, replayable DebugCommand, and fixture anchor. Entry marks the Session busy synchronously; no Runtime service or UI may receive a direct Snapshot setter. Every successful replacement atomically establishes a new replay base and clears the old CommandLog.
-- Replayable DebugCommand semantics and validation live in `src/engine/debug/` and enter `engineDigest`; admitted committed and faulted attempts both enter CommandLog, while validation failures never do. `debug.fixture.load` resolves only active-Story fixtures and establishes an anchor rather than a replayable log entry.
+- One EngineSession FIFO serializes every authoritative operation: Game dispatch, validated Save load/import (including explicit resolved-PatchSet adoption), lifecycle create/restart, replayable DebugCommand, and fixture anchor. Entry marks the Session busy synchronously; no Runtime service or UI may receive a direct Snapshot setter. Every successful replacement atomically establishes a new replay base and clears the old CommandLog.
+- Replayable gameplay DebugCommand semantics and validation live with the selected Modules/Profile and enter `simulationDigest`; admitted committed and faulted attempts both enter CommandLog, while validation failures never do. `debug.fixture.load` resolves only active-Story fixtures and establishes an anchor rather than a replayable log entry.
 - Asset provenance is strict-schema data. Only project-owned archived candidates are eligible for reviewed image-input reuse; non-empty `inputAssets` require an approved `inputUseReview`. Commercial material and `references/` remain categorically forbidden as generation inputs.
 
 ## Quality and workflow
@@ -57,9 +60,9 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - Any balance change must update the expected strategy results or explain why the invariant remains unchanged.
 - Keep files focused and interfaces explicit. Enforce import boundaries and cycles in CI. Avoid a global mutable store, generic event bus, ECS, CQRS, or event sourcing for this PoC.
 - Use pnpm with a frozen lockfile and the repository's pinned Node version. `pnpm verify` is the full non-interactive local/CI verification entrypoint once scaffolded.
-- TypeScript 7.0.2 `tsc` is authoritative. The package named `typescript` is intentionally the official TS6 compatibility API for `typescript-eslint`; do not “simplify” the aliases, run `tsc6` as project typecheck, or import the Compiler API from project code.
-- `engine.version` comes only from Application-owned build metadata and never enters the Engine root. Run `pnpm toolchain:verify` after toolchain changes.
-- Tracked persistence fixtures are provenance-bound. Any Story or Engine digest input change must explicitly run `pnpm fixtures:persistence:generate`, review all fixture diffs, then run the read-only `pnpm fixtures:persistence:verify`; ordinary tests and CI never regenerate them.
+- The current stable TypeScript 7 `tsc` is authoritative and must be pinned when the workspace is scaffolded. Tooling compatibility may not downgrade formal project typechecking or make project code depend on the legacy Compiler API.
+- `engine.version` comes only from Application-owned build metadata and never enters engine/simulation roots. Run the eventual toolchain verification entry after toolchain changes.
+- Tracked persistence fixtures are provenance-bound. Any engine, state-contract, or simulation digest input change must explicitly regenerate and review fixture diffs through the eventual dedicated command; ordinary tests and CI only verify and never rewrite tracked baselines.
 - Use Chinese for player-facing/design prose and English for identifiers unless a document states otherwise.
 
 ## Reference-code boundary

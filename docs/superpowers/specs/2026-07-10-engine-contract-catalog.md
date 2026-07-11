@@ -1,27 +1,38 @@
-# Engine Contract Catalog v1
+# Base Envelope 与 Demo Module Contract Catalog v1
 
 日期：2026-07-10
 
-状态：v1 字段级候选；随本次实施计划评审冻结
+状态：v1 字段级候选；已按 Story-owned Module/Hotfix 架构修订，等待书面规格评审
 
-适用范围：Engine、Story、Save、DebugBundle、State Dump 与重放的公共/序列化合同
+适用范围：Base 共享 envelope，以及 Demo Modules、Demo Story、Save、DebugBundle、State Dump 与重放的具体 v1 合同
 
 ## 1. 权威、记法与封闭性
 
-本文是 [`2026-07-10-react-game-harness-design.md`](2026-07-10-react-game-harness-design.md) 的字段级 ABI 附录。Harness 规格负责架构语义；本文负责精确字段、判别值、边界和稳定错误码。两者有冲突时，先停止实施并修正文档，不能由实现者临场发明第三种合同。
+本文是 [`2026-07-10-react-game-harness-design.md`](2026-07-10-react-game-harness-design.md) 的字段级 ABI 附录。架构规格负责 package/Story/Module/Hotfix 所有权；本文负责第一版共享 envelope 与 Demo 游戏的精确字段、判别值、边界和稳定错误码。两者有冲突时，先停止实施并修正文档，不能由实现者临场发明第三种合同。
+
+本文为了集中评审而同时列出通用 envelope 和 Demo 具体实例，但实现位置必须分开：
+
+- `@project-tavern/base` 只实现泛型 Snapshot/Command result、RNG、序列化、identity、Save/Debug、GamePackage/Hotfix 和测试合同；
+- `@project-tavern/modules` 实现 Run、Calendar、Actors、Inventory、Tavern 等状态、命令、事实、拒绝、查询和跨模块协调；
+- `stories/demo` 实现具体 Story 数据、规则、文本、Narrative、素材组合和 GameProfile；
+- `stories/e2e` 复用公开 Modules，但使用独立的最小内容和 fixture。
+
+因此本文出现 `GameStateV1`、`GameCommandV1`、`StoryRulesV1` 等具体名字，不代表它们属于 Base。Base 只能以泛型参数和公共端口承载它们。
 
 以下 TypeScript 是规范，不是建议：
 
 - 所有数据对象都用 `z.strictObject`（或等价的拒绝 unknown keys Schema）实现；
 - 所有公开属性和数组都是 `readonly`，Map/Set/Class instance 不进入公共合同；
 - 可选字段只在本文出现 `?` 的位置允许；不得以 `undefined` 代替缺失，`null` 只在本文明确写出时允许；
-- 所有运行态、规则输入输出、IR、命令、DomainFact、拒绝、存档和诊断数据都可由 Strict JSON 表示；
-- 不允许 callback、函数名、脚本字符串、任意属性路径、State fragment 或 `Record<string, unknown>`；
-- `StoryRulesV1` 的七个具名同步方法与 `RuleRngV1.nextInt` 是 Story 能注入 Engine 的唯一函数能力；方法本身不序列化，其输入、输出和抽取记录必须序列化。Engine 内部静态 `GameProfile`、`GameModule` ports 与 `CommandCoordinator` 属于编译期源码合同，不进入 Story ABI、Save 或 Debug JSON，也不提供运行时注册；
+- 所有可保存运行态、规则输入输出、compiled Narrative IR、命令、DomainFact、拒绝、存档和诊断数据都可由 Strict JSON 表示；React UiSceneGraph、renderer、Schema 和源码合同不序列化；
+- Narrative/content IR 不允许 callback、函数名、脚本字符串、任意属性路径、State fragment 或 `Record<string, unknown>`；
+- Demo 的 `StoryRulesV1` 方法与 `RuleRngV1.nextInt` 是可保存模拟路径中的具名函数合同；方法本身不序列化，其输入、输出和抽取记录必须序列化；
+- 唯一额外可执行扩展点是 bootstrap 期间的受管 `PatchSurface`。Hotfix 是普通 JavaScript，但官方兼容承诺只覆盖 `rule | value | text | asset` 稳定符号。它不能改变 State Schema、Command/Fact 联合或已解析 Module 图；
+- `GameProfile`、`GameModule` ports 与 `CommandCoordinator` 属于 Story 选择后的编译期/启动期源码合同，不进入 Save/Debug JSON。`ResolvedStory` 冻结后不提供运行中注册或替换 Module；
 - `Brand` 的 phantom 字段不参与运行时对象或 JSON；
 - 文中联合类型的判别值、顺序和字段必须同时存在于 `...Kinds`/`...Codes` 常量、TypeScript 类型和 Zod Schema。
 
-静态 Profile 源码合同也冻结如下。v1 的 Module-to-Module read edge 故意为空；跨 owner 读取只允许 `CommandCoordinator` 通过 Harness §5.1 列出的 read ports 组装窄 DTO。`dependencies` 不能被解释成“可以读取完整 Snapshot”：
+Demo Story 选用的静态 Profile 源码合同冻结如下。该清单属于 `@project-tavern/modules`/`stories/demo`，不是 Base 的全局闭集。Demo v1 的 Module-to-Module read edge 故意为空；跨 owner 读取只允许 `CommandCoordinator` 通过公开 read ports 组装窄 DTO。其他 Story 可以选择不同 Module DAG，但依赖必须显式、只读且无环；`dependencies` 不能被解释成“可以读取完整 Snapshot”：
 
 ```ts
 const gameModuleKeysV1 = [
@@ -115,7 +126,7 @@ type NonNegativeSafeInteger = Brand<number, "NonNegativeSafeInteger">; // 0..MAX
 type PositiveSafeInteger = Brand<number, "PositiveSafeInteger">; // 1..MAX_SAFE_INTEGER
 type Uint32 = Brand<number, "Uint32">; // 0..4294967295
 type NonZeroUint32 = Brand<number, "NonZeroUint32">; // 1..4294967295
-type DayIndex = Brand<number, "DayIndex">; // positive safe integer; <= LoadedStory.playableDays while in run
+type DayIndex = Brand<number, "DayIndex">; // positive safe integer; <= ResolvedStory.manifest.playableDays while in run
 type AbsoluteDayIndex = Brand<number, "AbsoluteDayIndex">; // positive safe integer; expiry may exceed playableDays
 type MoodPoint = Brand<number, "MoodPoint">; // -2..2
 type AttributeBonus = Brand<number, "AttributeBonus">; // 0..4
@@ -125,6 +136,15 @@ type Quantity = Brand<number, "Quantity">; // positive safe integer
 type Digest = Brand<`sha256:${string}`, "Digest">; // sha256: + 64 lower hex
 type IsoUtcInstant = Brand<string, "IsoUtcInstant">; // RFC 3339 UTC, ...Z
 type EngineVersion = Brand<string, "EngineVersion">; // 1..64 printable ASCII chars
+
+type StrictJsonPrimitiveV1 = null | boolean | string | number;
+type StrictJsonValueV1 =
+  | StrictJsonPrimitiveV1
+  | StrictJsonObjectV1
+  | readonly StrictJsonValueV1[];
+interface StrictJsonObjectV1 {
+  readonly [key: string]: StrictJsonValueV1;
+}
 
 interface IntegerRangeV1 {
   readonly min: SafeInteger;
@@ -217,18 +237,20 @@ interface RngStateV1 {
   readonly rawDrawCount: NonNegativeSafeInteger;
 }
 
-interface GameSnapshotV1 {
-  readonly state: GameStateV1;
-  readonly rng: RngStateV1;
+interface GameSnapshotEnvelopeV1<TState, TRngState> {
+  readonly state: TState;
+  readonly rng: TRngState;
   readonly commandSequence: NonNegativeSafeInteger;
 }
 
+type GameSnapshotV1 = GameSnapshotEnvelopeV1<GameStateV1, RngStateV1>;
+
 interface GameStateV1 {
-  readonly simulation: EngineOwnedStateV1;
+  readonly simulation: DemoSimulationStateV1;
   readonly story: StoryRuntimeStateV1;
 }
 
-interface EngineOwnedStateV1 {
+interface DemoSimulationStateV1 {
   readonly run: RunStateV1;
   readonly calendar: CalendarStateV1;
   readonly actors: ActorsStateV1;
@@ -254,6 +276,23 @@ interface CalendarStateV1 {
   readonly eveningResolved: boolean;
 }
 ```
+
+`GameSnapshotEnvelopeV1<TState, TRngState>` 属于 Base；`GameStateV1`、`DemoSimulationStateV1` 和其子类型属于 Demo Modules/Profile。
+
+`xorshift32-v1` 的 `cursor` 是非零 unsigned 32-bit 整数；`rawDrawCount` 对每次底层 `nextU32()`（包括拒绝采样丢弃值）增加 1。所有位运算按无符号 32 位执行：
+
+```text
+x = state
+x = uint32(x XOR uint32(x << 13))
+x = uint32(x XOR (x >>> 17))
+x = uint32(x XOR uint32(x << 5))
+state = x
+return x
+```
+
+`nextInt(exclusiveMax)` 只接受 `1..2^32`，使用无偏拒绝采样：`limit = floor(2^32 / exclusiveMax) * exclusiveMax`，反复调用 `nextU32()` 直到 `value < limit`，再返回 `value % exclusiveMax`。不得使用浮点缩放或直接取模。新局以通过 `NonZeroUint32` 校验的 seed 原值作为首个 cursor，不 hash、warm-up 或 xor。
+
+reference seed `0x00023049` 的前 12 个 `nextInt(3)-1` 均为 0，随后两次 `nextInt(6)+1` 为 4、3；14 次无拒绝的底层抽取后 cursor 为 `0x4e7b7f2e`、`rawDrawCount=14`。算法、拒绝采样、seed 初始化和该向量必须由 Base unit tests、Debug replay 与未来 C# 端口共同复用。
 
 ### 3.1 Actors
 
@@ -1601,7 +1640,7 @@ type ProgressionEffectIntentV1 = Extract<
 
 `modifier.add` 只写当前 `OpeningSession.sessionModifiers`；v1 不存在永久、无所有者的 Modifier bag。
 
-## 7. Narrative IR 与 StoryPackage 数据
+## 7. Narrative IR、Demo Story 数据与启动期 PatchSurface
 
 ### 7.1 条件、节点与舞台提示
 
@@ -1805,7 +1844,6 @@ Effect、RNG、cursor、workflow 与 Scheduler 全部回滚；v1 不做隐式分
 ```ts
 interface TextEntryV1 {
   readonly textId: TextId;
-  readonly zhCN: string;
 }
 interface StoryCharacterDefinitionV1 {
   readonly characterId: CharacterId;
@@ -2279,38 +2317,29 @@ interface AssetPivotV1 {
   readonly y: RatioV1;
 }
 
-type StoryAssetEntryV1 =
-  | {
-      readonly delivery: "code_fallback";
-      readonly assetId: AssetId;
-      readonly kind: "background" | "character" | "prop" | "ui";
-      readonly usage: AssetUsageV1;
-      readonly fallbackToken: FallbackToken;
-      readonly width: PositiveSafeInteger;
-      readonly height: PositiveSafeInteger;
-      readonly loadGroup: "bootstrap" | "scene" | "overlay";
-      readonly safeArea: AssetSafeAreaV1 | null;
-      readonly pivot: AssetPivotV1 | null;
-    }
-  | {
-      readonly delivery: "runtime_image";
-      readonly assetId: AssetId;
-      readonly kind: "background" | "character" | "prop" | "ui";
-      readonly usage: AssetUsageV1;
-      readonly sourceId: AssetSourceId;
-      readonly licenseId: LicenseId;
-      readonly reviewStatus: "selected";
-      readonly termsStatus: "approved";
-      readonly runtimePath: string;
-      readonly mediaType: "image/webp" | "image/png" | "image/svg+xml";
-      readonly byteLength: PositiveSafeInteger;
-      readonly width: PositiveSafeInteger;
-      readonly height: PositiveSafeInteger;
-      readonly sha256: Digest;
-      readonly loadGroup: "bootstrap" | "scene" | "overlay";
-      readonly safeArea: AssetSafeAreaV1 | null;
-      readonly pivot: AssetPivotV1 | null;
-    };
+type AssetPackId = Brand<string, "AssetPackId">;
+
+interface AssetPackSourceIdentityV1 {
+  readonly id: AssetPackId;
+  readonly revision: PositiveSafeInteger;
+}
+
+interface AssetPackResolvedIdentityV1 extends AssetPackSourceIdentityV1 {
+  readonly digest: Digest;
+}
+
+interface AssetSlotDefinitionV1 {
+  readonly assetId: AssetId;
+  readonly kind: "background" | "character" | "prop" | "ui";
+  readonly usage: AssetUsageV1;
+  readonly overridePolicy: "sealed" | "replaceable";
+  readonly fallbackToken: FallbackToken;
+  readonly width: PositiveSafeInteger;
+  readonly height: PositiveSafeInteger;
+  readonly loadGroup: "bootstrap" | "scene" | "overlay";
+  readonly safeArea: AssetSafeAreaV1 | null;
+  readonly pivot: AssetPivotV1 | null;
+}
 
 interface AssetSourceRecordV1 {
   readonly sourceId: AssetSourceId;
@@ -2330,22 +2359,66 @@ interface AssetLicenseRecordV1 {
   readonly noticeTextId: TextId | null;
 }
 
-interface StoryAssetManifestV1 {
-  readonly sources: readonly AssetSourceRecordV1[];
-  readonly licenses: readonly AssetLicenseRecordV1[];
-  readonly assets: readonly StoryAssetEntryV1[];
+interface AssetProviderEntryV1 {
+  readonly assetId: AssetId;
+  readonly sourceId: AssetSourceId;
+  readonly licenseId: LicenseId;
+  readonly reviewStatus: "selected";
+  readonly termsStatus: "approved";
+  readonly runtimePath: string;
+  readonly mediaType: "image/webp" | "image/png" | "image/svg+xml";
+  readonly byteLength: PositiveSafeInteger;
+  readonly width: PositiveSafeInteger;
+  readonly height: PositiveSafeInteger;
+  readonly sha256: Digest;
 }
 
-interface StoryPackageV1 {
-  readonly contractRevision: 1;
-  readonly identity: StorySourceIdentityV1;
+interface AssetPackV1 {
+  readonly identity: AssetPackSourceIdentityV1;
+  readonly sources: readonly AssetSourceRecordV1[];
+  readonly licenses: readonly AssetLicenseRecordV1[];
+  readonly providers: readonly AssetProviderEntryV1[];
+}
+
+type AssetProviderRefV1 =
+  | {
+      readonly kind: "asset_pack";
+      readonly identity: AssetPackResolvedIdentityV1;
+    }
+  | {
+      readonly kind: "hotfix";
+      readonly identity: HotfixResolvedIdentityV1;
+    };
+
+type ResolvedAssetEntryV1 = AssetSlotDefinitionV1 &
+  (
+    | {
+        readonly delivery: "code_fallback";
+        readonly provider: null;
+        readonly overrideChain: readonly AssetProviderRefV1[];
+      }
+    | (AssetProviderEntryV1 & {
+        readonly delivery: "runtime_image";
+        readonly provider: AssetProviderRefV1;
+        readonly overrideChain: readonly AssetProviderRefV1[];
+      })
+  );
+
+interface ResolvedAssetManifestV1 {
+  readonly packs: readonly AssetPackResolvedIdentityV1[];
+  readonly sources: readonly AssetSourceRecordV1[];
+  readonly licenses: readonly AssetLicenseRecordV1[];
+  readonly slots: readonly AssetSlotDefinitionV1[];
+  readonly assets: readonly ResolvedAssetEntryV1[];
+}
+
+interface DemoStoryDataV1 {
+  readonly dataRevision: 1;
   readonly manifest: StoryManifestV1;
   readonly stateDefinitions: StoryStateDefinitionsV1;
   readonly initialState: StoryInitialStateV1;
   readonly balance: StoryBalanceV1;
   readonly content: StoryContentV1;
-  readonly rules: StoryRulesV1;
-  readonly assets: StoryAssetManifestV1;
 }
 
 interface StoryDevelopmentSupportV1 {
@@ -2357,9 +2430,521 @@ interface StoryDevelopmentSupportV1 {
 }
 ```
 
-`runtimePath` 必须是相对 Story runtime root 的 POSIX 路径，不能包含空段、`.`、`..`、反斜杠、query 或 fragment。文本上限见 Strict JSON；v1 只存纯文本，不存 HTML/Markdown AST。
+`DemoStoryDataV1` 是 `stories/demo` 交给 authoring builder 的可序列化源数据，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved facets。完整 StoryEntry 还要选择 GameProfile、StoryRules、UI SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些含函数的启动期源码合同由架构规格与本节下方合同约束，不进入 Save JSON。Developer support 由单独的 `./development` entry 提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
 
-逻辑 Asset ID 无论是否已有正式位图都必须存在于 `assets`。因此 fallback-only Story 是“所有条目均为 `code_fallback`”，不是空 Manifest；`runtime_image` 必须同时是 selected、terms-approved，并引用现有 source/license record。`eventCheckpoint` 节点由 `narrative.advance` 在同一事务构造 `story.explicit` SchedulerContext；事件处理与游标推进共同提交或回滚。
+`runtimePath` 必须是相对 provider Asset Pack/Hotfix root 的 POSIX 路径，不能包含空段、`.`、`..`、反斜杠、query 或 fragment。`packs` 保持 Story 明确选择的顺序；slot definition 先冻结，provider 无权改 kind/usage/overridePolicy/几何/fallback。Resolver 按 pack 顺序应用：未知 slot 失败；每个 slot 的首个 provider 可取代 code fallback；后续 provider 只允许覆盖 `replaceable` slot。全部 packs 完成后，asset Hotfix 才可替换仍为 `replaceable` 的最终 provider；sealed slot 不暴露 asset Patch Slot。`overrideChain` 记录实际 provider 链，runtime image 的最后一项必须等于 `provider`；code fallback 的链为空。
+
+逻辑 Asset ID 无论是否已有正式位图都必须存在于 `slots` 和 `assets`。因此 fallback-only Story 是“所有 resolved entries 均为 `code_fallback`”，不是空 Manifest；`runtime_image` 必须同时是 selected、terms-approved，并引用聚合 manifest 中的 source/license record。运行时加载失败使用 slot 已校验的 code-native fallback，而不是接受未知素材。`eventCheckpoint` 节点由 `narrative.advance` 在同一事务构造 `story.explicit` SchedulerContext；事件处理与游标推进共同提交或回滚。
+
+AssetRegistry 的加载组全序固定为 `bootstrap → scene → overlay`，组内保持 `ResolvedAssetManifestV1.assets` 顺序；相同最终 URL+sha256 在一次 registry 生命周期内只 fetch/decode 一次。preload 接受 AbortSignal，并对每个 AssetId 返回 `loaded | fallback | aborted` 结构化结果；单项失败不以 aggregate throw 丢弃其他结果，同一 URL/故障码每个加载周期只追加一次 runtime diagnostic。
+
+### 7.3 GamePackage 与 PatchSurface 源码合同
+
+以下合同属于 `@project-tavern/base` 的启动期 API。它们是普通 TypeScript/JavaScript 对象，不进入 Strict JSON；其声明和实际代码 bytes 进入对应构建摘要。
+
+```ts
+type ModuleId = Brand<string, "ModuleId">;
+type StateSlotId = Brand<string, "StateSlotId">;
+type LocaleId = Brand<string, "LocaleId">; // canonical BCP 47, e.g. zh-CN
+type PatchSymbolId = Brand<string, "PatchSymbolId">;
+type HotfixId = Brand<string, "HotfixId">;
+
+interface RuntimeSchemaV1<T> {
+  parse(value: unknown): T;
+}
+
+interface GameBootstrapInputV1 {
+  readonly rngSeed: NonZeroUint32;
+}
+
+interface GameModuleDescriptorV1 {
+  readonly id: ModuleId;
+  readonly contractRevision: PositiveSafeInteger;
+  readonly stateSlots: readonly StateSlotId[];
+  readonly dependencies: readonly ModuleId[];
+}
+
+interface GameProfileTypeMapV1 {
+  readonly bootstrapInput: GameBootstrapInputV1;
+  readonly snapshot: unknown;
+  readonly state: unknown;
+  readonly command: unknown;
+  readonly fact: unknown;
+  readonly rejection: unknown;
+  readonly fault: unknown;
+  readonly debugCommand: unknown;
+  readonly executionContext: unknown;
+  readonly queries: unknown;
+  readonly viewModel: unknown;
+}
+
+declare const gameProfileTypesV1: unique symbol;
+
+interface GameProfileTypeWitnessV1<TTypes extends GameProfileTypeMapV1> {
+  /** Compile-time invariant witness; no runtime field is emitted. */
+  readonly [gameProfileTypesV1]?: (types: TTypes) => TTypes;
+}
+
+interface ModuleInvariantViolationV1 {
+  readonly code: string;
+  readonly details: StrictJsonObjectV1;
+}
+
+interface ModuleLocalInvariantV1<TStateSlice, TReadPort> {
+  check(
+    state: DeepReadonly<TStateSlice>,
+    readPort: TReadPort,
+  ): readonly ModuleInvariantViolationV1[];
+}
+
+type ModuleProposalResultV1<TProposal, TRejection> =
+  | { readonly kind: "proposed"; readonly proposal: TProposal }
+  | { readonly kind: "rejected"; readonly rejection: TRejection };
+
+interface ModuleOwnerCapabilityV1<
+  TStateSlice,
+  TOwnerOperation,
+  TOwnerProposal,
+  TRejection,
+  TDependencyPorts,
+> {
+  propose(
+    state: DeepReadonly<TStateSlice>,
+    operation: DeepReadonly<TOwnerOperation>,
+    dependencies: TDependencyPorts,
+  ): ModuleProposalResultV1<TOwnerProposal, TRejection>;
+  apply(
+    state: DeepReadonly<TStateSlice>,
+    proposal: DeepReadonly<TOwnerProposal>,
+  ): TStateSlice;
+}
+
+interface ModuleQueryCapabilityV1<
+  TStateSlice,
+  TModuleQuery,
+  TModuleQueryResult,
+  TDependencyPorts,
+> {
+  execute(
+    state: DeepReadonly<TStateSlice>,
+    query: DeepReadonly<TModuleQuery>,
+    dependencies: TDependencyPorts,
+  ): TModuleQueryResult;
+}
+
+interface GameModuleBindingV1<
+  TTypes extends GameProfileTypeMapV1,
+  TStateSlice,
+  TModuleCommand,
+  TModuleQuery,
+  TModuleQueryResult,
+  TOwnerOperation,
+  TOwnerProposal,
+  TReadPort,
+  TDependencyPorts,
+> extends GameProfileTypeWitnessV1<TTypes> {
+  readonly descriptor: GameModuleDescriptorV1;
+  readonly stateSchema: RuntimeSchemaV1<TStateSlice>;
+  readonly commandSchema: RuntimeSchemaV1<TModuleCommand> | null;
+  readonly querySchema: RuntimeSchemaV1<TModuleQuery> | null;
+  readonly queryResultSchema: RuntimeSchemaV1<TModuleQueryResult> | null;
+  readonly ownerOperationSchema: RuntimeSchemaV1<TOwnerOperation>;
+  readonly ownerProposalSchema: RuntimeSchemaV1<TOwnerProposal>;
+  readonly localInvariants: readonly ModuleLocalInvariantV1<
+    TStateSlice,
+    TReadPort
+  >[];
+  readonly owner: ModuleOwnerCapabilityV1<
+    TStateSlice,
+    TOwnerOperation,
+    TOwnerProposal,
+    TTypes["rejection"],
+    TDependencyPorts
+  >;
+  readonly queries: ModuleQueryCapabilityV1<
+    TStateSlice,
+    TModuleQuery,
+    TModuleQueryResult,
+    TDependencyPorts
+  > | null;
+  createInitialState(
+    bootstrap: DeepReadonly<TTypes["bootstrapInput"]>,
+  ): TStateSlice;
+  createReadPort(state: DeepReadonly<TStateSlice>): TReadPort;
+}
+
+type GameModuleTupleForProfileV1<
+  TTypes extends GameProfileTypeMapV1,
+  TModules extends readonly unknown[],
+> = {
+  readonly [K in keyof TModules]: TModules[K] extends GameModuleBindingV1<
+    TTypes,
+    infer _TStateSlice,
+    infer _TModuleCommand,
+    infer _TModuleQuery,
+    infer _TModuleQueryResult,
+    infer _TOwnerOperation,
+    infer _TOwnerProposal,
+    infer _TReadPort,
+    infer _TDependencyPorts
+  >
+    ? TModules[K]
+    : never;
+};
+
+interface CommandCoordinatorV1<TTypes extends GameProfileTypeMapV1>
+  extends GameProfileTypeWitnessV1<TTypes> {
+  execute(
+    snapshot: DeepReadonly<TTypes["snapshot"]>,
+    command: DeepReadonly<TTypes["command"]>,
+    context: TTypes["executionContext"],
+  ): CommandExecutionResultEnvelopeV1<
+    TTypes["snapshot"],
+    TTypes["fact"],
+    TTypes["rejection"],
+    TTypes["fault"]
+  >;
+  createQueries(snapshot: DeepReadonly<TTypes["snapshot"]>): TTypes["queries"];
+}
+
+interface GameProfileV1<
+  TTypes extends GameProfileTypeMapV1,
+  TModules extends readonly unknown[],
+  TCoordinator extends CommandCoordinatorV1<TTypes>,
+> extends GameProfileTypeWitnessV1<TTypes> {
+  readonly contractRevision: 1;
+  readonly modules: TModules & GameModuleTupleForProfileV1<TTypes, TModules>;
+  readonly stateSchema: RuntimeSchemaV1<TTypes["state"]>;
+  readonly commandSchema: RuntimeSchemaV1<TTypes["command"]>;
+  readonly factSchema: RuntimeSchemaV1<TTypes["fact"]>;
+  readonly rejectionSchema: RuntimeSchemaV1<TTypes["rejection"]>;
+  readonly debugCommandSchema: RuntimeSchemaV1<TTypes["debugCommand"]>;
+  readonly coordinator: TCoordinator;
+  createInitialState(
+    bootstrap: DeepReadonly<TTypes["bootstrapInput"]>,
+  ): TTypes["state"];
+  projectView(state: DeepReadonly<TTypes["state"]>): TTypes["viewModel"];
+}
+
+interface LocalizedTextCatalogV1 {
+  readonly locale: LocaleId;
+  readonly fallbackLocale: LocaleId | null;
+  readonly entries: readonly {
+    readonly textId: TextId;
+    readonly text: string;
+  }[];
+}
+
+interface TextCatalogSetV1 {
+  readonly defaultLocale: LocaleId;
+  readonly catalogs: readonly LocalizedTextCatalogV1[];
+}
+
+type PatchSurfaceKindV1 = "simulation" | "presentation";
+type SimulationPatchSymbolKindV1 = "rule" | "value";
+type PresentationPatchSymbolKindV1 = "value" | "text" | "asset";
+type PatchSymbolKindV1 =
+  | SimulationPatchSymbolKindV1
+  | PresentationPatchSymbolKindV1;
+
+interface PatchSlotDescriptorV1<TKind extends PatchSymbolKindV1> {
+  readonly symbolId: PatchSymbolId;
+  readonly kind: TKind;
+  readonly replaceable: true;
+  readonly contractRevision: PositiveSafeInteger;
+  readonly defaultProviderSourceDigest: Digest;
+}
+
+interface PatchReplacementTraceV1 {
+  readonly surface: PatchSurfaceKindV1;
+  readonly symbolId: PatchSymbolId;
+  readonly kind: PatchSymbolKindV1;
+  readonly previousProviderDigest: Digest;
+  readonly nextProviderDigest: Digest;
+}
+
+interface HotfixSourceIdentityV1 {
+  readonly id: HotfixId;
+  readonly revision: PositiveSafeInteger;
+}
+
+interface HotfixResolvedIdentityV1 extends HotfixSourceIdentityV1 {
+  readonly digest: Digest;
+}
+
+interface HotfixManifestV1 {
+  readonly identity: HotfixSourceIdentityV1;
+  readonly targetStoryId: StoryId;
+  readonly targetStoryRevision: PositiveSafeInteger;
+  readonly targets: readonly {
+    readonly surface: PatchSurfaceKindV1;
+    readonly symbolId: PatchSymbolId;
+    readonly expectedProviderDigest: Digest;
+  }[];
+  readonly requires: readonly HotfixId[];
+  readonly conflicts: readonly HotfixId[];
+  readonly supersedes: readonly HotfixId[];
+}
+
+interface AppliedHotfixV1 {
+  readonly identity: HotfixResolvedIdentityV1;
+  readonly ordinal: PositiveSafeInteger;
+  readonly replacements: readonly PatchReplacementTraceV1[];
+}
+
+interface PatchSetIdentityV1 {
+  readonly digest: Digest;
+  readonly simulationDigest: Digest;
+  readonly presentationDigest: Digest;
+  readonly appliedHotfixes: readonly AppliedHotfixV1[];
+}
+
+interface PatchSetAdoptionDeclarationV1 {
+  readonly storyId: StoryId;
+  readonly storyRevision: PositiveSafeInteger;
+  readonly stateContractRevision: PositiveSafeInteger;
+  readonly stateContractDigest: Digest;
+  readonly fromSimulationDigest: Digest;
+  readonly toSimulationDigest: Digest;
+  readonly simulationPatchSetDigest: Digest;
+}
+
+interface StorySimulationFacetV1<
+  TProfile,
+  TData,
+  TRules,
+  TNarrativeProgram,
+  TSimulationPatchSurface,
+> {
+  readonly profile: TProfile;
+  readonly data: TData;
+  readonly rules: TRules;
+  readonly narrativeProgram: TNarrativeProgram;
+  readonly patchSurface: TSimulationPatchSurface;
+}
+
+interface StoryPresentationFacetV1<
+  TUiSceneGraph,
+  TTextCatalogs,
+  TAssetSlots,
+  TAssetPacks,
+  TPresentationPatchSurface,
+> {
+  readonly uiSceneGraph: TUiSceneGraph;
+  readonly textCatalogs: TTextCatalogs;
+  readonly assetSlots: TAssetSlots;
+  readonly assetPacks: TAssetPacks;
+  readonly patchSurface: TPresentationPatchSurface;
+}
+
+interface StoryDefinitionV1<TSimulationFacet, TPresentationFacet> {
+  readonly simulation: TSimulationFacet;
+  readonly presentation: TPresentationFacet;
+}
+
+interface GamePackageV1<TSimulationFacet, TPresentationFacet> {
+  readonly contractRevision: 1;
+  readonly identity: StorySourceIdentityV1;
+  define(): StoryDefinitionV1<TSimulationFacet, TPresentationFacet>;
+}
+
+interface StoryDevelopmentEntryV1<TDevelopmentSupport> {
+  readonly contractRevision: 1;
+  readonly storyIdentity: StorySourceIdentityV1;
+  defineDevelopmentSupport(): TDevelopmentSupport;
+}
+
+interface HotfixInstallContextV1<
+  TSimulationPatchSurface,
+  TPresentationPatchSurface,
+> {
+  readonly simulation: TSimulationPatchSurface;
+  readonly presentation: TPresentationPatchSurface;
+}
+
+interface HotfixEntryV1<TSimulationPatchSurface, TPresentationPatchSurface> {
+  readonly manifest: HotfixManifestV1;
+  install(
+    surfaces: HotfixInstallContextV1<
+      TSimulationPatchSurface,
+      TPresentationPatchSurface
+    >,
+  ): void;
+}
+
+interface ResolvedStoryV1<
+  TProvenance,
+  TProfile,
+  TSimulationProgram,
+  TPresentationProgram,
+  TResolvedAssets,
+> {
+  readonly provenance: TProvenance;
+  readonly profile: TProfile;
+  readonly simulationProgram: TSimulationProgram;
+  readonly presentationProgram: TPresentationProgram;
+  readonly assets: TResolvedAssets;
+  readonly frozen: true;
+}
+```
+
+`GameModuleBindingV1`、`GameProfileV1` 与 `ResolvedStoryV1` 是 Base 的泛型合同；Demo State/Command/Fact/Query 只是它们的一次具体化。`GameProfileTypeMapV1` 和 invariant phantom witness 把 Module tuple、Profile Schema、Snapshot、Coordinator、Query surface 与 ViewModel 绑定为同一组类型；`GameModuleTupleForProfileV1` 使异构 tuple 中任何来自另一 Profile 的 Binding 在编译期退化为 `never`。每个 Module Binding 必须同时携带局部 State/Command/Query/Proposal Schema、局部 invariants、只读 port 和 owner-scoped proposal/apply capability，不能只注册一个 State Schema。
+
+Owner `propose` 只读取自己的 State slice 和显式 dependency ports，返回经过 Schema 校验的 proposal；`apply` 只接收并返回该 owner 的 State slice。Coordinator 负责把返回 slice 装回唯一候选 Snapshot、汇总 Facts/账本并运行全量 invariants，因此 Module 不会取得可写的全局 State。上述函数以及 dependency-port composition 都进入 simulation manifest/digest。`defineGameProfile` 还必须运行无法仅靠泛型表达的 invariants：Module ID/state slot 唯一、每个 slot 恰有一个 owner、依赖存在且无环、dependency ports 与声明一致、组合 Schema 封闭、Coordinator 和 ViewModel projection 与该 Profile 同源。
+
+Story npm 包的默认入口只暴露一个 `GamePackageV1`，即 StoryEntry；`define()` 必须同步、无参数且顶层无平台 I/O。Developer fixtures、预览数据和备注只从独立 `./development` export 的 `StoryDevelopmentEntryV1` 取得。Player build 不解析、不导入也不打包该子路径；Developer build 使用静态 alias 显式选择它。
+
+Simulation facet 包含 Profile、规则、Balance、State definitions，以及 Narrative 的稳定 scene/node/cursor、分支、condition、check、command 和 Effect 控制流；这些进入 state-contract/simulation manifests。Presentation facet 包含 React `UiSceneGraph`、真实文本、视觉 cue 映射、素材和布局；它不能作为 simulation facet 的依赖。这样“Scene”不会被粗略归入 presentation：authoring `NarrativeSceneV1`/`StoryContentV1` 可以混合书写，但 validator 必须把它编译成无表现值的 NarrativeProgram 与按稳定 ID 索引的 NarrativePresentationMap，再分别摘要；同一源文件可以贡献两个 canonical projections。
+
+`StoryContentV1.texts` 只声明稳定 TextId；真实字符串位于 `TextCatalogSetV1`。Locale ID 必须是规范化 BCP 47、深值唯一；default locale 的 catalog 必须覆盖全部 TextId。非默认 catalog 可以是部分翻译，但 fallback 链必须存在、无环并最终到达 default；走完整条链仍缺失是 Story validation error，不把 TextId 本身显示给 Player。v1 的 Presentation PatchSurface 暴露一个强类型 `text.catalogs` slot，替换值是完整 `TextCatalogSetV1`；不做隐式对象 merge。Hotfix 可以通过替换整套 catalog 添加语言或覆盖部分文本，但解析后仍重新验证完整 fallback 合同。
+
+两个 PatchSurface 是彼此独立的强类型、可撤销 Registry/Proxy。Simulation Registry 只能注册 `rule | value`；Presentation Registry 只能注册 `value | text | asset`。surface 决定 digest 归属，不接受作者填写 `impact` 字符串。每个 slot 除 descriptor 外还携带对应 value 或 rule input/output Schema；presentation 值不会被 Profile/Coordinator 导入。
+
+Hotfix 脚本暴露 `HotfixEntryV1`；`install()` 可以执行普通同步 JavaScript，但受管合同要求安装过程确定、无平台 I/O、真实时间、环境随机和全局可变状态，替代 rule 也必须是只依赖输入/显式 RNG 的无状态函数。Loader 在新建的 candidate registries 上运行一次，返回 thenable或抛错即失败；解析完成后撤销所有写 proxy、deep-freeze 结果，再建立 `ResolvedStory`。这些是官方兼容合同而非安全隔离，第三方越界仍风险自负。
+
+每个实际替换必须在 `manifest.targets` 中恰有一项且 surface 相同，赋值前当前 provider digest 必须等于 `expectedProviderDigest`；未实际替换的 target 同样是验证错误，防止补丁在新 Story 上“看似成功但什么也没做”。两个 Hotfix 触碰同一 Symbol 时，后者必须在 `supersedes` 中明确列出当前 provider；否则整组解析失败。
+
+provider digest 的规范输入冻结如下：默认 provider 使用构建生成的 slot-local source/import-closure digest；Hotfix rule 使用 `hotfixResolvedDigest + surface + symbolId + replacementOrdinal`；serializable value/text/asset 再加入替换值的 Canonical JSON digest。provider digest 的 domain 是 `project-tavern:patch-provider:v1`，不序列化函数对象或使用 `Function#toString()`。PatchSet 使用 `project-tavern:patch-set:v1` 分别摘要完整 `AppliedHotfixV1[]`、只保留 simulation traces 且丢弃空 Hotfix 项的投影，以及只保留 presentation traces 且丢弃空项的投影；空数组也各有稳定 digest。额外的纯 presentation Hotfix 不改变 `PatchSetIdentityV1.simulationDigest`。同一 Hotfix contract suite 必须在两个全新 candidate registries 中安装两次，比较 replacement trace、serializable values 和所有 rule vectors，防止受管补丁依赖隐式环境。
+
+Loader 输入列表就是唯一顺序：ID 深值唯一，`ordinal` 从 1 连续递增；`requires` 只能引用更早条目；任一条目的 `conflicts` 命中集合中其他 ID 即失败；Loader 不按文件名排序或自动拓扑重排。全部 Hotfix 作为一个 bootstrap candidate 原子解析、校验和冻结，任何失败都不产生部分 `ResolvedStory`。
+
+`rule`/simulation `value` 只能替换既有合同，不能增加 State 字段、Command/Fact kind、Module 或生命周期 hook；presentation `value`/`text`/`asset` 不能参与模拟判定。第三方绕过 Registry 修改内部对象或浏览器全局属于非托管行为，不在兼容和复现承诺内。
+
+Save adoption 不由任一 Hotfix 单独授权。全部替换解析后生成覆盖有序 Hotfix identities 和 traces 的 `PatchSetIdentityV1`；独立 compatibility metadata 才能声明精确的 `story + stateContractRevision/digest + fromSimulationDigest → toSimulationDigest + simulationPatchSetDigest`。该声明本身不进入 simulation digest，避免循环，但必须随目标 PatchSet 分发并在载入时逐字段精确匹配；额外组合任何 simulation Hotfix 都会得到不同 to digest/simulation PatchSet，原声明自动失效，纯 presentation Hotfix 不影响该判断。
+
+### 7.4 Application Port 与 UI Contribution 源码合同
+
+```ts
+interface ReadonlyViewSourceV1<TViewModel> {
+  getCurrent(): DeepReadonly<TViewModel>;
+  subscribe(listener: () => void): () => void;
+}
+
+interface PlayerCommandPortV1<TCommand, TDispatchResult> {
+  dispatch(command: DeepReadonly<TCommand>): Promise<TDispatchResult>;
+}
+
+interface SessionLifecyclePortV1<
+  TBootstrapInput extends GameBootstrapInputV1,
+  TAnchorResult,
+> {
+  createNewSession(
+    bootstrap: DeepReadonly<TBootstrapInput>,
+  ): Promise<TAnchorResult>;
+  restartSession(
+    bootstrap: DeepReadonly<TBootstrapInput>,
+  ): Promise<TAnchorResult>;
+}
+
+type PlayerWritableSaveSlotIdV1 = "quick" | "manual";
+type LeaseHandoffRequestId = Brand<string, "LeaseHandoffRequestId">;
+
+interface SessionLeasePortV1<TLeaseStatus, TLeaseOperationResult> {
+  getStatus(): Promise<TLeaseStatus>;
+  requestHandoff(): Promise<TLeaseOperationResult>;
+  approveHandoff(
+    requestId: LeaseHandoffRequestId,
+  ): Promise<TLeaseOperationResult>;
+  takeOver(): Promise<TLeaseOperationResult>;
+  release(): Promise<TLeaseOperationResult>;
+}
+
+interface PlayerPersistencePortV1<
+  TSlotSummary,
+  TPersistenceStatus,
+  TPersistenceResult,
+  TExportedSave,
+  TLeaseStatus,
+  TLeaseOperationResult,
+> {
+  readonly lease: SessionLeasePortV1<TLeaseStatus, TLeaseOperationResult>;
+  listSlots(): Promise<readonly TSlotSummary[]>;
+  getStatus(): Promise<TPersistenceStatus>;
+  save(slot: PlayerWritableSaveSlotIdV1): Promise<TPersistenceResult>;
+  load(slot: SaveSlotIdV1): Promise<TPersistenceResult>;
+  clear(slot: SaveSlotIdV1): Promise<TPersistenceResult>;
+  exportSave(slot: SaveSlotIdV1): Promise<TExportedSave>;
+  exportCurrentSave(): Promise<TExportedSave>;
+  importSave(bytes: Uint8Array): Promise<TPersistenceResult>;
+}
+
+interface PlayerDiagnosticsPortV1<TDebugBundle> {
+  exportDebugBundle(): Promise<TDebugBundle>;
+}
+
+interface PlayerApplicationPortV1<
+  TViewModel,
+  TCommandPort,
+  TLifecyclePort,
+  TPersistencePort,
+  TDiagnosticsPort,
+> {
+  readonly view: ReadonlyViewSourceV1<TViewModel>;
+  readonly commands: TCommandPort;
+  readonly lifecycle: TLifecyclePort;
+  readonly persistence: TPersistencePort;
+  readonly diagnostics: TDiagnosticsPort;
+}
+
+interface DeveloperControlPortV1<
+  TDebugCommand,
+  TDebugResult,
+  TFixtureId,
+  TAnchorResult,
+  TDebugInspection,
+  TAuthoritativeReplayResult,
+  TBestEffortReplayInspection,
+  TDiagnosticQuery,
+  TDiagnosticQueryResult,
+> {
+  executeDebugCommand(command: DeepReadonly<TDebugCommand>): Promise<TDebugResult>;
+  anchorFixture(fixtureId: TFixtureId): Promise<TAnchorResult>;
+  inspectDebugBundle(bytes: Uint8Array): Promise<TDebugInspection>;
+  anchorDebugBundle(bytes: Uint8Array): Promise<TAnchorResult>;
+  replayAuthoritatively(
+    bytes: Uint8Array,
+  ): Promise<TAuthoritativeReplayResult>;
+  inspectReplayBestEffort(
+    bytes: Uint8Array,
+  ): Promise<TBestEffortReplayInspection>;
+  queryDiagnostics(
+    query: DeepReadonly<TDiagnosticQuery>,
+  ): Promise<TDiagnosticQueryResult>;
+}
+
+interface DeveloperApplicationPortV1<TPlayerPort, TDeveloperControlPort> {
+  readonly player: TPlayerPort;
+  readonly control: TDeveloperControlPort;
+}
+
+interface UiRendererBindingV1<TId, TViewModel, TViewSlice, TRenderer> {
+  readonly id: TId;
+  select(view: DeepReadonly<TViewModel>): DeepReadonly<TViewSlice>;
+  readonly renderer: TRenderer;
+}
+
+interface UiContributionSetV1<
+  TSceneBinding,
+  TOverlayBinding,
+  THudBinding,
+  TGameSymbolProvider,
+> {
+  readonly scenes: readonly TSceneBinding[];
+  readonly overlays: readonly TOverlayBinding[];
+  readonly hud: readonly THudBinding[];
+  readonly gameSymbols: readonly TGameSymbolProvider[];
+}
+```
+
+Base 只实现 `ReadonlyViewSourceV1` 与 Player/Developer port 的泛型协议；具体 operation/result DTO 由当前 Profile specialization 提供。`createNewSession`/`restartSession` 都要求显式 `GameBootstrapInputV1.rngSeed`，只建立 commandSequence 0 的新 replay anchor，不冒充 Demo 的第一条 `run.start` GameCommand，也不隐式复用上次 seed。Profile 和每个 Module 的 `createInitialState` 必须消费同一 immutable bootstrap input；Demo 的 `RunState.initialSeed` 与初始 `RngState.cursor` 均由该输入确定。
+
+Player 只能显式写 `quick | manual`；`auto.current/auto.previous` 由提交后 Auto Save policy 内部轮换，但四个 Slot 都可以 list、load、clear 和 export。`exportCurrentSave` 直接从调用被接受时的最后 committed Snapshot 构造 `slotId="manual"` 的可下载 SaveRecord，不依赖 IndexedDB 成功，因此持久化故障时仍可抢救现场。`listSlots/getStatus` 必须区分 empty、valid、invalid、recovery-candidate、busy 和 unavailable；Lease 子端口覆盖请求交接、原 owner 批准、显式接管和释放，并且每个结果都携带当前 fencing/ownership 状态。
+
+Developer `inspectDebugBundle` 与 `inspectReplayBestEffort` 永远只读，允许在身份不匹配时返回分阶段诊断，不能替换 Session；`replayAuthoritatively` 只接受精确 replay identity 并逐项验证日志；`anchorFixture` 与 `anchorDebugBundle` 是进入 EngineSession FIFO 的 anchoring 操作，成功时替换 Snapshot/replay base 并清空旧日志。`queryDiagnostics` 只读取有界日志、Facts、Aura、不变量和 runtime failures。Player artifact 不含这些入口。
+
+`@project-tavern/ui` 实现 renderer/contribution 注册，Story/Profile 提供具体 ID 与只读 ViewModel selectors。所有 Scene/Overlay/HUD ID 在各自 registry 内唯一；renderer 只能收到 selector 结果和对应 Port，不能收到 Snapshot、EngineSession 或 Module owner capability。
+
+Story runtime 默认入口只能引用 Player port。Developer port、Developer UI contributions、fixtures 和 notes 位于静态 Developer-only import graph；Player artifact 的 bundle test 必须证明这些模块不存在。
 
 ## 8. StoryRulesV1：精确输入与输出
 
@@ -2892,19 +3477,36 @@ interface BuildProvenanceV1 {
     readonly version: EngineVersion;
     readonly digest: Digest;
   };
+  readonly resolved: {
+    readonly stateContractRevision: PositiveSafeInteger;
+    readonly stateContractDigest: Digest;
+    readonly simulationDigest: Digest;
+    readonly presentationDigest: Digest;
+    readonly patchSet: PatchSetIdentityV1;
+  };
 }
 
 interface SaveCompatibilityKeyV1 {
   readonly storyId: StoryId;
   readonly storyRevision: PositiveSafeInteger;
-  readonly storyDigest: Digest;
+  readonly stateContractRevision: PositiveSafeInteger;
+  readonly stateContractDigest: Digest;
   readonly engineDigest: Digest;
+  readonly simulationDigest: Digest;
 }
 ```
 
-Story 与 Engine provenance 永远是两个兄弟字段；不得合并为一个 app version/digest。普通 Save load 与 authoritative Debug replay 只比较 `SaveCompatibilityKeyV1 = (story.id, story.revision, story.digest, engine.digest)`；`engine.version` 是 display-only，`appBuildId` 是 diagnostics-only，二者不得进入该 key。比较实现必须保留四个字段的独立错误结果，而不是只比较一个拼接 digest。
+Story、Engine 与 ResolvedStory provenance 永远分开；不得合并为一个 app version/digest。普通 Save load 的阻断键为 `story.id + story.revision + resolved.stateContractRevision + resolved.stateContractDigest + engine.digest + resolved.simulationDigest`。`story.digest` 用于定位未打补丁的 Story 制品；`resolved.presentationDigest` 用于表现复现；`engine.version` 是 display-only；`appBuildId` 是 diagnostics-only。这四项差异都可以提示，但不单独阻止恢复 Snapshot。
 
-`engine.version` 从 Application-owned 的 `src/app/engine-display-version.ts` 注入，归入 Application manifest 而不进入 Engine/Story manifest。仅改变该标签必须保持 `engine.digest` 与 `story.digest` 不变；它可以改变 `appBuildId`。任何把版本标签本身并入 Engine root 的实现都违反本合同，因为它会通过 digest 间接把 display-only 字段变成兼容阻断条件。
+`story.revision` 表示存档/状态合同代际，不是每次内容发布的版本号。只修改 TextCatalog、Asset Pack、React UiSceneGraph 或纯布局时必须保持 revision；这些变化由 story/presentation/app digests 区分。只有状态/稳定引用合同发生有意的粗粒度断代时才递增 revision。
+
+`stateContractRevision` 是该 Story 代际内具体 Snapshot 与可持久 IR Schema 的正整数 revision，用于在解析前选择精确 decoder；`stateContractDigest` 则对该合同的 canonical manifest 做机器校验，防止忘记递增 revision。首版不实现 migrator，因此两者都必须与当前 ResolvedStory 精确相等。任何 State Schema 或可持久稳定引用结构变化都必须递增 `stateContractRevision`，并在不再接受旧存档时同时递增 `story.revision`；公式、数值、文本、素材和纯表现变化不得改变前者。
+
+authoritative simulation replay 要求 `engine.digest + resolved.stateContractRevision/digest + resolved.simulationDigest` 精确匹配，并且 Story ID/revision 相同。精确视觉复现另外要求 `presentationDigest` 与 `appBuildId` 匹配。
+
+普通继续游戏默认要求阻断键完全相等。唯一例外是当前 Loader 取得一份 `PatchSetAdoptionDeclarationV1`，其 Story、stateContractRevision/digest、from/to simulation digests 和 `simulationPatchSetDigest` 与当前 ResolvedStory/旧 Save 逐字段精确匹配，同时 engineDigest 相等且 Snapshot 重新通过 Schema/references/invariants。adoption 建立新 replay anchor，不能用新规则 authoritative replay 旧 CommandLog。
+
+`engine.version` 从 Application-owned build metadata 注入，不进入 Engine/Story/simulation manifest。仅改变该标签必须保持 `engine.digest`、`story.digest`、`simulationDigest` 和 `presentationDigest` 不变；它可以改变 `appBuildId`。玩法 Modules/Profile/Coordinator 进入 `simulationDigest`，不能再进入 `engine.digest`。
 
 ### 9.2 SaveRecord
 
@@ -2919,16 +3521,40 @@ interface SaveSlotMetadataV1 {
   readonly capturedCommandSequence: NonNegativeSafeInteger;
 }
 
-interface SaveRecordV1 {
+interface SimulationAdoptionV1 {
+  readonly fromSimulationDigest: Digest;
+  readonly toSimulationDigest: Digest;
+  readonly viaSimulationPatchSetDigest: Digest;
+  readonly adoptedAtCommandSequence: NonNegativeSafeInteger;
+}
+
+interface SaveRecordEnvelopeV1<
+  TSnapshot,
+  TProvenance,
+  TSlotMetadata,
+  TSimulationLineage,
+> {
   readonly formatRevision: 1;
   readonly recordRevision: PositiveSafeInteger;
-  readonly provenance: BuildProvenanceV1;
-  readonly slot: SaveSlotMetadataV1;
+  readonly provenance: TProvenance;
+  readonly slot: TSlotMetadata;
   readonly savedAt: IsoUtcInstant;
   readonly stateDigest: Digest;
-  readonly snapshot: GameSnapshotV1;
+  readonly snapshot: TSnapshot;
+  readonly simulationLineage: TSimulationLineage;
 }
+
+type SaveRecordV1 = SaveRecordEnvelopeV1<
+  GameSnapshotV1,
+  BuildProvenanceV1,
+  SaveSlotMetadataV1,
+  readonly SimulationAdoptionV1[]
+>;
 ```
+
+`simulationLineage` 保持 adoption 发生顺序：普通新局为 `[]`；exact load 原样保留存档已有 lineage；每次 adoption 追加一项。每项 `toSimulationDigest` 必须等于下一项 `fromSimulationDigest`，最后一项的 `toSimulationDigest` 必须等于当前 provenance 的 `simulationDigest`。首版最多保存 16 项；超过时导出旧历史 DebugBundle 后只保留最近 16 项。
+
+Application Port 对任何权威操作在入队同一 tick 同步设置 busy；busy/fault-pause/HMR-invalidated 时不接受新的 Save capture。Quick/Manual 的 candidate 是调用被接受时的最后 committed Snapshot，不在异步 IDB transaction 开始时重新读取 Session。每次写入提交后必须从 IDB 重新读取并复验 strict envelope、state digest、recordRevision 与 lease/fencing；只有复验通过才返回保存成功。
 
 ### 9.3 CommandLog、故障与 DebugCommand
 
@@ -2994,22 +3620,34 @@ type EngineFaultV1 =
       readonly ruleSlot: null;
     });
 
-type CommandExecutionResultV1 =
+type CommandExecutionResultEnvelopeV1<
+  TSnapshot,
+  TFact,
+  TRejection,
+  TFault,
+> =
   | {
       readonly kind: "committed";
-      readonly snapshot: GameSnapshotV1;
-      readonly facts: readonly DomainFactV1[];
+      readonly snapshot: TSnapshot;
+      readonly facts: readonly TFact[];
     }
   | {
       readonly kind: "rejected";
-      readonly snapshot: GameSnapshotV1;
-      readonly reasons: readonly RejectionReasonV1[];
+      readonly snapshot: TSnapshot;
+      readonly reasons: readonly TRejection[];
     }
   | {
       readonly kind: "faulted";
-      readonly snapshot: GameSnapshotV1;
-      readonly fault: EngineFaultV1;
+      readonly snapshot: TSnapshot;
+      readonly fault: TFault;
     };
+
+type CommandExecutionResultV1 = CommandExecutionResultEnvelopeV1<
+  GameSnapshotV1,
+  DomainFactV1,
+  RejectionReasonV1,
+  EngineFaultV1
+>;
 
 interface CommandExecutionDiagnosticsV1 {
   readonly committedRngBefore: RngStateV1;
@@ -3289,15 +3927,21 @@ interface CommandLogEntryBaseV1 {
   readonly committedRngAfter: RngStateV1;
 }
 
+type CommandLogEntryEnvelopeV1<TLoggedCommand, TOutcome> =
+  CommandLogEntryBaseV1 &
+    TLoggedCommand & {
+      readonly outcome: TOutcome;
+    };
+
 type CommandLogEntryV1 =
-  | (CommandLogEntryBaseV1 &
-      Extract<LoggedCommandV1, { readonly source: "game" }> & {
-        readonly outcome: GameCommandLogOutcomeV1;
-      })
-  | (CommandLogEntryBaseV1 &
-      Extract<LoggedCommandV1, { readonly source: "debug" }> & {
-        readonly outcome: DebugCommandLogOutcomeV1;
-      });
+  | CommandLogEntryEnvelopeV1<
+      Extract<LoggedCommandV1, { readonly source: "game" }>,
+      GameCommandLogOutcomeV1
+    >
+  | CommandLogEntryEnvelopeV1<
+      Extract<LoggedCommandV1, { readonly source: "debug" }>,
+      DebugCommandLogOutcomeV1
+    >;
 
 type DebugFailureCommandV1 =
   | LoggedCommandV1
@@ -3399,24 +4043,47 @@ interface DiagnosticSummaryV1 {
   readonly hmrInvalidated: boolean;
 }
 
-interface DebugBundleV1 {
+interface DebugBundleEnvelopeV1<
+  TProvenance,
+  TSimulationLineage,
+  TSnapshot,
+  TCommandLogEntry,
+  TDiagnostics,
+  TRuntimeFailure,
+  TFailure,
+  TUiContext,
+> {
   readonly formatRevision: 1;
-  readonly provenance: BuildProvenanceV1;
+  readonly provenance: TProvenance;
   readonly appBuildId?: Digest;
+  readonly simulationLineage: TSimulationLineage;
   readonly generatedAt: IsoUtcInstant;
-  readonly replayBase: GameSnapshotV1;
+  readonly replayBase: TSnapshot;
   readonly replayBaseStateDigest: Digest;
-  readonly commandLog: readonly CommandLogEntryV1[];
-  readonly currentSnapshot: GameSnapshotV1;
+  readonly commandLog: readonly TCommandLogEntry[];
+  readonly currentSnapshot: TSnapshot;
   readonly currentStateDigest: Digest;
-  readonly diagnostics: DiagnosticSummaryV1;
-  readonly runtimeFailures: readonly RuntimeOperationFaultV1[];
-  readonly failure?: DebugFailureV1;
-  readonly uiContext?: DebugUiContextV1;
+  readonly diagnostics: TDiagnostics;
+  readonly runtimeFailures: readonly TRuntimeFailure[];
+  readonly failure?: TFailure;
+  readonly uiContext?: TUiContext;
 }
+
+type DebugBundleV1 = DebugBundleEnvelopeV1<
+  BuildProvenanceV1,
+  readonly SimulationAdoptionV1[],
+  GameSnapshotV1,
+  CommandLogEntryV1,
+  DiagnosticSummaryV1,
+  RuntimeOperationFaultV1,
+  DebugFailureV1,
+  DebugUiContextV1
+>;
 ```
 
-State Dump 使用完整 `DebugBundleV1`，不另建弱类型 envelope。所有会改变 Session 权威 Snapshot 的 GameCommand、Save load/import、start/restart、replayable DebugCommand 与 `debug.fixture.load` 共用 EngineSession 的一条 FIFO mutation tail；入队即同步标记 busy，公开 Port 不暴露绕过队列的 setter。DebugCommand 可在入口做 strict Schema 校验，但引用、Aura policy 与当前状态冲突等语义预校验必须等操作到达队首后针对最新 committed Snapshot 执行；`validation_failed` 不打开候选事务、不消费 RNG/sequence、不进入 CommandLog。被接受的 replayable DebugCommand 由 Engine-owned handler 通过同一 owner capabilities 执行，只可能 committed 或 faulted；两种结果都在同一队列项内把同一次 attempt 追加为对应 Debug-source CommandLog entry，committed 更新 Snapshot，faulted 保持旧 Snapshot并另外暂停 Session、生成 failure bundle，不存在 Debug 版 `RejectionReasonV1`。`debug.fixture.load` 只从 Developer-only active-Story resolver 解析；未知/外部 fixtureId 是 `debug.unknown_reference`，不引入不存在的跨 Story fixture-mismatch 状态。合法 fixture 经完整验证后在同一队列项内原子替换 current Snapshot 与 replay base 并清空旧 CommandLog；普通 load/import 与 start/restart 也必须在各自队列项内完成相同 anchor replacement。失败返回 validation/fault result并完整保留旧会话，绝不作为普通 log entry。tail 的内部异常被归一化后必须 settled，不能永久 rejected 而阻断允许的恢复操作。泛型 `DebugCommandOperationResultForV1<C>` 保证 replayable command 只能返回 committed/faulted，anchoring command 只能返回 anchor_established/faulted；两者都可在 admission 前返回 validation_failed，且 `error.commandKind` 必须精确等于该调用 command 的 kind。
+State Dump 使用完整 `DebugBundleV1`，不另建弱类型 envelope。`simulationLineage` 遵守 SaveRecord 的同一链式不变量；adoption 之前的旧 CommandLog 只能作为另行导出的历史证据，当前 bundle 的 `replayBase → commandLog → currentSnapshot` 必须全部属于 provenance 中同一个 resolved simulation digest。
+
+所有会改变 Session 权威 Snapshot 的 GameCommand、Save load/import、lifecycle create/restart、replayable DebugCommand 与 `debug.fixture.load` 共用 EngineSession 的一条 FIFO mutation tail；入队即同步标记 busy，公开 Port 不暴露绕过队列的 setter。DebugCommand 可在入口做 strict Schema 校验，但引用、Aura policy 与当前状态冲突等语义预校验必须等操作到达队首后针对最新 committed Snapshot 执行；`validation_failed` 不打开候选事务、不消费 RNG/sequence、不进入 CommandLog。被接受的 replayable DebugCommand 由 Module/Profile-owned handler 通过同一 owner capabilities 执行，只可能 committed 或 faulted；两种结果都在同一队列项内把同一次 attempt 追加为对应 Debug-source CommandLog entry，committed 更新 Snapshot，faulted 保持旧 Snapshot并另外暂停 Session、生成 failure bundle，不存在 Debug 版 `RejectionReasonV1`。`debug.fixture.load` 只从 Developer-only active-Story resolver 解析；未知/外部 fixtureId 是 `debug.unknown_reference`，不引入不存在的跨 Story fixture-mismatch 状态。合法 fixture 经完整验证后在同一队列项内原子替换 current Snapshot 与 replay base并清空旧 CommandLog；普通 load/import、adoption 与 lifecycle create/restart 也必须在各自队列项内完成相同 anchor replacement。失败返回 validation/fault result并完整保留旧会话，绝不作为普通 log entry。tail 的内部异常被归一化后必须 settled，不能永久 rejected 而阻断允许的恢复操作。泛型 `DebugCommandOperationResultForV1<C>` 保证 replayable command 只能返回 committed/faulted，anchoring command 只能返回 anchor_established/faulted；两者都可在 admission 前返回 validation_failed，且 `error.commandKind` 必须精确等于该调用 command 的 kind。
 
 `failure` 记录一条 Game/replayable-Debug/anchoring-Debug 尝试的 `EngineFaultV1` 与候选证据；Persistence/Asset/UI/async/HMR 故障写入最多 50 条、按发生顺序保存的 `runtimeFailures`，不伪装成 GameCommand。`operation`/`cause`/`message`/`stack` 都是有上限的诊断文本，导出前移除绝对路径；`message`/`stack` 各最多 64 KiB，不参加 authoritative replay 比较。
 
@@ -3514,10 +4181,16 @@ interface CanonicalJsonErrorV1 extends Error {
 
 declare function canonicalJsonBytes(value: unknown): Uint8Array; // throws only CanonicalJsonErrorV1
 type DigestDomainV1 =
-  | "game-harness:story:v1"
-  | "game-harness:engine:v1"
-  | "game-harness:application:v1"
-  | "game-harness:state:v1";
+  | "project-tavern:story:v1"
+  | "project-tavern:engine:v1"
+  | "project-tavern:state-contract:v1"
+  | "project-tavern:simulation:v1"
+  | "project-tavern:presentation:v1"
+  | "project-tavern:hotfix:v1"
+  | "project-tavern:patch-provider:v1"
+  | "project-tavern:patch-set:v1"
+  | "project-tavern:application:v1"
+  | "project-tavern:state:v1";
 declare function digestCanonical(
   domain: DigestDomainV1,
   value: unknown,
@@ -3537,8 +4210,10 @@ type ImportValidationErrorCodeV1 =
   | "digest.state_mismatch"
   | "identity.story_id_mismatch"
   | "identity.story_revision_mismatch"
-  | "identity.story_digest_mismatch"
+  | "identity.state_contract_revision_mismatch"
+  | "identity.state_contract_digest_mismatch"
   | "identity.engine_digest_mismatch"
+  | "identity.simulation_digest_mismatch"
   | "reference.unknown_id"
   | "invariant.failed";
 
@@ -3556,8 +4231,14 @@ type SaveCompatibilityMismatchV1 =
       readonly current: PositiveSafeInteger;
     }
   | {
-      readonly field: "story_digest";
-      readonly code: "identity.story_digest_mismatch";
+      readonly field: "state_contract_revision";
+      readonly code: "identity.state_contract_revision_mismatch";
+      readonly stored: PositiveSafeInteger;
+      readonly current: PositiveSafeInteger;
+    }
+  | {
+      readonly field: "state_contract_digest";
+      readonly code: "identity.state_contract_digest_mismatch";
       readonly stored: Digest;
       readonly current: Digest;
     }
@@ -3566,6 +4247,32 @@ type SaveCompatibilityMismatchV1 =
       readonly code: "identity.engine_digest_mismatch";
       readonly stored: Digest;
       readonly current: Digest;
+    }
+  | {
+      readonly field: "simulation_digest";
+      readonly code: "identity.simulation_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    };
+
+type ImportCompatibilityWarningV1 =
+  | {
+      readonly field: "story_digest";
+      readonly code: "identity.story_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    }
+  | {
+      readonly field: "presentation_digest";
+      readonly code: "identity.presentation_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    }
+  | {
+      readonly field: "hotfix_set";
+      readonly code: "identity.hotfix_set_mismatch";
+      readonly stored: PatchSetIdentityV1;
+      readonly current: PatchSetIdentityV1;
     };
 
 type ImportRejectionCodeV1 =
@@ -3578,51 +4285,68 @@ type ImportRejectionCodeV1 =
   | "invariant.failed";
 
 type ImportCompatibilityOutcomeV1 =
-  | { readonly kind: "exact"; readonly mismatches: readonly [] }
+  | {
+      readonly kind: "exact";
+      readonly mismatches: readonly [];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
+    }
+  | {
+      readonly kind: "adopted";
+      readonly mismatches: readonly [];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
+      readonly adoption: SimulationAdoptionV1;
+    }
   | {
       readonly kind: "inspect_only";
       readonly mismatches: readonly [
         SaveCompatibilityMismatchV1,
         ...SaveCompatibilityMismatchV1[],
       ];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
     }
   | { readonly kind: "rejected"; readonly code: ImportRejectionCodeV1 };
 ```
 
-`inspect_only.mismatches` 非空、field 唯一，并严格按 `story_id → story_revision → story_digest → engine_digest` 排序；一次导入可同时报告多项。所有四元兼容键差异（包括 Story revision）都保留原文件并进入 inspect-only，不是结构拒绝。`engine.version` 与 `appBuildId` 不产生 mismatch。只有 `rejected` 阶段错误阻止候选进入兼容比较。
+`inspect_only.mismatches` 非空、field 唯一，并严格按 `story_id → story_revision → state_contract_revision → state_contract_digest → engine_digest → simulation_digest` 排序；一次导入可同时报告多项。`warnings` 按 `story_digest → presentation_digest → hotfix_set` 排序，field 唯一。
+
+只有 `simulation_digest` 不同、其他阻断字段全部相同，且一份 `PatchSetAdoptionDeclarationV1` 与旧/新摘要、state contract revision/digest 和当前 simulation PatchSet 精确匹配并通过候选 Snapshot 校验，才返回 `adopted`。adoption 在 EngineSession 队首原子建立新 replay anchor、追加 lineage 并清空旧 CommandLog；它不是 authoritative replay。`engine.version` 与 `appBuildId` 不产生 mismatch。只有 `rejected` 阶段错误阻止候选进入兼容比较；inspect-only 原文件保持可导出但不能建立 Player Session。
 
 ## 11. 必须由 Schema + invariants 同时保证的条件
 
 1. `GameSnapshotV1` 是唯一权威容器；Narrative 只在 `state.story.narrative`，workflow 只在 `state.simulation.activeWorkflow`，设施建设/机会决策只在 `state.simulation.facilities`，Tavern 不复制这些状态。
 2. RNG cursor 非零；`rawDrawCount` 和 `commandSequence` 单调不减。每次 `RuleRng.nextInt` 满足 `1 <= exclusiveMax <= 2^32` 且 `0 <= result < exclusiveMax`。成功命令 sequence 恰加 1；拒绝/故障保持原 Snapshot 引用、RNG 和 sequence。
 3. cash、AP、stamina、reputation、teamwork、quantity 不为负；stamina 不超过 maximum；mood 只在 -2..2。
-4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= LoadedStory.manifest.playableDays`。terminal status 的 day/phase 必须等于当前 Story 的 `levyDue`/Ending policy，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Engine ABI 不硬编码七日。
+4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= ResolvedStory.manifest.playableDays`。terminal status 的 day/phase 必须等于当前 Story 的 `levyDue`/Ending policy，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 Demo Module/Profile invariant。
 5. 只有 `calendar.advance_phase` 改变 day/phase；AP 不跨时段结转。不可行动时段与营业日由当前 Story 的 serviceDays、levyDue 和 Event/Condition 数据决定。当前 day/phase 已等于 `levyDue` 时，该命令固定拒绝为 `calendar.phase_blocked { blocker:"levy_due" }`，不能越过终局等待点；D7 普通动作则由 Action visibility/availability 的日界 gate 关闭。
 6. 只有明确作为集合的定义/状态数组按其 stable ID 升序规范化；同类 ID、BatchId、AuraInstanceId、LedgerEntryId、Facility opportunityId、Narrative slot 不重复。authored-order 数组（Confirmation、gates、recommendations、Scene nodes/options/steps）保持 Story 声明顺序；causal/reference 数组（DomainFact、ledger、CommandLog、triggeredEventIds、start/entry/paid-cost ledger IDs、expiredAuraIds、AppliedModifier/components）保持应用/collector 顺序。不得为了“统一排序”把后两类改成字典序；每个具体 Schema 必须声明自己属于哪一类。
 7. Ingredient batch quantity 为正，`acquiredDay <= lastUsableDay`；expiry 可以超过七日 PoC 的 day 7；initial batch 必须使用 `batch:initial:<index>` 与 `source.kind=initial`，事务创建批次必须使用 `batch:<commandSequence>:<lineIndex>` 且不能冒充 initial；FIFO 消耗顺序为 `lastUsableDay, acquiredDay, batchId`。`inventory.grant` 必须创建确定性 batch IDs、按 Story ingredient unitPrice 追加 `story_reward`、cashDelta 0、正 valuationDelta 的 entries，并在 `inventory.ingredient_granted` 中携带 lines/createdBatchIds/entries/reason；不能要求 UI 从 Snapshot diff 猜奖励。
 8. `closed` plan 菜单为空；其他模式为 1..`StoryBalance.menuRecipeLimit` 道、结构上限 16，且 recipe 唯一、portions 为正。menu/mode/day gate、容量与 preparation 结构失败必须拒绝 `tavern.plan.set`；只有结构合法且 mode 可用、但因当前 cash/stamina/ingredients 等可恢复开店资源不足而 `previewTavernPlan.allowed=false` 的草案可在白天保存，UI 必须显示其短缺/风险。service plan 进入晚上后被冻结。营业日进入晚上时，已主动提交的 closed plan 直接把该晚标记为已解决、不受惩罚，并使用 `plannedClosureReasonId` 追加 planned closure history/fact；若 plan 仍为 null，同一次 `calendar.advance_phase` 设置 closed plan、应用 `emergencyClosure.reputationPenalty`、追加 emergency closure history/fact 并标记已解决。若进入 evening 后仍持有 non-closed plan，却尚未成功 StartOpening 且没有 active workflow，玩家再次 `calendar.advance_phase` 表示接受紧急收店：该命令在同一事务把 plan 改为 closed、应用同一 emergency penalty/history/fact，然后继续正常日终；不能留下不可推进的存档。若 OpeningSession 已 active，仍以 `calendar.phase_blocked { blocker:"opening" }` 拒绝，必须先 Finalize。`serviceHistory` 按 day 严格递增；每个已经解决的营业日恰有一项，opening 项引用已完成的 OpeningLedger，closure kind 与对应 DomainFact 一致。OpeningLedger 的 AP/双方 stamina before-after 必须精确等于 StartOpening 已提交的服务成本，closure reputation 则精确记录 planned 零变化或 emergency penalty。每个 facility opportunityId 只允许一个 decision；build 目标必须在该 opportunity 的 facilityIds 内。
 9. 同时最多一个 workflow。`tavern.opening.start` 只在 evening 可提交，其他时段返回 `calendar.invalid_phase { allowed:["evening"] }`；eveningResolved 已为 true 时（包括 Finalize、planned closed、emergency closed）优先返回 `tavern.evening_resolved`，active Opening 则返回 `tavern.opening_active`。Opening 的 `blockingEvent` 非空时 Narrative 必须 active 且不能 continue/finalize。该 Event Scene 的 end 由 `narrative.advance` 提交时，必须在同一事务把 Narrative 置为 completed、把 `blockingEvent` 清为 null，同时保留 checkpoint 与 triggeredEventIds；这个可保存间隙尚未推进 Opening。随后只有 `tavern.opening.continue` 可以消费 completed Narrative、推进 checkpoint，并按 Scheduler 结果建立下一 blockingEvent 或进入 `ready_to_finalize`。Finalize 只接受 `ready_to_finalize`。
-10. OpeningBaseline 不包含 GameSnapshot、StoryPackage、函数或未受控 JSON；开始成本只在 Start 提交一次。`preparationActionCount` 必须等于当日 Start 时的 Tavern preparation、位于 0..dailyPreparationLimit，并原样复制到 OpeningLedger。AP/双方 stamina before-after、cash Start 前后与 reputation Start 前值同时冻结；OpeningActorInputs 已冻结 relationship/teamwork 与 heroine mood。Finalize 的 OpeningLedger 必须以这些值为整个营业事务的 before，并原样复制 AP/stamina，不从可能经历 Narrative/Save 的当前状态重建；`appliedModifiers` 按 collector stable order 精确保存实际参与结算的 baseline/session Modifier 及 contribution/reason，即使来源 Aura 同次过期也可解释。Opening/WorldAction/历史记录只引用 `InventoryState.ledger` 中存在的 entryId，不复制第二份 LedgerEntry。
+10. OpeningBaseline 不包含 GameSnapshot、GamePackage/Story data、函数或未受控 JSON；开始成本只在 Start 提交一次。`preparationActionCount` 必须等于当日 Start 时的 Tavern preparation、位于 0..dailyPreparationLimit，并原样复制到 OpeningLedger。AP/双方 stamina before-after、cash Start 前后与 reputation Start 前值同时冻结；OpeningActorInputs 已冻结 relationship/teamwork 与 heroine mood。Finalize 的 OpeningLedger 必须以这些值为整个营业事务的 before，并原样复制 AP/stamina，不从可能经历 Narrative/Save 的当前状态重建；`appliedModifiers` 按 collector stable order 精确保存实际参与结算的 baseline/session Modifier 及 contribution/reason，即使来源 Aura 同次过期也可解释。Opening/WorldAction/历史记录只引用 `InventoryState.ledger` 中存在的 entryId，不复制第二份 LedgerEntry。
 11. v1 每个 WorldAction 恰好两个按声明顺序且位于紧邻时段的 step，optionId 在该 action 内唯一。Session progress 只能按 `begin_scene → awaiting_completion_phase → completion_scene → ready_to_complete` 前进；两个 scene 阶段都必须有 active `NarrativeSource.kind="world_action"` 且 actionId 相同，两个 awaiting/ready 阶段 Narrative 不 active。Begin 原子校验 availability、互斥 Effect、基础+选项费用和体力，扣除第一 step AP，应用 beginEffects，再写 Session 并启动 begin scene；AdvancePhase 只在 awaiting 阶段进入 completion phase 并启动 completion scene；Complete 只在 ready 阶段扣第二 step AP、使用冻结 preparationBonus 结算并清空 workflow，不再扣现金或体力、也不启动第三段 Narrative。任一冲突全部回滚。
 12. Fact/Quest/Outcome ID 和值必须匹配当前 StoryStateDefinitions；resolvedChecks 按 `resolvedAtSequence` 升序、CheckId 唯一且 sequence 不超过 Snapshot sequence。每条 actor/band/modifier 引用合法，`totalBonus = attributeBonus + preparationBonus + sum(modifier.contribution)`，`total = dice[0] + dice[1] + totalBonus`；对应 band 必须覆盖 total。Narrative cursor/call frame/choice/jump/cue 引用必须存在且可达。Narrative `idle` 时 source/cursor 均为 null；`active` 时均非 null；`completed` 时 source 非 null、cursor 为 null、callStack 为空。Opening blockingEvent 的 eventId 必须等于 active Narrative event source。`enableWhen` 非空的 NarrativeChoice 必须存在 `disabledReasonId`，为空时必须省略该字段。
 13. Aura target、duration 与 definition 相容；同一 `(auraId,target)` 最多一个实例，重复 apply 拒绝为 `aura.already_present`，不自动叠层或刷新；`story_event`、`story_action`、`facility` 与 `world_action` source 必须引用当前 Story 对应 kind 中存在的稳定 ID。initial Aura 使用 `aura:initial:<index>`、`source.kind=initial` 和 `appliedAtSequence=0`，事务创建 Aura 使用 sequence 形式且 sequence 为正；`until_cleared` 表示仍在持续且可由显式命令/Story Event 解除，不表示永久不可撤销事实。倒计时只在成功提交的对应边界恰减一次：`phase_end` 在离开当前 phase 的直接边界效果完成后、进入新 phase Event 前扣；`day_end` 在旧日领域结算完成后、夜间恢复 collector 前扣；`night_recovery` 必须先以仍 active 的 Aura 参与本次 recovery collector/结算，再扣次数，因此 strain 会削减这一次恢复而不会提前消失。`opening` definition 必须至少含一个可由 Opening collector 选择的 Modifier；只有成功 `tavern.opening.finalize` 且 `OpeningBaseline.modifiers` 含该 auraId 来源时 remaining 才恰减 1，多个适用 Modifier 也只减一次。Start、Continue、主动/紧急 closed、模式不匹配、拒绝或故障均不扣 opening 次数。任一 unit 减到 0 都在同一事务发出 `aura.expired` DomainFact 并移除；整个外层命令回滚时不扣次数、不产生该 Fact。
 14. Modifier/EffectIntent 的 ID、目标、整数范围和生命周期合法；每个 Modifier、Aura definition、ActionCost、LifePolicy night recovery、ServiceMode、WorldAction、Facility skip、planned/emergency closure 与 heroine night recovery 的 ReasonId 都必须存在于 StoryContent，并由产生对应变化的 handler 原样写入 ChangeReason。Stamina 变化的 components 非空、按 base 后 Modifier stable order 保存 requestedDelta/reason，但应用策略由 handler 类型冻结：成本/支付及负向 Effect 必须先验证 `before + sum >= 0`，不足就以 `actor.insufficient_stamina` 拒绝，绝不能下界 clamp 后继续成功；恢复 resolution 允许 recovery modifier 为负，先计算 `effectiveRecovery = max(0, sum(requestedDelta))`，再只做一次 `min(before + effectiveRecovery, maximum)`，因此 strain 只能削减恢复而不会反向造成伤害，同时保留 base/bed/Aura 原因且不受应用顺序影响；`debug.actor.set_stamina` 是绝对值写入，只接受 `0..maximum`。所有成功路径都不得超过 maximum。`obligationForecast.visibleFrom <= conservativeFrom <= levyDue` 按 day/phase 全序成立且均不超过 playableDays。跨领域 Effect 全部验证后才按拥有者原子应用。
 15. StoryRule 输入是与 Snapshot 不共享可变引用的 plain-data projection；输出不得是 thenable，必须通过对应 strict Schema，且不能包含未声明 Effect。Demand resolve 只在 `run.start` 消费 RNG 并返回 base-line 对应的 offsets；Demand preview 没有 RNG capability，只用目标日 seeds、该日开始时的 reputation、Fact projection 与受控 modifiers，返回包含 actual 的确定 projection，且 preview range 必须包含 actual。`run.start` 物化 D1；之后 `calendar.advance_phase` 进入每个 service-day morning 时，在任何新日 Scheduler context 前物化并冻结当日 currentDemand，直到次日不再随当天 reputation/Fact 变化；每次物化恰追加一个包含同值的 `demand.materialized` DomainFact，非 service day 清为 null 时不追加。因此 D1 营业人气影响 D2，D5 调查 Fact/人气影响 D6而不反改 D5。Query 隐藏 currentDemand.actual，StartOpening 原样复制完整 materialized demand 到 baseline，不重新调用规则。属性段位映射固定为 `C=0, B=1, A=2, S=3, S+=4`；2D6 每枚必须在 1..6。每个 CheckDefinition 的 CheckBandId 唯一、整数区间连续无重叠，CheckBranch 与 CheckResult 只引用这些 band；成功解析在同一命令把不含 effects 的 ResolvedCheckV1 追加到 Snapshot，再原子应用 band effects，因此读档不重掷也不重放 effects。band effects 才负责把对应 `OutcomeEntryV1` 设为封闭 StoryToken，CheckBandId 不冒充 OutcomeId。EndingResult 的 status 构成酒馆维度，summary.relationship/investigation 必须引用并等于 effects 应用后的两个 Snapshot Outcome entry；成功税负结算由 Run owner 把同一 LevyResolution 与 EndingResult 物化为 RunCompletionV1 后再结束命令，重载后不得重新 evaluate；不要第三个伪造的 tavern OutcomeId。
-16. 每个 `ChangeReasonV1.reasonId` 必须存在于 StoryContent，并等于产生该变化的命令/Effect/结算 reason；`story_action`、`world_action`、event、Aura、facility 与 ending provenance 还必须引用当前 Story 对应 kind 中存在的稳定 ID，不能把 Story 变化退化成无来源的 `narrative.choose`。`InventoryState.ledger` 是所有现金与估值原因的唯一权威历史，`cash = startingCash + sum(ledger.cashDelta)`。任何命令、Effect 或 settlement 改变 cash 时，同一事务必须追加恰好对应的 ledger entries，新增 `cashDelta` 之和等于 cash before→after。`ledger.append` 是 Story Effect 唯一的直接现金/估值变化意图：Engine 校验其 category/reason/subject/delta 后同时追加账本并改变 cash，不存在需要二次配对的 `cash.adjust`；`inventory.grant` 的受控批次创建按第 7 条由 Engine 自动物化唯一 story-reward valuation entries。Opening Start 的原料 consume 是库存到 `OpeningBaseline.preparedPortions` 的内部数量转移，只发 `inventory.consumed` 并保留 batch slices，不改变总估值；Finalize 的 revenue entries 对售出成品扣除相应原料估值，discarded-food entries 对未售成品扣除估值，二者之和必须精确覆盖 baseline 已消费原料成本。Engine 自主产生的采购、工资、开店杂费、收入、报废、腐败、设施、WorldAction 与税负账本必须使用 `StoryBalance.ledgerReasons` 对应字段，且这些 ReasonId 必须存在于 StoryContent。腐败/报废使用 `cashDelta=0` 和非零 `valuationDelta`，不会伪造现金支出。`debug.inventory.adjust_cash` 必须追加 `category="debug_adjustment"`、`subject.kind="debug"` 的账本行；调试 UI 若要设定目标现金，先用当前 cash 计算 delta，仍不可重置 startingCash 或绕过账本。
-17. `BuildProvenanceV1.story` 与 `.engine` 分开保存；兼容键只包含 `story.id/revision/digest + engine.digest`，`engine.version` 与 `appBuildId` 不参与。state digest 只覆盖完整 GameSnapshot，不覆盖 provenance、slot、时间、CommandLog、runtimeFailures 或 UI。
-18. Save/Debug 导入顺序固定为 bytes → Strict JSON → envelope Schema → state digest → identity → stable references → invariants；失败不得写 IDB 或替换 Session。Save 必须满足 `slot.storyId === provenance.story.id`、`slot.capturedCommandSequence === snapshot.commandSequence` 且 `stateDigest === digest(snapshot)`，并且四元 `SaveCompatibilityKeyV1` 逐字段匹配当前构建后才可建立可运行 Session。DebugBundle 必须满足两个显式 digest 分别等于 replayBase/currentSnapshot 的 state digest；空 CommandLog 仍执行这两次检查。compatibility key 不匹配的 DebugBundle 只能在 Developer flavor 中明确标记为 best-effort inspect/replay，不能写 Save Slot。
+16. 每个 `ChangeReasonV1.reasonId` 必须存在于 StoryContent，并等于产生该变化的命令/Effect/结算 reason；`story_action`、`world_action`、event、Aura、facility 与 ending provenance 还必须引用当前 Story 对应 kind 中存在的稳定 ID，不能把 Story 变化退化成无来源的 `narrative.choose`。`InventoryState.ledger` 是所有现金与估值原因的唯一权威历史，`cash = startingCash + sum(ledger.cashDelta)`。任何命令、Effect 或 settlement 改变 cash 时，同一事务必须追加恰好对应的 ledger entries，新增 `cashDelta` 之和等于 cash before→after。`ledger.append` 是 Story Effect 唯一的直接现金/估值变化意图：Inventory Module 校验其 category/reason/subject/delta 后同时追加账本并改变 cash，不存在需要二次配对的 `cash.adjust`；`inventory.grant` 的受控批次创建按第 7 条由 Inventory Module 物化唯一 story-reward valuation entries。Opening Start 的原料 consume 是库存到 `OpeningBaseline.preparedPortions` 的内部数量转移，只发 `inventory.consumed` 并保留 batch slices，不改变总估值；Finalize 的 revenue entries 对售出成品扣除相应原料估值，discarded-food entries 对未售成品扣除估值，二者之和必须精确覆盖 baseline 已消费原料成本。Modules/Profile 产生的采购、工资、开店杂费、收入、报废、腐败、设施、WorldAction 与税负账本必须使用 `StoryBalance.ledgerReasons` 对应字段，且这些 ReasonId 必须存在于 StoryContent。腐败/报废使用 `cashDelta=0` 和非零 `valuationDelta`，不会伪造现金支出。`debug.inventory.adjust_cash` 必须追加 `category="debug_adjustment"`、`subject.kind="debug"` 的账本行；调试 UI 若要设定目标现金，先用当前 cash 计算 delta，仍不可重置 startingCash 或绕过账本。
+17. `BuildProvenanceV1.story`、`.engine` 与 `.resolved` 分开保存。普通兼容键包含 `story.id/revision + stateContractRevision/digest + engine.digest + simulationDigest`；`story.digest`、`presentationDigest`、`engine.version` 与 `appBuildId` 不单独阻断恢复。state digest 只覆盖完整 GameSnapshot，不覆盖 provenance、slot、时间、lineage、CommandLog、runtimeFailures 或 UI。玩法 Module/Profile/Coordinator 属于 simulation root，不能污染 engine root。
+18. Save/Debug 导入顺序固定为 bytes → Strict JSON → envelope Schema → state digest → identity/compatibility → stable references → invariants；失败不得写 IDB 或替换 Session。Save 必须满足 `slot.storyId === provenance.story.id`、`slot.capturedCommandSequence === snapshot.commandSequence`、`stateDigest === digest(snapshot)` 和 lineage 链式不变量。阻断键精确相等时返回 exact；只有 simulation digest 一项不同且满足精确 PatchSet adoption declaration 时返回 adopted，并建立新 anchor/清空旧日志；其余阻断差异只能 inspect-only。DebugBundle 必须满足两个显式 digest 分别等于 replayBase/currentSnapshot 的 state digest；空 CommandLog 仍执行这两次检查。authoritative simulation replay 要求 engine/state-contract revision/state-contract digest/simulation 四项精确匹配；presentation 差异只取消“精确视觉复现”资格。inspect-only 数据不能写 Save Slot。
 19. CommandLog 上限 200；裁剪时 replayBase 前移到保留首条命令之前。authoritative replay 比较 outcome 判别、稳定 code/slot、DomainFact/账本顺序、state digest 和 attempted draws，并最终要求 replay 结果等于 `currentStateDigest`。
 20. DebugCommand 预校验失败不进入候选事务或 CommandLog；进入事务的 replayable command 只可能 committed/faulted，且两种 attempt 都进入对应 Debug-source CommandLog entry，faulted 另外暂停 Session并写 failure。Debug-source entry 不允许 rejected outcome。Anchoring DebugCommand 不伪装为普通 CommandLog 命令；Player flavor 不导出或接受 DebugCommand。
 21. 所有 strict Schema 拒绝 unknown keys；所有 JSON 字符串还受 256 KiB 限制，诊断 message/stack 受更小的 64 KiB 限制。`runtimeFailures` 最多 50 条并保持发生顺序，operation/name/cause message 各最多 4 KiB；`uiContext.overlayIds` 最多 16 项且只能使用封闭 ID。导出前移除 message/stack/cause 中的本机绝对路径。
 22. 所有 Narrative/Stage CharacterId 必须存在于 `StoryContent.characters`；可选 actorId 只用于把角色投影连接到领域 Actor，老人、战友和镇民不需要 Actor state。
-23. 每个 Narrative/Stage/Story 引用的 AssetId 必须在 `StoryAssetManifest.assets`；safeArea 在像素边界内，pivot 两个 Ratio 的 numerator 不超过 denominator；fallback 与 runtime image 都满足相同尺寸/锚点合同。
-24. 每个 visibility/availability gate 的 conditions 非空，reasonId 必须存在 StoryContent；所有 visibility gates 通过才出现在 `getAvailableActions`，随后所有 availability gates 通过才可用；每个失败 gate 按声明顺序产生带该 reasonId 的类型化 Rejection。`tavern.helper_tier_at_least` 在 helper 未解锁时恒为 false。解析到 Action presentation 的命令先共用同一 availablePhases guard，再评估 authored gates；occupiedPhases 只用于展示承诺，绝不充当提交窗口。`actor.prepare_food` 还必须共用 Engine-owned daily limit guard，达到上限时 query/preview/execute 都返回 `tavern.preparation_limit_reached { current, limit }`。Action/Facility/ServiceMode/WorldAction 的 `getAvailableActions`、`explainAvailability`、`previewCommand` 与 execute 不得各写一套判断。
+23. 每个 Narrative/Stage/Story 引用的 AssetId 必须在 `ResolvedAssetManifestV1.assets`；safeArea 在像素边界内，pivot 两个 Ratio 的 numerator 不超过 denominator；fallback 与 runtime image 都满足相同尺寸/锚点合同，runtime image 还必须携带可用 fallbackToken。
+24. 每个 visibility/availability gate 的 conditions 非空，reasonId 必须存在 StoryContent；所有 visibility gates 通过才出现在 `getAvailableActions`，随后所有 availability gates 通过才可用；每个失败 gate 按声明顺序产生带该 reasonId 的类型化 Rejection。`tavern.helper_tier_at_least` 在 helper 未解锁时恒为 false。解析到 Action presentation 的命令先共用同一 availablePhases guard，再评估 authored gates；occupiedPhases 只用于展示承诺，绝不充当提交窗口。`actor.prepare_food` 还必须共用 Tavern Module-owned daily limit guard，达到上限时 query/preview/execute 都返回 `tavern.preparation_limit_reached { current, limit }`。Action/Facility/ServiceMode/WorldAction 的 `getAvailableActions`、`explainAvailability`、`previewCommand` 与 execute 不得各写一套判断。
 25. ConfirmationMetadata 的三个数组按 stable ID 唯一且保持 Story 声明顺序，TextId/ActionId 必须存在，互斥不得引用自身；跨 contributing sources 也不得重复。Action presentation 的 player/system 映射数必须严格满足 §7.2 后的封闭分类；CommandPreview 按规定的 source/merge 顺序覆盖 Action、ServiceMode、Facility opportunity + build/skip、WorldAction option 与 Narrative choice。对应玩家决策的 confirmation 非 null，system/workflow controls 为 null。成本、时段和可推导变化来自同一 preview/execute 计算器。ActionView `directCommand` 非 null 时 UI 可直接预览/提交该精确命令；为 null 时必须先通过强类型 Overlay 收集参数，不得按 commandKind 猜 payload。
 26. Scheduler 严格使用 §7.2 的外层 context 全序、单-context evaluation Snapshot、先选全再应用、跨-context 顺序可见语义；`story.explicit` 只允许 effects，`week.ended` 以及 trigger commandKinds 含 `levy.pay` 的 `command.succeeded` Event 还进一步要求 sceneId=null 且只允许 `fact.set | quest.set`。两个 Scheduler scene 以 `scheduler.multiple_blocking_events` 故障；Scheduler scene 与 active/base-command Narrative request 冲突以 `narrative.blocking_conflict` 故障。两者都必须回滚 effects、RNG、workflow、cursor、DomainFacts 和 sequence；唯一请求只能在全部 Schema/invariants 通过后建立 Narrative 与可选 Opening blockingEvent。
 27. `StoryContent.storyActions` 的 actionId 必须是 `action.*`、在本表内唯一，且恰好对应一个 `ActionPresentationDefinitionV1.commandKind="story.action.start"`；`StoryEventDefinition.eventId` 必须是 `event.*`，玩家行动不得保留 `event.*` 兼容别名。该 ActionView 的 `directCommand` 必须精确为 `{ kind: "story.action.start", actionId }`。命令只能在 availability gates 全部通过且 Narrative 不 active 时执行：先原子验证/应用 startEffects，再在 sceneId 非 null 时建立 `NarrativeSource.kind="story_action"`，最后发出 `story.action_started`；任一步失败不提交。玩家不发出该命令时 Story 不得自动修改关系 Outcome，因此“完全不参与女主支线”是合法路径。
-28. `ModifierSourceRefV1.kind="story"` 的 sourceId 必须存在于 `StoryContent.modifierSources`，且只用于规则/Story 级派生贡献；其他 source variant 不仅要引用现有 ID，还必须与拥有该 Modifier/Effect 的实际 owner 相等：FacilityDefinition modifier=同 facility，AuraDefinition modifier=同 aura，Event/session modifier=触发它的 event。`aura.apply.source`、`inventory.grant.source` 及 story-cost/reward ledger subject 也必须与当前 Event/StoryAction/WorldAction/Facility 或 active Narrative source 精确一致；Engine 从事务 owner 派生 ChangeReason 并验证 authored source，不能接受“存在但冒充另一个 owner”的 ID。Demand、Opening、Check 与恢复等 rule/collector 不得临时创造无法解析的 modifier source。`facility.choice_committed` 的 build reason 来自 `facility.choose.build` ActionCost，skip reason 来自 opportunity.skipReasonId；`food.prepared` 使用 prepare ActionCost reason，`tavern.plan_set` 使用所选 ServiceMode reason。
+28. `ModifierSourceRefV1.kind="story"` 的 sourceId 必须存在于 `StoryContent.modifierSources`，且只用于规则/Story 级派生贡献；其他 source variant 不仅要引用现有 ID，还必须与拥有该 Modifier/Effect 的实际 owner 相等：FacilityDefinition modifier=同 facility，AuraDefinition modifier=同 aura，Event/session modifier=触发它的 event。`aura.apply.source`、`inventory.grant.source` 及 story-cost/reward ledger subject 也必须与当前 Event/StoryAction/WorldAction/Facility 或 active Narrative source 精确一致；Profile 中对应事务 owner 派生 ChangeReason 并验证 authored source，不能接受“存在但冒充另一个 owner”的 ID。Demand、Opening、Check 与恢复等 rule/collector 不得临时创造无法解析的 modifier source。`facility.choice_committed` 的 build reason 来自 `facility.choose.build` ActionCost，skip reason 来自 opportunity.skipReasonId；`food.prepared` 使用 prepare ActionCost reason，`tavern.plan_set` 使用所选 ServiceMode reason。
 29. 每个 `IntegerRangeV1` 都满足 `min <= max`；数量/客流/销量范围还必须满足 `min >= 0`。Story integer definition 的 defaultValue 必须落在其 range 内；Demand actual 必须落在 preview range，Tavern actual sales 必须落在对应 expectedSales range，Obligation 的 lower/upper 也不得倒置。Obligation policy 的 reason/text/action 引用必须存在，recommendation appliesTo 非空、唯一且按 Forecast kind 顺序规范化。
 30. Aura countdown policy 满足 `defaultRemaining <= maximumRemaining`。initial 与普通 authored `aura.apply` 必须使用 definition 的 kind/unit/defaultRemaining；`debug.aura.apply` 可以在同一 countdown unit 内选择 `1..maximumRemaining`，但不能换 unit，until-cleared definition 也只能创建 until-cleared instance。持久实例的 kind/unit 必须匹配 definition，remaining 不超过 maximum；因此 PoC 的 angry/sign/strain 生命周期不会被合法但错误的 Effect payload 改写。
 31. Aura allowedTargets 按 `kind`、actorId 规范化且深值唯一，instance target 必须精确命中一项，不能只因同为 actor 就把 heroine Aura 加给 player。所有 collector 的适用 Modifier 使用同一全序：base component（若有）最先；随后 source-kind 为 `story < facility < aura < event`。story 以 sourceId、rule-output index 排序；facility 以 facilityId、definition index 排序；aura 以 appliedAtSequence、instanceId、definition index 排序；event/session 以 triggeredEventIds 的既有因果次序、append index 排序。筛选不改变相对顺序；AppliedModifier、OpeningBaseline、OpeningLedger、Demand explanation 与 stamina components 都保留该序，不能按 target/kind/数值重新排序。
+32. 每个 ResolvedStory 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；Profile 的 State/Command/Fact/Rejection/DebugCommand schemas、Coordinator、queries 和 ViewModel projection 必须来自同一组合。Base generic contract tests 使用 synthetic GamePackage，不能以 Demo 联合类型代替泛型边界。
+33. Simulation facet 只能依赖 Base、Module core 和自身 simulation sources；Presentation facet 可以消费只读 ViewModel/Player Port，但 Profile/Coordinator 不得导入 Presentation facet。Narrative 稳定 scene/node/cursor、conditions/checks/commands/effects 同时进入 state-contract/simulation manifests；TextCatalog、UiSceneGraph renderer、视觉 cue、CSS 和 Asset providers 进入 presentation manifest。
+34. Simulation Patch Registry 只接受 `rule | value`，Presentation Registry 只接受 `value | text | asset`；slot surface 不能由 Hotfix 改写。Provider/Hotfix/PatchSet digest 必须使用 §7.3 和 §10 的冻结算法；安装完成立即撤销写权限。TextCatalog default 完整、Locale/fallback 无环且最终到达 default。Asset slot definition 不可被 provider 覆盖；packs 后才应用 asset Hotfix，sealed slot 不暴露 patch slot；Resolved assets 与 slots 一一对应。
+35. PatchSet adoption declaration 必须精确匹配 Story ID/revision、stateContractRevision/digest、from/to simulation digests 和当前 simulationPatchSetDigest；不得由其中任一 Hotfix 泛化授权，纯 presentation PatchSet 差异不阻断。新局 lineage 为空，exact load 保留，adoption 只追加；当前 DebugBundle 的 replay base/log/current Snapshot 始终属于同一 simulation digest。
 
 任何新字段、kind/code、Rule slot、StoryValue variant、workflow variant 或 relaxed JSON escape hatch 都是 ABI 变更：先更新本文、contractRevision 策略与契约测试，再修改实现。

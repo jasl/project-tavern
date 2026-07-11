@@ -196,7 +196,7 @@ reason.debug.narrative_jump
 reason.debug.rng_override
 ```
 
-这些 ID 一旦进入存档 fixture 不得重新赋予其他语义。`StorySourceIdentityV1` 固定为 `{ id: "week.poc_001", revision: 1 }`；`tavern-poc` 只是目录与 CLI/build key，不是 Save/Debug 中的 StoryId。上表同时收拢了散落在数值文档中的 Ingredient/Recipe/Facility/Aura spelling；对应数值仍以 `balance-v0.md` 为准，不能再创建第二套别名。
+这些 ID 一旦进入存档 fixture 不得重新赋予其他语义。`StorySourceIdentityV1` 固定为 `{ id: "week.poc_001", revision: 1 }`；`demo`/`@project-tavern/story-demo` 只是目录与 package/build key，不是 Save/Debug 中的 StoryId。上表同时收拢了散落在数值文档中的 Ingredient/Recipe/Facility/Aura spelling；对应数值仍以 `balance-v0.md` 为准，不能再创建第二套别名。
 
 `event.*` 只用于实际参与 Scheduler 的 `StoryEventDefinitionV1`；玩家主动调用的 StoryAction、Facility opportunity 与 WorldAction 一律使用 `action.*`，不得为了复用名称而造一个无效果的伪 Event。D4 的 `event.facility_window` 只负责在进入窗口时通知并开放机会，提交建造/跳过时 `facility.choose.opportunityId` 必须是 `action.facility_window`。
 
@@ -224,12 +224,12 @@ Action presentation 与公开 command 的对应关系冻结如下；“提交窗
 `reason.unavailable.service_mode_locked`，helper gate 使用 `reason.unavailable.helper_locked`；helper 未解锁时 tier 条件恒为 false。
 D4 Facility Event 与 action availability 都使用
 `tavern.facility_opportunity_undecided(action.facility_window)`，失败 reason 为
-`reason.unavailable.facility_decided`。备菜每日次数上限由 Engine-owned guard 读取 `dailyPreparationLimit`，达到上限时
-query/preview/execute 都返回带 `{ current, limit }` 的 `tavern.preparation_limit_reached`；这是 Engine rejection code 的
+`reason.unavailable.facility_decided`。备菜每日次数上限由 Tavern Module-owned guard 读取 `dailyPreparationLimit`，达到上限时
+query/preview/execute 都返回带 `{ current, limit }` 的 `tavern.preparation_limit_reached`；这是 Module rejection code 的
 直接本地化，不伪造 authored ReasonId，也不能只在按钮上隐藏。
 通用采购、备菜、休息与营业计划 Action 还都带 `calendar.day_at_most(D6)` gate，失败使用
 `reason.unavailable.story_window_closed`，因此 D7 只保留推进到下午、缴税与 workflow controls；D7 afternoon 的
-`calendar.advance_phase` 由 Engine 在 `levyDue` 以 `calendar.phase_blocked { blocker:"levy_due" }` 拒绝。
+`calendar.advance_phase` 由 Demo Profile/Calendar Module 在 `levyDue` 以 `calendar.phase_blocked { blocker:"levy_due" }` 拒绝。
 D2 的智力选项使用 `reason.unavailable.intellect_b_required` 作为必填 disabledReasonId，即使 reference 初始属性已经满足。
 Action visibility 同步收束焦点：选择生活方针使用 reason `reason.unavailable.policy_not_ready` 的 authored conditions，
 仅在 `run.started + run.status=setup + narrative.not_active` 时可见，
@@ -243,7 +243,7 @@ run/Narrative lifecycle guard 优先，因此直接提交 policy 的结果依次
 
 | Action                            | visibility gates（顺序）                                                                           | availability gates（顺序）                         |
 | --------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `action.facility_window`          | D4 morning/afternoon → `story_window_closed`；opportunity undecided → `facility_decided`           | 无 authored gate；资源用 Engine rejection          |
+| `action.facility_window`          | D4 morning/afternoon → `story_window_closed`；opportunity undecided → `facility_decided`           | 无 authored gate；资源用 Module rejection          |
 | `action.repair_sign_with_heroine` | D5 afternoon → `story_window_closed`；relationship outcome pending → `relationship_resolved`       | investigation not attempted → `mutually_exclusive` |
 | `action.old_trade_road`           | D5 morning → `story_window_closed`；investigation outcome not attempted → `investigation_resolved` | relationship pending → `mutually_exclusive`        |
 | `action.apologize_to_heroine`     | D6 morning/afternoon → `story_window_closed`；heroine angry present → `heroine_not_angry`          | 无                                                 |
@@ -358,7 +358,7 @@ Story 状态定义同样是封闭的：三个 Fact 都是默认 `false` 的 bool
 4. 事件与选择使用 VN Layer；
 5. 左右开发者侧栏只在 Developer flavor 中由 Bug 按钮呼出，不承载玩家必需信息。
 
-营业结算使用舞台内的逐层账本 Overlay。完整布局、触摸和平板契约以 Harness 规格为准。
+营业结算使用舞台内的逐层账本 Overlay。完整布局、触摸和平板契约以运行时与 Story 架构规格为准。
 
 ## 5. 六个策略验收画像
 
