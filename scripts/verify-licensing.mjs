@@ -880,9 +880,14 @@ export async function verifyLicensing(root, options = {}) {
       }
       continue;
     }
+    const provenanceTermsAllowedUses = Array.isArray(
+      provenance?.termsReview?.allowedUses,
+    )
+      ? provenance.termsReview.allowedUses
+      : [];
     if (
       provenance?.termsReview?.aigcInputAllowed === true ||
-      provenance?.termsReview?.allowedUses?.some?.((use) =>
+      provenanceTermsAllowedUses.some((use) =>
         ["generation_input", "image_edit_input"].includes(use),
       )
     ) {
@@ -1059,11 +1064,25 @@ export async function verifyLicensing(root, options = {}) {
       continue;
     }
     provenanceRecord.serviceTermsReview = serviceTermsReview;
+    const serviceAllowedUses = Array.isArray(serviceTermsReview?.allowedUses)
+      ? serviceTermsReview.allowedUses
+      : [];
+    const attestedAuthorizedUses = Array.isArray(
+      serviceTermsReview?.rightsHolderAttestation?.authorizedUses,
+    )
+      ? serviceTermsReview.rightsHolderAttestation.authorizedUses
+      : [];
+    const serviceRestrictions = Array.isArray(serviceTermsReview?.restrictions)
+      ? serviceTermsReview.restrictions
+      : [];
+    const coveredOutputs = Array.isArray(serviceTermsReview?.coveredOutputs)
+      ? serviceTermsReview.coveredOutputs
+      : [];
 
     if (
       serviceTermsReview?.aigcInputUse !==
         "requires_independent_input_use_review" ||
-      serviceTermsReview?.allowedUses?.some?.((use) =>
+      serviceAllowedUses.some((use) =>
         ["generation_input", "image_edit_input"].includes(use),
       )
     ) {
@@ -1113,9 +1132,6 @@ export async function verifyLicensing(root, options = {}) {
     ) {
       errors.push(`${reviewPath}: required OpenAI agreement evidence is incomplete`);
     }
-    const coveredOutputs = Array.isArray(serviceTermsReview?.coveredOutputs)
-      ? serviceTermsReview.coveredOutputs
-      : [];
     for (const coveredOutput of coveredOutputs) {
       if (!hasValidAgreementEvidenceChronology(serviceTermsReview, coveredOutput)) {
         errors.push(
@@ -1124,10 +1140,10 @@ export async function verifyLicensing(root, options = {}) {
       }
     }
     for (const use of REQUIRED_AI_ALLOWED_USES) {
-      if (!serviceTermsReview?.allowedUses?.includes?.(use)) {
+      if (!serviceAllowedUses.includes(use)) {
         errors.push(`${reviewPath}: missing required allowed use: ${use}`);
       }
-      if (!serviceTermsReview?.rightsHolderAttestation?.authorizedUses?.includes?.(use)) {
+      if (!attestedAuthorizedUses.includes(use)) {
         errors.push(`${reviewPath}: rights-holder attestation omits allowed use: ${use}`);
       }
     }
@@ -1140,7 +1156,7 @@ export async function verifyLicensing(root, options = {}) {
       errors.push(`${reviewPath}: rights-holder attestation predates generation`);
     }
     for (const restriction of REQUIRED_AI_RESTRICTIONS) {
-      if (!serviceTermsReview?.restrictions?.includes?.(restriction)) {
+      if (!serviceRestrictions.includes(restriction)) {
         errors.push(
           `${reviewPath}: missing required service-terms restriction: ${restriction}`,
         );
@@ -1148,7 +1164,7 @@ export async function verifyLicensing(root, options = {}) {
     }
     const output = exactOutputBinding(provenance);
     if (
-      !serviceTermsReview?.coveredOutputs?.some?.((covered) =>
+      !coveredOutputs.some((covered) =>
         outputBindingsEqual(covered, output),
       )
     ) {

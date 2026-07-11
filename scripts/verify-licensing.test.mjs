@@ -866,6 +866,94 @@ test("returns a structured error for non-array covered outputs", async (t) => {
   assert(errors.some((error) => error.includes("invalid service-terms review record")));
 });
 
+test("returns a structured error for method-shaped restrictions", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.restrictions = { includes: 1 };
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(errors.some((error) => error.includes("invalid service-terms review record")));
+});
+
+test("returns a structured error for method-shaped covered outputs", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateReview(review) {
+      review.coveredOutputs = { some: 1 };
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(errors.some((error) => error.includes("invalid service-terms review record")));
+});
+
+test("returns structured errors for adjacent method-shaped review arrays", async (t) => {
+  const cases = [
+    {
+      name: "allowed uses",
+      mutateReview(review) {
+        review.allowedUses = { includes: 1, some: 1 };
+      },
+    },
+    {
+      name: "attested authorized uses",
+      mutateReview(review) {
+        review.rightsHolderAttestation.authorizedUses = { includes: 1 };
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    await t.test(testCase.name, async (nested) => {
+      const root = await fixture();
+      nested.after(() => rm(root, { recursive: true, force: true }));
+      const { provenancePath } = await writeApprovedAiFixture(root, testCase);
+      const errors = await verifyLicensing(root, {
+        policy,
+        trackedReferences: "",
+        trackedProvenanceFiles: [provenancePath],
+        trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+      });
+      assert(
+        errors.some((error) => error.includes("invalid service-terms review record")),
+      );
+    });
+  }
+});
+
+test("does not invoke method-shaped provenance review fields", async (t) => {
+  const root = await fixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { provenancePath } = await writeApprovedAiFixture(root, {
+    mutateProvenance(provenance) {
+      provenance.termsReview.allowedUses = { some: 1 };
+    },
+  });
+
+  const errors = await verifyLicensing(root, {
+    policy,
+    trackedReferences: "",
+    trackedProvenanceFiles: [provenancePath],
+    trackedArtSourceFiles: approvedTrackedArtSourceFiles,
+  });
+  assert(errors.some((error) => error.includes("invalid AI provenance record")));
+});
+
 test("rejects agreement versions dated after a covered output was generated", async (t) => {
   const root = await fixture();
   t.after(() => rm(root, { recursive: true, force: true }));
