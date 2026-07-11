@@ -12,6 +12,20 @@ export {
   rejectAttemptV1,
 } from "./execution.js";
 export type {
+  AssetPackDigestProjectionV1,
+  AssetPackResolvedIdentityV1,
+  AssetPackSourceIdentityV1,
+  AssetPackV1,
+  AssetPivotV1,
+  AssetProviderEntryV1,
+  AssetProviderRefV1,
+  AssetSafeAreaV1,
+  AssetSlotDefinitionV1,
+  AssetUsageV1,
+  ResolvedAssetEntryV1,
+  ResolvedAssetManifestV1,
+} from "./assets.js";
+export type {
   GamePackageV1,
   PatchSurfaceValueMapWitnessV1,
   ResolvedPatchValuesV1,
@@ -39,6 +53,21 @@ export type {
   StatefulGameModuleBindingV1,
   StatelessGameModuleBindingV1,
 } from "./module.js";
+export type {
+  AppliedHotfixV1,
+  GamePackageResolutionFailureCodeV1,
+  GamePackageResolutionFailureV1,
+  GamePackageResolutionResultV1,
+  HotfixEntryV1,
+  HotfixManifestV1,
+  PatchReplacementPortV1,
+  PatchReplacementTraceV1,
+  PatchSetIdentityV1,
+  PatchSlotDescriptorV1,
+  PatchSurfaceKindV1,
+  PatchSymbolKindV1,
+} from "./hotfix.js";
+export type { BuildProvenanceV1 } from "./provenance.js";
 export type {
   CommandExecutionAttemptEnvelopeV1,
   CommandExecutionDiagnosticsEnvelopeV1,
