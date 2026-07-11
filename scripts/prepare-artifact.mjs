@@ -5,7 +5,6 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const projectLegalFilesV1 = Object.freeze([
-  "CONTRIBUTING.md",
   "LICENSE.md",
   "LICENSES/CC-BY-NC-SA-4.0.txt",
   "LICENSES/MIT.txt",

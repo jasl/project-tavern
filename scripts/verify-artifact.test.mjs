@@ -4,7 +4,20 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { projectLegalFilesV1 } from "./prepare-artifact.mjs";
 import { verifyArtifactDirectoryV1 } from "./verify-artifact.mjs";
+
+test("carries only project release statements", () => {
+  assert.deepEqual(projectLegalFilesV1, [
+    "LICENSE.md",
+    "LICENSES/CC-BY-NC-SA-4.0.txt",
+    "LICENSES/MIT.txt",
+    "LICENSES/PolyForm-Noncommercial-1.0.0.txt",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+    "TRADEMARKS.md",
+  ]);
+});
 
 test("rejects an absolute base, unsorted or corrupt manifest, and missing legal files", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "tavern-artifact-"));

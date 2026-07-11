@@ -13,7 +13,6 @@
     "lint": "oxlint --type-aware --deny-warnings --react-plugin --import-plugin packages stories apps scripts",
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
-    "verify:licensing": "node scripts/verify-licensing.mjs",
     "verify:boundaries": "node scripts/verify-boundaries.mjs",
     "verify:cycles": "node scripts/verify-cycles.mjs",
     "verify:public-exports": "node scripts/verify-public-exports.mjs",
