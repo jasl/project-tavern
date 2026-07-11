@@ -25,6 +25,25 @@ export type {
   ResolvedAssetEntryV1,
   ResolvedAssetManifestV1,
 } from "./assets.js";
+export { createReadonlyViewSourceV1 } from "./application.js";
+export type {
+  DeveloperApplicationPortV1,
+  DeveloperControlPortV1,
+  LeaseHandoffRequestId,
+  MutableViewPublisherV1,
+  PlayerApplicationPortV1,
+  PlayerCommandPortV1,
+  PlayerDiagnosticsPortV1,
+  PlayerPersistencePortV1,
+  PlayerWritableSaveSlotIdV1,
+  ReadonlyViewSourceV1,
+  SaveSlotIdV1,
+  SessionLeaseOwnerId,
+  SessionLeasePortV1,
+  SessionLifecyclePortV1,
+  UiContributionSetV1,
+  UiRendererBindingV1,
+} from "./application.js";
 export type {
   GamePackageV1,
   PatchSurfaceValueMapWitnessV1,
@@ -68,6 +87,28 @@ export type {
   PatchSymbolKindV1,
 } from "./hotfix.js";
 export type { BuildProvenanceV1 } from "./provenance.js";
+export type {
+  GameHostV1,
+  HostAtomicCommitResultV1,
+  HostAtomicRecordStoreV1,
+  HostFilePortV1,
+  HostFileSelectionResultV1,
+  HostRecordKeyV1,
+  HostRecordMutationV1,
+  HostRecordNamespaceV1,
+  HostRecordRevisionV1,
+  HostStoredRecordV1,
+  IsoUtcInstant,
+} from "./host.js";
+export type {
+  PresentationReadPortV1,
+  ResolvedAssetPresentationV1,
+  ResolvedTextPresentationV1,
+  RuntimeSessionStatusV1,
+  RuntimeViewModelEnvelopeV1,
+  SessionAnchorResultV1,
+  SessionDispatchOperationResultV1,
+} from "./presentation.js";
 export type {
   CommandExecutionAttemptEnvelopeV1,
   CommandExecutionDiagnosticsEnvelopeV1,
