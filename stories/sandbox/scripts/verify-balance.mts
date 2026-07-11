@@ -11,10 +11,11 @@ registerHooks({
 });
 const { parseNonZeroUint32 } = await import("@project-tavern/base");
 const { createSandboxSessionV1 } = await import("../src/session.ts");
-const { resolveSandboxStoryForTestV1 } = await import("../src/story-entry.ts");
+const { resolveStoryForTestV1 } = await import("@project-tavern/base/testkit");
+const { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } = await import("../src/story-entry.ts");
 
 async function run(seed: number): Promise<number> {
-  const session = createSandboxSessionV1(resolveSandboxStoryForTestV1().profile, {
+  const session = createSandboxSessionV1(specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).profile, {
     rngSeed: parseNonZeroUint32(seed),
   });
   for (let count = 0; count < 3; count += 1) {

@@ -14,7 +14,8 @@ registerHooks({
 });
 const { canonicalJsonBytes, digestCanonical, parseNonZeroUint32 } = await import("@project-tavern/base");
 const { createSandboxSessionV1 } = await import("../src/session.ts");
-const { resolveSandboxStoryForTestV1 } = await import("../src/story-entry.ts");
+const { resolveStoryForTestV1 } = await import("@project-tavern/base/testkit");
+const { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } = await import("../src/story-entry.ts");
 
 const commands: readonly SandboxCommandV1[] = Object.freeze([
   { kind: "sandbox.counter.increment" },
@@ -23,7 +24,7 @@ const commands: readonly SandboxCommandV1[] = Object.freeze([
   { kind: "sandbox.counter.reject" },
 ]);
 const seed = parseNonZeroUint32(0x0002_3049);
-const session = createSandboxSessionV1(resolveSandboxStoryForTestV1().profile, { rngSeed: seed });
+const session = createSandboxSessionV1(specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).profile, { rngSeed: seed });
 const outcomes: string[] = [];
 for (const command of commands) {
   const outcome = await session.dispatch(command);

@@ -2,14 +2,14 @@
 import { describe, expect, it } from "vitest";
 
 import { parseNonZeroUint32 } from "@project-tavern/base";
-import { createFixedBootstrapEntropyV1 } from "@project-tavern/base/testkit";
+import { createFixedBootstrapEntropyV1, resolveStoryForTestV1 } from "@project-tavern/base/testkit";
 
-import { resolveSandboxStoryForTestV1 } from "./story-entry.js";
+import { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } from "./story-entry.js";
 import { createSandboxSessionV1 } from "./session.js";
 
 describe("Sandbox walking skeleton", () => {
   it("changes state only through one typed command", async () => {
-    const resolved = resolveSandboxStoryForTestV1();
+    const resolved = specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1));
     const entropy = createFixedBootstrapEntropyV1({
       uuids: ["00000000-0000-4000-8000-000000000001"],
       seeds: [parseNonZeroUint32(0x0002_3049)],

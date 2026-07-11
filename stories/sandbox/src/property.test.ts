@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 
 import { parseNonZeroUint32 } from "@project-tavern/base";
+import { resolveStoryForTestV1 } from "@project-tavern/base/testkit";
 
 import { createSandboxSessionV1 } from "./session.js";
-import { resolveSandboxStoryForTestV1 } from "./story-entry.js";
+import { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } from "./story-entry.js";
 
 async function run(seed: number, count: number): Promise<number> {
-  const { profile } = resolveSandboxStoryForTestV1();
+  const { profile } = specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1));
   const session = createSandboxSessionV1(profile, {
     rngSeed: parseNonZeroUint32(seed),
   });

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, it } from "vitest";
 
-import { validateDevelopmentFixturesV1, validateStoryV1 } from "@project-tavern/base/testkit";
+import { resolveStoryForTestV1, validateDevelopmentFixturesV1, validateStoryV1 } from "@project-tavern/base/testkit";
 
 import { sandboxDevelopmentEntryV1 } from "./development.js";
 import { sandboxCommandSchemaV1 } from "./contracts.js";
-import { resolveSandboxStoryForTestV1, sandboxStoryEntryV1 } from "./story-entry.js";
+import { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } from "./story-entry.js";
 
 describe("Sandbox Story contract", () => {
   it("resolves a static Profile with one state owner and one stateless service", () => {
     expect(() => validateStoryV1(sandboxStoryEntryV1)).not.toThrow();
-    const resolved = resolveSandboxStoryForTestV1();
+    const resolved = specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1));
     expect(resolved.profile.modules).toHaveLength(2);
     const [counter, parity] = resolved.profile.modules;
     expect(counter?.bindingKind).toBe("stateful");

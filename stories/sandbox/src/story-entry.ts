@@ -12,7 +12,6 @@ import type {
   GamePackageV1,
   ResolvedStoryV1,
 } from "@project-tavern/base";
-import { resolveStoryForTestV1 } from "@project-tavern/base/testkit";
 
 import { createSandboxProfileV1 } from "./profile.js";
 import type { SandboxProfileV1, SandboxSimulationProgramV1 } from "./profile.js";
@@ -83,8 +82,9 @@ export interface SandboxResolvedStoryV1 extends Omit<ResolvedStoryV1, "profile" 
   readonly presentationProgram: SandboxPresentationProgramV1;
 }
 
-export function resolveSandboxStoryForTestV1(): SandboxResolvedStoryV1 {
-  const resolved = resolveStoryForTestV1(sandboxStoryEntryV1);
+export function specializeSandboxResolvedStoryV1(
+  resolved: ResolvedStoryV1,
+): SandboxResolvedStoryV1 {
   if (typeof (resolved.profile as { createBootstrapInput?: unknown }).createBootstrapInput !== "function") {
     throw new TypeError("Sandbox Profile did not resolve");
   }

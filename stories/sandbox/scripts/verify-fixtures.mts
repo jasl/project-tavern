@@ -14,12 +14,13 @@ registerHooks({
 const { canonicalJsonBytes, parseNonZeroUint32 } = await import("@project-tavern/base");
 const { sandboxSnapshotSchemaV1 } = await import("../src/contracts.ts");
 const { createSandboxInitialSnapshotV1 } = await import("../src/session.ts");
-const { resolveSandboxStoryForTestV1 } = await import("../src/story-entry.ts");
+const { resolveStoryForTestV1 } = await import("@project-tavern/base/testkit");
+const { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } = await import("../src/story-entry.ts");
 
 const seed = parseNonZeroUint32(0x0002_3049);
 const expected = {
   rngSeed: seed,
-  snapshot: createSandboxInitialSnapshotV1(resolveSandboxStoryForTestV1().profile, { rngSeed: seed }),
+  snapshot: createSandboxInitialSnapshotV1(specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).profile, { rngSeed: seed }),
 };
 const path = fileURLToPath(new URL("../fixtures/session-zero.json", import.meta.url));
 const bytes = await readFile(path);
