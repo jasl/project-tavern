@@ -2,345 +2,223 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a production-grade, deterministic, modular Web game runtime and a complete non-canonical seven-day Tavern Demo—including an independent module-integration E2E Story, bootstrap Hotfixes, safe local persistence, replay/diagnostics, accessible React UI, and a reproducible deploy-ready Player artifact—without adding deferred gameplay systems.
+**Goal:** Starting from the verified Phase 1 foundation, migrate the runtime to the approved Phase 2+ architecture, build a minimal independent E2E Story and a complete seven-day PoC Story, then deliver persistence, diagnostics, semantic automation, accessible UI, and one reproducible deploy-ready PoC Web artifact.
 
-**Architecture:** Generic MIT `@project-tavern/base` and `@project-tavern/ui` remain independent of tavern concepts. Each Story statically composes typed PolyForm gameplay Modules behind one CommandCoordinator, supplies its own rules/content/Scenes/assets, and communicates with UI through immutable RuntimeViewModels and narrow Application/Presentation ports. Work proceeds from a synthetic walking skeleton to real Modules, then E2E integration, runtime services, Demo content, UI, and release hardening; each checkpoint leaves independently runnable green software.
+**Architecture:** `@project-tavern/base`, `@project-tavern/ui`, shared assets, and the generic Web Host remain game-neutral. `stories/e2e` owns minimal fixture GameplayModules; `stories/poc` owns all tavern GameplayModules, Rules, Resolvers, GameCommandExecutor, GameQueries, content, presentation and tooling. Every Story resolves to one `ResolvedGame`, creates one static `GameSimulation`, creates GameSession instances through one unified application lifecycle with at most one active Session per application, exposes normal play through `SemanticGamePort`, and produces one Artifact per Host; Debug, Cheat and Automation are runtime capabilities rather than build flavors.
 
 **Tech Stack:** Node.js >=22.12.0, pnpm >=11.0.0, TypeScript 7.0.2, React 19.2.7, Vite 8.1.4, Zod 4.4.3, Vitest 4.1.10, fast-check 4.9.0, IndexedDB/idb 8.0.3, Playwright 1.61.1, CSS Modules, GitHub Pages.
 
 ## Global Constraints
 
-- The user approved the runtime direction and requested this implementation plan on 2026-07-11. The architecture and Contract Catalog are frozen for Goal execution after the specification-closure edits in this plan commit.
-- Before every phase, re-read live `AGENTS.md`, the three authoritative specs, the phase plan, package exports, scripts, routes, `git status`, and the previous checkpoint evidence. Live repository state wins over remembered file paths.
-- The first Goal covers automated engineering delivery and a feedback-ready artifact. It does not claim the game is fun, declare the five-person playtest passed, approve generated assets, start Unity, or authorize a remote deployment.
-- Do not create Electron, `stories/common`, a public npm release, a Mod manager, a package store, a migration framework, ECS, event bus, CQRS/event sourcing, dependency-injection container, generic scripting DSL, or visual Story editor.
-- Simulation is snapshot-authoritative and command-driven. One coordinator owns candidate commit/sequence/RNG; a Module cannot write state owned by another Module; UI and Hotfix never write State.
-- `stories/e2e` is the first real consumer of all public Modules and owns independent minimal content. It must not import Demo Story content, private helpers, fixtures, text, or IDs.
-- Browser E2E proves integration and player-visible outcomes. Formula ordering, rejection details, invariants, and balance distributions stay in fast Vitest/fast-check suites.
-- Code-native asset fallbacks are a complete mandatory deliverable. The four current OpenAI illustrations remain under `art-source/aigc/**` and are excluded from runtime until an author manually copies a selected image into a runtime asset directory and adds a technically valid Asset Pack provider.
-- The existing MIT / PolyForm Noncommercial / CC BY-NC-SA boundaries remain authoritative. Maintain project legal files and package metadata by direct review; artifact verification checks only release structure and technical digests.
-- Every behavior task uses TDD: focused red test for the target behavior, confirmed expected failure, minimal implementation, focused green, phase gate, current `pnpm verify`, staged-diff review, commit.
-- The first red test must fail on the missing target behavior, not on a broken toolchain, missing browser binary, invalid fixture, unrelated type error, or test syntax error.
-- Every committed state is green for the verification surface available at that commit. No commit may rely on a later task to repair known failures.
-- Update golden files, persistence fixtures, or screenshots only through explicit side-effecting commands. Verification and CI never rewrite tracked baselines.
-- Do not publish, push, deploy, approve an asset, or change external repository settings without explicit authority. A verified local artifact is sufficient for the engineering Goal.
+- Phase 1 completed at `4e9c2bd5b06f3cc6f338d30ff43bc6e0188f74d2`; it was re-verified on 2026-07-12 with frozen install, `pnpm verify`, Chromium/WebKit, reproducible release, clean diff and clean worktree.
+- [`2026-07-12-post-phase1-game-runtime-design.md`](../specs/2026-07-12-post-phase1-game-runtime-design.md) is authoritative for Phase 2+ terminology, ownership, capabilities, SemanticGamePort, Input and Artifact boundaries.
+- Before every phase, re-read live `AGENTS.md`, the Phase 2+ specification, the Contract Catalog header/mapping, the phase plan, package exports, scripts, routes, `git status` and the previous checkpoint evidence.
+- Do not execute the former public-Modules/Demo/Player-Developer phase plans from repository history. The active files linked below replace them.
+- Do not preserve compatibility aliases for `GameProfile`, `CommandCoordinator`, `ResolvedStory`, `EngineSession`, Sandbox/Demo Story packages or Player/Developer build scripts. No external release depends on them.
+- `stories/e2e` and `stories/poc` are the only current Stories. Do not pre-create Sandbox, Demo, Full, `stories/common`, Electron, public npm packages or a public Mod manager.
+- PoC Gameplay belongs to `stories/poc`; E2E fixture Gameplay belongs to `stories/e2e`; Base/UI/Web cannot import either Story.
+- Simulation is snapshot-authoritative and command-driven. GameCommandExecutor owns candidate commit/RNG/sequence; GameQueries are a separate read-only responsibility.
+- One GameSession FIFO owns every authoritative operation. UI, tooling, Automation and Hotfix never receive a Snapshot setter or Owner capability.
+- SemanticGamePort exposes only player-visible information and legal actions. Automation does not receive DebugTools and legal Automation never modifies RunIntegrity.
+- Debug/Cheat/Automation default to disabled. Successful rule-bypassing mutations persist RunIntegrity; read-only tooling and structurally invalid, `validation_failed`, or faulted debug operations do not.
+- Every `Story × Host` has one Artifact. Tooling may be present and lazily loaded in that Artifact; bundle absence is not a security mechanism.
+- The first Goal covers local engineering delivery and a feedback-ready PoC Artifact. It does not approve art, declare the game fun, pass human playtesting, deploy remotely, start Unity or authorize adult content.
+- Every behavior task uses TDD: focused failing test, observed expected failure, minimal implementation, focused pass, phase gate, current `pnpm verify`, staged-diff review and the task commit.
+- Verification never rewrites tracked fixtures, golden files, screenshots or lockfiles. Writers stay explicit and outside `pnpm verify`.
+- Do not publish, push, deploy or change remote repository settings without explicit user authority.
 
 ---
 
 ## Plan Set and Required Order
 
-1. [`2026-07-11-project-tavern-01-foundation-walking-skeleton.md`](2026-07-11-project-tavern-01-foundation-walking-skeleton.md)
-2. [`2026-07-11-project-tavern-02-modules-e2e-story.md`](2026-07-11-project-tavern-02-modules-e2e-story.md)
-3. [`2026-07-11-project-tavern-03-persistence-diagnostics.md`](2026-07-11-project-tavern-03-persistence-diagnostics.md)
-4. [`2026-07-11-project-tavern-04-demo-story-golden.md`](2026-07-11-project-tavern-04-demo-story-golden.md)
-5. [`2026-07-11-project-tavern-05-ui-assets-accessibility.md`](2026-07-11-project-tavern-05-ui-assets-accessibility.md)
-6. [`2026-07-11-project-tavern-06-release-pages.md`](2026-07-11-project-tavern-06-release-pages.md)
+1. [`Phase 1 — Foundation & Walking Skeleton (completed historical record)`](2026-07-11-project-tavern-01-foundation-walking-skeleton.md)
+2. [`Phase 2 — Runtime Alignment & Minimal E2E Story`](2026-07-11-project-tavern-02-modules-e2e-story.md)
+3. [`Phase 3 — Persistence, Capabilities, Replay & Diagnostics`](2026-07-11-project-tavern-03-persistence-diagnostics.md)
+4. [`Phase 4A — PoC Gameplay & GameSimulation`](2026-07-11-project-tavern-04a-poc-gameplay-simulation.md)
+5. [`Phase 4B — Seven-day PoC Story & Golden Week`](2026-07-11-project-tavern-04b-poc-story-golden.md)
+6. [`Phase 5 — UI, Input, Assets, Accessibility & Automation`](2026-07-11-project-tavern-05-ui-assets-accessibility.md)
+7. [`Phase 6 — Reproducible PoC Release & Pages`](2026-07-11-project-tavern-06-release-pages.md)
 
-The order is mandatory. A phase may add tests for later behavior, but it may not implement around an unaccepted earlier interface. If a phase changes a public contract, stop, update the authoritative spec and contract test first, obtain user review when the change is material, then revise all affected later plans.
+The order is mandatory. Phase 4A and 4B share one Phase 4 checkpoint but are separate plans so concrete Gameplay implementation does not obscure content and balance work. A phase may add a failing contract for its immediate successor, but cannot implement around an unaccepted earlier public interface.
 
 ## Recommended Goal Objective
 
-When the user explicitly asks to start execution, create one Goal with this objective and no inferred token budget:
+When the user explicitly asks to resume execution, update or create the active Goal with this objective and no inferred token budget:
 
-> 从已确认的 Project Tavern 架构、字段 ABI 与许可边界出发，严格按 `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` 的阶段顺序和停止线，构建生产级 React + TypeScript Web 游戏运行时、真实 Modules、独立 E2E Story、七日 Demo Story、存档/重放/诊断、Player/Developer UI 与可复现发布制品；使全部强制自动化验收通过并交付可供人工试玩的版本，不自行批准素材、发布远端制品或宣告主观 PoC 试玩闸门通过。
+> 从已完成并验证的 Project Tavern Phase 1 基线出发，严格按 `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` 的修订阶段顺序，先迁移 ResolvedGame/GameSimulation/GameSession、E2E/PoC Story 布局、统一 Application 和单 Artifact，再完成最小 E2E、持久化/重放/诊断、七日 PoC Gameplay 与内容、SemanticGamePort、Input、可访问 UI 和可复现 PoC Web 制品；使全部自动化验收通过并交付可供人工试玩的版本，不自行批准素材、部署远端或宣告主观试玩通过。
 
-The Goal stays active across all mandatory phases. Phase completion is recorded with plan progress/checkpoints; do not mark the Goal complete merely because one phase finished or the remaining work is large.
+The Goal remains active across Phase 2–6. Phase completion is a checkpoint, not Goal completion.
 
-## Stable Public Command Surface
+## Target Public Command Surface
 
-Phase 1 creates these script names and later phases extend their real work. No script may be a no-op or print success without executing its owned checks.
+Phase 2 removes the Phase 1 build-flavor scripts and establishes the target names. The list below is the stable operator/CI surface (phase-local focused test commands and checkpoint aggregates may exist in addition). Every verification command must execute real checks and remain read-only unless explicitly described as a writer.
 
 ```text
-pnpm format:check            read-only Prettier conformance
-pnpm lint                    type-aware Oxlint policy; never replaces TS7 tsc
+pnpm format:check            Prettier conformance
+pnpm lint                    type-aware Oxlint policy
 pnpm typecheck               authoritative whole-workspace TypeScript 7 check
-pnpm verify:boundaries       package/facet/import rules and references exclusion
+pnpm verify:boundaries       package/facet/import and references exclusion
 pnpm verify:cycles           production import graph cycles
-pnpm verify:stories          Demo/E2E/Sandbox Story validation
-pnpm verify:fixtures         read-only persistence/debug fixture validation
-pnpm verify:golden           read-only strategy golden validation
-pnpm verify:balance          fixed 1..1000 seed thresholds
-pnpm verify:assets           runtime manifests, exact bytes, pack digests, budgets
-pnpm verify:ui               RTL, UI flavor, responsive and accessibility checks
-pnpm verify:bundle           Player/Developer graph and emitted-byte checks
-pnpm verify:artifact         production manifest, base path and smoke
-pnpm verify:release          clean double-build and workflow/runbook checks
-pnpm test:unit              all unit suites
-pnpm test:contract          Base/Module/Story contract suites
-pnpm test:property          fast-check invariants and determinism
-pnpm test:e2e:smoke         short browser integration on every normal CI run
-pnpm test:e2e:full          Chromium and WebKit full integration
-pnpm build:player           production Player only
-pnpm build:developer        local Developer artifact only
-pnpm verify                 complete noninteractive, nonpublishing current gate
+pnpm verify:public-exports   exact Base public ABI inventory
+pnpm verify:stories          E2E/PoC Story contracts and resolved closure
+pnpm verify:runtime-fixtures provenance-bound Save/Debug runtime fixtures
+pnpm verify:fixtures         read-only E2E and PoC Save/Debug fixture verification
+pnpm verify:golden           read-only E2E and PoC golden verification
+pnpm verify:determinism      fixed E2E deterministic corpus
+pnpm --filter @project-tavern/story-poc verify:commands  read-only PoC reference commands
+pnpm verify:balance          PoC 1..1000-seed thresholds
+pnpm verify:assets           runtime manifests, bytes, digests and budgets
+pnpm verify:semantic         SemanticGamePort and DOM/action parity
+pnpm verify:ui               RTL, responsive, Input and accessibility checks
+pnpm verify:bundle           E2E/PoC source and emitted-byte checks
+pnpm verify:artifact         PoC manifest, nested base and smoke
+pnpm verify:release          clean double-build and release/runbook checks
+pnpm verify:workflows        pinned Action/workflow structure
+pnpm docs:links              documentation inventory and links
+pnpm test:unit               all unit suites
+pnpm test:contract           Base/Story contract suites
+pnpm test:property           fast-check invariants and determinism
+pnpm test:e2e:smoke          short Chromium browser integration
+pnpm test:e2e:full           Chromium and WebKit integration
+pnpm build:e2e               E2E Web Artifact
+pnpm build:poc               PoC Web Artifact
+pnpm verify                  complete nonpublishing local/CI gate
 ```
 
-Side-effecting commands stay separate and are never called by `pnpm verify` or CI:
+The following remain explicit side-effecting operator commands and are never called by verification:
 
 ```text
 pnpm regenerate:fixtures
 pnpm update:golden
+pnpm --filter @project-tavern/story-poc update:commands
+pnpm --filter @project-tavern/story-poc update:golden
+pnpm --filter @project-tavern/story-poc update:fixtures
 pnpm update:screenshots
 pnpm release:prepare
 ```
 
 ## Checkpoints
 
-### Task R0: Record the approved specification baseline
+### R0: Confirm the Phase 1 baseline
 
-**Files:**
+Status: completed on 2026-07-12.
 
-- Read: `AGENTS.md`
-- Read: `docs/superpowers/specs/2026-07-10-react-game-harness-design.md`
-- Read: `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md`
-- Read: `docs/superpowers/specs/2026-07-11-repository-licensing-design.md`
-- Read: this roadmap and all six phase plans.
+Evidence:
 
-**Interfaces:**
+- Branch `main`, HEAD `4e9c2bd5b06f3cc6f338d30ff43bc6e0188f74d2`;
+- frozen install passed with Node `v26.5.0` and pnpm `11.11.0`;
+- `pnpm verify` passed: 31 unit, 14 contract, 2 property and 22 script tests, builds and Chromium smoke;
+- Chromium/WebKit full suite reported 5 passed and the existing visual-policy case skipped;
+- `pnpm verify:release` reported reproducible clean Player baseline builds;
+- structural checks and final worktree were clean.
 
-- Consumes: the reviewed plan commit and clean repository.
-- Produces: Goal commentary containing exact base SHA, active branch, spec paths, verification results, and explicit acknowledgment of stop conditions.
+### R1: Preserve Phase 1 as an execution record
 
-- [ ] **Step 1: Capture the live baseline**
+**Plan:** [`2026-07-11-project-tavern-01-foundation-walking-skeleton.md`](2026-07-11-project-tavern-01-foundation-walking-skeleton.md)
 
-Run:
+- [x] Phase 1 tasks executed and committed.
+- [x] Phase 1 Acceptance executed against the as-built contracts.
+- [x] Historical plan annotated; no completed task is rewritten to pretend it used future terminology.
 
-```bash
-git status --short --branch
-git rev-parse HEAD
-git log -1 --oneline --decorate
-git ls-files references
-```
+### R2: Complete Phase 2 — runtime alignment and minimal E2E
 
-Expected: clean intended branch; a single exact HEAD is recorded; `git ls-files references` prints nothing.
+**Plan:** [`2026-07-11-project-tavern-02-modules-e2e-story.md`](2026-07-11-project-tavern-02-modules-e2e-story.md)
 
-- [ ] **Step 2: Verify the existing repository baseline**
+**Consumes:** verified Phase 1 Base/UI/Web/Sandbox implementation.
 
-Run:
+**Produces:** breaking public ABI migration, complete ResolvedGame and GameSession contracts, the final E2E/PoC directory layout, one E2E Web application, the invariant that each eventual Story/Host has only one application root, unified GameApplication/Semantic contracts, Story-local E2E fixture GameplayModules and a deterministic SemanticGamePort runner.
 
-```bash
-pnpm format:check
-pnpm lint
-git diff --check
-```
+- [ ] Execute Phase 2A migration tasks first; no new gameplay may use old Profile/Coordinator contracts.
+- [ ] Execute Phase 2B fixture Gameplay, Narrative/workflow, Hotfix and semantic automation tasks.
+- [ ] Run Phase 2 Acceptance exactly and record public-export diff, Story identities, build roots, deterministic vectors and clean status.
 
-Expected: formatting, lint, and diff checks exit 0.
+Stop if any old public alias remains, ResolvedGame drops SceneGraph, Executor owns Queries, E2E imports PoC, or build output still varies by Player/Developer flavor.
 
-- [ ] **Step 3: Create the execution Goal only after explicit user authority**
+### R3: Complete Phase 3 — persistence, capabilities and diagnostics
 
-Use the recommended objective verbatim. Do not add a token budget unless the user explicitly requests one. Record the Step 1 SHA as `goal_base_sha` in commentary; it is evidence, not a generated tracked file.
+**Plan:** [`2026-07-11-project-tavern-03-persistence-diagnostics.md`](2026-07-11-project-tavern-03-persistence-diagnostics.md)
 
-### Task R1: Complete Phase 1 — foundation and walking skeleton
+**Consumes:** accepted GameSession, E2E SemanticGamePort and one-application Story roots.
 
-**Files:**
+**Produces:** IndexedDB store, slots/lease/CAS, strict compatibility, CommandLog/replay, RuntimeCapabilities, DebugTools, RunIntegrity, DebugBundle, same-root HMR invalidation and provenance-bound fixtures.
 
-- Execute: [`2026-07-11-project-tavern-01-foundation-walking-skeleton.md`](2026-07-11-project-tavern-01-foundation-walking-skeleton.md)
+- [ ] Execute persistence and Session tasks through the single FIFO.
+- [ ] Prove capability-disabled rejection, legal Automation integrity neutrality and successful Cheat/anchor integrity persistence.
+- [ ] Run hostile import, replay, multi-tab, HMR and fixture acceptance; record digests and clean status.
 
-**Interfaces:**
+Stop if tooling gains a second mutation queue, Automation reaches DebugTools, capability state enters simulation identity, or RunIntegrity can disappear after Save/Load/replay.
 
-- Consumes: documentation/legal-only repository.
-- Produces: pinned workspace, neutral Base contracts/kernel, Story/Hotfix/asset resolver, generic Session/Application ports, Sandbox Story, minimal generic UI/Web Loader, and a browser walking skeleton.
+### R4A: Complete Phase 4A — PoC Gameplay and GameSimulation
 
-- [ ] **Step 1: Execute every unchecked Phase 1 task in order**
+**Plan:** [`2026-07-11-project-tavern-04a-poc-gameplay-simulation.md`](2026-07-11-project-tavern-04a-poc-gameplay-simulation.md)
 
-Use a fresh implementation subagent per task and two reviews: specification compliance first, code quality second. Resolve review findings before checking the task.
+**Consumes:** accepted generic runtime and `docs/poc/` rules.
 
-- [ ] **Step 2: Run the Phase 1 acceptance block exactly**
+**Produces:** Story-local PoC contracts, GameplayModules, Rules, Resolvers, effect routing, PocGameCommandExecutor, PocGameQueries, projectors and createPocGameSimulation.
 
-Expected: all commands in the Phase 1 Acceptance section exit 0 and the walking skeleton changes state only by dispatching its typed command.
+- [ ] Implement owner-local slices and tests before cross-owner execution.
+- [ ] Prove preview/execute parity, rollback, invariants and deterministic query/view projection.
+- [ ] Run the Phase 4A gate and record module owner/dependency table, property evidence and clean status.
 
-- [ ] **Step 3: Record checkpoint evidence**
+Stop if PoC Gameplay enters Base/UI/Web, a GameplayModule writes another owner, or a Rule reads Host/UI/time globals.
 
-Record phase base/head SHA, commits, changed package paths, full commands/results, Story/Engine/app digests, and clean status. Do not start Phase 2 with an unreviewed public Base export.
+### R4B: Complete Phase 4B — seven-day PoC and golden evidence
 
-### Task R2: Complete Phase 2 — real Modules and independent E2E Story
+**Plan:** [`2026-07-11-project-tavern-04b-poc-story-golden.md`](2026-07-11-project-tavern-04b-poc-story-golden.md)
 
-**Files:**
+**Consumes:** accepted PocGameSimulation and existing seven-day design documents.
 
-- Execute: [`2026-07-11-project-tavern-02-modules-e2e-story.md`](2026-07-11-project-tavern-02-modules-e2e-story.md)
+**Produces:** PoC Story identity/data/content/Narrative/SceneGraph/PatchSurfaces, six reference strategies, reviewed golden artifacts, 1..1000 seed metrics and persistence/tooling fixtures.
 
-**Interfaces:**
+- [ ] Implement D1–D7 content and Story composition without changing E2E.
+- [ ] Review every explicit generated baseline diff before commit.
+- [ ] Run fixed-strategy, golden, balance, Save fixture and complete Phase 4 Acceptance; record reproduction seeds and clean status.
 
-- Consumes: accepted generic Base/Sandbox skeleton.
-- Produces: real gameplay Modules, one Tavern Profile coordinator, full Narrative/Scheduler/workflow mechanics, and independent `stories/e2e` integration fixtures.
+Stop if content adds arbitrary callbacks/expressions, golden verification writes files, or one strategy silently dominates all outcomes.
 
-- [ ] **Step 1: Re-read live contracts and execute Phase 2 tasks in order**
+### R5: Complete Phase 5 — UI, Input, assets and automation
 
-Expected: owner-local tests precede Profile integration; no E2E code imports Demo.
+**Plan:** [`2026-07-11-project-tavern-05-ui-assets-accessibility.md`](2026-07-11-project-tavern-05-ui-assets-accessibility.md)
 
-- [ ] **Step 2: Run Phase 2 acceptance and contamination checks**
+**Consumes:** complete PoC projections, SemanticGamePort and runtime capabilities.
 
-Expected: all E2E headless scenarios pass, Module graph is acyclic, Base remains game-neutral, and reject/fault paths preserve exact committed Snapshot/RNG/sequence.
+**Produces:** generic Shell/Stage/VN/Overlay/Input/DevDock framework, PoC-owned HUD/Scenes, Pointer mouse/touch support, runtime tooling toggles, versioned Automation Bridge, governed fallback assets and accessible PoC/E2E Web flows.
 
-- [ ] **Step 3: Record checkpoint evidence**
+- [ ] Implement generic semantic UI and Input before PoC renderers.
+- [ ] Prove DOM/action availability parity and no double dispatch from Pointer/click synthesis.
+- [ ] Run responsive, keyboard, touch, reduced-motion, accessibility, capability and two-Story browser acceptance.
 
-Include module owner table, coordinator route coverage, E2E Story ID/revision/digests, fixture IDs, full test output, and clean status.
+Stop if ordinary controls require coordinates, Automation sees hidden state or DebugTools, UI writes Snapshot, or DevDock requires another Artifact.
 
-### Task R3: Complete Phase 3 — persistence, replay, and diagnostics
+### R6: Complete Phase 6 — reproducible PoC release
 
-**Files:**
+**Plan:** [`2026-07-11-project-tavern-06-release-pages.md`](2026-07-11-project-tavern-06-release-pages.md)
 
-- Execute: [`2026-07-11-project-tavern-03-persistence-diagnostics.md`](2026-07-11-project-tavern-03-persistence-diagnostics.md)
+**Consumes:** complete E2E and PoC Web applications.
 
-**Interfaces:**
+**Produces:** closed `{ story, host }` builder, `dist/e2e` and `dist/poc`, deterministic manifests, nested-base smoke, complete verification orchestration, immutable-SHA CI, same-artifact Pages workflow and runbooks.
 
-- Consumes: deterministic E2E Story workflows.
-- Produces: FIFO Session completion, atomic Host storage adapter, four slots, CAS/lease/fencing, strict imports/adoption, CommandLog/replay, DebugBundle, and Developer control port.
-
-- [ ] **Step 1: Execute Phase 3 with E2E Story as the real fixture**
-
-Expected: Demo content remains unnecessary; persistence tests cover resumable Opening, Narrative, and WorldAction states.
-
-- [ ] **Step 2: Run Phase 3 acceptance and hostile-import matrix**
-
-Expected: every failure preserves Session and existing records; saved status appears only after read-back verification; lineage attempt 17 is rejected without truncation.
-
-- [ ] **Step 3: Record checkpoint evidence**
-
-Include IndexedDB schema revision, fixture digests, replay vector results, multi-tab matrix, failure/privacy evidence, and clean status.
-
-### Task R4: Complete Phase 4 — seven-day Demo and balance evidence
-
-**Files:**
-
-- Execute: [`2026-07-11-project-tavern-04-demo-story-golden.md`](2026-07-11-project-tavern-04-demo-story-golden.md)
-
-**Interfaces:**
-
-- Consumes: accepted public Modules/runtime.
-- Produces: Demo Story data/rules/Narrative/Scenes definitions, six deterministic reference drivers, reviewed golden artifacts, 1..1000 seed metrics, and a headless playable week.
-
-- [ ] **Step 1: Execute content/rule slices in teaching order**
-
-Expected: D1–D7 behavior comes only from authoritative PoC docs; E2E fixtures remain independent.
-
-- [ ] **Step 2: Run Phase 4 acceptance and review every generated baseline diff**
-
-Expected: six reference strategies accept every command, fixed golden digests match, numerical thresholds pass exactly, and no strategy dominates all resources/outcomes.
-
-- [ ] **Step 3: Record checkpoint evidence**
-
-Include Story identity/digests, golden update reason/diff, 1000-seed summary, failures/reproduction seeds, and clean status.
-
-### Task R5: Complete Phase 5 — UI, assets, and accessibility
-
-**Files:**
-
-- Execute: [`2026-07-11-project-tavern-05-ui-assets-accessibility.md`](2026-07-11-project-tavern-05-ui-assets-accessibility.md)
-
-**Interfaces:**
-
-- Consumes: stable runtime ports and complete Demo projections.
-- Produces: generic GameShell/Stage/VN/Overlay/DevDock, tavern contributions, governed fallback assets, responsive/a11y browser flows, and static Player/Developer isolation.
-
-- [ ] **Step 1: Execute generic UI before Story-specific renderers**
-
-Expected: generic UI tests use synthetic ports; tavern UI arrives only through contributions.
-
-- [ ] **Step 2: Run Phase 5 acceptance with no asset approval assumptions**
-
-Expected: Player is complete with code-native fallbacks; the AIGC source archive is absent from the build; Chromium/WebKit and accessibility gates pass.
-
-- [ ] **Step 3: Record checkpoint evidence**
-
-Include viewport matrix, a11y results, Player/Developer graph comparison, asset exclusion report, screenshots for stable shells only, and clean status.
-
-### Task R6: Complete Phase 6 — release hardening and deploy-ready handoff
-
-**Files:**
-
-- Execute: [`2026-07-11-project-tavern-06-release-pages.md`](2026-07-11-project-tavern-06-release-pages.md)
-
-**Interfaces:**
-
-- Consumes: complete Player/Developer builds.
-- Produces: one full verification entry, reproducible Player artifact, immutable-SHA CI, protected same-artifact Pages workflow, local smoke, runbooks, and an external-action handoff.
-
-- [ ] **Step 1: Execute all local/repository Phase 6 tasks**
-
-Expected: no task publishes; workflows and runbooks are reviewable files.
-
-- [ ] **Step 2: Run the Phase 6 acceptance block from a clean checkout**
-
-Expected: two clean builds produce byte-identical sorted manifests; Player contains required license/notices and no source map/dev/reference/unapproved bytes.
-
-- [ ] **Step 3: Handle remote deployment authority explicitly**
-
-If the user authorizes push/Pages configuration, deploy only the artifact from the same successful workflow and run remote smoke. Otherwise deliver the verified artifact, workflow, and exact activation instructions without claiming deployment.
-
-### Task R7: Close the engineering Goal and hand off subjective playtesting
-
-**Files:**
-
-- Modify: `README.md`
-- Modify: `docs/README.md`
-- Create: `docs/playtests/first-poc-playtest-guide.md`
-- Create: `docs/checkpoints/first-poc-engineering-handoff.md`
-
-**Interfaces:**
-
-- Consumes: all six accepted phases and the final artifact manifest.
-- Produces: concise operating/playtest guide, reproducible evidence, known limitations, and next-decision questions.
-
-- [ ] **Step 1: Write the handoff documents from observed evidence**
-
-The checkpoint records exact base/head, all phase commits, tool versions, final Story/Engine/app/patch digests, commands/results, artifact manifest SHA-256, deployment status, excluded assets, known limitations, and no unsupported success claim.
-
-- [ ] **Step 2: Run final verification fresh**
-
-Run:
-
-```bash
-pnpm install --frozen-lockfile
-pnpm verify
-pnpm verify:release
-git diff --check
-git status --short --branch
-```
-
-Expected: all verification commands exit 0; only the intended handoff documentation remains uncommitted before its commit.
-
-- [ ] **Step 3: Commit the engineering handoff**
-
-```bash
-git add -- README.md docs/README.md docs/playtests/first-poc-playtest-guide.md docs/checkpoints/first-poc-engineering-handoff.md
-git diff --cached --check
-git commit -m "docs: hand off first playable PoC"
-```
-
-- [ ] **Step 4: Mark the Goal complete only if the automatic objective is achieved**
-
-Report final token usage if the Goal was budgeted. State clearly that asset selection, remote deployment if unauthorized, five-person feedback, “is it fun?”, balance iteration, Unity, and formal content remain separate decisions.
-
-## Stop Conditions
-
-Stop the current task and return to the relevant specification instead of improvising when any condition below occurs:
-
-- Base requires a tavern/relationship/Story ID, concrete Module, React, DOM, or browser storage type.
-- A Module needs the entire Snapshot, writes another owner, creates a read cycle, or a second component attempts to commit sequence/RNG/state.
-- Query, preview, and execute cannot share one guard/calculator for the same command.
-- UI, Zustand, Hotfix, Story Scene, or Developer tooling needs a direct State setter or raw ResolvedStory internals.
-- E2E Story can pass only by importing Demo private content/helper/fixture or by weakening a real Module.
-- Simulation and presentation inputs cannot be classified deterministically, import closure contains a forbidden edge, or identical clean builds produce different digest inputs.
-- Save adoption requires replaying old commands under new rules, accepting a state-contract mismatch, truncating lineage, or bypassing current PatchSet identity.
-- Formula/balance failures can be “fixed” only by silently accepting regenerated golden outputs.
-- TypeScript 7 must be replaced as the authoritative typecheck; third-party tool compatibility must stay isolated.
-- A new ABI field/kind/code/hook or relaxed JSON escape hatch is required but not first added to the Catalog, Schema, contract tests, and revision policy.
-- `art-source/aigc/**` or `references/**` is about to enter a runtime manifest, screenshot baseline, artifact, or Pages deployment. Package-manager dependencies and `vendor/**` licensing remain outside the automated stop line.
-- A runtime asset cannot preserve the stable Asset ID/path/media/dimension/byte/hash contract or the deterministic Asset Pack digest without coupling the runtime back to the source archive.
-- A task grows beyond one independently testable/reviewable outcome; split it before continuing.
-- A gameplay problem prompts a new system outside PoC instead of first changing information, numbers, automation, or deleting a rule.
-
-## Definition of Done
-
-The engineering Goal is complete only when:
-
-- all mandatory checkboxes in all six phase plans and Tasks R0–R7 are checked with evidence;
-- `pnpm install --frozen-lockfile`, `pnpm verify`, and `pnpm verify:release` pass from a clean checkout;
-- E2E Story covers every real Module, VN branch/rejoin, interrupted Opening save/resume, emergency closure, facility/Aura effects, two-step WorldAction, levy/ending, Hotfix, State Dump, and authoritative replay without Demo imports;
-- Demo Story completes D1–D7 through all six reference strategies, fixed golden artifacts, and exact 1..1000 seed thresholds;
-- Player/Developer builds are statically separated; Player has no Developer/development/reference/source-map/unapproved asset bytes;
-- UI works at required viewports, keyboard/touch/200% zoom/reduced-motion, and Chromium/WebKit automated accessibility gates;
-- Player artifact is reproducible, has a sorted SHA-256 manifest, includes the correct multi-license notices, passes nested-base local smoke, and is deploy-ready;
-- any actual remote deployment used the same verified workflow artifact and passed remote smoke, or the handoff explicitly states deployment was not authorized;
-- the repository is clean and the final checkpoint distinguishes automated correctness from pending subjective playtesting and asset approval.
+- [ ] Build and inspect both Story Artifacts; release-process only PoC.
+- [ ] Prove two clean PoC builds are byte-identical and Pages never rebuilds uploaded bytes.
+- [ ] Run local full/release verification and record source SHA, manifest digest, browser matrix and clean status.
+
+Stop if a flavor dimension reappears, Pages rebuilds, artifact verification treats absence of tooling as security, or remote deployment is attempted without authority.
+
+## Final Definition of Done
+
+The engineering Goal is complete only when all of the following are true:
+
+- Phase 2–6 plans and every checkpoint acceptance pass on one reviewed commit chain;
+- workspace contains only Base, UI, Assets, Web, E2E Story and PoC Story;
+- Base exposes only the revised ABI and remains free of PoC semantics;
+- E2E and PoC are independently resolvable and buildable;
+- E2E covers module dependencies, transactions, Narrative, Hotfix, Save, Replay and Semantic automation without importing PoC;
+- PoC runs the complete seven-day week through GameSession and SemanticGamePort;
+- Auto/Quick/Manual Save, strict import, State Dump, DebugBundle and replay work with RunIntegrity;
+- Debug/Cheat/Automation default off and can be enabled in the same PoC Artifact;
+- Pointer supports mouse/touch, semantic DOM supports keyboard/readers, and DOM/Port action semantics agree;
+- code-native fallback assets provide a complete experience without approving archived AIGC candidates;
+- `dist/poc` is reproducible, nested-base-safe, technically deployable and is the same artifact exercised by release smoke;
+- all fast tests, Chromium/WebKit, accessibility, artifact, docs and release gates pass without modifying tracked baselines;
+- final worktree status and any deliberately retained user changes are explicitly reported;
+- no remote deployment, asset approval or subjective playtest result is claimed without separate user action.

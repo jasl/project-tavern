@@ -2,11 +2,13 @@
 
 日期：2026-07-10
 
-最后修订：2026-07-11
+最后修订：2026-07-12
 
-状态：已确认并冻结为第一轮工程 Goal 的实施基线
+状态：Phase 1 已执行的架构基线；Phase 2+ 由 2026-07-12 修订规格覆盖
 
-适用阶段：七日 Demo Story、模块集成 E2E Story，以及后续 Web 玩法、剧情和数值迭代
+适用阶段：Phase 1 已实现机制，以及未被后续修订改变的通用原则
+
+> **Phase 2+ 权威修订：** [`2026-07-12-post-phase1-game-runtime-design.md`](2026-07-12-post-phase1-game-runtime-design.md) 已取代本文中的旧术语、公共酒馆 Modules、Sandbox/Demo Story 布局、Player/Developer build flavor、独立 Developer application 和 E2E 复用完整酒馆玩法等约定。本文保留为 Phase 1 as-built 设计记录；发生冲突时必须执行 2026-07-12 修订，不得继续扩展旧边界。
 
 ## 1. 设计结论
 
@@ -28,14 +30,15 @@
 
 技术实现按以下顺序解释：
 
-1. 本规格负责 workspace、包边界、GamePackage/Story、模块组合、Loader/Host、Hotfix、UI、存档、调试、测试、构建与素材边界；
-2. [`2026-07-10-engine-contract-catalog.md`](2026-07-10-engine-contract-catalog.md) 负责第一版共享 envelope 与 Demo 模块/Story 的字段级合同；其中酒馆专用类型属于 `@project-tavern/modules` 或 `stories/demo`，不得实现进 `@project-tavern/base`；
-3. `docs/poc/poc-charter.md` 负责第一轮玩法范围与通过闸门；
-4. `docs/poc/simulation-rules.md`、`balance-v0.md`、`content-and-playtest.md` 与 `reference-strategies.md` 负责 Demo Story 的规则、数值和固定场景；
-5. `docs/design/game-design-baseline.md` 负责长期产品方向；
-6. `docs/art/first-web-visual-pack.md` 负责首批视觉语言、素材槽位、来源记录和人工准入。
+1. [`2026-07-12-post-phase1-game-runtime-design.md`](2026-07-12-post-phase1-game-runtime-design.md) 负责 Phase 2+ 术语、Story、Gameplay、Application、Capability、Input 和 Artifact 边界；
+2. 本规格负责 Phase 1 as-built 架构和未被修订改变的通用原则；
+3. [`2026-07-10-engine-contract-catalog.md`](2026-07-10-engine-contract-catalog.md) 负责共享 envelope 与七日 PoC 的字段语义，并按 2026-07-12 的名称和所有权映射解释；
+4. `docs/poc/poc-charter.md` 负责第一轮玩法范围与通过闸门；
+5. `docs/poc/simulation-rules.md`、`balance-v0.md`、`content-and-playtest.md` 与 `reference-strategies.md` 负责 PoC Story 的规则、数值和固定场景；
+6. `docs/design/game-design-baseline.md` 负责长期产品方向；
+7. `docs/art/first-web-visual-pack.md` 负责首批视觉语言、素材槽位、来源记录和人工准入。
 
-若字段目录把某个酒馆概念写成“Engine ABI”，按本规格将其解释为 Demo 游戏模块 ABI。若两份文档仍出现无法由包所有权解决的冲突，停止实施并修正文档，不由实现者临场创造第三种合同。
+若字段目录把某个酒馆概念写成“Engine ABI”，按 2026-07-12 修订将其解释为 `stories/poc` 的 Story-local Gameplay/PoC ABI，而不是 Base 能力。若两份文档仍出现无法由包所有权解决的冲突，停止实施并修正文档，不由实现者临场创造第三种合同。
 
 本修订明确取代以下旧约定：
 

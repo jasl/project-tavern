@@ -8,18 +8,20 @@
 
 ## 当前七日 PoC
 
-- [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：当前技术架构权威；定义 Base/UI 包、由 Story 组合的 Modules、Story 自有 Scenes、Loader/Host、Hotfix、中央舞台、存档/调试、测试、构建与素材边界。
-- [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级合同；区分 Base 共享 envelope 与 Demo Module/Story 具体 ABI，穷举 Snapshot、命令/Fact/拒绝、规则、Narrative、resolved provenance、Save/Debug 和关键不变量。
+- [`superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md`](superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md)：Phase 2+ 当前技术架构权威；定义 ResolvedGame、GameSimulation、Story Gameplay、统一 Application、Runtime Capabilities、SemanticGamePort、Input 和单 Artifact 边界。
+- [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：Phase 1 as-built 架构和未被后续修订改变的 Base/UI、Loader/Host、Hotfix、存档/调试、测试与素材原则。
+- [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级合同；区分 Base 共享 envelope 与 PoC Gameplay/Story 具体字段，按 Phase 2+ 规格中的新名称和所有权解释。
 - [`superpowers/specs/2026-07-11-repository-licensing-design.md`](superpowers/specs/2026-07-11-repository-licensing-design.md)：MIT Engine、PolyForm 非商业游戏代码、CC BY-NC-SA 原创内容、npm 依赖与 `vendor/**` 第三方隔离边界。
 - [`superpowers/specs/2026-07-12-aigc-asset-archive-design.md`](superpowers/specs/2026-07-12-aigc-asset-archive-design.md)：人类可维护的 AIGC 来源目录、图片/prompt 归档、无审计提升与自动 Asset Pack digest 边界。
-- [`superpowers/specs/2026-07-12-simplify-toolchain-and-repository-checks-design.md`](superpowers/specs/2026-07-12-simplify-toolchain-and-repository-checks-design.md)：最低工具链版本、人工维护项目法律文本、轻量 repository policy 与 Player 法律文件携带边界。
+- [`superpowers/specs/2026-07-12-simplify-toolchain-and-repository-checks-design.md`](superpowers/specs/2026-07-12-simplify-toolchain-and-repository-checks-design.md)：最低工具链版本、人工维护项目法律文本、轻量 repository policy 与 PoC release Artifact 法律文件携带边界。
 - [`superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md`](superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md)：第一版工程 Goal 的总路线、固定阶段顺序、公共命令面、跨阶段停止线和最终 Definition of Done。
   - [`Phase 1 — Foundation & Walking Skeleton`](superpowers/plans/2026-07-11-project-tavern-01-foundation-walking-skeleton.md)
-  - [`Phase 2 — Real Modules & E2E Story`](superpowers/plans/2026-07-11-project-tavern-02-modules-e2e-story.md)
-  - [`Phase 3 — Persistence, Replay & Diagnostics`](superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md)
-  - [`Phase 4 — Demo Story & Golden Week`](superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md)
-  - [`Phase 5 — UI, Assets & Accessibility`](superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md)
-  - [`Phase 6 — Reproducible Release & Pages`](superpowers/plans/2026-07-11-project-tavern-06-release-pages.md)
+  - [`Phase 2 — Runtime Alignment & Minimal E2E Story`](superpowers/plans/2026-07-11-project-tavern-02-modules-e2e-story.md)
+  - [`Phase 3 — Persistence, Capabilities, Replay & Diagnostics`](superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md)
+  - [`Phase 4A — PoC Gameplay & GameSimulation`](superpowers/plans/2026-07-11-project-tavern-04a-poc-gameplay-simulation.md)
+  - [`Phase 4B — Seven-day PoC Story & Golden Week`](superpowers/plans/2026-07-11-project-tavern-04b-poc-story-golden.md)
+  - [`Phase 5 — UI, Input, Assets, Accessibility & Automation`](superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md)
+  - [`Phase 6 — Reproducible PoC Release & Pages`](superpowers/plans/2026-07-11-project-tavern-06-release-pages.md)
 - [`art/first-web-visual-pack.md`](art/first-web-visual-pack.md)：首批 Image Gen 视觉语言、场景/人物锚点、Asset ID、安全区、来源归档与运行时提升边界。
 - [`poc/poc-charter.md`](poc/poc-charter.md)：为什么做、做多少、怎样判断通过。
 - [`poc/simulation-rules.md`](poc/simulation-rules.md)：状态模型、命令、时间推进、事件与结算顺序。
@@ -36,8 +38,9 @@
 
 ## 决策状态
 
-- **已确认并执行**：首个可玩物是七日网页 Demo Story；Base/UI 按生产级维护；Story 组合 Modules、素材和全部 Scene；无后端；固定种子；IndexedDB 本地存档；启动期 Hotfix 只覆盖公开符号；E2E Story 作为真实模块集成夹具；六阶段工程 Goal 已获授权并进行中，当前执行 Phase 1，完成全部 Phase 1 任务和阶段验收后暂停，不进入 Phase 2。四张 OpenAI 概念图按来源归档但尚未复制到运行时 Asset Pack；首个 Player 仍必须依靠 code-native fallback 完整运行。
-- **尚未通过**：前端脚手架、远端发布、主观素材选择与主观试玩；这些不会仅因工程 Goal 已启动或计划完成而自动开始或视为通过。
+- **已确认并执行**：Phase 1 已完成并通过完整验证；首个玩家内容是七日网页 PoC Story；当前只保留 E2E/PoC 两个 Story；Debug/Cheat/Automation 是运行时能力；Headless/CI/AI 共用 SemanticGamePort；每个 `Story × Host` 只有一个 Artifact。四张 OpenAI 概念图按来源归档但尚未复制到运行时 Asset Pack。
+- **已完成修订**：Phase 2–6 已根据 Phase 1 实际代码和新架构重新编写并交叉复核；下一次工程 Goal 从新的 Phase 2 恢复，旧 Phase 2 不再执行。
+- **尚未通过**：PoC Gameplay、远端发布、主观素材选择与主观试玩；这些不会仅因工程 Goal 已启动或计划完成而自动开始或视为通过。
 - **本轮可调**：所有经济数值、行动/体力强度、需求与委托效率。
 - **等待试玩**：行动点与体力是否重复、经营步骤是否疲劳、预测信息量、三种营业模式是否都有用途。
 - **明确延后**：Unity、大规模正式美术、完整关系阶段、完整设施树、多周目、外部 Mod 管理器/安全沙箱、运行时 LLM、成人版本。

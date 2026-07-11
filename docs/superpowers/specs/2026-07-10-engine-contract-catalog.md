@@ -1,21 +1,23 @@
-# Base Envelope 与 Demo Module Contract Catalog v1
+# Base Envelope 与 PoC Gameplay Contract Catalog v1
 
 日期：2026-07-10
 
-状态：v1 字段级合同；已确认并冻结为第一轮工程 Goal 的实施基线
+状态：Phase 1 字段基线及 PoC 字段语义；Phase 2+ 名称和所有权按 2026-07-12 修订解释
 
-适用范围：Base 共享 envelope，以及 Demo Modules、Demo Story、Save、DebugBundle、State Dump 与重放的具体 v1 合同
+适用范围：Base 共享 envelope，以及 PoC Gameplay、PoC Story、Save、DebugBundle、State Dump 与重放的具体 v1 字段语义
+
+> **Phase 2+ 权威修订：** [`2026-07-12-post-phase1-game-runtime-design.md`](2026-07-12-post-phase1-game-runtime-design.md) 取代本文中的 `GameProfile`、`CommandCoordinator`、`ResolvedStory`、`EngineSession`、`GameModule`、`DomainFact`、Demo/Sandbox、公共酒馆 Modules、Player/Developer 静态拆分等旧名称与所有权。本文的大量具体字段仍是七日 PoC 输入；实施时必须使用修订规格中的 `Poc*`、`GameplayModule`、`GameSimulation`、`GameCommandExecutor`、`GameQueries`、`ResolvedGame` 和 `GameSession` 名称。冲突时修订规格优先。
 
 ## 1. 权威、记法与封闭性
 
-本文是 [`2026-07-10-react-game-harness-design.md`](2026-07-10-react-game-harness-design.md) 的字段级 ABI 附录。架构规格负责 package/Story/Module/Hotfix 所有权；本文负责第一版共享 envelope 与 Demo 游戏的精确字段、判别值、边界和稳定错误码。两者有冲突时，先停止实施并修正文档，不能由实现者临场发明第三种合同。
+本文是架构规格的字段级 ABI 附录。2026-07-12 修订负责 package/Story/GameplayModule/Application/Artifact 所有权；本文负责共享 envelope 与 PoC 游戏的精确字段、判别值、边界和稳定错误码。发生冲突时执行修订规格，不能由实现者临场发明第三种合同。
 
-本文为了集中评审而同时列出通用 envelope 和 Demo 具体实例，但实现位置必须分开：
+本文为了集中评审而同时列出通用 envelope 和 PoC 具体实例，但实现位置必须分开：
 
 - `@project-tavern/base` 只实现泛型 Snapshot/Command result、RNG、序列化、identity、Save/Debug、GamePackage/Hotfix 和测试合同；
-- `@project-tavern/modules` 实现 Run、Calendar、Actors、Inventory、Tavern 等状态、命令、事实、拒绝、查询和跨模块协调；
-- `stories/demo` 实现具体 Story 数据、规则、文本、Narrative、素材组合和 GameProfile；
-- `stories/e2e` 复用公开 Modules，但使用独立的最小内容和 fixture。
+- `stories/poc` 实现 Run、Calendar、Actors、Inventory、Tavern 等具体 GameplayModule、命令、GameplayFact、拒绝、GameQueries、GameCommandExecutor、内容、规则、文本、Narrative、素材和 GameSimulation；
+- `stories/e2e` 使用独立的最小 fixture GameplayModules，不复用 PoC Gameplay；
+- 当前不建立公共 Gameplay package；只有至少两个真实 Story 出现稳定重复后才重新评估。
 
 因此本文出现 `GameStateV1`、`GameCommandV1`、`StoryRulesV1` 等具体名字，不代表它们属于 Base。Base 只能以泛型参数和公共端口承载它们。
 
@@ -24,15 +26,15 @@
 - 所有数据对象都用 `z.strictObject`（或等价的拒绝 unknown keys Schema）实现；
 - 所有公开属性和数组都是 `readonly`，Map/Set/Class instance 不进入公共合同；
 - 可选字段只在本文出现 `?` 的位置允许；不得以 `undefined` 代替缺失，`null` 只在本文明确写出时允许；
-- 所有可保存运行态、规则输入输出、compiled Narrative IR、命令、DomainFact、拒绝、存档和诊断数据都可由 Strict JSON 表示；React UiSceneGraph、renderer、Schema 和源码合同不序列化；
+- 所有可保存运行态、规则输入输出、compiled Narrative IR、命令、GameplayFact、拒绝、存档和诊断数据都可由 Strict JSON 表示；Phase 2+ data-only SceneGraph descriptor 也必须可序列化，但 Web-only React renderer registry、Schema 和源码合同不序列化；
 - Narrative/content IR 不允许 callback、函数名、脚本字符串、任意属性路径、State fragment 或 `Record<string, unknown>`；
-- Demo 的 `StoryRulesV1` 方法与 `RuleRngV1.nextInt` 是可保存模拟路径中的具名函数合同；方法本身不序列化，其输入、输出和抽取记录必须序列化；
+- PoC 的 `PocRulesV1`（本文旧名 `StoryRulesV1`）方法与 `RuleRngV1.nextInt` 是确定性模拟路径中的具名函数合同；方法本身不序列化，其输入、输出和抽取记录必须序列化；
 - 唯一额外可执行扩展点是 bootstrap 期间的受管 `PatchSurface`。Hotfix 是普通 JavaScript，但官方兼容承诺只覆盖 `rule | value | text | asset` 稳定符号。它不能改变 State Schema、Command/Fact 联合或已解析 Module 图；
-- `GameProfile`、`GameModule` ports 与 `CommandCoordinator` 属于 Story 选择后的编译期/启动期源码合同，不进入 Save/Debug JSON。`ResolvedStory` 冻结后不提供运行中注册或替换 Module；
+- `GameSimulation`、`GameplayModule` ports 与 `GameCommandExecutor`（本文旧名分别为 `GameProfile`、`GameModule`、`CommandCoordinator`）属于 Story 选择后的编译期/启动期源码合同，不进入 Save/Debug JSON。`ResolvedGame` 冻结后不提供运行中注册或替换 Module；
 - `Brand` 的 phantom 字段不参与运行时对象或 JSON；
 - 文中联合类型的判别值、顺序和字段必须同时存在于 `...Kinds`/`...Codes` 常量、TypeScript 类型和 Zod Schema。
 
-Demo Story 选用的静态 Profile 源码合同冻结如下。该清单属于 `@project-tavern/modules`/`stories/demo`，不是 Base 的全局闭集。Demo v1 的 Module-to-Module read edge 故意为空；跨 owner 读取只允许 `CommandCoordinator` 通过公开 read ports 组装窄 DTO。其他 Story 可以选择不同 Module DAG，但依赖必须显式、只读且无环；`dependencies` 不能被解释成“可以读取完整 Snapshot”：
+下面保留的十二项清单是 2026-07-10 字段章节的历史语义分组索引，不再是 Phase 2+ 的 package 或 Module ABI。实际 PoC 在 `stories/poc` 使用修订计划冻结的十个 `PocGameplayModule`：WorldAction 状态由 Workflow/Progression/Narrative 的明确所有权组合，Scheduling 是 Rule/Resolver；当前不存在 `@project-tavern/modules` 或 `stories/demo`。Module-to-Module read edge 仍故意为空；跨 owner 读取只允许 `PocGameCommandExecutor` 通过公开 read ports 组装窄 DTO。其他 Story 可以选择不同 Module DAG，但依赖必须显式、只读且无环；`dependencies` 不能被解释成“可以读取完整 Snapshot”：
 
 ```ts
 const gameModuleKeysV1 = [
@@ -2378,7 +2380,7 @@ interface StoryDevelopmentSupportV1 {
 }
 ```
 
-`DemoStoryDataV1` 是 `stories/demo` 交给 authoring builder 的可序列化源数据，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved roots。完整 StoryEntry 还要选择 Module，并声明 SimulationProgram materializer、GameProfile factory、StoryRules、UI SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些含函数的启动期源码合同由架构规格与本节下方合同约束，不进入 Save JSON。Developer support 由单独的 `./development` entry 提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
+`DemoStoryDataV1` 是本文对 `stories/poc` 可序列化源数据使用的历史类型名，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved roots。完整 StoryEntry 还要选择 PoC GameplayModules，并声明 SimulationProgram materializer、GameSimulation factory、PocRules、data-only SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些启动期源码合同由修订架构与本节下方字段合同约束，不进入 Save JSON。开发 fixtures/notes/form adapters 由同 Artifact 的 `./tooling` entry 延迟提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
 
 `AssetProviderEntryV1` 只描述已经人工复制到运行时资产根目录的技术交付文件，不记录生成服务、模型、prompt、许可判断、选择状态或 AIGC 反向来源。`art-source/aigc/**` 是独立的人工作业档案，Resolver、Asset Pack、Player 与 Pages 均不得读取它。
 
@@ -3036,13 +3038,13 @@ interface UiContributionSetV1<TSceneBinding, TOverlayBinding, THudBinding, TGame
 }
 ```
 
-Base 只实现 `ReadonlyViewSourceV1` 与 Player/Developer port 的泛型协议；具体 operation/result DTO 由当前 Profile specialization 提供。Player `createNewSession`/`restartSession` 不接收可由 UI 伪造的 seed/runId；Application 在该 FIFO operation 到达队首后调用 `profile.createBootstrapInput(host.bootstrapEntropy)`，随后把同一 immutable input 交给 Profile/stateful Modules，只建立 commandSequence 0 的新 replay anchor，不冒充 Demo 的第一条 `run.start` GameCommand，也不复用上次 seed。Demo specialization 产生 `DemoGameBootstrapInputV1 { rngSeed, runId }`：Web Host 的 entropy adapter 在模拟外使用 `crypto.getRandomValues()`/`crypto.randomUUID()`，测试 Host 返回显式固定序列。`RunState.runId/initialSeed` 与初始 `RngState.cursor` 均由该 input 确定；runId 不参与规则随机，重放从已保存 Snapshot 读取它。公开 Player/Story renderer 拿不到 entropy adapter；Developer 固定现场使用 fixture anchor，而不是另开 seed setter。
+Base 只实现 `ReadonlyViewSourceV1`、SemanticGamePort 与统一 GameApplication 子端口的泛型协议；具体 operation/result DTO 由当前 GameSimulation specialization 提供。公开 lifecycle `createNewSession`/`restartSession` 不接收可由 UI 伪造的 seed/runId；Application 在该 FIFO operation 到达队首后调用 `gameSimulation.createBootstrapInput(host.bootstrapEntropy)`，随后把同一 immutable input 交给 GameSimulation/stateful Modules，只建立 commandSequence 0 的新 replay anchor，不冒充 PoC 的第一条 `run.start` GameCommand，也不复用上次 seed。PoC specialization（本文旧名 Demo）产生 `PocGameBootstrapInputV1 { rngSeed, runId }`：Web Host 的 entropy adapter 在模拟外使用 `crypto.getRandomValues()`/`crypto.randomUUID()`，测试 Host 返回显式固定序列。`RunState.runId/initialSeed` 与初始 `RngState.cursor` 均由该 input 确定；runId 不参与规则随机，重放从已保存 Snapshot 读取它。公开 lifecycle/Story renderer 拿不到 entropy adapter；固定现场使用 fixture anchor，而不是另开 seed setter。
 
 Player 只能显式写 `quick | manual`；`auto.current/auto.previous` 由提交后 Auto Save policy 内部轮换，但四个 Slot 都可以 list、load、clear 和 export。`exportSave(slot)` 返回 `SaveExportOperationResultV1`，因此 empty、invalid、unavailable 与读取期间发生 CAS 冲突都以稳定结果表达，不以 Promise rejection 或“先 list 再假设不变”处理。`exportCurrentSave` 直接从调用被接受时的最后 committed Snapshot 构造 `slotId="manual"` 的 `ExportedSaveV1`，不依赖 IndexedDB 成功，因此持久化故障时仍可抢救现场。`listSlots/getStatus` 必须区分 empty、valid、invalid、recovery-candidate、busy 和 unavailable；Lease 子端口覆盖请求交接、原 owner 批准、显式接管和释放，并且每个结果都携带当前 fencing/ownership 状态。
 
-Developer `inspectDebugBundle` 与 `inspectReplayBestEffort` 永远只读，允许在身份不匹配时返回分阶段诊断，不能替换 Session；`replayAuthoritatively` 只接受精确 replay identity 并逐项验证日志；`anchorFixture` 与 `anchorDebugBundle` 是进入 EngineSession FIFO 的 anchoring 操作，成功时替换 Snapshot/replay base 并清空旧日志。`queryDiagnostics` 只读取有界日志、Facts、Aura、不变量和 runtime failures。Player artifact 不含这些入口。
+Runtime-gated DebugTools 的 `inspectDebugBundle` 与 `inspectReplayBestEffort` 永远只读，允许在身份不匹配时返回分阶段诊断，不能替换 Session；`replayAuthoritatively` 只接受精确 replay identity 并逐项验证日志；`anchorFixture` 与 `anchorDebugBundle` 在 `debug_tools+cheats` 执行点复查后进入 GameSession FIFO，成功时替换 Snapshot/replay base 并清空旧日志。`queryDiagnostics` 只读取有界日志、Facts、Aura、不变量和 runtime failures。它们可以存在于同一 Artifact，但普通 Story renderer 与 Automation Bridge 均不可达这些端口。
 
-`@project-tavern/ui` 实现 renderer/contribution 注册，Story/Profile 提供具体 ID 与只读 ViewModel selectors。所有 Scene/Overlay/HUD ID 在各自 registry 内唯一；renderer 只能收到 selector 结果和对应 Port，不能收到 Snapshot、EngineSession 或 Module owner capability。
+`@project-tavern/ui` 实现中性 renderer/contribution 注册，Story/GameSimulation 提供具体 ID 与只读 GameQueries 投影。所有 Scene/Overlay/HUD ID 在各自 registry 内唯一；renderer 只能收到 view slice、Story-specialized SemanticGamePort 与 PresentationReadPort，不能收到 Snapshot、GameSession、DebugTools 或 Module owner capability。
 
 Story runtime 默认入口只能引用 Player port。Developer port、Developer UI contributions、fixtures 和 notes 位于静态 Developer-only import graph；Player artifact 的 bundle test 必须证明这些模块不存在。
 
@@ -3309,9 +3311,9 @@ interface RuntimeViewModelEnvelopeV1<
 
 Player command port 的 concrete `TDispatchResult` 必须是 `SessionDispatchOperationResultV1<CommandExecutionResultEnvelopeV1<...>>`。只有操作到达 FIFO 队首、针对当时 committed Snapshot 完成同一次 `executeAttempt` 后才返回 `executed`；其中领域结果才可能是 `committed | rejected | faulted`。若 admission Schema 失败，或排队期间 Session 被前项 fault/HMR 变成不可执行，则返回 `not_executed`，不打开候选事务、不消费 RNG/sequence、不写 CommandLog。FIFO 可以接受同 tick 多个普通 dispatch；`busy` 是 UI/Save capture 状态，不把已接收 dispatch 伪造为领域拒绝。
 
-Demo specialization 必须以 `RuntimeViewModelEnvelopeV1<SceneId,...,TextId>` 包裹 `EngineQueriesV1` 的只读结果：game view 至少含 HUD（日/时段/AP、现金、人气、双方 stamina、女主 mood、关系阶段/好感/默契）、`ActionViewV1[]`、run-start/policy/opening controls、Demand/Obligation forecast、当前 Overlay 所需的 Inventory/Tavern/Facility/Ledger projection 和完成总结；narrative 使用 `NarrativeProjectionV1 | null`。所有字符串与图片在 renderer 中只通过 `PresentationReadPortV1<TextId,AssetId,AssetUsageV1,LocaleId,FallbackToken>` 解析；RuntimeViewModel 不携带原始 TextCatalog、Asset Pack、runtimePath、规则或 Snapshot fragment。UI contribution renderer context 精确为 `{ viewSlice, playerPort, presentation }`，Developer renderer 才可额外取得 Developer control port。
+PoC specialization 必须以 `RuntimeViewModelEnvelopeV1<SceneId,...,TextId>` 包裹 `PocGameQueriesV1`（本文旧名 `EngineQueriesV1`）的只读结果：game view 至少含 HUD（日/时段/AP、现金、人气、双方 stamina、女主 mood、关系阶段/好感/默契）、`ActionViewV1[]`、run-start/policy/opening controls、Demand/Obligation forecast、当前 Overlay 所需的 Inventory/Tavern/Facility/Ledger projection 和完成总结；narrative 使用 `NarrativeProjectionV1 | null`。所有字符串与图片在 renderer 中只通过 `PresentationReadPortV1<TextId,AssetId,AssetUsageV1,LocaleId,FallbackToken>` 解析；RuntimeViewModel 不携带原始 TextCatalog、Asset Pack、runtimePath、规则或 Snapshot fragment。普通 UI contribution renderer context 精确为 `{ viewSlice, semantic, presentation }`；只有 DevDock 接收独立的 capability-gated DebugTools port。
 
-`@project-tavern/base` 实现上述 Host/结果/envelope 泛型；Web Host 实现 records/files/navigation/log，`@project-tavern/modules` 冻结 Demo game-view specialization，Story 提供 Text/Asset presentation 数据，`@project-tavern/ui` 只消费 envelope 与 renderer context。任何具体 DTO 新增字段先更新本节和对应 contract test，不能让 React 组件临时读取 `ResolvedStory`。
+`@project-tavern/base` 实现上述 Host/结果/envelope 泛型；Web Host 实现 records/files/navigation/log，`stories/poc` 冻结 PoC game-view specialization并提供 Text/Asset presentation 数据，`@project-tavern/ui` 只消费投影与 renderer context。任何具体 DTO 新增字段先更新本节和对应 contract test，不能让 React 组件临时读取 `ResolvedGame`、Snapshot 或 Gameplay State。
 
 ## 8. StoryRulesV1：精确输入与输出
 
@@ -3845,7 +3847,7 @@ interface SaveCompatibilityKeyV1 {
 
 Story、Engine 与 ResolvedStory provenance 永远分开；不得合并为一个 app version/digest。普通 Save load 的阻断键为 `story.id + story.revision + resolved.stateContractRevision + resolved.stateContractDigest + engine.digest + resolved.simulationDigest`。`story.digest` 用于定位未打补丁的 Story 制品；`resolved.presentationDigest` 用于表现复现；`engine.version` 是 display-only；`appBuildId` 是 diagnostics-only。这四项差异都可以提示，但不单独阻止恢复 Snapshot。
 
-`story.revision` 表示存档/状态合同代际，不是每次内容发布的版本号。只修改 TextCatalog、Asset Pack、React UiSceneGraph 或纯布局时必须保持 revision；这些变化由 story/presentation/app digests 区分。只有状态/稳定引用合同发生有意的粗粒度断代时才递增 revision。
+`story.revision` 表示存档/状态合同代际，不是每次内容发布的版本号。只修改 TextCatalog、Asset Pack、data-only SceneGraph、Web renderer registry 或纯布局时必须保持 revision；这些变化由 story/presentation/application digests 区分。只有状态/稳定引用合同发生有意的粗粒度断代时才递增 revision。
 
 `stateContractRevision` 是该 Story 代际内具体 Snapshot 与可持久 IR Schema 的正整数 revision，用于在解析前选择精确 decoder；`stateContractDigest` 则对该合同的 canonical manifest 做机器校验，防止忘记递增 revision。首版不实现 migrator，因此两者都必须与当前 ResolvedStory 精确相等。任何 State Schema 或可持久稳定引用结构变化都必须递增 `stateContractRevision`，并在不再接受旧存档时同时递增 `story.revision`；公式、数值、文本、素材和纯表现变化不得改变前者。
 
@@ -4030,7 +4032,7 @@ type CommandExecutionAttemptV1 = CommandExecutionAttemptEnvelopeV1<
 
 // rejected/faulted.snapshot 必须是 dispatch 输入的同一已提交对象引用；两者不产生 DomainFact，
 // 不推进已提交 RNG、commandSequence 或任何 Snapshot 内 Narrative/Workflow/Story 状态。
-// CommandCoordinator 的唯一公开执行入口 executeAttempt 返回 result + diagnostics；EngineSession 对 Player
+// GameCommandExecutor 的唯一公开执行入口 executeAttempt 返回 result + diagnostics；GameSession 对 Semantic/application
 // 只投影 result，并消费同一次 attempt 的 diagnostics 构造 CommandLog，不能为了补日志重新执行命令或 RNG。
 
 type ReplayableDebugCommandV1 =
@@ -4253,7 +4255,7 @@ type DebugCommandOperationResultForV1<C extends DebugCommandV1> =
 
 type DebugCommandOperationResultV1 = DebugCommandOperationResultForV1<DebugCommandV1>;
 
-// 具体条件类型由 @project-tavern/modules 公开；中性 Base control 只透传调用方提供的 TCommand/TResult。
+// 具体条件类型由 stories/poc 公开；中性 Base control 只透传调用方提供的 TCommand/TResult。
 
 type LoggedCommandV1 =
   | { readonly source: "game"; readonly command: GameCommandV1 }
@@ -4435,7 +4437,7 @@ type DebugBundleV1 = DebugBundleEnvelopeV1<
 
 State Dump 使用完整 `DebugBundleV1`，不另建弱类型 envelope。`simulationLineage` 遵守 SaveRecord 的同一链式不变量；adoption 之前的旧 CommandLog 只能作为另行导出的历史证据，当前 bundle 的 `replayBase → commandLog → currentSnapshot` 必须全部属于 provenance 中同一个 resolved simulation digest。
 
-所有会改变 Session 权威 Snapshot 的 GameCommand、Save load/import、lifecycle create/restart、replayable DebugCommand 与 `debug.fixture.load` 共用 EngineSession 的一条 FIFO mutation tail；入队即同步标记 busy，公开 Port 不暴露绕过队列的 setter。DebugCommand 可在入口做 strict Schema 校验，但引用、Aura policy 与当前状态冲突等语义预校验必须等操作到达队首后针对最新 committed Snapshot 执行；`validation_failed` 不打开候选事务、不消费 RNG/sequence、不进入 CommandLog。被接受的 replayable DebugCommand 由 Module/Profile-owned handler 通过同一 owner capabilities 执行，只可能 committed 或 faulted；两种结果都在同一队列项内把同一次 attempt 追加为对应 Debug-source CommandLog entry，committed 更新 Snapshot，faulted 保持旧 Snapshot并另外暂停 Session、生成 failure bundle，不存在 Debug 版 `RejectionReasonV1`。`debug.fixture.load` 只从 Developer-only active-Story resolver 解析；未知/外部 fixtureId 是 `debug.unknown_reference`，不引入不存在的跨 Story fixture-mismatch 状态。合法 fixture 经完整验证后在同一队列项内原子替换 current Snapshot 与 replay base并清空旧 CommandLog；普通 load/import、adoption 与 lifecycle create/restart 也必须在各自队列项内完成相同 anchor replacement。失败返回 validation/fault result并完整保留旧会话，绝不作为普通 log entry。tail 的内部异常被归一化后必须 settled，不能永久 rejected 而阻断允许的恢复操作。泛型 `DebugCommandOperationResultForV1<C>` 保证 replayable command 只能返回 committed/faulted，anchoring command 只能返回 anchor_established/faulted；两者都可在 admission 前返回 validation_failed，且 `error.commandKind` 必须精确等于该调用 command 的 kind。
+所有会改变 Session 权威 Snapshot 的 GameCommand、Save load/import、lifecycle create/restart、replayable DebugCommand 与 `debug.fixture.load` 共用 GameSession 的一条 FIFO mutation tail；入队即同步标记 busy，公开 Port 不暴露绕过队列的 setter。DebugCommand 可在入口做 strict Schema 校验，但引用、Aura policy 与当前状态冲突等语义预校验必须等操作到达队首后针对最新 committed Snapshot 执行；`validation_failed` 不打开候选事务、不消费 RNG/sequence、不进入 CommandLog。被接受的 replayable DebugCommand 由 Story/GameSimulation-owned debug executor 通过同一 owner capabilities 执行，只可能 committed 或 faulted；两种结果都在同一队列项内把同一次 finalized attempt 追加为对应 Debug-source CommandLog entry，committed 更新 Snapshot，faulted 保持旧 Snapshot并另外暂停 Session、生成 failure bundle，不存在 Debug 版 `RejectionReasonV1`。`debug.fixture.load` 只从 capability-gated active-Story tooling resolver 解析；未知/外部 fixtureId 是 `debug.unknown_reference`，不引入不存在的跨 Story fixture-mismatch 状态。合法 fixture 经完整验证后在同一队列项内原子替换 current Snapshot 与 replay base并清空旧 CommandLog；普通 load/import、adoption 与 lifecycle create/restart 也必须在各自队列项内完成相同 anchor replacement。失败返回 validation/fault result并完整保留旧会话，绝不作为普通 log entry。tail 的内部异常被归一化后必须 settled，不能永久 rejected 而阻断允许的恢复操作。泛型 `DebugCommandOperationResultForV1<C>` 保证 replayable command 只能返回 committed/faulted，anchoring command 只能返回 anchor_established/faulted；两者都可在 admission 前返回 validation_failed，且 `error.commandKind` 必须精确等于该调用 command 的 kind。
 
 `failure` 记录一条 Game/replayable-Debug/anchoring-Debug 尝试的 `EngineFaultV1` 与候选证据；Persistence/Asset/UI/async/HMR 故障写入最多 50 条、按发生顺序保存的 `runtimeFailures`，不伪装成 GameCommand。`operation`/`cause`/`message`/`stack` 都是有上限的诊断文本，导出前移除绝对路径；`message`/`stack` 各最多 64 KiB，不参加 authoritative replay 比较。
 
@@ -4667,7 +4669,7 @@ type ImportCompatibilityOutcomeV1 =
 1. `GameSnapshotV1` 是唯一权威容器；Narrative 只在 `state.story.narrative`，workflow 只在 `state.simulation.activeWorkflow`，设施建设/机会决策只在 `state.simulation.facilities`，Tavern 不复制这些状态。
 2. RNG cursor 是合法 `Uint32`，新局 `initialSeed` 非零；`rawDrawCount` 和 `commandSequence` 单调不减。每次 `RuleRng.nextInt` 满足 `1 <= exclusiveMax <= 2^32` 且 `0 <= result < exclusiveMax`。成功命令 sequence 恰加 1；拒绝/故障保持原 Snapshot 引用、RNG 和 sequence。
 3. cash、AP、stamina、reputation、teamwork、quantity 不为负；stamina 不超过 maximum；mood 只在 -2..2。
-4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= ResolvedStory.manifest.playableDays`。terminal status 的 day/phase 必须等于当前 Story 的 `levyDue`/Ending policy，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 Demo Module/Profile invariant。
+4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= storyManifest.playableDays`。terminal status 的 day/phase 必须等于当前 Story 的 `levyDue`/Ending policy，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 PoC Story/GameSimulation invariant。
 5. 只有 `calendar.advance_phase` 改变 day/phase；AP 不跨时段结转。不可行动时段与营业日由当前 Story 的 serviceDays、levyDue 和 Event/Condition 数据决定。当前 day/phase 已等于 `levyDue` 时，该命令固定拒绝为 `calendar.phase_blocked { blocker:"levy_due" }`，不能越过终局等待点；D7 普通动作则由 Action visibility/availability 的日界 gate 关闭。
 6. 只有明确作为集合的定义/状态数组按其 stable ID 升序规范化；同类 ID、BatchId、AuraInstanceId、LedgerEntryId、Facility opportunityId、Narrative slot 不重复。authored-order 数组（Confirmation、gates、recommendations、Scene nodes/options/steps，以及 AssetPack 的 `sources`/`licenses`/`providers`）保持 Story/pack 声明顺序；causal/reference 数组（DomainFact、ledger、CommandLog、triggeredEventIds、start/entry/paid-cost ledger IDs、expiredAuraIds、AppliedModifier/components）保持应用/collector 顺序。不得为了“统一排序”把后两类改成字典序；每个具体 Schema 必须声明自己属于哪一类。
 7. Ingredient batch quantity 为正，`acquiredDay <= lastUsableDay`；expiry 可以超过七日 PoC 的 day 7；initial batch 必须使用 `batch:initial:<index>` 与 `source.kind=initial`，事务创建批次必须使用 `batch:<commandSequence>:<lineIndex>` 且不能冒充 initial；FIFO 消耗顺序为 `lastUsableDay, acquiredDay, batchId`。`inventory.grant` 必须创建确定性 batch IDs、按 Story ingredient unitPrice 追加 `story_reward`、cashDelta 0、正 valuationDelta 的 entries，并在 `inventory.ingredient_granted` 中携带 lines/createdBatchIds/entries/reason；不能要求 UI 从 Snapshot diff 猜奖励。
@@ -4689,13 +4691,13 @@ type ImportCompatibilityOutcomeV1 =
 23. 每个 Narrative/Stage/Story 引用的 AssetId 必须在 `ResolvedAssetManifestV1.assets`；safeArea 在像素边界内，pivot 两个 Ratio 的 numerator 不超过 denominator；fallback 与 runtime image 都满足相同尺寸/锚点合同，runtime image 还必须携带可用 fallbackToken。
 24. 每个 visibility/availability gate 的 conditions 非空，reasonId 必须存在 StoryContent；所有 visibility gates 通过才出现在 `getAvailableActions`，随后所有 availability gates 通过才可用；每个失败 gate 按声明顺序产生带该 reasonId 的类型化 Rejection。`tavern.helper_tier_at_least` 在 helper 未解锁时恒为 false。解析到 Action presentation 的命令先共用同一 availablePhases guard，再评估 authored gates；occupiedPhases 只用于展示承诺，绝不充当提交窗口。`actor.prepare_food` 还必须共用 Tavern Module-owned daily limit guard，达到上限时 query/preview/execute 都返回 `tavern.preparation_limit_reached { current, limit }`。Action/Facility/ServiceMode/WorldAction 的 `getAvailableActions`、`explainAvailability`、`previewCommand` 与 execute 不得各写一套判断。
 25. ConfirmationMetadata 的三个数组按 stable ID 唯一且保持 Story 声明顺序，TextId/ActionId 必须存在，互斥不得引用自身；跨 contributing sources 也不得重复。Action presentation 的 player/system 映射数必须严格满足 §7.2 后的封闭分类；CommandPreview 按规定的 source/merge 顺序覆盖 Action、ServiceMode、Facility opportunity + build/skip、WorldAction option 与 Narrative choice。对应玩家决策的 confirmation 非 null，system/workflow controls 为 null。成本、时段和可推导变化来自同一 preview/execute 计算器。ActionView `directCommand` 非 null 时 UI 可直接预览/提交该精确命令；为 null 时必须先通过强类型 Overlay 收集参数，不得按 commandKind 猜 payload。
-26. Scheduler 严格使用 §7.2 的外层 context 全序、单-context evaluation Snapshot、先选全再应用、跨-context 顺序可见语义；`story.explicit` 只允许 effects，`week.ended` 以及 trigger commandKinds 含 `levy.pay` 的 `command.succeeded` Event 还进一步要求 sceneId=null 且只允许 `fact.set | quest.set`。两个 Scheduler scene 以 `scheduler.multiple_blocking_events` 故障；Scheduler scene 与 active/base-command Narrative request 冲突以 `narrative.blocking_conflict` 故障。两者都必须回滚 effects、RNG、workflow、cursor、DomainFacts 和 sequence；唯一请求只能在全部 Schema/invariants 通过后建立 Narrative 与可选 Opening blockingEvent。
+26. Scheduler 严格使用 §7.2 的外层 context 全序、单-context evaluation Snapshot、先选全再应用、跨-context 顺序可见语义；`story.explicit` 只允许 effects，`week.ended` 以及 trigger commandKinds 含 `levy.pay` 的 `command.succeeded` Event 还进一步要求 sceneId=null 且只允许 `fact.set | quest.set`。两个 Scheduler scene 以 `scheduler.multiple_blocking_events` 故障；Scheduler scene 与 active/base-command Narrative request 冲突以 `narrative.blocking_conflict` 故障。两者都必须回滚 effects、RNG、workflow、cursor、GameplayFacts 和 sequence；唯一请求只能在全部 Schema/invariants 通过后建立 Narrative 与可选 Opening blockingEvent。
 27. `StoryContent.storyActions` 的 actionId 必须是 `action.*`、在本表内唯一，且恰好对应一个 `ActionPresentationDefinitionV1.commandKind="story.action.start"`；`StoryEventDefinition.eventId` 必须是 `event.*`，玩家行动不得保留 `event.*` 兼容别名。该 ActionView 的 `directCommand` 必须精确为 `{ kind: "story.action.start", actionId }`。命令只能在 availability gates 全部通过且 Narrative 不 active 时执行：先原子验证/应用 startEffects，再在 sceneId 非 null 时建立 `NarrativeSource.kind="story_action"`，最后发出 `story.action_started`；任一步失败不提交。玩家不发出该命令时 Story 不得自动修改关系 Outcome，因此“完全不参与女主支线”是合法路径。
 28. `ModifierSourceRefV1.kind="story"` 的 sourceId 必须存在于 `StoryContent.modifierSources`，且只用于规则/Story 级派生贡献；其他 source variant 不仅要引用现有 ID，还必须与拥有该 Modifier/Effect 的实际 owner 相等：FacilityDefinition modifier=同 facility，AuraDefinition modifier=同 aura，Event/session modifier=触发它的 event。`aura.apply.source`、`inventory.grant.source` 及 story-cost/reward ledger subject 也必须与当前 Event/StoryAction/WorldAction/Facility 或 active Narrative source 精确一致；Profile 中对应事务 owner 派生 ChangeReason 并验证 authored source，不能接受“存在但冒充另一个 owner”的 ID。Demand、Opening、Check 与恢复等 rule/collector 不得临时创造无法解析的 modifier source。`facility.choice_committed` 的 build reason 来自 `facility.choose.build` ActionCost，skip reason 来自 opportunity.skipReasonId；`food.prepared` 使用 prepare ActionCost reason，`tavern.plan_set` 使用所选 ServiceMode reason。
 29. 每个 `IntegerRangeV1` 都满足 `min <= max`；数量/客流/销量范围还必须满足 `min >= 0`。Story integer definition 的 defaultValue 必须落在其 range 内；Demand actual 必须落在 preview range，Tavern actual sales 必须落在对应 expectedSales range，Obligation 的 lower/upper 也不得倒置。Obligation policy 的 reason/text/action 引用必须存在，recommendation appliesTo 非空、唯一且按 Forecast kind 顺序规范化。
 30. Aura countdown policy 满足 `defaultRemaining <= maximumRemaining`。initial 与普通 authored `aura.apply` 必须使用 definition 的 kind/unit/defaultRemaining；`debug.aura.apply` 可以在同一 countdown unit 内选择 `1..maximumRemaining`，但不能换 unit，until-cleared definition 也只能创建 until-cleared instance。持久实例的 kind/unit 必须匹配 definition，remaining 不超过 maximum；因此 PoC 的 angry/sign/strain 生命周期不会被合法但错误的 Effect payload 改写。
 31. Aura allowedTargets 按 `kind`、actorId 规范化且深值唯一，instance target 必须精确命中一项，不能只因同为 actor 就把 heroine Aura 加给 player。所有 collector 的适用 Modifier 使用同一全序：base component（若有）最先；随后 source-kind 为 `story < facility < aura < event`。story 以 sourceId、rule-output index 排序；facility 以 facilityId、definition index 排序；aura 以 appliedAtSequence、instanceId、definition index 排序；event/session 以 triggeredEventIds 的既有因果次序、append index 排序。筛选不改变相对顺序；AppliedModifier、OpeningBaseline、OpeningLedger、Demand explanation 与 stamina components 都保留该序，不能按 target/kind/数值重新排序。
-32. 每个 ResolvedStory 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；Profile 的 State/Command/Fact/Rejection/DebugCommand schemas、Coordinator、queries 和 ViewModel projection 必须来自同一组合。Base generic contract tests 使用 synthetic GamePackage，不能以 Demo 联合类型代替泛型边界。
+32. 每个 ResolvedGame 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；GameSimulation 的 State/Command/Fact/Rejection/DebugCommand schemas、normal/debug executors、queries 和 ViewModel projection 必须来自同一 type witness。Base generic contract tests 使用 synthetic GamePackage，不能以 PoC 联合类型代替泛型边界。
 33. Resolved simulation root 只能依赖 Base、Module core 和自身 simulation sources；source presentation facet 及 resolved presentation root 可以消费只读 ViewModel/Player Port，但 Profile/Coordinator 不得导入它们。Narrative 稳定 scene/node/cursor、conditions/checks/commands/effects 同时进入 state-contract/simulation manifests；TextCatalog、UiSceneGraph renderer、视觉 cue、CSS 和 Asset providers 进入 presentation manifest。
 34. Simulation Patch Registry 只接受 `rule | value`，Presentation Registry 只接受 `value | text | asset`；slot surface 不能由 Hotfix 改写。Provider/Hotfix/PatchSet digest 必须使用 §7.3 和 §10 的冻结算法；安装完成立即撤销写权限。TextCatalog default 完整、Locale/fallback 无环且最终到达 default。Asset slot definition 不可被 provider 覆盖；packs 后才应用 asset Hotfix，sealed slot 不暴露 patch slot；Resolved assets 与 slots 一一对应。
 35. PatchSet adoption declaration 必须精确匹配 Story ID/revision、stateContractRevision/digest、from/to simulation digests 和当前 simulationPatchSetDigest；不得由其中任一 Hotfix 泛化授权，纯 presentation PatchSet 差异不阻断。新局 lineage 为空，exact load 保留，adoption 只追加；当前 DebugBundle 的 replay base/log/current Snapshot 始终属于同一 simulation digest。

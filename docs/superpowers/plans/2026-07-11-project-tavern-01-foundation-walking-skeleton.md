@@ -1,5 +1,7 @@
 # Project Tavern Foundation Walking Skeleton Implementation Plan
 
+> **Execution record:** Phase 1 completed at `4e9c2bd5b06f3cc6f338d30ff43bc6e0188f74d2` and was re-verified on 2026-07-12. This file remains the as-built historical plan. Phase 2 migrates its `GameProfile`/`ResolvedStory`/`EngineSession`, Sandbox/Demo directories, and Player/Developer build terminology according to [`2026-07-12-post-phase1-game-runtime-design.md`](../specs/2026-07-12-post-phase1-game-runtime-design.md); do not reopen or mechanically rewrite completed Phase 1 tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Establish the pinned multi-license workspace, neutral deterministic Base kernel, synthetic Sandbox GamePackage, minimal generic React/Web host, and browser walking skeleton that prove one typed command can cross every durable boundary without introducing tavern-specific state into Base.
