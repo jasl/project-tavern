@@ -215,9 +215,36 @@ CI 还应断言不存在已跟踪的 `references/` 文件，并检查生产 impo
 - 购买素材如果只允许随成品发布、禁止公开源文件，保留在私有素材源；公开仓库只保存占位符、Asset ID、获取说明和不泄露受保护内容的 metadata；
 - npm 依赖按 lockfile 精确版本审计；缺失或不兼容许可证阻止 Player 构建，不能只信 package metadata 的一个字符串；
 - Lucide、字体等依赖保留自己的许可证和 attribution；
-- AI 素材记录服务、模型、日期、提示词、输入、输出 hash 和当时条款；只有确认有公开分发与再许可权时才标为项目 CC 内容；
-- 权属或服务条款不确定的 AI 输出可以留在本地候选区，不进入 Git、Player 或 Pages；
+- AI 素材记录服务、surface、模型、日期、提示词、按顺序排列的输入 Asset ID 与当时 source hash、输出 hash 和生成时有效条款；只有确认有仓库公开、修改、再分发、运行时分发与项目再许可权时，才可在实际存在版权或其他可许可权利的范围内标为项目 CC 内容；
+- 权属、服务条款、账号/Customer 权利受益人或再许可授权不确定的 AI 输出只能留在本地候选区，不进入 Git、仓库代码 preview、Player、截图、Pages 或后续 AIGC 输入；
 - 商业素材和 `references/` 永不作为生成输入，除非未来取得针对该操作的明确授权并修改本规格。
+
+### 9.1 AI 输出的三个独立闸门
+
+AI 输出必须依次区分，且不得互相推导：
+
+1. **仓库准入**：精确输出先通过生成服务条款与权利受益人授权评审，再通过逐输出的有限内容观察，才可提交 source/prompt/provenance；
+2. **运行时选定**：仓库准入不表示主观选图。只有 `review.status="selected"`、存在受预算约束的 runtime export 且 Asset validator 通过时，才可进入 Asset Pack、`ResolvedAssetManifest`、presentation digest、截图、Player 或 Pages；
+3. **生成输入复用**：服务条款评审绝不授予 AIGC 输入权。每个非空输入必须在生成前由独立 `inputUseReview` 按原顺序绑定 Asset ID 与当前归档 source SHA-256，并明确允许 `generation_input` 或 `image_edit_input`。
+
+`termsReview.status` 为 `pending` 或 `rejected` 的输出是 local-only：不得跟踪、由仓库代码或 Developer preview 读取、打包、部署、截图或作为生成输入。Git 中的 AI provenance 必须引用同一 Image Gen pack 内的严格、versioned service-terms review，并以 `reviewId` 与 review semantic digest 防止静默替换。评审还必须绑定精确的 service/surface、Asset ID、`generator.generatedAt` 与 `sourceSha256`，记录每份官方协议的名称、适用 scope、effective/updated date、证据检索日期与 HTTPS 来源。
+
+若生成 surface 无法证明使用的是个人账号还是 business/developer Customer，评审必须覆盖两个实际可能的 account agreement：个人侧 OpenAI Terms of Use 与 business/developer 侧 OpenAI Services Agreement；同时记录冲突时优先适用的 OpenAI Service Terms、生成时有效的 Usage Policies 和 Sharing & Publication Policy。公共条款中的共同结论只能表述为：在用户/Customer 与 OpenAI 之间，适用用户/Customer 拥有 Output，OpenAI 转让其可能拥有的 Output 权利。仓库批准还必须由 `Jun Jiang (jasl)` 作为实际 rights beneficiary 记录 project-controlled generation account 与 repository-owner authorization，并明确授权以下 closed uses：
+
+```text
+repository_archival
+repository_publication
+modification
+redistribution
+runtime_distribution
+project_relicensing
+```
+
+`project_relicensing` 只授权在版权或其他可许可项目权利确实存在的范围内采用项目 CC 许可；不得声称输出必然可版权、具有独占性或不存在第三方权利问题。评审固定保留 human review/适用 disclosure 与 attribution、输入权利责任、输出非唯一性和无 non-infringement warranty 四项限制。
+
+逐输出 `contentAdmissionReview` 只记录有限视觉观察：未观察到可见 Logo/水印、具名公众人物或明显第三方角色/品牌，并绑定同一 Asset ID、生成时间与 source SHA-256。它不是侵权检索、商标检索、肖像权审查或 non-infringement clearance，也不能替代主观选图。
+
+当前 `art-source/imagegen/first-web-pack/` 四个输出已完成上述仓库准入，仍全部保持 `review.status="candidate"` 与 `runtime: null`，因此继续排除在 Asset Pack、`ResolvedAssetManifest`、presentation digest、Player、截图、Pages 与 AIGC 输入之外。
 
 ## 10. 名称、Logo 与商标
 
@@ -277,6 +304,7 @@ CONTRIBUTING.md
 - 每个发布文件恰好解析到一个项目许可范围或一个第三方记录；
 - 不存在 `unknown`/`unverified` 第三方输入；
 - `references/` 没有被跟踪、导入、打包或作为 AIGC 输入；
+- 每个已跟踪 AI provenance、prompt、source 与同 pack service-terms review 都是非 symlink 的已跟踪文件；JSON closed schema、输出/source/review hash 绑定、官方条款证据、rights-beneficiary 授权、有限内容观察和独立 input-use review 均有效；
 - MIT import graph 不依赖 PolyForm/CC 的游戏专用实现；
 - Player artifact 同时携带 License scope、NOTICE、法律文本和实际第三方 notices；
 - 许可证扫描结果使用 lockfile、最终 bundle manifest 和素材 manifest，而不是只扫描源码目录；

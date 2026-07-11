@@ -22,7 +22,7 @@
 - Player-facing/design text is Chinese; identifiers are English stable IDs. TextCatalog is separate from semantic Narrative IR.
 - Original Story code, rules, values, fixtures, and Story-specific tests use PolyForm Noncommercial. Original narrative/localization files use CC BY-NC-SA. The package stays `PolyForm-Noncommercial-1.0.0` until its first CC-scoped file is activated; that same commit creates `LICENSE.md`, changes metadata/policy/tests to `SEE LICENSE IN LICENSE.md`, and adds only exports whose target files exist.
 - Every public DTO and test fixture uses the Module contract's `DayIndex`, `Money`, `Quantity`, signed/safe integer, and per-kind ID brands. Demo constructs them through the exported unsuffixed parsers; raw strings/numbers may appear only as parser input, display text, or local loop indices.
-- The four current Phase A Image Gen items remain `review.status="candidate"` and `termsReview.status="pending"`. They must not enter Story asset packs, `ResolvedAssetManifest`, presentation digest, Player artifact, golden screenshot, or AIGC input. Demo ships fallback-only slots until both selection and terms gates are approved.
+- The four current Phase A Image Gen items remain `review.status="candidate"` and `termsReview.status="approved"`. They must not enter Story asset packs, `ResolvedAssetManifest`, presentation digest, Player artifact, golden screenshot, or AIGC input while they remain unselected. Demo ships fallback-only slots until explicit user selection; recorded service-terms approval neither selects an asset nor approves any future AIGC input reuse.
 - Production/test/build/generation code must not import, scan, copy, screenshot, or otherwise depend on `references/`.
 - Command, golden, and Save fixture verification is read-only. Only `update:commands`, `update:golden`, and `update:fixtures` may rewrite their respective tracked fixture directories, and every resulting diff must be manually reviewed.
 - Any balance change updates `docs/poc/balance-v0.md` and the reviewed golden/threshold expectations in the same change. This plan implements the current values; it does not tune around failing tests silently.
@@ -1625,8 +1625,8 @@ git commit -m "feat(story-demo): compose seven-day story package"
 - Create: `stories/demo/src/test/terminal-route.integration.test.ts`
 
 **Interfaces:**
-- Consumes: the complete Task 7 GamePackage/resolved Profile, `resolveStoryForTestV1`, `createEngineSessionV1`, explicit bootstrap input, public `GameCommandV1`, Player dispatch result, and immutable queries.
-- Produces: one `createDemoStoryHarnessV1(input)` API and all real command-through D1–D7 route tests. No content/rule test before this task dispatches a command.
+- Consumes: the complete Task 7 GamePackage/resolved Profile, `resolveStoryForTestV1`, `createEngineSessionV1`, explicit bootstrap input, public `GameCommandV1`, Player dispatch result, the runtime-owned bounded CommandLog, and immutable queries.
+- Produces: one test-only `createDemoStoryHarnessV1(input)` API, a readonly same-attempt execution/CommandLog observation surface, and all real command-through D1–D7 route tests. No content/rule test before this task dispatches a command, and no harness symbol enters a public or Player export.
 
 - [ ] **Step 1: Write the failing uniform-harness contract**
 
@@ -1642,17 +1642,26 @@ export interface DemoStoryHarnessInputV1 {
   readonly resolvedStory?: DemoResolvedStoryV1;
 }
 
+export interface DemoHarnessExecutedGameAttemptV1 {
+  readonly command: DeepReadonly<GameCommandV1>;
+  readonly execution: DeepReadonly<DemoCommandExecutionResultV1>;
+  readonly logEntry: DeepReadonly<
+    Extract<CommandLogEntryV1, { readonly source: "game" }>
+  >;
+}
+
 export interface DemoStoryHarnessV1 {
   dispatch(command: DeepReadonly<GameCommandV1>): Promise<SessionDispatchOperationResultV1<DemoCommandExecutionResultV1>>;
   commit(command: DeepReadonly<GameCommandV1>): Promise<DeepReadonly<GameSnapshotV1>>;
   snapshot(): DeepReadonly<GameSnapshotV1>;
   queries(): EngineQueriesV1;
+  executedGameAttempts(): readonly DeepReadonly<DemoHarnessExecutedGameAttemptV1>[];
 }
 
 export function createDemoStoryHarnessV1(input: DemoStoryHarnessInputV1): DemoStoryHarnessV1;
 ```
 
-There is no zero-argument overload, `{ seed }` alias, direct `executeAttempt`, `anchorSnapshot`, owner apply, rule call, or state setter. `commit` calls `dispatch` exactly once, requires `{ kind:"executed", execution:{ kind:"committed" } }`, and returns the adopted immutable Snapshot. Every convenience driver expands only into public commands and awaits them.
+There is no zero-argument overload, `{ seed }` alias, direct `executeAttempt`, `anchorSnapshot`, owner apply, rule call, state setter, mutable CommandLog handle, or replay-base accessor. `dispatch` calls the real Session exactly once. For each `{ kind:"executed" }` result, it pairs that exact execution with the one next-ordinal game CommandLog entry appended before return, deep-freezes the test record, and appends it to a private observation array; `{ kind:"not_executed" }` appends nothing. `executedGameAttempts()` returns a frozen copy and never exposes a mutable log. `commit` calls this `dispatch` wrapper exactly once, requires `{ kind:"executed", execution:{ kind:"committed" } }`, and returns the adopted immutable Snapshot. Every convenience driver expands only into public commands and awaits them.
 
 - [ ] **Step 2: Run and observe the missing harness**
 
@@ -1662,7 +1671,7 @@ Expected: FAIL with missing `../testing/demo-harness.js`.
 
 - [ ] **Step 3: Implement the harness over the real Session**
 
-Select `const resolved = input.resolvedStory ?? resolveBaseDemoStoryV1()` before Session creation, then pass that exact `resolved.profile` and `input.bootstrap` to `createEngineSessionV1`. The local helper also gives `DemoResolvedStoryV1` its complete inferred five-parameter specialization without a cast or raw generic. Never call the source materializer/Profile factory again: a supplied Hotfix-resolved candidate must retain its own closed Program/Profile. Queries come from that same coordinator instance and current committed Snapshot. Test-only inspection is private to the harness; Player/public package exports remain unchanged.
+Select `const resolved = input.resolvedStory ?? resolveBaseDemoStoryV1()` before Session creation, then pass that exact `resolved.profile` and `input.bootstrap` to `createEngineSessionV1`. The local helper also gives `DemoResolvedStoryV1` its complete inferred five-parameter specialization without a cast or raw generic. Never call the source materializer/Profile factory again: a supplied Hotfix-resolved candidate must retain its own closed Program/Profile. Queries come from that same coordinator instance and current committed Snapshot. The harness privately retains the runtime CommandLog instance supplied to that Session. Around each dispatch it records the prior last ordinal and bounded entry count, awaits the Session result, and for an executed attempt requires one next-ordinal game entry whose command and outcome match that same result; the bounded log may grow by one or remain at its limit after evicting the oldest entry. The harness immediately copies only that immutable public entry into `DemoHarnessExecutedGameAttemptV1`, so its test-only observation history remains complete even after later CommandLog eviction. Tests cover committed, rejected, faulted, `not_executed`, and bounded-eviction cardinality. This observation seam is exported only from `src/testing/demo-harness.ts`, is absent from the default Story and Player import closures, and cannot append, anchor, replay, or mutate the CommandLog.
 
 - [ ] **Step 4: Port all command-through acceptance vectors after composition**
 
@@ -1701,7 +1710,7 @@ git commit -m "test(story-demo): prove command-through week routes"
 
 **Interfaces:**
 - Consumes: fixed strategy schedules in `reference-strategies.md`, Story queries/commands, fixed seed/run IDs, and current committed inventory for deterministic purchase expansion.
-- Produces: six unique literal `GameCommandV1[]` JSON fixtures and a runner that fails immediately on any rejection/fault. Runtime tests read the JSON; they do not reinterpret strategy prose.
+- Produces: an async compiler with explicitly captured committed Session results, an ordered async all-fixtures builder, six unique literal `GameCommandV1[]` JSON fixtures, and a runner that fails immediately on any rejection/fault. Runtime tests read the JSON; they do not reinterpret strategy prose.
 
 - [ ] **Step 1: Write the failing compiler/fixture test**
 
@@ -1716,7 +1725,7 @@ import { referenceStrategyDefinitionsV1 } from "../testing/reference-strategy-de
 describe("reference strategy command fixtures", () => {
   for (const definition of Object.values(referenceStrategyDefinitionsV1)) {
     it(`${definition.strategyId} compiles to the reviewed literal fixture`, async () => {
-      const compiled = compileReferenceStrategyV1(definition);
+      const compiled = await compileReferenceStrategyV1(definition);
       const path = new URL(`./fixtures/commands/${definition.strategyId}.json`, import.meta.url);
       const stored = JSON.parse(await readFile(path, "utf8"));
       expect(canonicalJsonBytes(compiled.commands)).toEqual(canonicalJsonBytes(stored));
@@ -1805,9 +1814,14 @@ export async function compileReferenceStrategyV1(
     },
   });
   const commands: GameCommandV1[] = [];
+  const results: DemoCommandExecutionResultV1[] = [];
   const commit = async (command: GameCommandV1): Promise<void> => {
-    await harness.commit(command);
+    const operation = await harness.dispatch(command);
+    if (operation.kind !== "executed" || operation.execution.kind !== "committed") {
+      throw new Error(`reference_strategy.command_not_committed:${command.kind}`);
+    }
     commands.push(command);
+    results.push(operation.execution);
   };
 
   await commit({ kind: "run.start" });
@@ -1816,23 +1830,27 @@ export async function compileReferenceStrategyV1(
   for (const dayPlan of definition.days) await compileDayV1(dayPlan, harness, commit);
   await commit({ kind: "calendar.advance_phase" });
   await drainNarrativeCommandsV1(harness, commit);
-  commit({ kind: "levy.pay" });
-  return { commands, results: harness.results(), finalSnapshot: harness.snapshot() };
+  await commit({ kind: "levy.pay" });
+  return { commands, results, finalSnapshot: harness.snapshot() };
 }
 
-export function buildAllCommandFixturesV1(): Readonly<
+export async function buildAllCommandFixturesV1(): Promise<Readonly<
   Record<ReferenceStrategyIdV1, readonly GameCommandV1[]>
-> {
-  return Object.freeze(Object.fromEntries(
-    referenceStrategyIdsV1.map((strategyId) => [
-      strategyId,
-      compileReferenceStrategyV1(referenceStrategyDefinitionsV1[strategyId]).commands,
-    ]),
-  ) as Record<ReferenceStrategyIdV1, readonly GameCommandV1[]>);
+>> {
+  const entries: Array<readonly [ReferenceStrategyIdV1, readonly GameCommandV1[]]> = [];
+  for (const strategyId of referenceStrategyIdsV1) {
+    const compiled = await compileReferenceStrategyV1(
+      referenceStrategyDefinitionsV1[strategyId],
+    );
+    entries.push([strategyId, compiled.commands]);
+  }
+  return Object.freeze(
+    Object.fromEntries(entries) as Record<ReferenceStrategyIdV1, readonly GameCommandV1[]>,
+  );
 }
 ```
 
-`compileDayV1` reserves fixed-window AP first, expands repeated prepare/rest as separate commands, computes purchases from current FIFO inventory without future RNG, submits plan before afternoon advance, drains every Scheduler Scene after phase advance, calls Start/Finalize adjacently for non-closed service, and fails on the first non-committed result.
+`compileDayV1` reserves fixed-window AP first, expands repeated prepare/rest as separate commands, computes purchases from current FIFO inventory without future RNG, submits plan before afternoon advance, drains every Scheduler Scene after phase advance, calls Start/Finalize adjacently for non-closed service, and fails on the first non-committed result. `buildAllCommandFixturesV1` awaits strategies sequentially in `referenceStrategyIdsV1` order so failure reporting and writer order are deterministic; it does not launch an unbounded `Promise.all`.
 
 - [ ] **Step 5: Add the command-only writer, generate literal JSON once, and review it**
 
@@ -1844,7 +1862,8 @@ import { buildAllCommandFixturesV1 } from "../dist/testing/compile-reference-str
 
 const directory = resolve(import.meta.dirname, "../src/test/fixtures/commands");
 await mkdir(directory, { recursive: true });
-for (const [strategyId, commands] of Object.entries(buildAllCommandFixturesV1())) {
+const fixtures = await buildAllCommandFixturesV1();
+for (const [strategyId, commands] of Object.entries(fixtures)) {
   await writeFile(resolve(directory, `${strategyId}.json`), `${JSON.stringify(commands, null, 2)}\n`, "utf8");
 }
 ```
@@ -1887,8 +1906,8 @@ git commit -m "test(story-demo): freeze reference strategy commands"
 - Create: `stories/demo/src/test/fixtures/golden/strategy.explicit_failure.json`
 
 **Interfaces:**
-- Consumes: reviewed command fixtures, fixed seed/run IDs, EngineSession, state digest, DomainFacts, ledger, service history, and Run completion.
-- Produces: six canonical golden artifacts containing every command/state digest, nightly ledger/history, PRNG trace summary, and final three-dimensional outcome.
+- Consumes: reviewed command fixtures, fixed seed/run IDs, EngineSession, the Task 7A readonly same-attempt execution/CommandLog records, state digest, DomainFacts, ledger, service history, and Run completion.
+- Produces: async single/all golden builders and six canonical golden artifacts containing every command/state digest, nightly ledger/history, PRNG trace summary, and final three-dimensional outcome.
 
 - [ ] **Step 1: Write the failing read-only golden verifier**
 
@@ -1904,7 +1923,7 @@ import { loadCommandFixtureV1 } from "../testing/run-reference-strategy.js";
 describe("reference seed golden weeks", () => {
   for (const strategyId of referenceStrategyIdsV1) {
     it(`${strategyId} matches the reviewed artifact`, async () => {
-      const actual = buildGoldenArtifactV1(strategyId, loadCommandFixtureV1(strategyId));
+      const actual = await buildGoldenArtifactV1(strategyId, loadCommandFixtureV1(strategyId));
       const stored = JSON.parse(await readFile(new URL(`./fixtures/golden/${strategyId}.json`, import.meta.url), "utf8"));
       expect(canonicalJsonBytes(actual)).toEqual(canonicalJsonBytes(stored));
       expect(actual.transitions).toHaveLength(actual.commands.length);
@@ -1956,9 +1975,24 @@ export interface DemoGoldenArtifactV1 {
     readonly completionStateDigest: Digest;
   };
 }
+
+export async function buildAllGoldenArtifactsV1(): Promise<Readonly<
+  Record<ReferenceStrategyIdV1, DemoGoldenArtifactV1>
+>> {
+  const entries: Array<readonly [ReferenceStrategyIdV1, DemoGoldenArtifactV1]> = [];
+  for (const strategyId of referenceStrategyIdsV1) {
+    entries.push([
+      strategyId,
+      await buildGoldenArtifactV1(strategyId, loadCommandFixtureV1(strategyId)),
+    ]);
+  }
+  return Object.freeze(
+    Object.fromEntries(entries) as Record<ReferenceStrategyIdV1, DemoGoldenArtifactV1>,
+  );
+}
 ```
 
-`buildGoldenArtifactV1` executes only the stored command fixture with the fixed seed/runId, records the same attempt's diagnostics, derives nightly rows from authoritative serviceHistory/ledger, and reads final outcomes from `RunCompletionV1`; it never reads CommandLog as player history.
+`buildGoldenArtifactV1(strategyId, commands)` is async and returns `Promise<DemoGoldenArtifactV1>`. It creates one fixed-seed/runId harness, then awaits each stored command sequentially. Every dispatch must return an executed committed result and add exactly one `executedGameAttempts()` record. The builder pairs the command with that same record, takes `stateDigest` and `rngDraws` from its immutable `logEntry`, and takes ordered `factKinds` from its paired committed `execution`; it never re-executes a command or reads a later entry to reconstruct diagnostics. It derives nightly rows from authoritative serviceHistory/ledger and reads final outcomes from `RunCompletionV1`. This test-only use of CommandLog evidence is diagnostic correlation, never player history or simulation input. `buildAllGoldenArtifactsV1` awaits the six builders sequentially in `referenceStrategyIdsV1` order so generated object/write order and first-failure reporting stay deterministic.
 
 - [ ] **Step 4: Implement the explicit update script**
 
@@ -1968,7 +2002,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildAllGoldenArtifactsV1 } from "../dist/testing/golden-artifact.js";
 
-const records = buildAllGoldenArtifactsV1();
+const records = await buildAllGoldenArtifactsV1();
 const directory = resolve(import.meta.dirname, "../src/test/fixtures/golden");
 await mkdir(directory, { recursive: true });
 for (const [strategyId, value] of Object.entries(records)) {
@@ -2013,17 +2047,28 @@ git commit -m "test(story-demo): add reviewed golden weeks"
 
 **Interfaces:**
 - Consumes: six reviewed command schedules, seeds `1..1000`, already-committed clue-only D6 branch, final completion/ledger/AP/stamina/inventory metrics, and fast-check.
-- Produces: exact pass-count/median/dominance assertions plus deterministic, non-negative, ledger, bed, and cold-storage counterfactuals.
+- Produces: an asynchronously materialized corpus, exact pass-count/median/dominance assertions, and awaited deterministic, non-negative, ledger, bed, and cold-storage replay/counterfactual checks.
 
 - [ ] **Step 1: Write exact threshold tests before running the corpus**
 
 ```ts
 // stories/demo/src/test/balance-1000-seeds.test.ts
-import { describe, expect, it } from "vitest";
-import { runStrategyCorpusV1 } from "../testing/run-reference-strategy.js";
+import { beforeAll, describe, expect, it } from "vitest";
+import {
+  runStrategyCorpusV1,
+  type StrategyCorpusV1,
+} from "../testing/run-reference-strategy.js";
+import { referenceStrategyIdsV1 } from "../testing/reference-strategy-definitions.js";
+
+const corpusBuildTimeoutMs = 300_000;
+const perStrategyReplayTimeoutMs = 180_000;
 
 describe("1..1000 seed balance contract", () => {
-  const corpus = runStrategyCorpusV1({ firstSeed: 1, lastSeed: 1000 });
+  let corpus: StrategyCorpusV1;
+
+  beforeAll(async () => {
+    corpus = await runStrategyCorpusV1({ firstSeed: 1, lastSeed: 1000 });
+  }, corpusBuildTimeoutMs);
 
   it("keeps primary strategies viable", () => {
     expect(corpus.paidCount("strategy.cash_first")).toBeGreaterThanOrEqual(900);
@@ -2052,6 +2097,8 @@ describe("1..1000 seed balance contract", () => {
 });
 ```
 
+`runStrategyCorpusV1` returns `Promise<StrategyCorpusV1>` because every run uses the async Session harness. It materializes runs in stable `referenceStrategyIdsV1` order and ascending seed order, awaiting every command before recording metrics. The explicit async `beforeAll` owns corpus construction inside the Vitest lifecycle, has a bounded five-minute timeout rather than Vitest's default hook timeout, and publishes `corpus` only after all 6,000 runs complete; no corpus execution starts at module/`describe` evaluation, and no test reads a partially built corpus. The resolved corpus exposes synchronous aggregate reads, while `replay(...)` and `counterfactual(...)` return Promises because they execute fresh command sequences. All test snippets below live in the same `describe`.
+
 - [ ] **Step 2: Run and record the initial corpus result**
 
 Run: `pnpm --filter @project-tavern/story-demo test -- src/test/balance-1000-seeds.test.ts`
@@ -2061,9 +2108,10 @@ Expected: PASS against the current `balance-v0.md` contract. If any exact thresh
 - [ ] **Step 3: Add deterministic and resource invariants**
 
 ```ts
-it("replays every seed/strategy identically and preserves resource invariants", () => {
+it.each(referenceStrategyIdsV1)("replays every %s seed identically and preserves resource invariants", async (strategyId) => {
   for (const run of corpus.runs()) {
-    const replay = corpus.replay(run.strategyId, run.seed);
+    if (run.strategyId !== strategyId) continue;
+    const replay = await corpus.replay(run.strategyId, run.seed);
     expect(replay.finalStateDigest).toBe(run.finalStateDigest);
     expect(replay.finalRng).toEqual(run.finalRng);
     expect(run.minimumAp).toBeGreaterThanOrEqual(0);
@@ -2072,22 +2120,24 @@ it("replays every seed/strategy identically and preserves resource invariants", 
     expect(run.minimumIngredientQuantity).toBeGreaterThanOrEqual(0);
     expect(run.finalCash).toBe(run.startingCash + run.ledgerCashDelta);
   }
-});
+}, perStrategyReplayTimeoutMs);
 ```
+
+Replay verification is split into six deterministic 1,000-run test chunks, each with a bounded three-minute timeout. A timeout is a real failure with the strategy ID in the test name; the plan does not hide it by using an unbounded timeout or one monolithic 6,000-replay test.
 
 - [ ] **Step 4: Add the exact facility counterfactuals**
 
 ```ts
-it("requires the comfortable bed for cash_first D6 manual service", () => {
-  const withBed = corpus.counterfactual("strategy.cash_first", referenceSeedV1, { facilities: "authored" });
-  const withoutBed = corpus.counterfactual("strategy.cash_first", referenceSeedV1, { facilities: "none" });
+it("requires the comfortable bed for cash_first D6 manual service", async () => {
+  const withBed = await corpus.counterfactual("strategy.cash_first", referenceSeedV1, { facilities: "authored" });
+  const withoutBed = await corpus.counterfactual("strategy.cash_first", referenceSeedV1, { facilities: "none" });
   expect(withBed.d6OpeningResult.kind).toBe("committed");
   expect(withoutBed.d6OpeningResult).toMatchObject({ kind: "rejected", reasons: [{ code: "actor.insufficient_stamina" }] });
 });
 
-it.each(["strategy.investigation_first", "strategy.full_delegation"] as const)("requires cold storage for %s D4 meat", (strategyId) => {
-  const withStorage = corpus.counterfactual(strategyId, referenceSeedV1, { facilities: "authored" });
-  const withoutStorage = corpus.counterfactual(strategyId, referenceSeedV1, { facilities: "none" });
+it.each(["strategy.investigation_first", "strategy.full_delegation"] as const)("requires cold storage for %s D4 meat", async (strategyId) => {
+  const withStorage = await corpus.counterfactual(strategyId, referenceSeedV1, { facilities: "authored" });
+  const withoutStorage = await corpus.counterfactual(strategyId, referenceSeedV1, { facilities: "none" });
   expect(withStorage.d6ConsumedD4FreshMeat).toBeGreaterThanOrEqual(1);
   expect(withoutStorage.d5SpoiledD4FreshMeat).toBeGreaterThanOrEqual(1);
 });
@@ -2095,7 +2145,7 @@ it.each(["strategy.investigation_first", "strategy.full_delegation"] as const)("
 
 - [ ] **Step 5: Add fast-check command-sequence invariants**
 
-Generate only schema-valid commands from currently visible Action/Workflow projections; execute up to 200 commands per case for at least 200 cases. Assert deterministic duplicate runs, no negative resource, state Schema validity after every commit, rejection/fault source object preservation, ledger equality, and no hidden demand in queries.
+Generate only schema-valid commands from currently visible Action/Workflow projections with `fc.asyncProperty`; execute and await up to 200 commands per case for at least 200 cases. Await the duplicate run before comparing it. Assert deterministic duplicate runs, no negative resource, state Schema validity after every commit, rejection/fault source object preservation, ledger equality, and no hidden demand in queries.
 
 Run: `pnpm --filter @project-tavern/story-demo test -- src/test/balance-1000-seeds.test.ts`
 

@@ -8,7 +8,7 @@ No third-party production or runtime material is currently committed or shipped.
 
 The ignored `references/` directory is not part of this inventory. It is local research input, is not tracked, and must not enter builds, tests, documentation screenshots, releases, or AIGC inputs. Its contents retain their original terms.
 
-Image-generation candidates whose runtime and terms reviews remain pending are not approved production material and are not listed here as distributable third-party assets.
+The four OpenAI Image Gen files under `art-source/imagegen/first-web-pack/` are repository-admitted project source candidates, not selected production/runtime material. Their exact-output service-terms evidence and project-owner authority attestation are recorded in `openai-service-terms-review.v1.json`; every candidate remains `review.status="candidate"` with `runtime: null`. They therefore do not enter an Asset Pack, Player, screenshot baseline, or release inventory. The recorded assignment/authorization is qualified to rights that exist and makes no claim of exclusivity, copyrightability, or non-infringement.
 
 ## Admission record
 
@@ -39,4 +39,6 @@ The project does not use fair use or fair dealing as a routine production-asset 
 
 Purchased material that permits compiled-game distribution but forbids public redistribution of source files stays in private asset storage. The public repository may contain only placeholders, stable IDs, acquisition instructions, and metadata that does not reproduce protected content.
 
-AI-assisted material must record the service, model, generation date, prompt, inputs, output hash, and terms in force at generation time. It enters the project's CC scope only when redistribution and relicensing rights are confirmed. Unknown-rights outputs remain local candidates.
+AI-assisted material must record the service, surface, model, generation date, prompt, exact ordered inputs and source hashes, output hash, and terms in force at generation time. A tracked AI source additionally requires an approved strict service-terms record bound by review ID and semantic digest to its exact service/surface/output tuple, a rights-beneficiary authority attestation covering repository publication and project relicensing, and an exact-output limited content-admission screen. Terms-pending or terms-rejected output stays local-only and cannot be tracked, repository-previewed, bundled, deployed, or reused as AIGC input.
+
+Repository admission, runtime selection, and AIGC input reuse are independent decisions. Service-terms approval does not authorize generation input; non-empty inputs require a separate prior `inputUseReview` bound to the ordered Asset IDs and current archived source hashes. Project CC licensing applies only to the extent copyright or other licensable project rights exist and supplies no exclusivity or non-infringement warranty.

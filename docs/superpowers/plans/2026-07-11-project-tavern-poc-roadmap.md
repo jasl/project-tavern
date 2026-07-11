@@ -17,7 +17,7 @@
 - Simulation is snapshot-authoritative and command-driven. One coordinator owns candidate commit/sequence/RNG; a Module cannot write state owned by another Module; UI and Hotfix never write State.
 - `stories/e2e` is the first real consumer of all public Modules and owns independent minimal content. It must not import Demo Story content, private helpers, fixtures, text, or IDs.
 - Browser E2E proves integration and player-visible outcomes. Formula ordering, rejection details, invariants, and balance distributions stay in fast Vitest/fast-check suites.
-- Code-native asset fallbacks are a complete mandatory deliverable. Candidate/terms-pending art remains excluded without explicit user selection and terms approval.
+- Code-native asset fallbacks are a complete mandatory deliverable. The four current Phase A candidates are terms-approved but remain unselected and therefore excluded; future terms-pending art remains excluded until terms approval, and no candidate enters runtime without explicit user selection.
 - The existing MIT / PolyForm Noncommercial / CC BY-NC-SA boundaries remain authoritative. Run licensing verification after every new package, dependency, asset, manifest, or artifact change.
 - Every behavior task uses TDD: focused red test for the target behavior, confirmed expected failure, minimal implementation, focused green, phase gate, current `pnpm verify`, staged-diff review, commit.
 - The first red test must fail on the missing target behavior, not on a broken toolchain, missing browser binary, invalid fixture, unrelated type error, or test syntax error.

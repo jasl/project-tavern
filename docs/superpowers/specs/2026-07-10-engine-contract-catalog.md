@@ -2387,6 +2387,13 @@ interface AssetPackV1 {
   readonly providers: readonly AssetProviderEntryV1[];
 }
 
+interface AssetPackDigestProjectionV1 {
+  readonly identity: AssetPackSourceIdentityV1;
+  readonly sources: readonly AssetSourceRecordV1[];
+  readonly licenses: readonly AssetLicenseRecordV1[];
+  readonly providers: readonly AssetProviderEntryV1[];
+}
+
 type AssetProviderRefV1 =
   | {
       readonly kind: "asset_pack";
@@ -2440,6 +2447,30 @@ interface StoryDevelopmentSupportV1 {
 `DemoStoryDataV1` 是 `stories/demo` 交给 authoring builder 的可序列化源数据，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved roots。完整 StoryEntry 还要选择 Module，并声明 SimulationProgram materializer、GameProfile factory、StoryRules、UI SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些含函数的启动期源码合同由架构规格与本节下方合同约束，不进入 Save JSON。Developer support 由单独的 `./development` entry 提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
 
 `AssetSourceRecordV1` 是治理校验后的编译投影，不是素材准入申请。`docs/art/first-web-visual-pack.md` 中的来源记录、`inputUseReview`、用户选择和条款审查才是创作侧的准入依据：若任一非空输入的 `inputUseReview` 未事先获批，或选择/条款两个闸门尚未通过，校验器不得生成 `AssetProviderEntryV1`，候选必须留在 Player 清单之外。编译记录不含这些创作侧字段，不能据此绕过准入。
+
+`AssetPackResolvedIdentityV1.digest` 的 ABI 固定为：
+
+```ts
+const projection: AssetPackDigestProjectionV1 = {
+  identity: {
+    id: assetPack.identity.id,
+    revision: assetPack.identity.revision,
+  },
+  sources: assetPack.sources,
+  licenses: assetPack.licenses,
+  providers: assetPack.providers,
+};
+
+const resolvedIdentity: AssetPackResolvedIdentityV1 = {
+  id: assetPack.identity.id,
+  revision: assetPack.identity.revision,
+  digest: digestCanonical("project-tavern:asset-pack:v1", projection),
+};
+```
+
+projection 是完整 strict canonical `AssetPackV1` semantic value 的逐字段投影；必须显式构造 `{ identity: { id, revision }, sources, licenses, providers }`，不得 spread 输入对象，也不得把 `AssetPackResolvedIdentityV1.digest` 递归带回自身。`sources`、`licenses` 与 `providers` 的 authored array order 都是语义，resolver 不排序、不按 ID 规范化，也不把集合转换为 map 后再摘要；任何数组重排都必须改变 digest。每个 `sourceId`、`licenseId` 与 provider `assetId` 在各自数组中唯一，每个 provider 精确引用同 pack 已声明的 `sourceId` 与 `licenseId`，未知或重复引用在摘要/身份建立前失败。
+
+这个 digest 是 `ResolvedAssetManifestV1.packs`、provider 引用与 presentation roots 使用的 Asset Pack provider identity；它不是文件完整性 hash。图片、manifest 文件与 artifact 的精确 bytes 继续使用 `digestBytes`，不得用 raw-file hash 代替上述 semantic identity。
 
 `runtimePath` 必须是相对 provider Asset Pack/Hotfix root 的 POSIX 路径，不能包含空段、`.`、`..`、反斜杠、query 或 fragment。`packs` 保持 Story 明确选择的顺序；slot definition 先冻结，provider 无权改 kind/usage/overridePolicy/几何/fallback。Resolver 按 pack 顺序应用：未知 slot 失败；每个 slot 的首个 provider 可取代 code fallback；后续 provider 只允许覆盖 `replaceable` slot。全部 packs 完成后，asset Hotfix 才可替换仍为 `replaceable` 的最终 provider；sealed slot 不暴露 asset Patch Slot。`overrideChain` 记录实际 provider 链，runtime image 的最后一项必须等于 `provider`；code fallback 的链为空。
 
@@ -4710,6 +4741,7 @@ type DigestDomainV1 =
   | "project-tavern:state-contract:v1"
   | "project-tavern:simulation:v1"
   | "project-tavern:presentation:v1"
+  | "project-tavern:asset-pack:v1"
   | "project-tavern:hotfix:v1"
   | "project-tavern:patch-provider:v1"
   | "project-tavern:patch-set:v1"
@@ -4848,7 +4880,7 @@ type ImportCompatibilityOutcomeV1 =
 3. cash、AP、stamina、reputation、teamwork、quantity 不为负；stamina 不超过 maximum；mood 只在 -2..2。
 4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= ResolvedStory.manifest.playableDays`。terminal status 的 day/phase 必须等于当前 Story 的 `levyDue`/Ending policy，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 Demo Module/Profile invariant。
 5. 只有 `calendar.advance_phase` 改变 day/phase；AP 不跨时段结转。不可行动时段与营业日由当前 Story 的 serviceDays、levyDue 和 Event/Condition 数据决定。当前 day/phase 已等于 `levyDue` 时，该命令固定拒绝为 `calendar.phase_blocked { blocker:"levy_due" }`，不能越过终局等待点；D7 普通动作则由 Action visibility/availability 的日界 gate 关闭。
-6. 只有明确作为集合的定义/状态数组按其 stable ID 升序规范化；同类 ID、BatchId、AuraInstanceId、LedgerEntryId、Facility opportunityId、Narrative slot 不重复。authored-order 数组（Confirmation、gates、recommendations、Scene nodes/options/steps）保持 Story 声明顺序；causal/reference 数组（DomainFact、ledger、CommandLog、triggeredEventIds、start/entry/paid-cost ledger IDs、expiredAuraIds、AppliedModifier/components）保持应用/collector 顺序。不得为了“统一排序”把后两类改成字典序；每个具体 Schema 必须声明自己属于哪一类。
+6. 只有明确作为集合的定义/状态数组按其 stable ID 升序规范化；同类 ID、BatchId、AuraInstanceId、LedgerEntryId、Facility opportunityId、Narrative slot 不重复。authored-order 数组（Confirmation、gates、recommendations、Scene nodes/options/steps，以及 AssetPack 的 `sources`/`licenses`/`providers`）保持 Story/pack 声明顺序；causal/reference 数组（DomainFact、ledger、CommandLog、triggeredEventIds、start/entry/paid-cost ledger IDs、expiredAuraIds、AppliedModifier/components）保持应用/collector 顺序。不得为了“统一排序”把后两类改成字典序；每个具体 Schema 必须声明自己属于哪一类。
 7. Ingredient batch quantity 为正，`acquiredDay <= lastUsableDay`；expiry 可以超过七日 PoC 的 day 7；initial batch 必须使用 `batch:initial:<index>` 与 `source.kind=initial`，事务创建批次必须使用 `batch:<commandSequence>:<lineIndex>` 且不能冒充 initial；FIFO 消耗顺序为 `lastUsableDay, acquiredDay, batchId`。`inventory.grant` 必须创建确定性 batch IDs、按 Story ingredient unitPrice 追加 `story_reward`、cashDelta 0、正 valuationDelta 的 entries，并在 `inventory.ingredient_granted` 中携带 lines/createdBatchIds/entries/reason；不能要求 UI 从 Snapshot diff 猜奖励。
 8. `closed` plan 菜单为空；其他模式为 1..`StoryBalance.menuRecipeLimit` 道、结构上限 16，且 recipe 唯一、portions 为正。menu/mode/day gate、容量与 preparation 结构失败必须拒绝 `tavern.plan.set`；只有结构合法且 mode 可用、但因当前 cash/stamina/ingredients 等可恢复开店资源不足而 `previewTavernPlan.allowed=false` 的草案可在白天保存，UI 必须显示其短缺/风险。service plan 进入晚上后被冻结。营业日进入晚上时，已主动提交的 closed plan 直接把该晚标记为已解决、不受惩罚，并使用 `plannedClosureReasonId` 追加 planned closure history/fact；若 plan 仍为 null，同一次 `calendar.advance_phase` 设置 closed plan、应用 `emergencyClosure.reputationPenalty`、追加 emergency closure history/fact 并标记已解决。若进入 evening 后仍持有 non-closed plan，却尚未成功 StartOpening 且没有 active workflow，玩家再次 `calendar.advance_phase` 表示接受紧急收店：该命令在同一事务把 plan 改为 closed、应用同一 emergency penalty/history/fact，然后继续正常日终；不能留下不可推进的存档。若 OpeningSession 已 active，仍以 `calendar.phase_blocked { blocker:"opening" }` 拒绝，必须先 Finalize。`serviceHistory` 按 day 严格递增；每个已经解决的营业日恰有一项，opening 项引用已完成的 OpeningLedger，closure kind 与对应 DomainFact 一致。OpeningLedger 的 AP/双方 stamina before-after 必须精确等于 StartOpening 已提交的服务成本，closure reputation 则精确记录 planned 零变化或 emergency penalty。每个 facility opportunityId 只允许一个 decision；build 目标必须在该 opportunity 的 facilityIds 内。
 9. 同时最多一个 workflow。`tavern.opening.start` 只在 evening 可提交，其他时段返回 `calendar.invalid_phase { allowed:["evening"] }`；eveningResolved 已为 true 时（包括 Finalize、planned closed、emergency closed）优先返回 `tavern.evening_resolved`，active Opening 则返回 `tavern.opening_active`。Opening 的 `blockingEvent` 非空时 Narrative 必须 active 且不能 continue/finalize。该 Event Scene 的 end 由 `narrative.advance` 提交时，必须在同一事务把 Narrative 置为 completed、把 `blockingEvent` 清为 null，同时保留 checkpoint 与 triggeredEventIds；这个可保存间隙尚未推进 Opening。随后只有 `tavern.opening.continue` 可以消费 completed Narrative、推进 checkpoint，并按 Scheduler 结果建立下一 blockingEvent 或进入 `ready_to_finalize`。Finalize 只接受 `ready_to_finalize`。

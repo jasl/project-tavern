@@ -201,11 +201,12 @@ facility.comfortable_bed
 
 ## 8. 文件、来源与运行时合同
 
-未整理的生成批次和临时导出保留在被忽略的本地工作目录。只有已归档、带完整 prompt、provenance 和 hash 的评审候选才可以按以下结构进入 Git；在用户明确选定且条款审批前，它们不得进入 ResolvedAssetManifest、presentation digest 或 Player 产物：
+未整理的生成批次和临时导出保留在被忽略的本地工作目录。AI 输出只有先完成精确输出绑定的 service-terms review、rights-beneficiary 授权和逐输出有限内容观察，才可以按以下结构进入 Git；`pending`/`rejected` 输出保持 local-only，仓库代码和 Developer preview 也不得读取。仓库准入不表示主观选定：在用户明确选定且 runtime export 验收前，已准入候选仍不得进入 Asset Pack、`ResolvedAssetManifest`、presentation digest、截图、Player 或 Pages：
 
 ```text
 art-source/imagegen/first-web-pack/
   README.md                 # 指向本文件这个权威 visual brief
+  openai-service-terms-review.v1.json
   <asset-slug>/
     source.png
     prompt.md
@@ -236,10 +237,16 @@ interface GeneratorRecordV1 {
   readonly generatedAt: Rfc3339Timestamp;
 }
 
+interface ReviewedInputV1 {
+  readonly assetId: string;
+  readonly sourceSha256: Sha256;
+}
+
 type InputUseReviewV1 = null | {
   readonly status: "approved";
   readonly reviewedAt: Rfc3339Timestamp;
   readonly sourceUrl: HttpsUrl;
+  readonly reviewedInputs: readonly ReviewedInputV1[];
   readonly allowedInputUses: readonly (
     "generation_input" | "image_edit_input"
   )[];
@@ -249,25 +256,93 @@ type InputUseReviewV1 = null | {
 type TermsReviewV1 =
   | {
       readonly status: "pending";
-      readonly reviewedAt: null;
-      readonly sourceUrl: null;
-      readonly allowedUses: readonly [];
-      readonly restrictions: readonly [];
+      readonly reviewId: null;
+      readonly reviewPath: null;
+      readonly reviewDigest: null;
     }
   | {
-      readonly status: "approved";
-      readonly reviewedAt: Rfc3339Timestamp;
-      readonly sourceUrl: HttpsUrl;
-      readonly allowedUses: readonly string[];
-      readonly restrictions: readonly string[];
-    }
-  | {
-      readonly status: "rejected";
-      readonly reviewedAt: Rfc3339Timestamp;
-      readonly sourceUrl: HttpsUrl;
-      readonly allowedUses: readonly [];
-      readonly restrictions: readonly string[];
+      readonly status: "approved" | "rejected";
+      readonly reviewId: string;
+      readonly reviewPath: string;
+      readonly reviewDigest: Sha256;
     };
+
+interface OutputReviewBindingV1 {
+  readonly assetId: string;
+  readonly generatedAt: Rfc3339Timestamp;
+  readonly sourceSha256: Sha256;
+}
+
+type ContentAdmissionReviewV1 = null | {
+  readonly status: "approved";
+  readonly reviewedAt: Rfc3339Timestamp;
+  readonly reviewer: string;
+  readonly scope: "limited_visual_screen";
+  readonly output: OutputReviewBindingV1;
+  readonly checks: {
+    readonly visibleLogoOrWatermark: "none_observed";
+    readonly namedPublicFigure: "none_observed";
+    readonly obviousThirdPartyCharacterOrBrand: "none_observed";
+  };
+  readonly limitation: "not_a_non_infringement_clearance";
+};
+
+type ServiceTermsAgreementScopeV1 =
+  | "individual"
+  | "business_or_developer"
+  | "all_accounts"
+  | "publication";
+
+interface ServiceTermsAgreementEvidenceV1 {
+  readonly name: string;
+  readonly scope: ServiceTermsAgreementScopeV1;
+  readonly dateKind: "effective" | "updated";
+  readonly date: string; // YYYY-MM-DD
+  readonly retrievedAt: string; // YYYY-MM-DD
+  readonly sourceUrl: HttpsUrl;
+}
+
+type RepositoryApprovedAiUseV1 =
+  | "repository_archival"
+  | "repository_publication"
+  | "modification"
+  | "redistribution"
+  | "runtime_distribution"
+  | "project_relicensing";
+
+type ServiceTermsRestrictionV1 =
+  | "human_review_and_disclosure_where_applicable"
+  | "input_rights_required"
+  | "output_may_not_be_unique"
+  | "no_non_infringement_warranty";
+
+interface RightsHolderAttestationV1 {
+  readonly rightsBeneficiary: "Jun Jiang (jasl)";
+  readonly authorityBasis: "project_controlled_generation_account_and_repository_owner_authorization";
+  readonly attestedAt: Rfc3339Timestamp;
+  readonly projectLicense: "CC-BY-NC-SA-4.0";
+  readonly authorizedUses: readonly RepositoryApprovedAiUseV1[];
+  readonly qualification: "only_to_extent_licensable_rights_exist";
+}
+
+interface ServiceTermsReviewV1 {
+  readonly schemaVersion: 1;
+  readonly reviewId: string;
+  readonly status: "approved" | "rejected";
+  readonly service: string;
+  readonly surface: string;
+  readonly reviewedAt: Rfc3339Timestamp;
+  readonly scopeAlternativesReviewed: readonly (
+    "individual" | "business_or_developer"
+  )[];
+  readonly agreements: readonly ServiceTermsAgreementEvidenceV1[];
+  readonly rightsHolderAttestation: RightsHolderAttestationV1;
+  readonly conclusion: string;
+  readonly allowedUses: readonly RepositoryApprovedAiUseV1[];
+  readonly aigcInputUse: "requires_independent_input_use_review";
+  readonly restrictions: readonly ServiceTermsRestrictionV1[];
+  readonly coveredOutputs: readonly OutputReviewBindingV1[];
+}
 
 interface ModificationRecordV1 {
   readonly kind:
@@ -314,6 +389,7 @@ interface ProvenanceV1 {
   readonly inputAssets: readonly string[];
   readonly inputUseReview: InputUseReviewV1;
   readonly termsReview: TermsReviewV1;
+  readonly contentAdmissionReview: ContentAdmissionReviewV1;
   readonly modifications: readonly ModificationRecordV1[];
   readonly source: SourceDescriptorV1;
   readonly sourceSha256: Sha256;
@@ -322,14 +398,20 @@ interface ProvenanceV1 {
 }
 ```
 
-字符串还必须非空；timestamp 必须是合法 RFC3339，URL 必须是 HTTPS，SHA-256 必须是恰好 64 个小写十六进制字符；宽高和 byteLength 必须是正安全整数。`allowedUses` 在 approved 时非空，`restrictions` 在 rejected 时非空，selected/rejected 的 `selectionReason` 必须非空。`inputAssets` 是按输入顺序排列且唯一的稳定 AssetId，不是文件路径。
+字符串还必须非空；timestamp 必须是合法 RFC3339，URL 必须是 HTTPS，SHA-256 必须是恰好 64 个小写十六进制字符；宽高和 byteLength 必须是正安全整数。selected/rejected 的 `selectionReason` 必须非空。`inputAssets` 是按输入顺序排列且唯一的稳定 AssetId，不是文件路径。
 
-工具未披露模型时记录 `undisclosed-by-tool`，不得猜测。只有本项目自有、已经按本节归档的候选才有资格进入 `inputAssets`；商业素材、商业截图与 `references/` 无条件禁止。无输入的原始生成必须使用 `inputAssets: []` 与 `inputUseReview: null`；只要 `inputAssets` 非空，上传或编辑前必须有 `status: "approved"` 的独立 `inputUseReview`，其 `allowedInputUses` 包含本次实际操作且 `reviewedAt <= generator.generatedAt`。它不替代运行时/商用条款复核。`termsReview.status` 未变为 `approved` 的素材可以作为 `art-source` 候选和 Developer preview，但不能进入 Player runtime manifest 或 Pages artifact。
+工具未披露模型时记录 `undisclosed-by-tool`，不得猜测。只有本项目自有、已经按本节归档的候选才有资格进入 `inputAssets`；商业素材、商业截图与 `references/` 无条件禁止。无输入的原始生成必须使用 `inputAssets: []` 与 `inputUseReview: null`；只要 `inputAssets` 非空，上传或编辑前必须有 `status: "approved"` 的独立 `inputUseReview`：`reviewedInputs` 必须与 `inputAssets` 数量、顺序和 Asset ID 完全相同，并绑定每个输入当时已归档 source 的 SHA-256；validator 在生成前再次核对当前归档 hash，`allowedInputUses` 包含本次操作，且 `reviewedAt <= generator.generatedAt`。服务条款批准不能填充或替代这个评审。
+
+pack-level `ServiceTermsReviewV1` 拒绝 unknown keys，并由每个输出的 `termsReview` 引用。`reviewPath` 必须是同一 `art-source/imagegen/<pack>/` 内的安全仓库相对 POSIX 路径，不允许绝对路径、反斜杠、`.`、`..`、query、fragment 或 symlink；provenance、prompt、source 与 review 都必须已跟踪。`reviewDigest` 等于完整 `ServiceTermsReviewV1` semantic value 的 canonical JSON UTF-8 SHA-256：对象 key 按 Unicode code point 排序，数组保持 authored order，不包含自引用 digest 字段，因此格式化 JSON 不改变身份。引用的 `reviewId`、digest、service、surface 与 `coveredOutputs` 中的 Asset ID / `generatedAt` / `sourceSha256` 必须和 provenance 精确相等。
+
+当前 OpenAI profile 必须同时包含个人 scope 的 `OpenAI Terms of Use (Rest of World)`、business/developer scope 的 `OpenAI Services Agreement`、冲突时优先的 `OpenAI Service Terms`、生成时有效的 `OpenAI Usage Policies` 与 `OpenAI Sharing & Publication Policy`；每条 evidence 保存 effective/updated date、`retrievedAt` 与 HTTPS URL。`rightsHolderAttestation` 明确把适用 user/Customer 权利绑定到 `Jun Jiang (jasl)` 的 project-controlled generation account 与 repository-owner authorization，并覆盖全部六个 closed `allowedUses`。`reviewedAt`、`attestedAt` 和逐输出内容观察时间都不得早于生成时间。
+
+`ContentAdmissionReviewV1` 只是一项绑定精确输出的有限视觉观察，证明未观察到可见 Logo/水印、具名公众人物或明显第三方角色/品牌；它明确不是 non-infringement clearance，不替代权利检索或主观选图。`termsReview.status` 为 `pending`/`rejected` 或缺少 approved 内容观察的输出只能保留在忽略的本地工作区：不得进入 Git、仓库代码/Developer preview、截图、构建、部署或 AIGC 输入。
 
 字段按用途分层：
 
-- preview/source candidate 必须登记 Asset ID、prompt、输入清单、生成来源、source hash 与 review 状态；`runtime` 保持 `null`，不要求 loading group；
-- runtime candidate 还必须通过条款复核，并登记 runtime 路径、格式、像素尺寸、loading group、runtime hash 与预算归属；
+- repository-admitted preview/source candidate 必须先通过 service-terms、rights-holder 与有限内容闸门，再登记 Asset ID、prompt、输入清单、生成来源、source hash 与 review 状态；`runtime` 保持 `null`，不要求 loading group；
+- runtime candidate 还必须由用户明确选定，并登记 runtime 路径、格式、像素尺寸、loading group、runtime hash 与预算归属；
 - UI preview 永不进入 ResolvedAssetManifest、presentation digest 或 Player artifact。
 
 首个背景、人物和物件完成运行时导出后，以实测值建立 `asset-budgets.json`，包含初始加载、单文件和整个 Story 的大小上限；CI 不得自动放宽预算。
@@ -344,8 +426,8 @@ interface ProvenanceV1 {
 - damaged/repaired 是同一招牌的状态变化，不是两个不同设计；
 - 运行时场景、人物和物件图片无文字、Logo、水印、现代物件和无关人物；UI preview 只能使用不可读的抽象占位字形，不得包含可被误当成最终文案的正文；
 - 图像只提供氛围，HUD/VN/Overlay 的可读性由代码背板保证；
-- preview/source candidate 完成 Asset ID、prompt、输入清单、来源、source hash 与 review 状态登记；只有 runtime candidate 才额外要求 approved 条款、runtime 尺寸、路径、hash、loading group 与预算；
-- 未整理候选批次、商业参考图与 `references/` 不进入仓库；带完整 prompt、严格 provenance 和 hash 的项目自有归档候选可以进入 `art-source/`。未选定或条款未审批的候选不进入 ResolvedAssetManifest、presentation digest 或 Player 构建；只有项目自有归档候选才可能在独立 `inputUseReview` 批准后作为新生成输入，商业素材与 `references/` 不存在例外。
+- repository-admitted preview/source candidate 完成 service-terms review、rights-holder attestation、逐输出有限内容观察以及 Asset ID、prompt、输入清单、来源、source hash 与 review 状态登记；只有用户选定的 runtime candidate 才额外要求 runtime 尺寸、路径、hash、loading group 与预算；
+- 未整理候选批次、terms-pending/rejected 输出、商业参考图与 `references/` 不进入仓库。通过严格仓库准入但尚未选定的候选可以进入 `art-source/`，仍不进入 Asset Pack、ResolvedAssetManifest、presentation digest、截图或 Player 构建；只有项目自有归档候选才可能在独立、事先且按输入 hash 绑定的 `inputUseReview` 批准后作为新生成输入，service-terms approval、商业素材与 `references/` 都不存在例外。
 
 任何一项失败都先修 prompt、edit 或导出流程，不通过给 UI 增加不可维护的特殊裁切和逐图补丁掩盖。
 
@@ -369,4 +451,4 @@ interface ProvenanceV1 {
 - `heroine-neutral/`；
 - `tavern-sign-damaged/`。
 
-它们的 `review.status` 与 `termsReview.status` 分别为 `candidate`、`pending`，因此当前不进入 ResolvedAssetManifest、presentation digest、Player artifact 或 Pages。Phase B 必须等待用户逐项确认或要求重生成。
+四个输出都由同一 `openai-service-terms-review.v1.json` 以 review ID、semantic digest、service/surface、生成时间和 source SHA-256 精确覆盖；逐输出 `contentAdmissionReview` 也已完成有限视觉观察。它们因此获准作为 repository source candidate，但 `review.status` 仍为 `candidate`、`runtime` 仍为 `null`，当前不进入 Asset Pack、ResolvedAssetManifest、presentation digest、截图、Player artifact、Pages 或 AIGC 输入。Phase B 仍必须等待用户逐项确认或要求重生成。

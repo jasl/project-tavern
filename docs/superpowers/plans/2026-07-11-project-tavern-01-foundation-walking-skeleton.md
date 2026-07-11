@@ -365,6 +365,12 @@ try {
 expect(getterError).toMatchObject({ name: "CanonicalJsonError", code: "value.getter" });
 expect(digestCanonical("project-tavern:state:v1", { a: 1 }))
   .not.toBe(digestCanonical("project-tavern:engine:v1", { a: 1 }));
+expect(digestCanonical("project-tavern:asset-pack:v1", {
+  identity: { id: "assets.synthetic", revision: 1 },
+  sources: [],
+  licenses: [],
+  providers: [],
+})).toBe("sha256:44fa6ec5c4ab474227976fa217d4f7b42dbe74275af56d7edd3c47f96dde7654");
 expect(digestBytes(new TextEncoder().encode("abc")))
   .toBe("sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 
@@ -422,7 +428,7 @@ Implement `parseModuleId` with the Catalog stable-ID rule `^[a-z][a-z0-9]*(?:[._
 
 Strict JSON performs bounded UTF-8 decode followed by duplicate/dangerous-key-aware parsing and enforces byte/depth/node/member/array/string limits. A success result still exposes `value: unknown`; every caller must immediately pass it to the appropriate strict envelope Schema rather than treating parser success as domain validation. Canonical JSON rejects custom prototypes, accessors, cycles, functions, symbols, `undefined`, non-finite/unsafe numbers, and negative zero; it sorts keys by Unicode code point and emits UTF-8 without ambient locale/newline behavior.
 
-Base implements deterministic UTF-8 and synchronous SHA-256 in platform-neutral TypeScript, verified against standard SHA-256/Unicode vectors; production code imports neither `node:crypto` nor DOM/WebCrypto. `DigestDomainV1` is exactly the Catalog's closed ASCII union. `digestCanonical` hashes `UTF-8(domain) + one NUL byte + canonicalBytes`; `digestBytes` hashes exact bytes without framing for versioned files/artifacts. Both return `sha256:` plus 64 lower hex. Neither adds a length prefix, BOM, newline, or platform encoding.
+Base implements deterministic UTF-8 and synchronous SHA-256 in platform-neutral TypeScript, verified against standard SHA-256/Unicode vectors; production code imports neither `node:crypto` nor DOM/WebCrypto. `DigestDomainV1` is exactly the Catalog's closed ASCII union, including `project-tavern:asset-pack:v1`; no ad-hoc service/legal-review domain is added to Base. `digestCanonical` hashes `UTF-8(domain) + one NUL byte + canonicalBytes`; `digestBytes` hashes exact bytes without framing for versioned files/artifacts. Both return `sha256:` plus 64 lower hex. Neither adds a length prefix, BOM, newline, or platform encoding.
 
 - [ ] **Step 4: Run focused and public-export checks**
 
@@ -662,7 +668,7 @@ Expected: authoring and neutral testkit suites pass, cross-profile misuse remain
 **Interfaces:**
 
 - Consumes: Task 3 Canonical JSON/digests, Task 5 authoring/testkit contracts, and the Catalog's Hotfix, asset, provenance, and PatchSurface rules.
-- Produces: `definePatchSlot`, `defineSimulationPatchSurface`, and `definePresentationPatchSurface`; separate simulation/presentation Patch registries whose private witnesses populate Task 5's `ResolvedPatchValuesV1<TSurface>`; exact Hotfix order/requires/conflicts/supersedes/target checks; closed `GamePackageResolutionFailureCodeV1`/failure/result contracts; public `PatchSetAdoptionDeclarationV1`; `ResolvedAssetManifestV1`; frozen `ResolvedStoryV1`; one public generic `resolveGamePackageV1` composition function; layered engine/story/state/simulation/presentation/application identities; and public testkit `resolveStoryForTestV1`/`validateStoryV1` backed by those real resolvers.
+- Produces: `definePatchSlot`, `defineSimulationPatchSurface`, and `definePresentationPatchSurface`; separate simulation/presentation Patch registries whose private witnesses populate Task 5's `ResolvedPatchValuesV1<TSurface>`; exact Hotfix order/requires/conflicts/supersedes/target checks; closed `GamePackageResolutionFailureCodeV1`/failure/result contracts; public `PatchSetAdoptionDeclarationV1`; the Catalog-exact `AssetPackDigestProjectionV1` and `ResolvedAssetManifestV1`; frozen `ResolvedStoryV1`; one public generic `resolveGamePackageV1` composition function; layered engine/story/state/simulation/presentation/application identities; and public testkit `resolveStoryForTestV1`/`validateStoryV1` backed by those real resolvers.
 
 - [ ] **Step 1: Write resolver contract tests**
 
@@ -684,6 +690,52 @@ it("keeps unapproved candidate providers outside the compiled manifest", () => {
   expect(resolveFallbackOnlyManifestV1().assets.every(
     (asset) => asset.delivery === "code_fallback",
   )).toBe(true);
+});
+
+it("computes Asset Pack identity from the exact nonrecursive authored projection", () => {
+  const resolved = resolveSyntheticStoryV1({ assetPacks: [syntheticAssetPackV1] });
+  const identity = resolved.assets.packs[0];
+  const projection = {
+    identity: {
+      id: syntheticAssetPackV1.identity.id,
+      revision: syntheticAssetPackV1.identity.revision,
+    },
+    sources: syntheticAssetPackV1.sources,
+    licenses: syntheticAssetPackV1.licenses,
+    providers: syntheticAssetPackV1.providers,
+  };
+
+  expect(identity.digest).toBe(
+    digestCanonical("project-tavern:asset-pack:v1", projection),
+  );
+  expect(projection.identity).not.toHaveProperty("digest");
+  expect(identity.digest).not.toBe(digestBytes(canonicalJsonBytes(projection)));
+  expect(syntheticAssetPackV1.providers[0]?.sha256).toBe(
+    digestBytes(syntheticProviderBytesV1),
+  );
+});
+
+it("treats every Asset Pack authored array order as semantic", () => {
+  const base = resolveSyntheticStoryV1({ assetPacks: [syntheticAssetPackV1] });
+  for (const field of ["sources", "licenses", "providers"] as const) {
+    const reordered = withSyntheticAssetPackOrderReversedV1(
+      syntheticAssetPackV1,
+      field,
+    );
+    const changed = resolveSyntheticStoryV1({ assetPacks: [reordered] });
+    expect(changed.assets.packs[0]?.digest).not.toBe(
+      base.assets.packs[0]?.digest,
+    );
+  }
+});
+
+it("rejects duplicate or dangling Asset Pack references before identity", () => {
+  expect(() => resolveSyntheticStoryV1({
+    assetPacks: [syntheticAssetPackWithDuplicateSourceIdV1],
+  })).toThrow();
+  expect(() => resolveSyntheticStoryV1({
+    assetPacks: [syntheticAssetPackWithUnknownLicenseRefV1],
+  })).toThrow();
 });
 
 it("resolves an unpatched Story through the real resolver for test drivers", () => {
@@ -712,7 +764,7 @@ Expected: FAIL because resolver exports are absent.
 
 Install Hotfixes in supplied order only, reject duplicate IDs and invalid earlier-only `requires`, apply all candidates atomically, revoke write proxies, and deep-freeze results. Provider/PatchSet digests use the Catalog domains and canonical projections, never `Function#toString()`.
 
-Asset resolution freezes slots first, applies packs in authored order, then asset Hotfixes to replaceable slots only. `runtimePath` rejects absolute/backslash/empty/dot/dot-dot/query/fragment forms. Every slot resolves to either validated runtime image or code fallback. Phase 1 supplies fallback-only entries. A nonempty provider is accepted only from a governance validator's compiled output proving source provenance, user selection, terms approval, and approved `inputUseReview` for every nonempty generation input; `AssetSourceRecordV1` alone is never treated as authoring approval, and Phase 1 compiles no candidate provider.
+Asset resolution freezes slots first, applies packs in authored order, then asset Hotfixes to replaceable slots only. Before identity, each pack rejects duplicate source/license/provider IDs and every provider must reference a source and license in that same pack. Its resolved digest is exactly `digestCanonical("project-tavern:asset-pack:v1", { identity: { id, revision }, sources, licenses, providers })`, built by explicit field selection: no spread, no recursive resolved digest, no sorting or normalization of the three authored arrays. This resolved identity is the provider identity carried by manifests/presentation roots; provider file hashes remain exact `digestBytes` values. `runtimePath` rejects absolute/backslash/empty/dot/dot-dot/query/fragment forms. Every slot resolves to either validated runtime image or code fallback. Phase 1 supplies fallback-only entries. A nonempty provider is accepted only from a governance validator's compiled output proving source provenance, user selection, terms approval, and approved `inputUseReview` for every nonempty generation input; `AssetSourceRecordV1` alone is never treated as authoring approval, and Phase 1 compiles no candidate provider.
 
 Build identity consumes workspace-relative POSIX import-closure records `{ path, sha256, facet }` produced by the repository collector in Task 12, rejects dynamic/unowned/reference/symlink inputs, sorts by path, and excludes mtime/absolute path/chunk name/environment traversal order.
 
@@ -1450,6 +1502,7 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
     ".": {
       "target": "./src/index.ts",
       "exports": [
+        "AssetPackDigestProjectionV1",
         "BootstrapEntropyV1",
         "Brand",
         "BuildProvenanceV1",
