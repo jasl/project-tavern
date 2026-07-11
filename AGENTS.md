@@ -67,7 +67,7 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - `references/` is outside every project license and must remain ignored, untracked, unread by production/test/generation code, and absent from every artifact.
 - Package `license` metadata must match `LICENSE.md`: single-license packages use the exact SPDX ID; mixed packages use `SEE LICENSE IN LICENSE.md`.
 - Restricted PolyForm/CC areas do not accept external contributions before the approved CLA or copyright-assignment gate. MIT Engine contributions are inbound=outbound MIT.
-- Run `node scripts/verify-licensing.mjs` after changes to project legal files, project package metadata, build manifests, or release contents. AIGC archives, dependency licensing, and `vendor/**` licensing are deliberately outside this verifier.
+- Project legal files and package `license` metadata are maintained by direct review, without repository-wide hash, existence, metadata, screenshot-sidecar, dependency, AIGC, or `vendor/**` licensing gates.
 
 ## Quality and workflow
 
@@ -75,9 +75,9 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - Maintain deterministic golden-week tests for named strategies.
 - Any balance change must update the expected strategy results or explain why the invariant remains unchanged.
 - Keep files focused and interfaces explicit. Enforce import boundaries and cycles in CI. Avoid a global mutable store, generic event bus, ECS, CQRS, or event sourcing for this PoC.
-- Use pnpm with a frozen lockfile and the repository's pinned Node version. `pnpm verify` is the full non-interactive local/CI verification entrypoint once scaffolded.
+- Use Node.js >=22.12.0 and pnpm >=11.0.0 with a frozen lockfile. `pnpm verify` is the full non-interactive local/CI verification entrypoint once scaffolded.
 - The current stable TypeScript 7 `tsc` is authoritative and must be pinned when the workspace is scaffolded. Tooling compatibility may not downgrade formal project typechecking or make project code depend on the legacy Compiler API.
-- `engine.version` comes only from Application-owned build metadata and never enters engine/simulation roots. Run the eventual toolchain verification entry after toolchain changes.
+- `engine.version` comes only from Application-owned build metadata and never enters engine/simulation roots.
 - Tracked persistence fixtures are provenance-bound. Any engine, state-contract, or simulation digest input change must explicitly regenerate and review fixture diffs through the eventual dedicated command; ordinary tests and CI only verify and never rewrite tracked baselines.
 - Use Chinese for player-facing/design prose and English for identifiers unless a document states otherwise.
 

@@ -26,11 +26,6 @@ AI-assisted contributions must disclose the service, model, generation date, pro
 
 ## Before submitting
 
-Run:
-
-```bash
-node --test scripts/verify-licensing.test.mjs
-node scripts/verify-licensing.mjs
-```
+Review project legal files and package metadata directly when the contribution changes their scope. Run `pnpm verify` for software behavior and artifact checks.
 
 New npm dependencies do not require a `THIRD_PARTY_NOTICES.md` entry. Third-party files copied into Git belong under `vendor/**`; project-owned assets continue to follow their project scope and provenance rules.

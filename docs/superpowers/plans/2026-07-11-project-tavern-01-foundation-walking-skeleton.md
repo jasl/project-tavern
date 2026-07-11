@@ -6,12 +6,12 @@
 
 **Architecture:** `@project-tavern/base` owns only generic values, strict serialization, deterministic RNG/attempts, static Module/Profile/GamePackage authoring, resolvers, Session mechanics, and narrow application/Host/presentation contracts. A PolyForm Sandbox Story supplies the only concrete Phase 1 state and command; generic MIT UI/Web code receives its immutable projection and resolved presentation through public ports. The root command surface is complete in this phase, but each command checks the smallest real Sandbox/Base/UI/Web artifact that exists now and is extended by later phases.
 
-**Tech Stack:** Node.js 24.18.0, pnpm 11.11.0, TypeScript 7.0.2, React 19.2.7, React Router 7.18.1, Vite 8.1.4, Zod 4.4.3, Vitest 4.1.10, fast-check 4.9.0, Playwright 1.61.1, React Testing Library 16.3.2, Oxlint 1.73.0 with oxlint-tsgolint 0.24.0, Prettier 3.9.5, SHA-256, ESM.
+**Tech Stack:** Node.js >=22.12.0, pnpm >=11.0.0, TypeScript 7.0.2, React 19.2.7, React Router 7.18.1, Vite 8.1.4, Zod 4.4.3, Vitest 4.1.10, fast-check 4.9.0, Playwright 1.61.1, React Testing Library 16.3.2, Oxlint 1.73.0 with oxlint-tsgolint 0.24.0, Prettier 3.9.5, SHA-256, ESM.
 
 ## Global Constraints
 
 - The Harness design and Contract Catalog are frozen as the first engineering Goal baseline. If implementation reveals a material contradiction or missing ABI, stop and amend the authoritative specification before changing code or this plan.
-- Pin Node.js exactly `24.18.0`, pnpm exactly `11.11.0`, and the authoritative project compiler exactly TypeScript `7.0.2`. A third-party lint tool may not replace or wrap the formal TypeScript 7 typecheck.
+- Declare Node.js >=22.12.0 and pnpm >=11.0.0 as compatibility floors. Exact dependency manifests and the frozen lockfile own dependency reproducibility; the installed TypeScript 7 compiler remains the authoritative formal typecheck.
 - Use frozen workspace installs after the initial reviewed lockfile generation. Package-manager lifecycle scripts use an explicit empty allowlist until a reviewed dependency needs one.
 - All workspace packages are private. Use ESM, package `exports`, TypeScript project references, `workspace:*` internal dependencies, and exact third-party versions.
 - Public Base barrels use explicit named value/type exports only; `export *` is forbidden so the Phase 1 symbol inventory can detect every addition and removal.
@@ -48,9 +48,8 @@
 - Create `scripts/run-script-tests.mjs`: recursively discover and execute all Node and TypeScript tests below `scripts/`, with a behavior test that rejects missing/duplicate ownership.
 - Create `scripts/collect-import-closure.mjs`: resolve package exports and static production closure for Engine, Story simulation, Story presentation, and Application manifests.
 - Create `packages/base/public-exports.v1.json` and `scripts/verify-public-exports.mjs`: exact Base entry targets/symbols plus a TypeScript consumer contract.
-- Create `scripts/verify-toolchain.mjs`, `verify-boundaries.mjs`, `verify-cycles.mjs`, `verify-stories.mjs`, `verify-fixtures.mjs`, `verify-golden.mjs`, `verify-assets.mjs`, `verify-bundle.mjs`, `verify-artifact.mjs`, `verify-release.mjs`, and colocated `*.test.mjs`: real phase-adapted checks.
+- Create `scripts/verify-boundaries.mjs`, `verify-cycles.mjs`, `verify-stories.mjs`, `verify-fixtures.mjs`, `verify-golden.mjs`, `verify-assets.mjs`, `verify-bundle.mjs`, `verify-artifact.mjs`, `verify-release.mjs`, and colocated `*.test.mjs`: real phase-adapted behavior and artifact checks.
 - Create `scripts/verify.mjs`: runs the complete current gate and proves tracked-file hashes are unchanged.
-- Modify `scripts/verify-licensing.mjs` and `scripts/verify-licensing.test.mjs`: require all newly declared workspace package metadata and preserve the legal/reference checks.
 
 ### Workspace packages
 
@@ -74,56 +73,25 @@
 
 ---
 
-### Task 1: Pin the private workspace and enforce package licenses
+### Task 1: Scaffold the private workspace with compatibility floors
 
 **Files:**
 
-- Create: `.node-version`
 - Create: `.npmrc`
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `pnpm-lock.yaml`
-- Create: `packages/base/package.json`
-- Create: `packages/ui/package.json`
-- Create: `packages/modules/package.json`
-- Create: `packages/assets/package.json`
-- Create: `stories/demo/package.json`
-- Create: `stories/e2e/package.json`
-- Create: `stories/sandbox/package.json`
-- Create: `apps/web/package.json`
-- Modify: `scripts/verify-licensing.mjs`
-- Modify: `scripts/verify-licensing.test.mjs`
+- Create: package manifests under `packages/*`, `stories/*`, and `apps/*`
+- Preserve: root project legal files
 
 **Interfaces:**
 
-- Consumes: current legal files and `DEFAULT_POLICY.packageLicenses`.
-- Produces: exact package names/licenses, Node/pnpm/TS pins, frozen lockfile, and `pnpm verify:licensing`.
+- Consumes: the package/license boundaries in the Harness and repository-licensing designs.
+- Produces: private workspace package names, direct-review license metadata, Node.js >=22.12.0 and pnpm >=11.0.0 compatibility floors, exact dependency manifests, and a frozen lockfile.
 
-- [ ] **Step 1: Add the missing-package-metadata red test**
+- [ ] **Step 1: Create the workspace metadata**
 
-Extend the temporary fixture so its success case creates `packages/base/package.json`, then add this exact behavior test:
-
-```js
-test("requires every declared workspace package manifest", async (t) => {
-  const root = await fixture();
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const errors = await verifyLicensing(root, {
-    policy,
-    trackedReferences: "",
-  });
-  assert(errors.includes("missing required package metadata: packages/base/package.json"));
-});
-```
-
-- [ ] **Step 2: Run the focused test and observe the policy gap**
-
-Run: `node --test --test-name-pattern="requires every declared workspace package manifest" scripts/verify-licensing.test.mjs`
-
-Expected: FAIL because the current verifier silently skips a missing package manifest.
-
-- [ ] **Step 3: Create the exact root and package metadata**
-
-Use this root shape and these exact package facts; do not add semver ranges:
+The root manifest declares:
 
 ```json
 {
@@ -132,84 +100,37 @@ Use this root shape and these exact package facts; do not add semver ranges:
   "private": true,
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
-  "packageManager": "pnpm@11.11.0",
-  "engines": { "node": "24.18.0", "pnpm": "11.11.0" },
-  "scripts": {
-    "verify:licensing": "node scripts/verify-licensing.mjs"
-  },
-  "devDependencies": {
-    "@playwright/test": "1.61.1",
-    "@testing-library/dom": "10.4.1",
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.2",
-    "@testing-library/user-event": "14.6.1",
-    "@types/node": "24.13.3",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.3",
-    "fast-check": "4.9.0",
-    "jsdom": "29.1.1",
-    "oxlint": "1.73.0",
-    "oxlint-tsgolint": "0.24.0",
-    "prettier": "3.9.5",
-    "typescript": "7.0.2",
-    "vite": "8.1.4",
-    "vitest": "4.1.10",
-    "zod": "4.4.3"
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=11.0.0"
   }
 }
 ```
 
-`.node-version` is exactly `24.18.0`. `.npmrc` contains `engine-strict=true`, `save-exact=true`, `strict-peer-dependencies=true`, and `shared-workspace-lockfile=true`. `pnpm-workspace.yaml` contains only the three globs `packages/*`, `stories/*`, and `apps/*`, plus `onlyBuiltDependencies: []`.
+Do not add `packageManager` or an exact runtime-version gate. Keep `save-exact=true`, `strict-peer-dependencies=true`, `shared-workspace-lockfile=true`, the three workspace globs, and `onlyBuiltDependencies: []`.
 
-Use this exact manifest matrix:
+- [ ] **Step 2: Create package manifests and exact dependency pins**
 
-| Path                            | Name                            | License                        | Runtime internal dependencies                                         |
-| ------------------------------- | ------------------------------- | ------------------------------ | --------------------------------------------------------------------- |
-| `package.json`                  | `project-tavern-workspace`      | `SEE LICENSE IN LICENSE.md`    | none; root entries are exact dev dependencies only                    |
-| `packages/base/package.json`    | `@project-tavern/base`          | `MIT`                          | Zod `4.4.3`                                                           |
-| `packages/ui/package.json`      | `@project-tavern/ui`            | `MIT`                          | `@project-tavern/base: workspace:*`, React peer                       |
-| `packages/modules/package.json` | `@project-tavern/modules`       | `PolyForm-Noncommercial-1.0.0` | Base/UI via `workspace:*`, Zod `4.4.3`                                |
-| `packages/assets/package.json`  | `@project-tavern/assets`        | `SEE LICENSE IN LICENSE.md`    | Base via `workspace:*`                                                |
-| `stories/demo/package.json`     | `@project-tavern/story-demo`    | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, Zod `4.4.3`                 |
-| `stories/e2e/package.json`      | `@project-tavern/story-e2e`     | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, React `19.2.7`, Zod `4.4.3` |
-| `stories/sandbox/package.json`  | `@project-tavern/story-sandbox` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Assets/Web via `workspace:*`, Zod `4.4.3`                     |
-| `apps/web/package.json`         | `@project-tavern/web`           | `MIT`                          | Base/UI via `workspace:*`, React/React DOM/Vite runtime               |
+Every workspace package is private ESM `0.0.0`; generic Base/UI/Web packages use MIT, game-specific Modules/Stories use PolyForm Noncommercial, and mixed asset areas use `SEE LICENSE IN LICENSE.md`. Internal dependencies use `workspace:*`. Review package metadata and project legal files directly rather than freezing them through a repository verifier.
 
-Every workspace manifest is `private: true`, `version: "0.0.0"`, `type: "module"`, and initially exports only `.` from `src/index.ts`; the private root has no `exports`. Base later adds `./runtime` and `./testkit`, Story later adds `./development`, UI later adds `./developer`, and Web later adds a closed `./developer` entry that the Player root never re-exports. Add `package.json: "SEE LICENSE IN LICENSE.md"` to `DEFAULT_POLICY.packageLicenses` alongside the eight workspace paths.
-
-Pin UI/Web third-party edges exactly: React and React DOM `19.2.7`, React Router DOM `7.18.1`, and Zod `4.4.3`; UI declares the exact React peer and a matching development dependency, while Web declares the three browser runtime dependencies. Base, Modules, and each Story that imports Zod declares exact `4.4.3` directly rather than relying on the root dev dependency or transitive resolution. The frozen lockfile is the reproducibility boundary; Task 1 does not enumerate, scan, classify, or gate direct/transitive dependency licensing and does not modify `THIRD_PARTY_NOTICES.md` for package-manager dependencies.
-
-- [ ] **Step 4: Make missing metadata an error and generate the reviewed lockfile**
-
-Replace the verifier's silent `continue` with:
-
-```js
-if (!(await exists(path))) {
-  errors.push(`missing required package metadata: ${relativePath}`);
-  continue;
-}
-```
+- [ ] **Step 3: Generate and verify the lockfile**
 
 Run:
 
 ```bash
-node --version
-pnpm --version
-pnpm install --lockfile-only
+pnpm install --ignore-scripts
 pnpm install --frozen-lockfile
-node --test scripts/verify-licensing.test.mjs
-pnpm verify:licensing
+pnpm --version
+node --version
 ```
 
-Expected: versions print `v24.18.0` and `11.11.0`; lockfile generation runs no lifecycle scripts; all licensing tests pass; CLI prints `licensing verification passed`.
+Expected: installed versions satisfy root `engines`; dependency versions remain exact; no lifecycle script runs; the frozen install is green.
 
-- [ ] **Step 5: Review and commit the workspace metadata**
+- [ ] **Step 4: Commit the workspace scaffold**
 
 ```bash
-git add -- .node-version .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml packages/base/package.json packages/ui/package.json packages/modules/package.json packages/assets/package.json stories/demo/package.json stories/e2e/package.json stories/sandbox/package.json apps/web/package.json scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
+git add -- .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml packages/*/package.json stories/*/package.json apps/*/package.json
 git diff --cached --check
-git diff --cached --stat
 git commit -m "chore: scaffold pinned project workspace"
 ```
 
@@ -217,28 +138,9 @@ git commit -m "chore: scaffold pinned project workspace"
 
 **Files:**
 
-- Create: `tsconfig.base.json`
-- Create: `tsconfig.json`
-- Create: `tsconfig.check.json`
-- Create: `packages/base/tsconfig.json`
-- Create: `packages/base/src/index.ts`
-- Create: `packages/ui/tsconfig.json`
-- Create: `packages/ui/src/index.ts`
-- Create: `packages/modules/tsconfig.json`
-- Create: `packages/modules/src/index.ts`
-- Create: `packages/assets/tsconfig.json`
-- Create: `packages/assets/src/index.ts`
-- Create: `stories/demo/tsconfig.json`
-- Create: `stories/demo/src/index.ts`
-- Create: `stories/e2e/tsconfig.json`
-- Create: `stories/e2e/src/index.ts`
-- Create: `stories/sandbox/tsconfig.json`
-- Create: `stories/sandbox/src/index.ts`
-- Create: `apps/web/tsconfig.json`
-- Create: `apps/web/src/index.ts`
+- Create: root and workspace `tsconfig*.json` files
+- Create: package placeholder public entries
 - Create: `scripts/workspace-policy.mjs`
-- Create: `scripts/verify-toolchain.mjs`
-- Create: `scripts/verify-toolchain.test.mjs`
 - Create: `scripts/verify-boundaries.mjs`
 - Create: `scripts/verify-boundaries.test.mjs`
 - Create: `scripts/verify-cycles.mjs`
@@ -247,85 +149,40 @@ git commit -m "chore: scaffold pinned project workspace"
 
 **Interfaces:**
 
-- Consumes: Task 1 manifests and exact pins.
-- Produces: `pnpm verify:toolchain`, `pnpm verify:boundaries`, `pnpm verify:cycles`, `pnpm typecheck`, `pnpm build`, and the first real read-only `pnpm verify` gate that Task 12 later expands.
+- Consumes: Task 1 workspace manifests and the installed TypeScript 7 compiler.
+- Produces: strict project references, package/facet import enforcement, deterministic cycle diagnostics, authoritative `pnpm typecheck`, and composite `pnpm build`.
 
-- [ ] **Step 1: Add targeted negative toolchain/boundary/cycle tests**
+- [ ] **Step 1: Write failing boundary and cycle tests**
 
-Each verifier exports `verifyX(root, options?) -> Promise<readonly string[]>`. Tests create temporary package graphs and assert these exact cases:
+Cover Base-to-Story rejection, `references/` import rejection, and deterministic production-cycle reporting. These tests must fail before their verifier implementations exist.
 
-```js
-assert(
-  (await verifyToolchain(validRoot, { nodeVersion: "24.18.1", pnpmVersion: "11.11.0" })).includes(
-    "Node version must be 24.18.0, got 24.18.1",
-  ),
-);
-assert(
-  (await verifyBoundaries(baseImportsStoryRoot)).includes(
-    "packages/base may not import @project-tavern/story-sandbox",
-  ),
-);
-assert(
-  (await verifyBoundaries(referenceImportRoot)).some((error) =>
-    error.includes("references/ is forbidden"),
-  ),
-);
-assert(
-  (await verifyCycles(twoFileCycleRoot)).includes(
-    "production import cycle: packages/base/src/a.ts -> packages/base/src/b.ts -> packages/base/src/a.ts",
-  ),
-);
-```
+- [ ] **Step 2: Implement the strict project graph**
 
-Start each exported verifier with `return []`; the negative cases must fail on the missing policy behavior.
+Use strict ESM/Bundler resolution, `verbatimModuleSyntax`, `noEmit` for the whole-workspace check, composite package projects, DOM libraries only in UI/Web/Story application facets, and no deprecated path aliases.
 
-- [ ] **Step 2: Run the red tooling tests**
+- [ ] **Step 3: Implement boundary and cycle verification**
 
-Run: `node --test scripts/verify-toolchain.test.mjs scripts/verify-boundaries.test.mjs scripts/verify-cycles.test.mjs`
+`workspace-policy.mjs` exports the package matrix and allowed project edges. The boundary verifier parses static import/export literals and rejects `references/`, relative escapes, package-internal deep imports, undeclared workspace dependencies, simulation-to-presentation edges, Base React/DOM/browser imports, and MIT-to-PolyForm/CC edges. The cycle verifier resolves production source/package edges and reports a deterministic normalized cycle.
 
-Expected: FAIL on all three targeted negative assertions, not on imports or fixture setup.
-
-- [ ] **Step 3: Create the strict TypeScript graph**
-
-`tsconfig.base.json` uses `target: "ES2024"`, `module/moduleResolution: "NodeNext"`, `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `useUnknownInCatchVariables`, `verbatimModuleSyntax`, `isolatedModules`, `forceConsistentCasingInFileNames`, `skipLibCheck: false`, declarations, and no DOM library by default. UI/Web override `lib` with `DOM` and `DOM.Iterable`.
-
-Root `tsconfig.json` references, in dependency order, Base, UI, Assets, Modules, Web, Sandbox, E2E, and Demo. `tsconfig.check.json` includes all production, `*.test.ts`, and `*.test-d.ts` files with `noEmit: true`. Each package project is composite, emits to its ignored local `dist/`, excludes tests, and references only its manifest dependencies.
-
-At this checkpoint `tsconfig.check.json` covers the intentionally empty package roots and tooling only; Task 3 adds the first positive/negative public-export type test together with the contract it consumes, so Task 2 finishes clean rather than leaving a deliberately excluded file.
-
-- [ ] **Step 4: Implement real graph verifiers**
-
-`workspace-policy.mjs` exports the exact package matrix and allowed project edges. `verify-boundaries.mjs` parses static import/export literals, rejects `references/`, relative escapes, package-internal deep imports, undeclared workspace dependencies, simulation-to-presentation edges, Base React/DOM/browser imports, and MIT-to-PolyForm/CC edges. `verify-cycles.mjs` resolves source-file and package edges and reports a deterministic lexicographically normalized cycle. `verify-toolchain.mjs` checks live versions, `.node-version`, `packageManager`, engines, TypeScript exact dependency, workspace globs, empty lifecycle allowlist, package names/private/type/licenses/exports, and `workspace:*` internal versions.
-
-CLI success strings are exactly `toolchain verification passed`, `boundary verification passed`, and `cycle verification passed`.
-
-Add these root scripts at the same checkpoint:
-
-```json
-{
-  "build": "tsc -b --pretty false",
-  "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
-  "verify:toolchain": "node scripts/verify-toolchain.mjs",
-  "verify:boundaries": "node scripts/verify-boundaries.mjs",
-  "verify:cycles": "node scripts/verify-cycles.mjs",
-  "verify": "pnpm verify:toolchain && pnpm verify:licensing && pnpm verify:boundaries && pnpm verify:cycles && pnpm typecheck && pnpm build"
-}
-```
-
-- [ ] **Step 5: Run and commit the graph**
+- [ ] **Step 4: Run the focused and workspace gates**
 
 ```bash
-pnpm verify:toolchain
+node --test scripts/verify-boundaries.test.mjs scripts/verify-cycles.test.mjs
 pnpm verify:boundaries
 pnpm verify:cycles
-node --test scripts/verify-toolchain.test.mjs scripts/verify-boundaries.test.mjs scripts/verify-cycles.test.mjs
-pnpm verify
-git add -- tsconfig.base.json tsconfig.json tsconfig.check.json packages/base/tsconfig.json packages/base/src/index.ts packages/ui/tsconfig.json packages/ui/src/index.ts packages/modules/tsconfig.json packages/modules/src/index.ts packages/assets/tsconfig.json packages/assets/src/index.ts stories/demo/tsconfig.json stories/demo/src/index.ts stories/e2e/tsconfig.json stories/e2e/src/index.ts stories/sandbox/tsconfig.json stories/sandbox/src/index.ts apps/web/tsconfig.json apps/web/src/index.ts scripts/workspace-policy.mjs scripts/verify-toolchain.mjs scripts/verify-toolchain.test.mjs scripts/verify-boundaries.mjs scripts/verify-boundaries.test.mjs scripts/verify-cycles.mjs scripts/verify-cycles.test.mjs package.json
+pnpm typecheck
+pnpm build
+```
+
+Expected: all commands exit 0 with the installed versions satisfying root `engines`.
+
+- [ ] **Step 5: Commit the project graph**
+
+```bash
+git add -- tsconfig.base.json tsconfig.json tsconfig.check.json packages/*/tsconfig.json stories/*/tsconfig.json apps/*/tsconfig.json packages/*/src/index.ts stories/*/src/index.ts apps/*/src/index.ts scripts/workspace-policy.mjs scripts/verify-boundaries.mjs scripts/verify-boundaries.test.mjs scripts/verify-cycles.mjs scripts/verify-cycles.test.mjs package.json
 git diff --cached --check
 git commit -m "chore: enforce workspace project boundaries"
 ```
-
-Expected: every verifier and its negative tests pass, `pnpm verify` runs the real toolchain/licensing/boundary/cycle/type/build gate with no root `src/`, the staged diff contains only Task 2 files, and the commit succeeds.
 
 ### Task 3: Implement neutral values, Strict JSON, Canonical JSON, and SHA-256
 
@@ -1466,8 +1323,6 @@ Expected: UI and Web tests pass; parameterless lifecycle consumes Host entropy o
 - Create: `scripts/verify.test.mjs`
 - Create: `packages/base/public-exports.v1.json`
 - Create: `packages/base/type-tests/phase1-consumer.test-d.ts`
-- Modify: `scripts/verify-licensing.mjs`
-- Modify: `scripts/verify-licensing.test.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
@@ -1559,7 +1414,7 @@ test("keeps the Web developer subpath out of the Player closure", async () => {
 Run:
 
 ```bash
-node --test scripts/classify-vitest-project.test.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs scripts/verify-licensing.test.mjs
+node --test scripts/classify-vitest-project.test.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs
 pnpm typecheck
 ```
 
@@ -1848,8 +1703,6 @@ Add these exact scripts now:
   "lint": "oxlint --type-aware --deny-warnings --react-plugin --import-plugin packages stories apps scripts",
   "build": "tsc -b --pretty false",
   "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
-  "verify:toolchain": "node scripts/verify-toolchain.mjs",
-  "verify:licensing": "node scripts/verify-licensing.mjs",
   "verify:boundaries": "node scripts/verify-boundaries.mjs",
   "verify:cycles": "node scripts/verify-cycles.mjs",
   "verify:public-exports": "node scripts/verify-public-exports.mjs",
@@ -1873,8 +1726,6 @@ Add these exact scripts now:
 
 The collector resolves package exports and static ESM production dependencies from explicit Engine, Story simulation, Story presentation, and Application roots; records workspace-relative POSIX path, `digestBytes` SHA-256, and facet; sorts by path; and rejects dynamic arbitrary imports, workspace-external symlinks, `references/`, missing ownership, and forbidden cross-facet edges. Its CLI writes only ignored `dist/manifests/`; test consumers import its named module exports directly from `scripts/collect-import-closure.mjs`.
 
-`verify:licensing` now validates project legal hashes/notices, every workspace manifest, MIT source closure, and project-owned Sandbox asset licenses. It deliberately does not inventory or scan package-manager dependencies or `vendor/**`. Task 13 adds built-artifact carriage for project legal files. The four colocated wrapper tests prove `verify:stories` validates Sandbox while Demo/E2E remain intentionally non-startable, and prove fixture/golden/asset checks delegate to real read-only Sandbox validators, propagate nonzero exits, and never invoke a writer.
-
 `verify.mjs` snapshots `git ls-files -z` plus SHA-256 for every current tracked file, then runs format, lint, all core verification commands, recursive script tests, typecheck, unit/contract/property, and TypeScript build. It compares the same path/hash map in `finally`, reports changed tracked paths, and fails even after another command fails. It never invokes a baseline writer.
 
 Use this exact ordered core list:
@@ -1883,8 +1734,6 @@ Use this exact ordered core list:
 const commands = [
   ["pnpm", ["format:check"]],
   ["pnpm", ["lint"]],
-  ["pnpm", ["verify:toolchain"]],
-  ["pnpm", ["verify:licensing"]],
   ["pnpm", ["verify:boundaries"]],
   ["pnpm", ["verify:cycles"]],
   ["pnpm", ["verify:public-exports"]],
@@ -1906,7 +1755,7 @@ const commands = [
 - [ ] **Step 6: Run the core gate and commit**
 
 ```bash
-node --test scripts/classify-vitest-project.test.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs scripts/verify-licensing.test.mjs
+node --test scripts/classify-vitest-project.test.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs
 pnpm format:check
 pnpm lint
 pnpm typecheck
@@ -1919,7 +1768,7 @@ before="$(git ls-files -z | xargs -0 shasum -a 256)"
 pnpm verify
 after="$(git ls-files -z | xargs -0 shasum -a 256)"
 test "$before" = "$after"
-git add -- vitest.config.ts .oxlintrc.json .prettierrc.json .prettierignore scripts/classify-vitest-project.mjs scripts/classify-vitest-project.d.mts scripts/classify-vitest-project.test.mjs scripts/run-script-tests.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.mjs scripts/verify-golden.test.mjs scripts/verify-assets.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.mjs scripts/verify-public-exports.test.mjs scripts/verify.mjs scripts/verify.test.mjs packages/base/public-exports.v1.json packages/base/type-tests/phase1-consumer.test-d.ts scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs package.json
+git add -- vitest.config.ts .oxlintrc.json .prettierrc.json .prettierignore scripts/classify-vitest-project.mjs scripts/classify-vitest-project.d.mts scripts/classify-vitest-project.test.mjs scripts/run-script-tests.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.mjs scripts/verify-golden.test.mjs scripts/verify-assets.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.mjs scripts/verify-public-exports.test.mjs scripts/verify.mjs scripts/verify.test.mjs packages/base/public-exports.v1.json packages/base/type-tests/phase1-consumer.test-d.ts package.json
 git diff --cached --check
 git diff --cached --stat
 git commit -m "test: freeze core verification and public exports"
@@ -1944,8 +1793,6 @@ Expected: every classifier/verifier/type/core command exits 0; all current and s
 - Create: `scripts/prepare-artifact.mjs`
 - Modify: `scripts/verify.mjs`
 - Modify: `scripts/verify.test.mjs`
-- Modify: `scripts/verify-licensing.mjs`
-- Modify: `scripts/verify-licensing.test.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
@@ -1957,7 +1804,7 @@ Expected: every classifier/verifier/type/core command exits 0; all current and s
 
 Browser smoke loads `#/play`, sees the localized counter, dispatches increment, and observes count 1. Full adds keyboard activation, reload bootstrap, Developer `#/playground`, Player route rejection for playground, and the stable shell screenshot in Chromium and WebKit.
 
-Bundle tests feed synthetic manifests containing `apps/web/src/developer/development-panel.tsx`, `@project-tavern/base/testkit`, `/references/`, `/art-source/aigc/`, a source map, and an absolute path, then assert Player verification rejects each. Artifact tests reject a non-relative base, an unsorted manifest, a wrong raw-file `digestBytes`, a missing project legal file, and a nested-route local-serving failure. Release tests compare two fixture manifests with reordered paths and one changed byte. Licensing tests remain repository-scoped: they verify project legal hashes/notices, workspace package license metadata, and the tracked `references/` boundary without scanning images, dependencies, `vendor/**`, or built Player bytes.
+Bundle tests feed synthetic manifests containing `apps/web/src/developer/development-panel.tsx`, `@project-tavern/base/testkit`, `/references/`, `/art-source/aigc/`, a source map, and an absolute path, then assert Player verification rejects each. Artifact tests reject a non-relative base, an unsorted manifest, a wrong raw-file `digestBytes`, a missing project release statement, and a nested-route local-serving failure. Release tests compare two fixture manifests with reordered paths and one changed byte.
 
 ```js
 test("rejects every Developer-only path from a Player manifest", async () => {
@@ -1991,7 +1838,7 @@ Run:
 
 ```bash
 pnpm exec playwright install chromium
-node --test scripts/verify-bundle.test.mjs scripts/verify-artifact.test.mjs scripts/verify-release.test.mjs scripts/verify-licensing.test.mjs scripts/verify.test.mjs
+node --test scripts/verify-bundle.test.mjs scripts/verify-artifact.test.mjs scripts/verify-release.test.mjs scripts/verify.test.mjs
 pnpm exec playwright test apps/web/e2e/walking-skeleton.spec.ts --project=chromium --grep @smoke
 ```
 
@@ -2021,7 +1868,7 @@ Extend the Task 12 scripts with exactly these additions:
 }
 ```
 
-`verify:bundle` calls the Task 12 collector for both roots and checks Player excludes Developer/development/testkit/references/AIGC-source paths/source maps/absolute paths while Developer contains explicit Story/Web Developer markers. `verify:artifact` builds Player in a temporary root, verifies `base:"./"`, a path-sorted manifest whose file hashes are exactly `digestBytes(fileBytes)`, required project legal files, and nested-path local serving. `verify:release` runs collector plus Player build twice from clean temporary roots and compares Canonical root manifests and sorted emitted-file hashes. `verify:licensing` remains repository-scoped and does not build or inspect Player. No verifier writes a tracked baseline.
+`verify:bundle` calls the Task 12 collector for both roots and checks Player excludes Developer/development/testkit/references/AIGC-source paths/source maps/absolute paths while Developer contains explicit Story/Web Developer markers. `verify:artifact` builds Player in a temporary root, verifies `base:"./"`, a path-sorted technical manifest whose file hashes are exactly `digestBytes(fileBytes)`, the seven project release statements, and nested-path local serving. `verify:release` runs the collector plus Player build twice from clean temporary roots and compares canonical manifests and sorted emitted-file hashes. No verifier classifies licenses or freezes canonical legal-file hashes.
 
 - [ ] **Step 5: Extend the tracked-file-immutable orchestrator**
 
@@ -2052,14 +1899,14 @@ after="$(git ls-files -z | xargs -0 shasum -a 256)"
 test "$before" = "$after"
 ```
 
-Create `sandbox-shell.png.license.json` beside the generated screenshot with strict fields `{ schemaRevision: 1, file: "sandbox-shell.png", copyright: "Copyright © 2026 Jun Jiang (jasl)", license: "MIT", origin: "project-playwright-code-native-sandbox" }`. This synthetic, game-neutral Engine test image is deliberately covered by MIT through its file-level sidecar; it contains no Story narrative, game-specific artwork, third-party material, or runtime image input. The licensing verifier checks the sidecar points to exactly one sibling binary, the sibling has exactly one sidecar, and the license is admitted for that path.
+The code-native Sandbox screenshot inherits the MIT Engine test scope without a per-file sidecar.
 
-Expected: all commands exit 0; Player and Developer outputs are separate; screenshot update changes only the declared image while its reviewed filename-level sidecar remains valid; full Chromium/WebKit and clean double-build checks pass; the external hash comparison proves final `pnpm verify` changes no tracked byte.
+Expected: all commands exit 0; Player and Developer outputs are separate; screenshot update changes only the declared image; full Chromium/WebKit and clean double-build checks pass; the external hash comparison proves final `pnpm verify` changes no tracked byte.
 
 - [ ] **Step 7: Commit browser, artifact, and final-gate work**
 
 ```bash
-git add -- playwright.config.ts vite.config.ts apps/web/e2e/walking-skeleton.spec.ts apps/web/e2e/__screenshots__/sandbox-shell.png apps/web/e2e/__screenshots__/sandbox-shell.png.license.json scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/verify-artifact.mjs scripts/verify-artifact.test.mjs scripts/verify-release.mjs scripts/verify-release.test.mjs scripts/prepare-artifact.mjs scripts/verify.mjs scripts/verify.test.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs package.json
+git add -- playwright.config.ts vite.config.ts apps/web/e2e/walking-skeleton.spec.ts apps/web/e2e/__screenshots__/sandbox-shell.png scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/verify-artifact.mjs scripts/verify-artifact.test.mjs scripts/verify-release.mjs scripts/verify-release.test.mjs scripts/prepare-artifact.mjs scripts/verify.mjs scripts/verify.test.mjs package.json
 git diff --cached --check
 git diff --cached --stat
 git commit -m "test: verify browser builds and release artifacts"
@@ -2079,8 +1926,6 @@ test -z "$(git ls-files references)"
 node --version
 pnpm --version
 pnpm install --frozen-lockfile
-pnpm verify:toolchain
-pnpm verify:licensing
 pnpm verify:boundaries
 pnpm verify:cycles
 pnpm verify:public-exports
@@ -2114,7 +1959,7 @@ git status --short --branch
 
 Expected:
 
-- Node prints `v24.18.0`; pnpm prints `11.11.0`; frozen install succeeds without unapproved lifecycle scripts.
+- Node and pnpm satisfy root `engines`; frozen install succeeds without unapproved lifecycle scripts.
 - Every named command performs its documented Phase 1 check and exits 0; none is an empty success shim.
 - Every workspace source `*.test.ts(x)` is discovered exactly once by the stable unit/contract/property classifier, every recursive `scripts/**/*.test.ts`/`scripts/**/*.test.mjs` path is discovered and executed exactly once by its dedicated owner, and Playwright/type-only tests stay in their own runners.
 - Base `.`, `./runtime`, and `./testkit` targets and symbols exactly match `public-exports.v1.json`; consumer typecheck uses `parseModuleId`, `parseStateSlotId`, `parseNonZeroUint32`, `parseRunId`, `createGameSnapshotEnvelopeSchemaV1`, `rngStateV1Schema`, `createSaveRecordEnvelopeSchemaV1`, `createTransactionalRngV1`, `createFixedBootstrapEntropyV1`, `resolveStoryForTestV1`, and `defineStoryDevelopmentEntry`, with no suffixed parser alias or Base/testkit import-closure helper.

@@ -80,7 +80,7 @@ Run:
 ```bash
 node --test scripts/verify.test.mjs
 node --input-type=module -e 'import assert from "node:assert/strict"; import { readFile, access } from "node:fs/promises"; const p=JSON.parse(await readFile("package.json","utf8")); assert.deepEqual(p.engines,{node:">=22.12.0",pnpm:">=11.0.0"}); assert.equal(p.packageManager,undefined); await assert.rejects(access(".node-version")); assert(!p.scripts["verify:toolchain"]);'
-test -z "$(rg -l 'verify-toolchain|verify:toolchain|engine-strict=true|24\\.18\\.0|11\\.11\\.0' .npmrc package.json scripts || true)"
+test -z "$(rg -l 'verify-toolchain|verify:toolchain|engine-strict=true|24\\.18\\.0|11\\.11\\.0' .npmrc package.json scripts --glob '!*.test.mjs' || true)"
 ```
 
 Expected: all commands exit 0.
@@ -180,6 +180,7 @@ git commit -m "chore: remove repository licensing gates"
 
 - Modify: `AGENTS.md`
 - Modify: `CONTRIBUTING.md`
+- Modify: `docs/README.md`
 - Modify: `docs/superpowers/specs/2026-07-10-react-game-harness-design.md`
 - Modify: `docs/superpowers/specs/2026-07-11-repository-licensing-design.md`
 - Modify: `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md`
@@ -228,7 +229,7 @@ Expected: the forbidden scan is empty, minimum-version language is present in al
 - [ ] **Step 3: Commit the documentation migration**
 
 ```bash
-git add -- AGENTS.md CONTRIBUTING.md docs/superpowers/specs/2026-07-10-react-game-harness-design.md docs/superpowers/specs/2026-07-11-repository-licensing-design.md docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md docs/superpowers/plans/2026-07-11-project-tavern-01-foundation-walking-skeleton.md docs/superpowers/plans/2026-07-11-project-tavern-02-modules-e2e-story.md docs/superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md docs/superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md docs/superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md docs/superpowers/plans/2026-07-11-project-tavern-06-release-pages.md docs/superpowers/plans/2026-07-11-repository-licensing-implementation.md docs/superpowers/plans/2026-07-12-simplify-aigc-asset-archiving.md
+git add -- AGENTS.md CONTRIBUTING.md docs/README.md docs/superpowers/specs/2026-07-10-react-game-harness-design.md docs/superpowers/specs/2026-07-11-repository-licensing-design.md docs/superpowers/specs/2026-07-12-simplify-toolchain-and-repository-checks-design.md docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md docs/superpowers/plans/2026-07-11-project-tavern-01-foundation-walking-skeleton.md docs/superpowers/plans/2026-07-11-project-tavern-02-modules-e2e-story.md docs/superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md docs/superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md docs/superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md docs/superpowers/plans/2026-07-11-project-tavern-06-release-pages.md docs/superpowers/plans/2026-07-11-repository-licensing-implementation.md docs/superpowers/plans/2026-07-12-simplify-aigc-asset-archiving.md docs/superpowers/plans/2026-07-12-simplify-toolchain-and-repository-checks.md
 git diff --cached --check
 git commit -m "docs: align plans with lightweight repository policy"
 ```

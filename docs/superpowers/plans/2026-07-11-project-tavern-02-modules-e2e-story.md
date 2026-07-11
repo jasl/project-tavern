@@ -3796,8 +3796,6 @@ git commit -m "feat(modules): expose deterministic game queries"
 - Modify: `scripts/verify-stories.mjs`
 - Modify: `scripts/verify-stories.test.mjs`
 - Modify: `scripts/workspace-policy.mjs`
-- Modify: `scripts/verify-licensing.mjs`
-- Modify: `scripts/verify-licensing.test.mjs`
 
 **Interfaces:**
 
@@ -3881,7 +3879,7 @@ Expected: FAIL because the existing placeholder index has no named `e2eStoryEntr
 }
 ```
 
-`stories/e2e/LICENSE.md` assigns TypeScript implementation/tests/scripts to PolyForm Noncommercial and assigns `src/presentation/text-catalogs.ts` plus later `src/simulation/narrative.ts` to CC BY-NC-SA 4.0, linking the exact root legal texts. Its `tsconfig.json` keeps simulation imports DOM-free through the boundary verifier but enables `jsx: "react-jsx"` and the DOM library for the owned presentation file; the package directly owns pinned React because Task 19 already compiles a `.tsx` SceneGraph. In the same step, update `workspace-policy.mjs` and licensing verifier tests from the Phase 1 single PolyForm package declaration to `SEE LICENSE IN LICENSE.md`; assert the scope file exists and names both licenses. This package metadata/scope/policy change must pass `pnpm verify:licensing` before the commit.
+`stories/e2e/LICENSE.md` assigns TypeScript implementation/tests/scripts to PolyForm Noncommercial and assigns `src/presentation/text-catalogs.ts` plus later `src/simulation/narrative.ts` to CC BY-NC-SA 4.0, linking the exact root legal texts. Its `tsconfig.json` keeps simulation imports DOM-free through the boundary verifier but enables `jsx: "react-jsx"` and the DOM library for the owned presentation file; the package directly owns pinned React because Task 19 already compiles a `.tsx` SceneGraph. In the same step, update `workspace-policy.mjs` from the Phase 1 single PolyForm package declaration to `SEE LICENSE IN LICENSE.md` and directly review that the scope file names both licenses.
 
 - [ ] **Step 4: Add exact minimal content and balance**
 
@@ -4182,14 +4180,14 @@ Do not edit the future-proof Vitest config: prove `story-contract.test.ts` is di
 
 - [ ] **Step 8: Run Story, licensing, discovery, and boundary checks**
 
-Run: `pnpm --filter @project-tavern/story-e2e test -- src/test/story-contract.test.ts && pnpm verify:stories && pnpm verify:licensing && pnpm test:contract && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
+Run: `pnpm --filter @project-tavern/story-e2e test -- src/test/story-contract.test.ts && pnpm verify:stories && pnpm test:contract && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
 
 Expected: PASS; Story validation reports no missing/duplicate IDs, references, catalogs, module edges, asset providers, or illegal imports; Sandbox and E2E both validate; Demo remains intentionally empty; mixed licensing and test discovery are green; verification changes no tracked file.
 
 - [ ] **Step 9: Commit the independent Story definition and its atomic policy activation**
 
 ```bash
-git add stories/e2e/package.json stories/e2e/tsconfig.json stories/e2e/LICENSE.md stories/e2e/src/index.ts stories/e2e/src/story.ts stories/e2e/src/profile.ts stories/e2e/src/simulation/identity.ts stories/e2e/src/simulation/ids.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/rules.ts stories/e2e/src/patch-surfaces.ts stories/e2e/src/presentation/text-catalogs.ts stories/e2e/src/presentation/assets.ts stories/e2e/src/presentation/scene-graph.tsx stories/e2e/src/test/story-contract.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
+git add stories/e2e/package.json stories/e2e/tsconfig.json stories/e2e/LICENSE.md stories/e2e/src/index.ts stories/e2e/src/story.ts stories/e2e/src/profile.ts stories/e2e/src/simulation/identity.ts stories/e2e/src/simulation/ids.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/rules.ts stories/e2e/src/patch-surfaces.ts stories/e2e/src/presentation/text-catalogs.ts stories/e2e/src/presentation/assets.ts stories/e2e/src/presentation/scene-graph.tsx stories/e2e/src/test/story-contract.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs
 git commit -m "feat(story-e2e): define independent module fixture story"
 ```
 
@@ -5261,7 +5259,7 @@ Expected: PASS; Phase 1 verification remains green and no tracked baseline is re
 
 - [ ] **Step 8: Run licensing verification for new package metadata**
 
-Run: `node scripts/verify-licensing.mjs`
+Run: `pnpm verify`
 
 Expected: `licensing verification passed`
 

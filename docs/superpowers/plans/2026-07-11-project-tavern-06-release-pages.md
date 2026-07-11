@@ -6,7 +6,7 @@
 
 **Architecture:** A single nonpublishing `pnpm verify` expands all deterministic code/test/build/browser gates. One closed artifact wrapper builds Demo Player, Demo Developer, and E2E Player, leaving the release-eligible ignored `dist/player` from the current checkout; release preparation verifies and manifests those exact bytes and CI uploads them. An authorized Pages job downloads the artifact produced by its own successful verification job, wraps it for Pages, deploys it without checkout/build, and runs read-only remote smoke.
 
-**Tech Stack:** Existing Project Tavern workspace, Vite production build, Playwright 1.61.1, Node.js 24.18.0, pnpm 11.11.0, GitHub Actions pinned to immutable commit SHAs, GitHub Pages with HashRouter and relative assets.
+**Tech Stack:** Existing Project Tavern workspace, Vite production build, Playwright 1.61.1, Node.js >=22.12.0, pnpm >=11.0.0, GitHub Actions pinned to immutable commit SHAs, GitHub Pages with HashRouter and relative assets.
 
 ## Global Constraints
 
@@ -19,7 +19,7 @@
 - Every workflow `uses:` reference is a full SHA from `scripts/release/actions-lock.json` with its reviewed tag in a comment. Floating tags and unlisted actions fail validation.
 - Every uploaded artifact sets `retention-days: 30`. Failure evidence is bounded and path-scrubbed.
 - Registry audit is a separate scheduled/manual workflow. A transient registry failure does not make local deterministic verification flaky.
-- Release `.mts` tools are type-erasable and run directly under pinned Node 24 native TypeScript stripping; they use no transform-required TypeScript feature or second TS runtime.
+- Release `.mts` tools are type-erasable and run directly under the supported Node runtime's native TypeScript stripping; they use no transform-required TypeScript feature or second TS runtime.
 - `pnpm test:scripts` recursively discovers and executes every `scripts/**/*.test.mjs` and `scripts/**/*.test.ts` exactly once through the Phase 1 runner; Phase 6 release/docs subdirectories may not depend on shallow globs or hand-maintained test lists.
 - Release bundles include `LICENSE.md`, `NOTICE`, the three project legal texts, and the repository's non-exhaustive `THIRD_PARTY_NOTICES.md` boundary statement. They do not generate dependency/vendor license inventories or gate release on third-party license scanning.
 - `references/`, all of `art-source/aigc/**`, secrets, `.env`, Developer modules, Story `./development`, fixtures, local paths, and source maps are forbidden from Player.
@@ -174,8 +174,6 @@ git commit -m "build: freeze all browser artifacts"
 - Modify: `scripts/verify-bundle.mjs`
 - Modify: `scripts/verify-bundle.test.mjs`
 - Modify: `scripts/prepare-artifact.mjs`
-- Modify: `scripts/verify-licensing.mjs`
-- Modify: `scripts/verify-licensing.test.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
@@ -216,7 +214,6 @@ Run:
 
 ```bash
 pnpm exec vitest run scripts/release/create-artifact-manifest.test.ts scripts/release/verify-player-artifact.test.ts
-node --test scripts/verify-licensing.test.mjs
 ```
 
 Expected: FAIL on missing manifest/artifact verifiers.
@@ -235,18 +232,18 @@ Keep the Phase 1 public names and make their final behavior explicit:
 }
 ```
 
-After Vite returns, the Player branch of `build-artifact.mts` calls `prepare-artifact.mjs`: it copies/verifies project legal files, writes the self-excluding sorted manifest last, and invokes the Player verifier. Thus `build:player` always produces one complete release-eligible artifact; Developer/E2E builds do not receive Player legal postprocessing. Refactor the Phase 1 `verify-artifact.mjs` and `verify-bundle.mjs` into inspect-only commands over the caller-built outputs/source graphs; their tests fail when output is missing rather than silently rebuilding. Also remove the Phase 1 temporary Player build from `verify-licensing.mjs`: its final pre-build role is project source/legal/package/asset validation, while post-build project legal-file completeness is owned by `verify:artifact`. Add a process-spy regression proving the final ordinary `pnpm verify` invokes the main Demo Player builder exactly once (isolated `verify:release` reproducibility builds are counted separately). `release:prepare` remains an explicit operator alias for the same one build, not a second mutation pass.
+After Vite returns, the Player branch of `build-artifact.mts` calls `prepare-artifact.mjs`: it copies the seven project release statements, writes the self-excluding sorted manifest last, and invokes the Player verifier. Thus `build:player` always produces one complete release-eligible artifact; Developer/E2E builds do not receive Player legal postprocessing. Refactor the Phase 1 `verify-artifact.mjs` and `verify-bundle.mjs` into inspect-only commands over the caller-built outputs/source graphs; their tests fail when output is missing rather than silently rebuilding. Artifact checks verify release structure and technical digests without canonical legal-file hashes or third-party classification. Add a process-spy regression proving the final ordinary `pnpm verify` invokes the main Demo Player builder exactly once (isolated `verify:release` reproducibility builds are counted separately). `release:prepare` remains an explicit operator alias for the same one build, not a second mutation pass.
 
 - [ ] **Step 4: Build, manifest, inspect, and run licensing gates**
 
-Run: `pnpm release:prepare && pnpm verify:artifact && pnpm verify:licensing && pnpm verify:bundle && pnpm verify`
+Run: `pnpm release:prepare && pnpm verify:artifact && pnpm verify:bundle && pnpm verify`
 
 Expected: PASS; artifact manifests are stable, project legal files are present and valid, and the manifest's detached digest is reported separately.
 
 - [ ] **Step 5: Commit release inspection**
 
 ```bash
-git add -- scripts/release/create-artifact-manifest.mts scripts/release/create-artifact-manifest.test.ts scripts/release/verify-player-artifact.mts scripts/release/verify-player-artifact.test.ts scripts/release/build-artifact.mts scripts/verify-artifact.mjs scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/prepare-artifact.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs package.json
+git add -- scripts/release/create-artifact-manifest.mts scripts/release/create-artifact-manifest.test.ts scripts/release/verify-player-artifact.mts scripts/release/verify-player-artifact.test.ts scripts/release/build-artifact.mts scripts/verify-artifact.mjs scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/prepare-artifact.mjs package.json
 git diff --cached --check
 git commit -m "build: verify player artifact contents"
 ```
@@ -455,7 +452,7 @@ git commit -m "build: unify project verification"
 
 Run: `pnpm add --workspace-root --save-dev --save-exact yaml@2.9.0`
 
-Regenerate the frozen lockfile and run `pnpm verify:licensing`. Expected: the exact parser version enters the manifest/lockfile and project licensing verification remains green without creating a dependency notice record.
+Regenerate the frozen lockfile and run the focused parser tests plus `pnpm verify`. Expected: the exact parser version enters the manifest/lockfile without creating a dependency notice record.
 
 - [ ] **Step 2: Write failing workflow pin/retention/no-rebuild tests**
 
@@ -489,9 +486,9 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with: { version: 11.11.0 }
+        with: { version: 11 }
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with: { node-version: 24.18.0, cache: pnpm }
+        with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm verify:release
@@ -659,7 +656,7 @@ git commit -m "docs: add release and pages runbooks"
 
 ## Phase 6 Acceptance
 
-Run from a clean checkout with the exact pinned Node/pnpm versions:
+Run from a clean checkout with versions satisfying root `engines`:
 
 ```bash
 pnpm install --frozen-lockfile

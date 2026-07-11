@@ -6,7 +6,7 @@
 
 **Architecture:** Generic MIT `@project-tavern/base` and `@project-tavern/ui` remain independent of tavern concepts. Each Story statically composes typed PolyForm gameplay Modules behind one CommandCoordinator, supplies its own rules/content/Scenes/assets, and communicates with UI through immutable RuntimeViewModels and narrow Application/Presentation ports. Work proceeds from a synthetic walking skeleton to real Modules, then E2E integration, runtime services, Demo content, UI, and release hardening; each checkpoint leaves independently runnable green software.
 
-**Tech Stack:** Node.js 24.18.0, pnpm 11.11.0, TypeScript 7.0.2, React 19.2.7, Vite 8.1.4, Zod 4.4.3, Vitest 4.1.10, fast-check 4.9.0, IndexedDB/idb 8.0.3, Playwright 1.61.1, CSS Modules, GitHub Pages.
+**Tech Stack:** Node.js >=22.12.0, pnpm >=11.0.0, TypeScript 7.0.2, React 19.2.7, Vite 8.1.4, Zod 4.4.3, Vitest 4.1.10, fast-check 4.9.0, IndexedDB/idb 8.0.3, Playwright 1.61.1, CSS Modules, GitHub Pages.
 
 ## Global Constraints
 
@@ -18,7 +18,7 @@
 - `stories/e2e` is the first real consumer of all public Modules and owns independent minimal content. It must not import Demo Story content, private helpers, fixtures, text, or IDs.
 - Browser E2E proves integration and player-visible outcomes. Formula ordering, rejection details, invariants, and balance distributions stay in fast Vitest/fast-check suites.
 - Code-native asset fallbacks are a complete mandatory deliverable. The four current OpenAI illustrations remain under `art-source/aigc/**` and are excluded from runtime until an author manually copies a selected image into a runtime asset directory and adds a technically valid Asset Pack provider.
-- The existing MIT / PolyForm Noncommercial / CC BY-NC-SA boundaries remain authoritative. Run licensing verification after every new package, dependency, asset, manifest, or artifact change.
+- The existing MIT / PolyForm Noncommercial / CC BY-NC-SA boundaries remain authoritative. Maintain project legal files and package metadata by direct review; artifact verification checks only release structure and technical digests.
 - Every behavior task uses TDD: focused red test for the target behavior, confirmed expected failure, minimal implementation, focused green, phase gate, current `pnpm verify`, staged-diff review, commit.
 - The first red test must fail on the missing target behavior, not on a broken toolchain, missing browser binary, invalid fixture, unrelated type error, or test syntax error.
 - Every committed state is green for the verification surface available at that commit. No commit may rely on a later task to repair known failures.
@@ -54,8 +54,6 @@ Phase 1 creates these script names and later phases extend their real work. No s
 pnpm format:check            read-only Prettier conformance
 pnpm lint                    type-aware Oxlint policy; never replaces TS7 tsc
 pnpm typecheck               authoritative whole-workspace TypeScript 7 check
-pnpm verify:toolchain        exact Node/pnpm/TS7 and tool isolation
-pnpm verify:licensing        project legal files, project package metadata, owned-source/artifact scope
 pnpm verify:boundaries       package/facet/import rules and references exclusion
 pnpm verify:cycles           production import graph cycles
 pnpm verify:stories          Demo/E2E/Sandbox Story validation
@@ -116,17 +114,17 @@ git ls-files references
 
 Expected: clean intended branch; a single exact HEAD is recorded; `git ls-files references` prints nothing.
 
-- [ ] **Step 2: Verify the existing legal baseline**
+- [ ] **Step 2: Verify the existing repository baseline**
 
 Run:
 
 ```bash
-node --test scripts/verify-licensing.test.mjs
-node scripts/verify-licensing.mjs
+pnpm format:check
+pnpm lint
 git diff --check
 ```
 
-Expected: Node tests pass 3/3, licensing verification prints `licensing verification passed`, and diff check exits 0.
+Expected: formatting, lint, and diff checks exit 0.
 
 - [ ] **Step 3: Create the execution Goal only after explicit user authority**
 

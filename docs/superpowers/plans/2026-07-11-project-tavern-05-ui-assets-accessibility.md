@@ -81,7 +81,7 @@ pnpm --filter @project-tavern/web add --save-dev --save-exact @axe-core/playwrig
 pnpm add --workspace-root --save-dev --save-exact stylelint@17.14.0 stylelint-config-standard@40.0.0
 ```
 
-Phase 1 already supplies the exact React peer/development pair. The first command adds the exact ReactDOM peer plus pnpm's matching development entry before Radix/Motion are installed; with strict peer checking UI may not rely on the sibling Web package's ReactDOM. Regenerate the frozen lockfile and run `pnpm verify:licensing`; expected: exact dependency pins are present and project licensing verification prints `licensing verification passed` without producing a dependency notice inventory.
+Phase 1 already supplies the exact React peer/development pair. The first command adds the exact ReactDOM peer plus pnpm's matching development entry before Radix/Motion are installed; with strict peer checking UI may not rely on the sibling Web package's ReactDOM. Regenerate the frozen lockfile and run the focused UI/type checks; expected: exact dependency pins are present without producing a dependency notice inventory.
 
 - [ ] **Step 2: Write failing registry, fallback, and localization tests**
 
@@ -550,7 +550,6 @@ pnpm --filter @project-tavern/modules add --save-peer --save-exact react@19.2.7
 pnpm --filter @project-tavern/story-demo add '@project-tavern/web@workspace:*'
 pnpm --filter @project-tavern/story-e2e add '@project-tavern/web@workspace:*'
 pnpm install --frozen-lockfile
-pnpm verify:licensing
 ```
 
 Expected: strict peer/dependency checks pass; Modules UI and both Story application roots resolve `react/jsx-runtime` through their own manifests, not a sibling package. E2E and Demo retain the pinned direct React dependencies introduced with their earlier Story-owned SceneGraphs; this task adds React only for Modules. Demo/E2E each declare the generic MIT `@project-tavern/web: workspace:*` dependency used by their host-specific roots; Web still has no reverse Story edge. The existing React third-party record is updated with the additional paths/importers; no duplicate legal record is created.
@@ -858,7 +857,7 @@ Extend the existing stable `scripts/verify-assets.mjs` wrapper so root `pnpm ver
 
 - [ ] **Step 4: Run asset, license, build, and bundle checks**
 
-Run: `pnpm verify:assets && pnpm verify:licensing && pnpm build:player && pnpm verify:bundle && pnpm verify`
+Run: `pnpm verify:assets && pnpm build:player && pnpm verify:bundle && pnpm verify`
 
 Expected: PASS; runtime validation reads no AIGC source archive, Player contains zero promoted runtime images, and every logical Asset ID resolves to a code fallback.
 
@@ -1059,7 +1058,6 @@ pnpm test:scripts
 pnpm verify:ui
 pnpm test:e2e:ui -- --project=webkit
 pnpm verify:assets
-pnpm verify:licensing
 pnpm verify:boundaries
 pnpm verify:bundle
 pnpm verify

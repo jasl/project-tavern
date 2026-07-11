@@ -8,7 +8,7 @@
 
 实施入口：[`../../../LICENSE.md`](../../../LICENSE.md)
 
-实施计划：[`../plans/2026-07-11-repository-licensing-implementation.md`](../plans/2026-07-11-repository-licensing-implementation.md)
+轻量自动化政策：[`2026-07-12-simplify-toolchain-and-repository-checks-design.md`](2026-07-12-simplify-toolchain-and-repository-checks-design.md)
 
 ## 1. 设计结论
 
@@ -253,15 +253,14 @@ CONTRIBUTING.md
 
 ## 13. 自动化与发布闸门
 
-实施阶段至少增加以下检查：
+实施阶段采用以下边界：
 
-- 每个 workspace package 都有合法 `license` metadata；
-- 项目自有发布文件能解析到 MIT、PolyForm 或 CC 范围；
-- 验证器不扫描 npm 依赖或 `vendor/**` 许可，不以第三方 metadata、copyright 行、LICENSE 文件或 public-domain 判定阻断构建；
+- 项目法律文件与 workspace package `license` metadata 由维护者直接评审，不使用存在性、固定哈希或元数据自动闸门；
+- 自动化不扫描 npm 依赖或 `vendor/**` 许可，不以第三方 metadata、copyright 行、LICENSE 文件或 public-domain 判定阻断构建；
 - `references/` 没有被跟踪、导入、打包或作为 AIGC 输入；
 - 自动化不扫描 `art-source/aigc/**` 的许可、prompt 配对、模型名、digest 或来源元数据，也不从该目录构建运行时素材；
 - MIT import graph 不依赖 PolyForm/CC 的游戏专用实现；
-- Player artifact 携带项目 License scope、NOTICE 和项目标准法律文本；
+- Player artifact 携带项目 License scope、NOTICE 和项目标准法律文本；artifact 检查只验证发布结构和技术 digest，不冻结法律文本哈希；
 - CI 不生成或维护 npm/vendor 版权清单，也不对其做自动法律结论。
 
 ## 14. 权威来源

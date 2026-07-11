@@ -6,7 +6,7 @@
 
 **Architecture:** `@project-tavern/base` owns one generic `EngineSession` FIFO, Save/Debug codecs, compatibility policy, persistence orchestration, CommandLog, replay, and generic Player/Developer application ports. `apps/web` alone implements `HostAtomicRecordStoreV1` with IndexedDB; it never leaks an IndexedDB transaction into Base. Every successful load, import, adoption, lifecycle replacement, or fixture anchor establishes a new replay anchor atomically, while writes capture immutable committed snapshots outside `GameCommand` semantics.
 
-**Tech Stack:** Node.js 24.18.0, pnpm 11.11.0, TypeScript 7.0.2 strict mode, Zod 4.4.3, idb 8.0.3, fake-indexeddb 6.2.5, Vitest 4.1.10, fast-check 4.9.0, and the Phase 1/2 workspace packages.
+**Tech Stack:** Node.js >=22.12.0, pnpm >=11.0.0, TypeScript 7.0.2 strict mode, Zod 4.4.3, idb 8.0.3, fake-indexeddb 6.2.5, Vitest 4.1.10, fast-check 4.9.0, and the Phase 1/2 workspace packages.
 
 ## Global Constraints
 
@@ -582,7 +582,6 @@ Run:
 ```bash
 pnpm --filter @project-tavern/web exec vitest run src/host/indexeddb-record-store.test.ts
 pnpm verify:boundaries
-pnpm verify:licensing
 pnpm verify
 ```
 
@@ -1494,7 +1493,6 @@ const expectedPhase3CommandsV1 = [
   ["pnpm", ["verify:public-exports"]],
   ["pnpm", ["test:node"]],
   ["pnpm", ["verify:boundaries"]],
-  ["pnpm", ["verify:licensing"]],
   ["pnpm", ["build"]],
 ];
 
@@ -1538,7 +1536,6 @@ export const phase3VerificationCommandsV1 = Object.freeze([
   phase3CommandV1("pnpm", ["verify:public-exports"]),
   phase3CommandV1("pnpm", ["test:node"]),
   phase3CommandV1("pnpm", ["verify:boundaries"]),
-  phase3CommandV1("pnpm", ["verify:licensing"]),
   phase3CommandV1("pnpm", ["build"]),
 ] as const);
 ```
@@ -1570,7 +1567,7 @@ Add these exact package scripts so the verifier names concrete, owned suites:
 { "scripts": { "test:runtime": "vitest run src/runtime" } }
 ```
 
-The verifier is type-erasable `.mts` executed by pinned Node 24's native TypeScript stripping; it uses no enum, namespace, parameter property, path alias, or transform-required syntax and adds no second TypeScript runtime. It runs only read-only tests and builds; it never calls `regenerate:fixtures`, `update:golden`, or any other baseline writer.
+The verifier is type-erasable `.mts` executed by the supported Node runtime's native TypeScript stripping; it uses no enum, namespace, parameter property, path alias, or transform-required syntax and adds no second TypeScript runtime. It runs only read-only tests and builds; it never calls `regenerate:fixtures`, `update:golden`, or any other baseline writer.
 
 - [ ] **Step 4: Run the phase gate twice and prove a clean tree**
 

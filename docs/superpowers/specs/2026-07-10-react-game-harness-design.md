@@ -94,8 +94,8 @@ Story 是完整作品边界；Module 是源码所有权和测试边界；Hotfix 
 
 ## 5. 技术栈
 
-- Node.js 24 LTS；脚手架时锁定精确 patch；
-- pnpm workspace；根 `packageManager` 和 `pnpm-lock.yaml` 固定精确版本；
+- Node.js >=22.12.0；根 `engines` 只声明最低兼容版本；
+- pnpm >=11.0.0 workspace；精确依赖 manifest 和 `pnpm-lock.yaml` 负责依赖图重现性；
 - React、当前稳定 TypeScript 7 严格模式和 Vite；正式 typecheck 不降级到 TypeScript 6；
 - React Router `HashRouter`，确保 GitHub Pages 子路径可用；
 - Zustand vanilla store 作为 `EngineSession`/应用端口到 React 的薄订阅桥；

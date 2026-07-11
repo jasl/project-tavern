@@ -1048,8 +1048,6 @@ git commit -m "feat(story-demo): encode initial balance contract"
 - Create: `stories/demo/LICENSE.md`
 - Modify: `stories/demo/package.json`
 - Modify: `scripts/workspace-policy.mjs`
-- Modify: `scripts/verify-licensing.mjs`
-- Modify: `scripts/verify-licensing.test.mjs`
 
 **Interfaces:**
 
@@ -1323,18 +1321,18 @@ export const eventsV1: readonly StoryEventDefinitionV1[] = Object.freeze([
 
 - [ ] **Step 6: Activate Demo mixed licensing with the first narrative file**
 
-Create `stories/demo/LICENSE.md` in this same task. It maps executable Story source/tests/scripts to PolyForm Noncommercial 1.0.0 and maps the now-existing `src/simulation/narrative/**` scope to CC BY-NC-SA 4.0, linking the exact root legal texts. Change `stories/demo/package.json` from `PolyForm-Noncommercial-1.0.0` to `SEE LICENSE IN LICENSE.md` but keep `exports:{}` because the default entry does not exist yet. Atomically update `scripts/workspace-policy.mjs`, `scripts/verify-licensing.mjs`, and the hostile verifier tests to require the package-local scope file, both root licenses, and the narrative mapping. Do not predeclare the later text-catalog scope in this task.
+Create `stories/demo/LICENSE.md` in this same task. It maps executable Story source/tests/scripts to PolyForm Noncommercial 1.0.0 and maps the now-existing `src/simulation/narrative/**` scope to CC BY-NC-SA 4.0, linking the exact root legal texts. Change `stories/demo/package.json` from `PolyForm-Noncommercial-1.0.0` to `SEE LICENSE IN LICENSE.md` but keep `exports:{}` because the default entry does not exist yet. Atomically update `scripts/workspace-policy.mjs` and directly review the package-local scope file, both root licenses, and the narrative mapping. Do not predeclare the later text-catalog scope in this task.
 
 - [ ] **Step 7: Run daily content and atomic licensing tests**
 
-Run: `pnpm --filter @project-tavern/story-demo test -- src/test/daily-gates.test.ts && pnpm verify:licensing && pnpm typecheck && pnpm verify`
+Run: `pnpm --filter @project-tavern/story-demo test -- src/test/daily-gates.test.ts && pnpm typecheck && pnpm verify`
 
 Expected: PASS; all Action windows/occupations/gate order, mode unlocks, Event triggers/priorities/scenes/effects, facility costs/modifiers, Aura policies/targets, and D2 threshold semantics pass; the same candidate commit already reports Demo as mixed-license with narrative under CC and all other current files under PolyForm.
 
 - [ ] **Step 8: Commit D1–D4 content and its license activation atomically**
 
 ```bash
-git add stories/demo/src/simulation/content/actions.ts stories/demo/src/simulation/content/facilities-auras.ts stories/demo/src/simulation/content/events.ts stories/demo/src/simulation/narrative/d1-d4.ts stories/demo/src/test/daily-gates.test.ts stories/demo/LICENSE.md stories/demo/package.json scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
+git add stories/demo/src/simulation/content/actions.ts stories/demo/src/simulation/content/facilities-auras.ts stories/demo/src/simulation/content/events.ts stories/demo/src/simulation/narrative/d1-d4.ts stories/demo/src/test/daily-gates.test.ts stories/demo/LICENSE.md stories/demo/package.json scripts/workspace-policy.mjs
 git commit -m "feat(story-demo): add d1 through d4 content"
 ```
 
@@ -2036,8 +2034,6 @@ git commit -m "feat(story-demo): implement deterministic story rules"
 - Modify: `scripts/verify-stories.mjs`
 - Modify: `scripts/verify-stories.test.mjs`
 - Modify: `scripts/workspace-policy.mjs`
-- Modify: `scripts/verify-licensing.mjs`
-- Modify: `scripts/verify-licensing.test.mjs`
 
 **Interfaces:**
 
@@ -2220,14 +2216,14 @@ Modify the Task 3 `stories/demo/LICENSE.md` rather than recreating it: preserve 
 
 - [ ] **Step 6: Run full Story, licensing, and import gates**
 
-Run: `pnpm --filter @project-tavern/story-demo test -- src/test/story-validation.test.ts && pnpm verify:stories && pnpm verify:licensing && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
+Run: `pnpm --filter @project-tavern/story-demo test -- src/test/story-validation.test.ts && pnpm verify:stories && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
 
 Expected: PASS; all stable references/reachability/catalogs/rules/slots/fallbacks validate; Demo retains its Task 3 mixed-license activation and adds only the text-catalog CC scope; no runtime image, AIGC archive path, development module, app module, or forbidden path is reachable.
 
 - [ ] **Step 7: Commit complete Demo composition**
 
 ```bash
-git add stories/demo/package.json stories/demo/tsconfig.json stories/demo/LICENSE.md stories/demo/src/presentation/text-catalogs/zh-CN.ts stories/demo/src/presentation/text-catalogs/index.ts stories/demo/src/presentation/assets.ts stories/demo/src/presentation/scene-graph.tsx stories/demo/src/patch-surfaces.ts stories/demo/src/profile.ts stories/demo/src/story.ts stories/demo/src/index.ts stories/demo/src/test/story-validation.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
+git add stories/demo/package.json stories/demo/tsconfig.json stories/demo/LICENSE.md stories/demo/src/presentation/text-catalogs/zh-CN.ts stories/demo/src/presentation/text-catalogs/index.ts stories/demo/src/presentation/assets.ts stories/demo/src/presentation/scene-graph.tsx stories/demo/src/patch-surfaces.ts stories/demo/src/profile.ts stories/demo/src/story.ts stories/demo/src/index.ts stories/demo/src/test/story-validation.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs
 git commit -m "feat(story-demo): compose seven-day story package"
 ```
 
@@ -3068,7 +3064,7 @@ Expected: PASS; Phase 2, Phase 3 runtime/Host, Demo, golden, Save, and build gat
 
 - [ ] **Step 4: Run licensing verification**
 
-Run: `node scripts/verify-licensing.mjs`
+Run: `pnpm verify`
 
 Expected: `licensing verification passed`
 
