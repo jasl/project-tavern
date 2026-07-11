@@ -39,8 +39,8 @@
 ### Package, identity, composition, and validation
 
 - Modify: `package.json` — route stable `verify:balance` through the repository wrapper, then add `verify:phase4`.
-- Modify: `stories/demo/package.json` — add each script/export only with its target; mixed licensing begins in the Story-composition task.
-- Create in Story-composition task: `stories/demo/LICENSE.md` — PolyForm software vs CC narrative/localization scope.
+- Modify: `stories/demo/package.json` — add each script/export only with its target; mixed licensing begins atomically in Task 3 with the first narrative file.
+- Create in Task 3 with the first narrative file, then modify in Task 7 for localization scope: `stories/demo/LICENSE.md` — PolyForm software vs CC narrative/localization scope.
 - Modify: `stories/demo/tsconfig.json` — project references to public Base/Modules/UI/Assets only.
 - Modify: `stories/demo/src/index.ts` — replace the Phase 1 non-startable stub with the default side-effect-free GamePackage export.
 - Create: `stories/demo/src/story.ts` — resolved simulation/presentation facet composition.
@@ -165,13 +165,13 @@ describe("week.poc_001 identity catalog", () => {
 
 - [ ] **Step 2: Run and verify the identity files are absent**
 
-Run: `pnpm --filter @project-tavern/story-demo test -- src/test/story-validation.test.ts`
+Run: `pnpm exec vitest run stories/demo/src/test/story-validation.test.ts`
 
 Expected: FAIL with missing `identity.js`/`ids.js`.
 
 - [ ] **Step 3: Activate only the package test script**
 
-```json
+```jsonc
 // stories/demo/package.json
 {
   "name": "@project-tavern/story-demo",
@@ -226,13 +226,21 @@ import {
   parseActorId,
   parseAttributeId,
   parseAuraId,
+  parseCheckpointId,
+  parseCharacterId,
   parseCheckBandId,
   parseCheckId,
   parseChoiceId,
+  parseCustomerSegmentId,
+  parseEndingId,
   parseEventId,
+  parseFacilityId,
   parseFactId,
   parseIngredientId,
+  parseModifierSourceId,
+  parseNodeId,
   parseOutcomeId,
+  parsePolicyId,
   parseReasonId,
   parseRecipeId,
   parseSceneId,
@@ -268,28 +276,96 @@ export const recipeIdsV1 = [
 ] as const;
 
 export const demoIdsV1 = Object.freeze({
+  actionChooseLifePolicy: actionIdsV1[0],
+  actionPurchase: actionIdsV1[1],
+  actionPrepareFood: actionIdsV1[2],
+  actionRest: actionIdsV1[3],
+  actionServicePlan: actionIdsV1[4],
+  actionAdvancePhase: actionIdsV1[5],
+  actionPayLevy: actionIdsV1[6],
+  actionFacilityWindow: actionIdsV1[7],
   actorPlayer: parseActorId("actor.player"),
   actorHeroine: parseActorId("actor.heroine"),
   attributeIntellect: parseAttributeId("intellect"),
-  actionRepairSign: parseActionId("action.repair_sign_with_heroine"),
-  actionOldTradeRoad: parseActionId("action.old_trade_road"),
+  actionRepairSign: actionIdsV1[8],
+  actionOldTradeRoad: actionIdsV1[9],
+  actionApologize: actionIdsV1[10],
   auraSignRepaired: parseAuraId("tavern.sign_repaired"),
   auraHeroineAngry: parseAuraId("heroine.angry"),
   auraAdventureStrain: parseAuraId("player.adventure_strain"),
+  characterNarrator: parseCharacterId("character.narrator"),
+  characterPlayer: parseCharacterId("character.player"),
+  characterHeroine: parseCharacterId("character.heroine"),
   checkOldTradeRoad: parseCheckId("check.old_trade_road"),
+  checkpointTutorialFirstService: parseCheckpointId("checkpoint.tutorial_first_service"),
+  checkpointSupplierInvoice: parseCheckpointId("checkpoint.supplier_invoice"),
+  checkpointHelperAvailable: parseCheckpointId("checkpoint.helper_available"),
+  checkpointFacilityWindow: parseCheckpointId("checkpoint.facility_window"),
+  checkpointLevyDue: parseCheckpointId("checkpoint.levy_due"),
+  choiceSupplierInvoiceIntellectB: parseChoiceId("choice.supplier_invoice.intellect_b"),
+  choiceSupplierInvoicePayNormally: parseChoiceId("choice.supplier_invoice.pay_normally"),
   choiceOldTradeRoadBasic: parseChoiceId("choice.old_trade_road.basic"),
   choiceOldTradeRoadPrepared: parseChoiceId("choice.old_trade_road.prepared"),
+  endingStable: parseEndingId("ending.stable"),
+  endingDanger: parseEndingId("ending.danger"),
+  endingFailedArrears: parseEndingId("ending.failed_arrears"),
+  eventTutorialFirstService: eventIdsV1[0],
+  eventSupplierInvoice: eventIdsV1[1],
+  eventHelperAvailable: eventIdsV1[2],
+  eventFacilityWindow: eventIdsV1[3],
+  eventLevyDue: eventIdsV1[4],
+  facilityColdStorage: parseFacilityId("facility.cold_storage"),
+  facilityComfortableBed: parseFacilityId("facility.comfortable_bed"),
   outcomeRelationship: parseOutcomeId("outcome.relationship_opportunity"),
   outcomeInvestigation: parseOutcomeId("outcome.investigation"),
   factWarClue: parseFactId("fact.war_clue"),
-  ingredientFreshMeat: parseIngredientId("ingredient.fresh_meat"),
-  ingredientHerb: parseIngredientId("ingredient.herb"),
+  factTutorialFirstServiceCompleted: parseFactId("fact.tutorial_first_service_completed"),
+  factInvoiceCheckedThisWeek: parseFactId("fact.invoice_checked_this_week"),
+  ingredientCoarseGrain: ingredientIdsV1[0],
+  ingredientRootVegetable: ingredientIdsV1[1],
+  ingredientAle: ingredientIdsV1[2],
+  ingredientFreshMeat: ingredientIdsV1[3],
+  ingredientHerb: ingredientIdsV1[4],
+  modifierSourceReputation: parseModifierSourceId("modifier_source.reputation"),
+  modifierSourceWarClue: parseModifierSourceId("modifier_source.war_clue"),
+  policyBalanced: parsePolicyId("policy.balanced"),
+  policyNightOwl: parsePolicyId("policy.night_owl"),
+  recipeGrainRootPorridge: recipeIdsV1[0],
+  recipeAleBread: recipeIdsV1[1],
+  recipeHunterStew: recipeIdsV1[2],
+  recipeTravelerRoast: recipeIdsV1[3],
+  reasonActionPurchase: parseReasonId("reason.action.purchase"),
+  reasonActionPrepareFood: parseReasonId("reason.action.prepare_food"),
+  reasonActionRest: parseReasonId("reason.action.rest"),
+  reasonActionFacilityBuild: parseReasonId("reason.action.facility_build"),
+  reasonActionFacilitySkip: parseReasonId("reason.action.facility_skip"),
+  reasonBalancedNightRecovery: parseReasonId("reason.recovery.balanced_night"),
+  reasonNightOwlNightRecovery: parseReasonId("reason.recovery.night_owl_night"),
+  reasonHeroineNightRecovery: parseReasonId("reason.recovery.heroine_night"),
+  reasonServiceManual: parseReasonId("reason.service.manual"),
+  reasonServiceAssisted: parseReasonId("reason.service.assisted"),
+  reasonServiceDelegated: parseReasonId("reason.service.delegated"),
+  reasonServiceClosed: parseReasonId("reason.service.closed"),
+  reasonServiceEmergencyClosed: parseReasonId("reason.service.emergency_closed"),
+  reasonEventTutorialCompleted: parseReasonId("reason.event.tutorial_completed"),
+  reasonEventInvoiceChecked: parseReasonId("reason.event.invoice_checked"),
+  reasonEventHelperUnlocked: parseReasonId("reason.event.helper_unlocked"),
+  reasonModifierColdStorageShelfLife: parseReasonId("reason.modifier.cold_storage_shelf_life"),
+  reasonModifierComfortableBedPlayerRecovery: parseReasonId("reason.modifier.comfortable_bed_player_recovery"),
+  reasonModifierComfortableBedHeroineRecovery: parseReasonId("reason.modifier.comfortable_bed_heroine_recovery"),
+  reasonUnavailableServiceModeLocked: parseReasonId("reason.unavailable.service_mode_locked"),
+  reasonUnavailableHelperLocked: parseReasonId("reason.unavailable.helper_locked"),
   reasonRelationshipRepair: parseReasonId("reason.relationship.repair_sign"),
   reasonRelationshipDeclined: parseReasonId("reason.relationship.repair_sign_declined"),
   reasonRelationshipConflict: parseReasonId("reason.relationship.repair_sign_conflict"),
   reasonRelationshipApology: parseReasonId("reason.relationship.apology"),
   reasonAuraSignRepaired: parseReasonId("reason.aura.sign_repaired"),
   reasonAuraHeroineAngry: parseReasonId("reason.aura.heroine_angry"),
+  reasonAuraAdventureStrain: parseReasonId("reason.aura.adventure_strain"),
+  reasonEndingStable: parseReasonId("reason.ending.stable"),
+  reasonEndingDanger: parseReasonId("reason.ending.danger"),
+  reasonEndingArrears: parseReasonId("reason.ending.arrears"),
+  reasonEndingReputationCrisis: parseReasonId("reason.ending.reputation_crisis"),
   reasonInvestigationBegin: parseReasonId("reason.investigation.begin"),
   reasonInvestigationSetback: parseReasonId("reason.investigation.setback"),
   reasonInvestigationSuccessWithCost: parseReasonId("reason.investigation.success_with_cost"),
@@ -297,15 +373,46 @@ export const demoIdsV1 = Object.freeze({
   reasonInvestigationExceptional: parseReasonId("reason.investigation.exceptional"),
   sceneOldTradeRoadDeparture: parseSceneId("scene.old_trade_road.departure"),
   sceneOldTradeRoadInvestigation: parseSceneId("scene.old_trade_road.investigation"),
+  sceneSupplierInvoice: parseSceneId("scene.supplier_invoice"),
+  sceneFacilityWindow: parseSceneId("scene.facility_window"),
+  sceneLevyDue: parseSceneId("scene.levy_due"),
+  segmentLocals: parseCustomerSegmentId("segment.locals"),
+  segmentTravelers: parseCustomerSegmentId("segment.travelers"),
   stepOldTradeRoadDeparture: parseWorldStepId("step.old_trade_road.departure"),
   stepOldTradeRoadInvestigation: parseWorldStepId("step.old_trade_road.investigation"),
+  textIngredientCoarseGrain: parseTextId("text.ingredient_coarse_grain"),
+  textIngredientRootVegetable: parseTextId("text.ingredient_root_vegetable"),
+  textIngredientAle: parseTextId("text.ingredient_ale"),
+  textIngredientFreshMeat: parseTextId("text.ingredient_fresh_meat"),
+  textIngredientHerb: parseTextId("text.ingredient_herb"),
+  textRecipeGrainRootPorridge: parseTextId("text.recipe_grain_root_porridge"),
+  textRecipeAleBread: parseTextId("text.recipe_ale_bread"),
+  textRecipeHunterStew: parseTextId("text.recipe_hunter_stew"),
+  textRecipeTravelerRoast: parseTextId("text.recipe_traveler_roast"),
+  textPolicyBalanced: parseTextId("text.policy_balanced"),
+  textPolicyNightOwl: parseTextId("text.policy_night_owl"),
+  textActionChooseLifePolicy: parseTextId("text.action_choose_life_policy"),
+  textActionPurchase: parseTextId("text.action_purchase"),
+  textActionPrepareFood: parseTextId("text.action_prepare_food"),
+  textActionRest: parseTextId("text.action_rest"),
+  textActionServicePlan: parseTextId("text.action_service_plan"),
+  textActionAdvancePhase: parseTextId("text.action_advance_phase"),
+  textActionPayLevy: parseTextId("text.action_pay_levy"),
+  textActionFacilityWindow: parseTextId("text.action_facility_window"),
+  textFacilityColdStorage: parseTextId("text.facility_cold_storage"),
+  textFacilityComfortableBed: parseTextId("text.facility_comfortable_bed"),
+  textAuraHeroineAngry: parseTextId("text.aura_heroine_angry"),
+  textAuraSignRepaired: parseTextId("text.aura_sign_repaired"),
+  textAuraAdventureStrain: parseTextId("text.aura_adventure_strain"),
   textActionOldTradeRoad: parseTextId("text.action_old_trade_road"),
   textChoiceOldTradeRoadBasic: parseTextId("text.choice_old_trade_road_basic"),
   textChoiceOldTradeRoadPrepared: parseTextId("text.choice_old_trade_road_prepared"),
+  tokenRelationshipPending: parseStoryToken("relationship.pending"),
   tokenRelationshipCompleted: parseStoryToken("relationship.completed"),
   tokenRelationshipAbandoned: parseStoryToken("relationship.abandoned"),
   tokenRelationshipReconciled: parseStoryToken("relationship.reconciled"),
   tokenRelationshipUnresolved: parseStoryToken("relationship.unresolved_conflict"),
+  tokenInvestigationNotAttempted: parseStoryToken("investigation.not_attempted"),
   tokenInvestigationMissed: parseStoryToken("investigation.missed_by_choice"),
   tokenInvestigationSetback: parseStoryToken("investigation.setback"),
   tokenInvestigationSuccessWithCost: parseStoryToken("investigation.success_with_cost"),
@@ -343,7 +450,7 @@ git commit -m "feat(story-demo): freeze identity and content ids"
 - Create: `stories/demo/src/test/balance-contract.test.ts`
 
 **Interfaces:**
-- Consumes: Demo Module contracts and exact numeric tables in `balance-v0.md`.
+- Consumes: Demo Module contracts, Task 1 `demoIdsV1`, exact exported parsers, and the numeric tables in `balance-v0.md`.
 - Produces: closed Fact/Outcome definitions, initial actors/resources, five ingredients, four recipes, policies, action costs, service modes, demand, levy/forecast policy, and numeric limits.
 
 - [ ] **Step 1: Write the failing exact-value test**
@@ -353,41 +460,43 @@ git commit -m "feat(story-demo): freeze identity and content ids"
 import { describe, expect, it } from "vitest";
 import { demoInitialStateV1 } from "../simulation/initial-state.js";
 import { demoBalanceV1 } from "../simulation/balance.js";
+import { demoValuesV1 } from "../simulation/balance.js";
+import { demoIdsV1 } from "../simulation/content/ids.js";
 import { ingredientsV1, recipesV1 } from "../simulation/content/ingredients-recipes.js";
 
 describe("Demo balance v0 contract", () => {
   it("freezes initial resources and limits", () => {
     expect(demoInitialStateV1).toMatchObject({
-      cash: 70,
-      reputation: 50,
-      player: { stamina: { current: 10, maximum: 10 }, mood: 0, attributes: { body: "C", social: "C", intellect: "B" } },
-      heroine: { stamina: { current: 10, maximum: 10 }, mood: 0 },
-      relationship: { affection: 0, teamwork: 0, stage: "cold" },
+      cash: demoValuesV1.moneySeventy,
+      reputation: demoValuesV1.nonNegativeFifty,
+      player: { stamina: { current: demoValuesV1.nonNegativeTen, maximum: demoValuesV1.positiveTen }, mood: demoValuesV1.moodZero, attributes: { body: "C", social: "C", intellect: "B" } },
+      heroine: { stamina: { current: demoValuesV1.nonNegativeTen, maximum: demoValuesV1.positiveTen }, mood: demoValuesV1.moodZero },
+      relationship: { affection: demoValuesV1.safeZero, teamwork: demoValuesV1.nonNegativeZero, stage: "cold" },
     });
     expect(demoBalanceV1).toMatchObject({
-      purchaseLineLimit: 5,
-      menuRecipeLimit: 2,
-      dailyPreparationLimit: 2,
-      openingFee: 2,
-      levyAmount: 140,
-      maxNarrativeStepsPerCommand: 128,
-      maxNarrativeCallDepth: 8,
+      purchaseLineLimit: demoValuesV1.positiveFive,
+      menuRecipeLimit: demoValuesV1.positiveTwo,
+      dailyPreparationLimit: demoValuesV1.positiveTwo,
+      openingFee: demoValuesV1.moneyTwo,
+      levyAmount: demoValuesV1.moneyOneHundredForty,
+      maxNarrativeStepsPerCommand: demoValuesV1.positiveOneHundredTwentyEight,
+      maxNarrativeCallDepth: demoValuesV1.positiveEight,
     });
   });
 
   it("freezes five ingredients and four recipes", () => {
     expect(ingredientsV1.map(({ ingredientId, unitPrice, shelfLifeDays }) => ({ ingredientId, unitPrice, shelfLifeDays }))).toEqual([
-      { ingredientId: "ingredient.coarse_grain", unitPrice: 1, shelfLifeDays: 7 },
-      { ingredientId: "ingredient.root_vegetable", unitPrice: 1, shelfLifeDays: 3 },
-      { ingredientId: "ingredient.ale", unitPrice: 2, shelfLifeDays: 7 },
-      { ingredientId: "ingredient.fresh_meat", unitPrice: 3, shelfLifeDays: 2 },
-      { ingredientId: "ingredient.herb", unitPrice: 2, shelfLifeDays: 3 },
+      { ingredientId: demoIdsV1.ingredientCoarseGrain, unitPrice: demoValuesV1.moneyOne, shelfLifeDays: demoValuesV1.positiveSeven },
+      { ingredientId: demoIdsV1.ingredientRootVegetable, unitPrice: demoValuesV1.moneyOne, shelfLifeDays: demoValuesV1.positiveThree },
+      { ingredientId: demoIdsV1.ingredientAle, unitPrice: demoValuesV1.moneyTwo, shelfLifeDays: demoValuesV1.positiveSeven },
+      { ingredientId: demoIdsV1.ingredientFreshMeat, unitPrice: demoValuesV1.moneyThree, shelfLifeDays: demoValuesV1.positiveTwo },
+      { ingredientId: demoIdsV1.ingredientHerb, unitPrice: demoValuesV1.moneyTwo, shelfLifeDays: demoValuesV1.positiveThree },
     ]);
     expect(recipesV1.map(({ recipeId, salePrice, prepPoints }) => ({ recipeId, salePrice, prepPoints }))).toEqual([
-      { recipeId: "recipe.grain_root_porridge", salePrice: 5, prepPoints: 1 },
-      { recipeId: "recipe.ale_bread", salePrice: 6, prepPoints: 1 },
-      { recipeId: "recipe.hunter_stew", salePrice: 12, prepPoints: 2 },
-      { recipeId: "recipe.traveler_roast", salePrice: 13, prepPoints: 2 },
+      { recipeId: demoIdsV1.recipeGrainRootPorridge, salePrice: demoValuesV1.moneyFive, prepPoints: demoValuesV1.positiveOne },
+      { recipeId: demoIdsV1.recipeAleBread, salePrice: demoValuesV1.moneySix, prepPoints: demoValuesV1.positiveOne },
+      { recipeId: demoIdsV1.recipeHunterStew, salePrice: demoValuesV1.moneyTwelve, prepPoints: demoValuesV1.positiveTwo },
+      { recipeId: demoIdsV1.recipeTravelerRoast, salePrice: demoValuesV1.moneyThirteen, prepPoints: demoValuesV1.positiveTwo },
     ]);
   });
 });
@@ -403,59 +512,75 @@ Expected: FAIL with missing initial/balance/content files.
 
 ```ts
 // stories/demo/src/simulation/state-definitions.ts
+import type { StoryStateDefinitionsV1 } from "@project-tavern/modules";
+import { demoIdsV1 } from "./content/ids.js";
+
 export const demoStateDefinitionsV1: StoryStateDefinitionsV1 = Object.freeze({
   facts: [
-    { factId: "fact.war_clue", value: { kind: "boolean", defaultValue: false } },
-    { factId: "fact.tutorial_first_service_completed", value: { kind: "boolean", defaultValue: false } },
-    { factId: "fact.invoice_checked_this_week", value: { kind: "boolean", defaultValue: false } },
+    { factId: demoIdsV1.factWarClue, value: { kind: "boolean", defaultValue: false } },
+    { factId: demoIdsV1.factTutorialFirstServiceCompleted, value: { kind: "boolean", defaultValue: false } },
+    { factId: demoIdsV1.factInvoiceCheckedThisWeek, value: { kind: "boolean", defaultValue: false } },
   ],
   quests: [],
   outcomes: [
-    { outcomeId: "outcome.relationship_opportunity", value: { kind: "token", defaultValue: "relationship.pending", allowedValues: ["relationship.pending", "relationship.completed", "relationship.abandoned", "relationship.reconciled", "relationship.unresolved_conflict"] } },
-    { outcomeId: "outcome.investigation", value: { kind: "token", defaultValue: "investigation.not_attempted", allowedValues: ["investigation.not_attempted", "investigation.missed_by_choice", "investigation.setback", "investigation.success_with_cost", "investigation.complete", "investigation.exceptional"] } },
+    { outcomeId: demoIdsV1.outcomeRelationship, value: { kind: "token", defaultValue: demoIdsV1.tokenRelationshipPending, allowedValues: [demoIdsV1.tokenRelationshipPending, demoIdsV1.tokenRelationshipCompleted, demoIdsV1.tokenRelationshipAbandoned, demoIdsV1.tokenRelationshipReconciled, demoIdsV1.tokenRelationshipUnresolved] } },
+    { outcomeId: demoIdsV1.outcomeInvestigation, value: { kind: "token", defaultValue: demoIdsV1.tokenInvestigationNotAttempted, allowedValues: [demoIdsV1.tokenInvestigationNotAttempted, demoIdsV1.tokenInvestigationMissed, demoIdsV1.tokenInvestigationSetback, demoIdsV1.tokenInvestigationSuccessWithCost, demoIdsV1.tokenInvestigationComplete, demoIdsV1.tokenInvestigationExceptional] } },
   ],
 });
 ```
+
+`initial-state.ts` likewise builds `StoryInitialStateV1` only from `demoIdsV1` and `demoValuesV1`: actor IDs, four unlocked Recipe IDs, cash, reputation, stamina maxima/currents, mood, affection, and teamwork are already branded. Only closed enum/ABI literals such as attribute ranks, relationship stage, helper tier, and empty arrays remain raw.
 
 - [ ] **Step 4: Encode exact ingredients and recipes**
 
 ```ts
 // stories/demo/src/simulation/content/ingredients-recipes.ts
-export const ingredientsV1 = Object.freeze([
-  { ingredientId: "ingredient.coarse_grain", nameTextId: "text.ingredient_coarse_grain", unitPrice: 1, shelfLifeDays: 7, refrigeratable: false },
-  { ingredientId: "ingredient.root_vegetable", nameTextId: "text.ingredient_root_vegetable", unitPrice: 1, shelfLifeDays: 3, refrigeratable: true },
-  { ingredientId: "ingredient.ale", nameTextId: "text.ingredient_ale", unitPrice: 2, shelfLifeDays: 7, refrigeratable: false },
-  { ingredientId: "ingredient.fresh_meat", nameTextId: "text.ingredient_fresh_meat", unitPrice: 3, shelfLifeDays: 2, refrigeratable: true },
-  { ingredientId: "ingredient.herb", nameTextId: "text.ingredient_herb", unitPrice: 2, shelfLifeDays: 3, refrigeratable: true },
-] as const);
+import type { PositiveSafeInteger } from "@project-tavern/base";
+import type {
+  CustomerSegmentId, IngredientDefinitionV1, IngredientId, Money, Quantity,
+  RecipeDefinitionV1, RecipeId, RecipeIngredientV1, SegmentPreferenceV1, TextId,
+} from "@project-tavern/modules";
+import { demoValuesV1 } from "../balance.js";
+import { demoIdsV1 } from "./ids.js";
 
-export const recipesV1 = Object.freeze([
-  recipe("recipe.grain_root_porridge", "text.recipe_grain_root_porridge", [["ingredient.coarse_grain", 1], ["ingredient.root_vegetable", 1]], 5, 1, [3, 1]),
-  recipe("recipe.ale_bread", "text.recipe_ale_bread", [["ingredient.coarse_grain", 1], ["ingredient.ale", 1]], 6, 1, [2, 3]),
-  recipe("recipe.hunter_stew", "text.recipe_hunter_stew", [["ingredient.fresh_meat", 1], ["ingredient.root_vegetable", 1], ["ingredient.herb", 1]], 12, 2, [3, 2]),
-  recipe("recipe.traveler_roast", "text.recipe_traveler_roast", [["ingredient.fresh_meat", 1], ["ingredient.ale", 1], ["ingredient.herb", 1]], 13, 2, [1, 3]),
-] as const);
+const ingredient = (
+  ingredientId: IngredientId,
+  nameTextId: TextId,
+  unitPrice: Money,
+  shelfLifeDays: PositiveSafeInteger,
+  refrigeratable: boolean,
+): IngredientDefinitionV1 => Object.freeze({ ingredientId, nameTextId, unitPrice, shelfLifeDays, refrigeratable });
+
+const recipeIngredient = (ingredientId: IngredientId, quantity: Quantity): RecipeIngredientV1 => ({ ingredientId, quantity });
+const preference = (segmentId: CustomerSegmentId, value: 0 | 1 | 2 | 3): SegmentPreferenceV1 => ({ segmentId, value });
+const recipe = (
+  recipeId: RecipeId,
+  nameTextId: TextId,
+  ingredients: readonly RecipeIngredientV1[],
+  salePrice: Money,
+  prepPoints: PositiveSafeInteger,
+  preferences: readonly SegmentPreferenceV1[],
+): RecipeDefinitionV1 => Object.freeze({ recipeId, nameTextId, ingredients, salePrice, prepPoints, preferences });
+
+export const ingredientsV1: readonly IngredientDefinitionV1[] = Object.freeze([
+  ingredient(demoIdsV1.ingredientCoarseGrain, demoIdsV1.textIngredientCoarseGrain, demoValuesV1.moneyOne, demoValuesV1.positiveSeven, false),
+  ingredient(demoIdsV1.ingredientRootVegetable, demoIdsV1.textIngredientRootVegetable, demoValuesV1.moneyOne, demoValuesV1.positiveThree, true),
+  ingredient(demoIdsV1.ingredientAle, demoIdsV1.textIngredientAle, demoValuesV1.moneyTwo, demoValuesV1.positiveSeven, false),
+  ingredient(demoIdsV1.ingredientFreshMeat, demoIdsV1.textIngredientFreshMeat, demoValuesV1.moneyThree, demoValuesV1.positiveTwo, true),
+  ingredient(demoIdsV1.ingredientHerb, demoIdsV1.textIngredientHerb, demoValuesV1.moneyTwo, demoValuesV1.positiveThree, true),
+]);
+
+export const recipesV1: readonly RecipeDefinitionV1[] = Object.freeze([
+  recipe(demoIdsV1.recipeGrainRootPorridge, demoIdsV1.textRecipeGrainRootPorridge, [recipeIngredient(demoIdsV1.ingredientCoarseGrain, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientRootVegetable, demoValuesV1.quantityOne)], demoValuesV1.moneyFive, demoValuesV1.positiveOne, [preference(demoIdsV1.segmentLocals, 3), preference(demoIdsV1.segmentTravelers, 1)]),
+  recipe(demoIdsV1.recipeAleBread, demoIdsV1.textRecipeAleBread, [recipeIngredient(demoIdsV1.ingredientCoarseGrain, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientAle, demoValuesV1.quantityOne)], demoValuesV1.moneySix, demoValuesV1.positiveOne, [preference(demoIdsV1.segmentLocals, 2), preference(demoIdsV1.segmentTravelers, 3)]),
+  recipe(demoIdsV1.recipeHunterStew, demoIdsV1.textRecipeHunterStew, [recipeIngredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientRootVegetable, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne)], demoValuesV1.moneyTwelve, demoValuesV1.positiveTwo, [preference(demoIdsV1.segmentLocals, 3), preference(demoIdsV1.segmentTravelers, 2)]),
+  recipe(demoIdsV1.recipeTravelerRoast, demoIdsV1.textRecipeTravelerRoast, [recipeIngredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientAle, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne)], demoValuesV1.moneyThirteen, demoValuesV1.positiveTwo, [preference(demoIdsV1.segmentLocals, 1), preference(demoIdsV1.segmentTravelers, 3)]),
+]);
 ```
 
 - [ ] **Step 5: Encode policies, costs, service modes, demand, and levy**
 
-`demoBalanceV1` uses:
-
-```ts
-const lifePolicies = [
-  { policyId: "policy.balanced", nameTextId: "text.policy_balanced", apByPhase: { morning: 2, afternoon: 2, evening: 2 }, playerNightRecovery: 3, nightRecoveryReasonId: "reason.recovery.balanced_night" },
-  { policyId: "policy.night_owl", nameTextId: "text.policy_night_owl", apByPhase: { morning: 1, afternoon: 2, evening: 3 }, playerNightRecovery: 2, nightRecoveryReasonId: "reason.recovery.night_owl_night" },
-] as const;
-
-const serviceModes = [
-  serviceMode("manual", 2, 3, 3, 0, 10, 6, 2, 4),
-  serviceMode("assisted", 1, 1, 2, 5, 8, 6, 1, 4),
-  serviceMode("delegated", 0, 0, 0, 7, 7, 7, 0, 2),
-  serviceMode("closed", 0, 0, 0, 0, 0, 0, 0, 0),
-] as const;
-```
-
-The same `balance.ts` file exports the parsed constants used by later public-contract examples:
+`balance.ts` first exports the one parsed numeric registry used by every Task 2–6 DTO and helper:
 
 ```ts
 import {
@@ -463,7 +588,9 @@ import {
   parsePositiveSafeInteger,
 } from "@project-tavern/base";
 import {
+  parseDayIndex,
   parseMoney,
+  parseMoodPoint,
   parseQuantity,
   parseSafeInteger,
 } from "@project-tavern/modules";
@@ -476,21 +603,58 @@ export const demoValuesV1 = Object.freeze({
   safeOne: parseSafeInteger(1),
   safeTwo: parseSafeInteger(2),
   safeThree: parseSafeInteger(3),
+  safeFour: parseSafeInteger(4),
   safeFive: parseSafeInteger(5),
   safeSix: parseSafeInteger(6),
   safeEight: parseSafeInteger(8),
   safeNine: parseSafeInteger(9),
   safeEleven: parseSafeInteger(11),
   safeTwelve: parseSafeInteger(12),
+  safeThreeHundred: parseSafeInteger(300),
+  safeFourHundred: parseSafeInteger(400),
+  day1: parseDayIndex(1),
+  day2: parseDayIndex(2),
+  day3: parseDayIndex(3),
+  day4: parseDayIndex(4),
+  day5: parseDayIndex(5),
+  day6: parseDayIndex(6),
+  day7: parseDayIndex(7),
   nonNegativeZero: parseNonNegativeSafeInteger(0),
   nonNegativeOne: parseNonNegativeSafeInteger(1),
   nonNegativeTwo: parseNonNegativeSafeInteger(2),
   nonNegativeThree: parseNonNegativeSafeInteger(3),
+  nonNegativeFour: parseNonNegativeSafeInteger(4),
+  nonNegativeFive: parseNonNegativeSafeInteger(5),
+  nonNegativeSix: parseNonNegativeSafeInteger(6),
+  nonNegativeSeven: parseNonNegativeSafeInteger(7),
+  nonNegativeEight: parseNonNegativeSafeInteger(8),
+  nonNegativeTen: parseNonNegativeSafeInteger(10),
+  nonNegativeFortyFive: parseNonNegativeSafeInteger(45),
+  nonNegativeFortyNine: parseNonNegativeSafeInteger(49),
+  nonNegativeFifty: parseNonNegativeSafeInteger(50),
   positiveOne: parsePositiveSafeInteger(1),
   positiveTwo: parsePositiveSafeInteger(2),
+  positiveThree: parsePositiveSafeInteger(3),
+  positiveFive: parsePositiveSafeInteger(5),
   positiveSix: parsePositiveSafeInteger(6),
+  positiveSeven: parsePositiveSafeInteger(7),
+  positiveEight: parsePositiveSafeInteger(8),
+  positiveTen: parsePositiveSafeInteger(10),
+  positiveOneHundredTwentyEight: parsePositiveSafeInteger(128),
+  moodZero: parseMoodPoint(0),
   moneyZero: parseMoney(0),
+  moneyOne: parseMoney(1),
+  moneyTwo: parseMoney(2),
+  moneyThree: parseMoney(3),
   moneyFour: parseMoney(4),
+  moneyFive: parseMoney(5),
+  moneySix: parseMoney(6),
+  moneySeven: parseMoney(7),
+  moneyTwelve: parseMoney(12),
+  moneyThirteen: parseMoney(13),
+  moneyTwenty: parseMoney(20),
+  moneySeventy: parseMoney(70),
+  moneyOneHundredForty: parseMoney(140),
   quantityOne: parseQuantity(1),
   quantityTwo: parseQuantity(2),
   quantityThree: parseQuantity(3),
@@ -498,9 +662,82 @@ export const demoValuesV1 = Object.freeze({
 });
 ```
 
-`parseNonNegativeSafeInteger`/`parsePositiveSafeInteger` come from Base; the game-specific `parseSafeInteger`, `parseMoney`, and `parseQuantity` come from `@project-tavern/modules`. No later example casts an arithmetic result or numeric literal to a branded value.
+`parseNonNegativeSafeInteger`/`parsePositiveSafeInteger` come from Base; the game-specific `parseDayIndex`, `parseMoodPoint`, `parseSafeInteger`, `parseMoney`, and `parseQuantity` come from `@project-tavern/modules`. No later example casts an arithmetic result or numeric literal to a branded value.
 
-Base demand is the exact D1–D6 locals/travelers table `[[6,2],[5,3],[7,2],[4,5],[3,7],[6,4]]`; `serviceDays=[1,2,3,4,5,6]`; forecast visibility is D3 morning, conservative start D5 morning, levy due D7 afternoon.
+`demoBalanceV1` then uses `demoIdsV1` and `demoValuesV1` exclusively for branded fields. Its two central tables are constructed through exact public-contract signatures:
+
+```ts
+import type { NonNegativeSafeInteger } from "@project-tavern/base";
+import type {
+  AvailabilityGateV1, ConfirmationMetadataV1, LifePolicyDefinitionV1, Money,
+  ReasonId, ServiceMode, ServiceModeDefinitionV1,
+} from "@project-tavern/modules";
+import { demoIdsV1 } from "./content/ids.js";
+
+const lifePolicies = [
+  {
+    policyId: demoIdsV1.policyBalanced,
+    nameTextId: demoIdsV1.textPolicyBalanced,
+    apByPhase: { morning: demoValuesV1.nonNegativeTwo, afternoon: demoValuesV1.nonNegativeTwo, evening: demoValuesV1.nonNegativeTwo },
+    playerNightRecovery: demoValuesV1.nonNegativeThree,
+    nightRecoveryReasonId: demoIdsV1.reasonBalancedNightRecovery,
+  },
+  {
+    policyId: demoIdsV1.policyNightOwl,
+    nameTextId: demoIdsV1.textPolicyNightOwl,
+    apByPhase: { morning: demoValuesV1.nonNegativeOne, afternoon: demoValuesV1.nonNegativeTwo, evening: demoValuesV1.nonNegativeThree },
+    playerNightRecovery: demoValuesV1.nonNegativeTwo,
+    nightRecoveryReasonId: demoIdsV1.reasonNightOwlNightRecovery,
+  },
+] as const satisfies readonly [LifePolicyDefinitionV1, ...LifePolicyDefinitionV1[]];
+
+const emptyServiceConfirmationV1: ConfirmationMetadataV1 = Object.freeze({
+  benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [],
+});
+const serviceAvailabilityByModeV1 = Object.freeze({
+  manual: [],
+  assisted: [
+    { conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day2 }], reasonId: demoIdsV1.reasonUnavailableServiceModeLocked },
+    { conditions: [{ kind: "tavern.helper_tier_at_least", tier: "apprentice" }], reasonId: demoIdsV1.reasonUnavailableHelperLocked },
+  ],
+  delegated: [{ conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day3 }], reasonId: demoIdsV1.reasonUnavailableServiceModeLocked }],
+  closed: [{ conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day3 }], reasonId: demoIdsV1.reasonUnavailableServiceModeLocked }],
+} as const satisfies Record<ServiceMode, readonly AvailabilityGateV1[]>);
+const serviceConfirmationByModeV1 = Object.freeze({
+  manual: emptyServiceConfirmationV1,
+  assisted: emptyServiceConfirmationV1,
+  delegated: emptyServiceConfirmationV1,
+  closed: emptyServiceConfirmationV1,
+} as const satisfies Record<ServiceMode, ConfirmationMetadataV1>);
+
+const serviceMode = (
+  mode: ServiceMode,
+  reasonId: ReasonId,
+  apCost: NonNegativeSafeInteger,
+  playerStaminaCost: NonNegativeSafeInteger,
+  heroineStaminaCost: NonNegativeSafeInteger,
+  wage: Money,
+  baseReceptionCapacity: NonNegativeSafeInteger,
+  basePreparationPoints: NonNegativeSafeInteger,
+  teamworkGain: NonNegativeSafeInteger,
+  preparationPointsPerAction: NonNegativeSafeInteger,
+): ServiceModeDefinitionV1 => Object.freeze({
+  mode,
+  availability: serviceAvailabilityByModeV1[mode],
+  confirmation: serviceConfirmationByModeV1[mode],
+  reasonId, apCost, playerStaminaCost, heroineStaminaCost, wage,
+  baseReceptionCapacity, basePreparationPoints, teamworkGain, preparationPointsPerAction,
+});
+
+const serviceModes = [
+  serviceMode("manual", demoIdsV1.reasonServiceManual, demoValuesV1.nonNegativeTwo, demoValuesV1.nonNegativeThree, demoValuesV1.nonNegativeThree, demoValuesV1.moneyZero, demoValuesV1.nonNegativeTen, demoValuesV1.nonNegativeSix, demoValuesV1.nonNegativeTwo, demoValuesV1.nonNegativeFour),
+  serviceMode("assisted", demoIdsV1.reasonServiceAssisted, demoValuesV1.nonNegativeOne, demoValuesV1.nonNegativeOne, demoValuesV1.nonNegativeTwo, demoValuesV1.moneyFive, demoValuesV1.nonNegativeEight, demoValuesV1.nonNegativeSix, demoValuesV1.nonNegativeOne, demoValuesV1.nonNegativeFour),
+  serviceMode("delegated", demoIdsV1.reasonServiceDelegated, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.moneySeven, demoValuesV1.nonNegativeSeven, demoValuesV1.nonNegativeSeven, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeTwo),
+  serviceMode("closed", demoIdsV1.reasonServiceClosed, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.moneyZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero),
+] as const;
+```
+
+Action costs, base demand, ledger reason bindings, closure, recovery, limits, and forecast policy follow the same rule: ID fields come from `demoIdsV1`, numeric fields from `demoValuesV1`, and helper parameters use the exact branded public types. The reference demand matrix remains `[[6,2],[5,3],[7,2],[4,5],[3,7],[6,4]]`, but production `BaseDemandLineV1[]` materializes each row with `demoValuesV1.day1..day6`, `segmentLocals`/`segmentTravelers`, and the matching non-negative customer values. `serviceDays` uses the same branded day constants; forecast visibility is D3 morning, conservative start D5 morning, levy due D7 afternoon.
 
 - [ ] **Step 6: Run balance contract tests**
 
@@ -523,10 +760,15 @@ git commit -m "feat(story-demo): encode initial balance contract"
 - Create: `stories/demo/src/simulation/content/events.ts`
 - Create: `stories/demo/src/simulation/narrative/d1-d4.ts`
 - Create: `stories/demo/src/test/daily-gates.test.ts`
+- Create: `stories/demo/LICENSE.md`
+- Modify: `stories/demo/package.json`
+- Modify: `scripts/workspace-policy.mjs`
+- Modify: `scripts/verify-licensing.mjs`
+- Modify: `scripts/verify-licensing.test.mjs`
 
 **Interfaces:**
-- Consumes: balance/state definitions, closed IDs, Module Action/Condition/Event contracts, and Narrative IR.
-- Produces: every common Action presentation, four service mode gates, D2 invoice threshold Scene, D4 facility notification/choice, three exact Aura definitions, and five Scheduler Events.
+- Consumes: balance/state definitions, Task 1 `demoIdsV1`, Task 2 `demoValuesV1`, Module Action/Condition/Event contracts, Narrative IR, and the repository licensing policy.
+- Produces: every common Action presentation, four service mode gates, D2 invoice threshold Scene, D4 facility notification/choice, three exact Aura definitions, five Scheduler Events, and the atomically activated Demo mixed-license package scope required by the first narrative file.
 
 - [ ] **Step 1: Write failing daily gate/Event tests**
 
@@ -536,42 +778,44 @@ import { describe, expect, it } from "vitest";
 import { actionsV1 } from "../simulation/content/actions.js";
 import { eventsV1 } from "../simulation/content/events.js";
 import { facilitiesV1, aurasV1 } from "../simulation/content/facilities-auras.js";
+import { demoValuesV1 } from "../simulation/balance.js";
+import { demoIdsV1 } from "../simulation/content/ids.js";
 
 describe("D1-D4 authored gates", () => {
   it("maps player Actions and workflow controls without aliases", () => {
     expect(actionsV1.map(({ actionId, commandKind }) => [actionId, commandKind])).toEqual([
-      ["action.choose_life_policy", "policy.choose"],
-      ["action.purchase", "inventory.buy"],
-      ["action.prepare_food", "actor.prepare_food"],
-      ["action.rest", "actor.rest"],
-      ["action.service_plan", "tavern.plan.set"],
-      ["action.advance_phase", "calendar.advance_phase"],
-      ["action.pay_levy", "levy.pay"],
-      ["action.facility_window", "facility.choose"],
-      ["action.repair_sign_with_heroine", "story.action.start"],
-      ["action.old_trade_road", "world.action.begin"],
-      ["action.apologize_to_heroine", "story.action.start"],
+      [demoIdsV1.actionChooseLifePolicy, "policy.choose"],
+      [demoIdsV1.actionPurchase, "inventory.buy"],
+      [demoIdsV1.actionPrepareFood, "actor.prepare_food"],
+      [demoIdsV1.actionRest, "actor.rest"],
+      [demoIdsV1.actionServicePlan, "tavern.plan.set"],
+      [demoIdsV1.actionAdvancePhase, "calendar.advance_phase"],
+      [demoIdsV1.actionPayLevy, "levy.pay"],
+      [demoIdsV1.actionFacilityWindow, "facility.choose"],
+      [demoIdsV1.actionRepairSign, "story.action.start"],
+      [demoIdsV1.actionOldTradeRoad, "world.action.begin"],
+      [demoIdsV1.actionApologize, "story.action.start"],
     ]);
   });
 
   it("freezes five Scheduler Events and their priorities", () => {
     expect(eventsV1.map(({ eventId, priority, sceneId }) => [eventId, priority, sceneId])).toEqual([
-      ["event.tutorial_first_service", 400, null],
-      ["event.supplier_invoice", 400, "scene.supplier_invoice"],
-      ["event.helper_available", 300, null],
-      ["event.facility_window", 300, "scene.facility_window"],
-      ["event.levy_due", 400, "scene.levy_due"],
+      [demoIdsV1.eventTutorialFirstService, demoValuesV1.safeFourHundred, null],
+      [demoIdsV1.eventSupplierInvoice, demoValuesV1.safeFourHundred, demoIdsV1.sceneSupplierInvoice],
+      [demoIdsV1.eventHelperAvailable, demoValuesV1.safeThreeHundred, null],
+      [demoIdsV1.eventFacilityWindow, demoValuesV1.safeThreeHundred, demoIdsV1.sceneFacilityWindow],
+      [demoIdsV1.eventLevyDue, demoValuesV1.safeFourHundred, demoIdsV1.sceneLevyDue],
     ]);
   });
 
   it("freezes two facilities and three narrow Auras", () => {
     expect(facilitiesV1.map((entry) => [entry.facilityId, entry.cashCost])).toEqual([
-      ["facility.cold_storage", 12], ["facility.comfortable_bed", 12],
+      [demoIdsV1.facilityColdStorage, demoValuesV1.moneyTwelve], [demoIdsV1.facilityComfortableBed, demoValuesV1.moneyTwelve],
     ]);
     expect(aurasV1.map((entry) => [entry.auraId, entry.durationPolicy])).toEqual([
-      ["heroine.angry", { kind: "countdown", unit: "day_end", defaultRemaining: 2, maximumRemaining: 2 }],
-      ["tavern.sign_repaired", { kind: "countdown", unit: "opening", defaultRemaining: 1, maximumRemaining: 1 }],
-      ["player.adventure_strain", { kind: "countdown", unit: "night_recovery", defaultRemaining: 1, maximumRemaining: 1 }],
+      [demoIdsV1.auraHeroineAngry, { kind: "countdown", unit: "day_end", defaultRemaining: demoValuesV1.positiveTwo, maximumRemaining: demoValuesV1.positiveTwo }],
+      [demoIdsV1.auraSignRepaired, { kind: "countdown", unit: "opening", defaultRemaining: demoValuesV1.positiveOne, maximumRemaining: demoValuesV1.positiveOne }],
+      [demoIdsV1.auraAdventureStrain, { kind: "countdown", unit: "night_recovery", defaultRemaining: demoValuesV1.positiveOne, maximumRemaining: demoValuesV1.positiveOne }],
     ]);
   });
 });
@@ -587,14 +831,30 @@ Expected: FAIL with missing actions/events/facilities files.
 
 ```ts
 // complete ordered entries in stories/demo/src/simulation/content/actions.ts
+import type {
+  ActionId, ActionOccupationDefinitionV1, ActionPresentationDefinitionV1,
+  AvailabilityGateV1, CalendarPhase, GameCommandV1,
+} from "@project-tavern/modules";
+import { demoIdsV1 } from "./ids.js";
+
+const action = (
+  actionId: ActionId,
+  commandKind: GameCommandV1["kind"],
+  availablePhases: readonly CalendarPhase[],
+  occupation: ActionOccupationDefinitionV1,
+  visibility: readonly AvailabilityGateV1[],
+): ActionPresentationDefinitionV1 => buildActionPresentationV1({
+  actionId, commandKind, availablePhases, occupation, visibility,
+});
+
 export const actionsV1: readonly ActionPresentationDefinitionV1[] = Object.freeze([
-  action("action.choose_life_policy", "policy.choose", ["morning"], { kind: "none" }, policyVisibilityV1),
-  action("action.purchase", "inventory.buy", ["morning", "afternoon"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
-  action("action.prepare_food", "actor.prepare_food", ["morning", "afternoon"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
-  action("action.rest", "actor.rest", ["morning", "afternoon", "evening"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
-  action("action.service_plan", "tavern.plan.set", ["morning", "afternoon"], { kind: "fixed", phases: ["evening"] }, activeServiceDayVisibilityV1),
-  action("action.advance_phase", "calendar.advance_phase", ["morning", "afternoon", "evening"], { kind: "none" }, activeRunVisibilityV1),
-  action("action.pay_levy", "levy.pay", ["afternoon"], { kind: "none" }, levyVisibilityV1),
+  action(demoIdsV1.actionChooseLifePolicy, "policy.choose", ["morning"], { kind: "none" }, policyVisibilityV1),
+  action(demoIdsV1.actionPurchase, "inventory.buy", ["morning", "afternoon"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
+  action(demoIdsV1.actionPrepareFood, "actor.prepare_food", ["morning", "afternoon"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
+  action(demoIdsV1.actionRest, "actor.rest", ["morning", "afternoon", "evening"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
+  action(demoIdsV1.actionServicePlan, "tavern.plan.set", ["morning", "afternoon"], { kind: "fixed", phases: ["evening"] }, activeServiceDayVisibilityV1),
+  action(demoIdsV1.actionAdvancePhase, "calendar.advance_phase", ["morning", "afternoon", "evening"], { kind: "none" }, activeRunVisibilityV1),
+  action(demoIdsV1.actionPayLevy, "levy.pay", ["afternoon"], { kind: "none" }, levyVisibilityV1),
   facilityActionV1,
   repairSignActionV1,
   oldTradeRoadActionV1,
@@ -602,37 +862,66 @@ export const actionsV1: readonly ActionPresentationDefinitionV1[] = Object.freez
 ]);
 ```
 
+`buildActionPresentationV1` is local to this file and accepts the exact object above. It obtains `labelTextId`, authored availability, and confirmation from closed `ActionId`-keyed maps whose ID fields come only from `demoIdsV1`; it does not parse or concatenate IDs internally. Raw values above are limited to the closed command/phase/occupation ABI literals.
+
 Policy presentation has empty authored availability and exactly `morning/none`. Common operation Actions include the D6 maximum-day gate. Assisted opens D2 plus helper; delegated and closed open D3; manual opens D1.
 
 - [ ] **Step 4: Encode facilities and Aura modifiers**
 
-Cold storage adds `shelf_life.add_days amount=2` to root vegetable/fresh meat/herb. Comfortable bed adds player recovery 2 and heroine recovery 1. Sign repaired adds capacity/prep points 1 for manual/assisted; angry adds capacity -1 for manual/assisted plus teamwork-gain block; adventure strain adds player recovery -2.
+`facilities-auras.ts` defines `facility(definition: FacilityDefinitionV1): FacilityDefinitionV1` and `aura(definition: AuraDefinitionV1): AuraDefinitionV1`; neither accepts `string` or `number` in place of a branded field. Facility/Aura/Text/Reason/Ingredient IDs come from `demoIdsV1`; cash, duration, and signed modifier amounts come from `demoValuesV1`. Only Modifier/Aura discriminants, targets, visibility, duration units, and ServiceMode enum members remain raw ABI literals.
+
+Cold storage adds `shelf_life.add_days amount=demoValuesV1.safeTwo` to the three branded Ingredient IDs for root vegetable/fresh meat/herb. Comfortable bed adds player recovery `safeTwo` and heroine recovery `safeOne`. Sign repaired adds capacity/prep points `safeOne` for manual/assisted; angry adds capacity `safeMinusOne` for manual/assisted plus teamwork-gain block; adventure strain adds player recovery `safeMinusTwo`. Both Facility costs use `moneyTwelve`; Aura countdown defaults/maxima use `positiveOne`/`positiveTwo`.
 
 - [ ] **Step 5: Encode exact Scheduler Events and D1–D4 scenes**
 
 ```ts
 // stories/demo/src/simulation/content/events.ts
+import type {
+  CheckpointId, ConditionV1, EffectIntentV1, EventId, EventTriggerV1,
+  SafeInteger, SceneId, StoryEventDefinitionV1,
+} from "@project-tavern/modules";
+import { demoValuesV1 } from "../balance.js";
+import { demoIdsV1 } from "./ids.js";
+
+const event = (
+  eventId: EventId,
+  checkpointId: CheckpointId,
+  trigger: EventTriggerV1,
+  priority: SafeInteger,
+  sceneId: SceneId | null,
+  when: readonly ConditionV1[],
+  effects: readonly EffectIntentV1[],
+): StoryEventDefinitionV1 => Object.freeze({
+  eventId, checkpointId, trigger, priority,
+  weightedGroupId: null, weight: demoValuesV1.nonNegativeZero,
+  when, sceneId, effects,
+});
+
 export const eventsV1: readonly StoryEventDefinitionV1[] = Object.freeze([
-  event("event.tutorial_first_service", "checkpoint.tutorial_first_service", { kind: "command.succeeded", commandKinds: ["tavern.opening.finalize"] }, 400, null, tutorialConditionsV1, tutorialEffectsV1),
-  event("event.supplier_invoice", "checkpoint.supplier_invoice", { kind: "phase.entered", days: [2], phases: ["morning"] }, 400, "scene.supplier_invoice", invoiceConditionsV1, []),
-  event("event.helper_available", "checkpoint.helper_available", { kind: "day.ended", days: [1] }, 300, null, [], helperEffectsV1),
-  event("event.facility_window", "checkpoint.facility_window", { kind: "phase.entered", days: [4], phases: ["morning"] }, 300, "scene.facility_window", facilityUndecidedConditionsV1, []),
-  event("event.levy_due", "checkpoint.levy_due", { kind: "phase.entered", days: [7], phases: ["morning"] }, 400, "scene.levy_due", activeRunConditionsV1, []),
+  event(demoIdsV1.eventTutorialFirstService, demoIdsV1.checkpointTutorialFirstService, { kind: "command.succeeded", commandKinds: ["tavern.opening.finalize"] }, demoValuesV1.safeFourHundred, null, tutorialConditionsV1, tutorialEffectsV1),
+  event(demoIdsV1.eventSupplierInvoice, demoIdsV1.checkpointSupplierInvoice, { kind: "phase.entered", days: [demoValuesV1.day2], phases: ["morning"] }, demoValuesV1.safeFourHundred, demoIdsV1.sceneSupplierInvoice, invoiceConditionsV1, []),
+  event(demoIdsV1.eventHelperAvailable, demoIdsV1.checkpointHelperAvailable, { kind: "day.ended", days: [demoValuesV1.day1] }, demoValuesV1.safeThreeHundred, null, [], helperEffectsV1),
+  event(demoIdsV1.eventFacilityWindow, demoIdsV1.checkpointFacilityWindow, { kind: "phase.entered", days: [demoValuesV1.day4], phases: ["morning"] }, demoValuesV1.safeThreeHundred, demoIdsV1.sceneFacilityWindow, facilityUndecidedConditionsV1, []),
+  event(demoIdsV1.eventLevyDue, demoIdsV1.checkpointLevyDue, { kind: "phase.entered", days: [demoValuesV1.day7], phases: ["morning"] }, demoValuesV1.safeFourHundred, demoIdsV1.sceneLevyDue, activeRunConditionsV1, []),
 ]);
 ```
 
-`scene.supplier_invoice` has one choice node: the `[智力 B]` branch appends a +4 story-reward ledger entry and sets `fact.invoice_checked_this_week=true`; the normal branch has no effect. It does not roll dice or consume AP. Facility/levy scenes are one narration plus end.
+`d1-d4.ts` constructs every Scene/node/choice/effect through the matching `demoIdsV1` member and `demoValuesV1`; only node/effect discriminants, attribute rank, phase, and boolean ABI literals remain raw. The supplier-invoice Scene has one choice node: the `[智力 B]` branch appends a `moneyFour` story-reward ledger entry and sets `factInvoiceCheckedThisWeek=true`; the normal branch has no effect. It does not roll dice or consume AP. Facility/levy scenes are one narration plus end.
 
-- [ ] **Step 6: Run daily content tests**
+- [ ] **Step 6: Activate Demo mixed licensing with the first narrative file**
 
-Run: `pnpm --filter @project-tavern/story-demo test -- src/test/daily-gates.test.ts`
+Create `stories/demo/LICENSE.md` in this same task. It maps executable Story source/tests/scripts to PolyForm Noncommercial 1.0.0 and maps the now-existing `src/simulation/narrative/**` scope to CC BY-NC-SA 4.0, linking the exact root legal texts. Change `stories/demo/package.json` from `PolyForm-Noncommercial-1.0.0` to `SEE LICENSE IN LICENSE.md` but keep `exports:{}` because the default entry does not exist yet. Atomically update `scripts/workspace-policy.mjs`, `scripts/verify-licensing.mjs`, and the hostile verifier tests to require the package-local scope file, both root licenses, and the narrative mapping. Do not predeclare the later text-catalog scope in this task.
 
-Expected: PASS; all Action windows/occupations/gate order, mode unlocks, Event triggers/priorities/scenes/effects, facility costs/modifiers, Aura policies/targets, and D2 threshold semantics pass.
+- [ ] **Step 7: Run daily content and atomic licensing tests**
 
-- [ ] **Step 7: Commit D1–D4 content**
+Run: `pnpm --filter @project-tavern/story-demo test -- src/test/daily-gates.test.ts && pnpm verify:licensing && pnpm typecheck && pnpm verify`
+
+Expected: PASS; all Action windows/occupations/gate order, mode unlocks, Event triggers/priorities/scenes/effects, facility costs/modifiers, Aura policies/targets, and D2 threshold semantics pass; the same candidate commit already reports Demo as mixed-license with narrative under CC and all other current files under PolyForm.
+
+- [ ] **Step 8: Commit D1–D4 content and its license activation atomically**
 
 ```bash
-git add stories/demo/src/simulation/content/actions.ts stories/demo/src/simulation/content/facilities-auras.ts stories/demo/src/simulation/content/events.ts stories/demo/src/simulation/narrative/d1-d4.ts stories/demo/src/test/daily-gates.test.ts
+git add stories/demo/src/simulation/content/actions.ts stories/demo/src/simulation/content/facilities-auras.ts stories/demo/src/simulation/content/events.ts stories/demo/src/simulation/narrative/d1-d4.ts stories/demo/src/test/daily-gates.test.ts stories/demo/LICENSE.md stories/demo/package.json scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
 git commit -m "feat(story-demo): add d1 through d4 content"
 ```
 
@@ -894,9 +1183,25 @@ export const oldTradeRoadCheckV1: CheckDefinitionV1 = Object.freeze({
 ```ts
 // stories/demo/src/simulation/rules/checks.ts
 import type { DeepReadonly } from "@project-tavern/base";
-import type { CheckInputV1, CheckResultV1, RuleRngV1 } from "@project-tavern/modules";
+import type {
+  AppliedModifierV1,
+  CheckId,
+  CheckInputV1,
+  CheckResultV1,
+  ModifierV1,
+  RuleRngV1,
+} from "@project-tavern/modules";
 import { parseDieFace, parseSafeInteger } from "@project-tavern/modules";
 import { demoValuesV1 } from "../balance.js";
+
+function collectCheckModifiersV1(
+  modifiers: DeepReadonly<readonly ModifierV1[]>,
+  checkId: CheckId,
+): readonly AppliedModifierV1[] {
+  return modifiers
+    .filter((modifier) => modifier.kind === "check.add" && modifier.checkId === checkId)
+    .map((modifier) => ({ modifier, contribution: modifier.amount }));
+}
 
 export function resolveCheckV1(input: DeepReadonly<CheckInputV1>, rng: RuleRngV1): CheckResultV1 {
   const dice = [
@@ -937,6 +1242,7 @@ git commit -m "feat(story-demo): add two-stage investigation"
 - Create: `stories/demo/src/simulation/rules/tavern.ts`
 - Create: `stories/demo/src/simulation/rules/endings.ts`
 - Create: `stories/demo/src/simulation/rules/index.ts`
+- Create: `stories/demo/src/testing/rule-fixtures.ts`
 - Create: `stories/demo/src/test/ending-forecast.test.ts`
 - Modify: `stories/demo/src/simulation/content/checks-endings.ts`
 
@@ -949,7 +1255,16 @@ git commit -m "feat(story-demo): add two-stage investigation"
 ```ts
 // stories/demo/src/test/ending-forecast.test.ts
 import { describe, expect, it } from "vitest";
+import { demoValuesV1 } from "../simulation/balance.js";
+import { demoIdsV1 } from "../simulation/content/ids.js";
 import { demandRulesV1, endingRulesV1, tavernRulesV1 } from "../simulation/rules/index.js";
+import {
+  buildArrearsEndingInputV1,
+  buildD1DemandProjectionInputV1,
+  buildEndingInputV1,
+  buildReferenceD1OpeningInputV1,
+  noDrawRuleRngV1,
+} from "../testing/rule-fixtures.js";
 
 describe("Demo rules", () => {
   it("materializes the reference D1 demand and keeps actual inside preview", () => {
@@ -971,14 +1286,16 @@ describe("Demo rules", () => {
   });
 
   it.each([
-    [buildEndingInputV1({ cashAfterLevy: 20, reputation: 50, facilityIds: ["facility.comfortable_bed"] }), "completed_stable", "ending.stable"],
-    [buildEndingInputV1({ cashAfterLevy: 1, reputation: 49, facilityIds: [] }), "completed_danger", "ending.danger"],
-    [buildArrearsEndingInputV1(), "failed_arrears", "ending.failed_arrears"],
+    [buildEndingInputV1({ cashAfterLevy: demoValuesV1.moneyTwenty, reputation: demoValuesV1.nonNegativeFifty, facilityIds: [demoIdsV1.facilityComfortableBed] }), "completed_stable", demoIdsV1.endingStable],
+    [buildEndingInputV1({ cashAfterLevy: demoValuesV1.moneyOne, reputation: demoValuesV1.nonNegativeFortyNine, facilityIds: [] }), "completed_danger", demoIdsV1.endingDanger],
+    [buildArrearsEndingInputV1(), "failed_arrears", demoIdsV1.endingFailedArrears],
   ] as const)("evaluates %s", (input, status, endingId) => {
     expect(endingRulesV1.evaluate(input)).toMatchObject({ status, endingId });
   });
 });
 ```
+
+`rule-fixtures.ts` constructs these five fixtures from `demoIdsV1`/`demoValuesV1` and the exact public rule contracts. It returns fresh deeply immutable values, rejects any unexpected RNG draw in `noDrawRuleRngV1`, and contains no raw branded-ID assertion, Snapshot, Session, or duplicated settlement algorithm.
 
 - [ ] **Step 2: Run and verify missing rule modules**
 
@@ -990,14 +1307,25 @@ Expected: FAIL with missing rule index.
 
 ```ts
 // stories/demo/src/simulation/rules/demand.ts
+import type { DeepReadonly } from "@project-tavern/base";
+import type {
+  DemandPreviewV1,
+  DemandProjectionInputV1,
+  DemandRandomOffset,
+  DemandSeedInputV1,
+  DemandSeedResultV1,
+  RuleRngV1,
+} from "@project-tavern/modules";
+import { demoValuesV1 } from "../balance.js";
+
 export const demandRulesV1 = Object.freeze({
   resolve(input: DeepReadonly<DemandSeedInputV1>, rng: RuleRngV1): DemandSeedResultV1 {
     return {
-      lines: input.segments.map((line) => ({
-        day: line.day,
-        segmentId: line.segmentId,
-        randomOffset: (rng.nextInt({ exclusiveMax: 3, purpose: `demand:${line.day}:${line.segmentId}` }) - 1) as -1 | 0 | 1,
-      })),
+      lines: input.segments.map((line) => {
+        const draw = rng.nextInt({ exclusiveMax: demoValuesV1.positiveThree, purpose: `demand:${line.day}:${line.segmentId}` });
+        const randomOffset: DemandRandomOffset = draw === 0 ? -1 : draw === 1 ? 0 : 1;
+        return { day: line.day, segmentId: line.segmentId, randomOffset };
+      }),
     };
   },
   preview(input: DeepReadonly<DemandProjectionInputV1>): DemandPreviewV1 {
@@ -1024,20 +1352,34 @@ export function coverageReputationDeltaV1(actualSales: number, potentialCustomer
 
 ```ts
 // stories/demo/src/simulation/rules/endings.ts
+import type { DeepReadonly } from "@project-tavern/base";
+import type { EndingInputV1, EndingResultV1, OutcomeEntryV1, OutcomeId } from "@project-tavern/modules";
+import { demoValuesV1 } from "../balance.js";
+import { demoIdsV1 } from "../content/ids.js";
+
+function requiredOutcomeV1(
+  outcomes: DeepReadonly<readonly OutcomeEntryV1[]>,
+  outcomeId: OutcomeId,
+): OutcomeEntryV1 {
+  const outcome = outcomes.find((entry) => entry.outcomeId === outcomeId);
+  if (outcome === undefined) throw new Error(`missing required outcome: ${outcomeId}`);
+  return outcome;
+}
+
 export function evaluateEndingV1(input: DeepReadonly<EndingInputV1>): EndingResultV1 {
-  const relationship = requiredOutcomeV1(input.outcomes, "outcome.relationship_opportunity");
-  const investigation = requiredOutcomeV1(input.outcomes, "outcome.investigation");
+  const relationship = requiredOutcomeV1(input.outcomes, demoIdsV1.outcomeRelationship);
+  const investigation = requiredOutcomeV1(input.outcomes, demoIdsV1.outcomeInvestigation);
   if (input.levy.kind === "arrears") {
-    return { endingId: "ending.failed_arrears", status: "failed_arrears", reasonIds: ["reason.ending.arrears"], effects: [], summary: { relationship, investigation } };
+    return { endingId: demoIdsV1.endingFailedArrears, status: "failed_arrears", reasonIds: [demoIdsV1.reasonEndingArrears], effects: [], summary: { relationship, investigation } };
   }
-  const stable = input.cash >= 20 && input.reputation >= 50 && input.facilityIds.length === 1;
+  const stable = input.cash >= demoValuesV1.moneyTwenty && input.reputation >= demoValuesV1.nonNegativeFifty && input.facilityIds.length === 1;
   const reasonIds = stable
-    ? ["reason.ending.stable"]
-    : input.reputation < 45
-      ? ["reason.ending.danger", "reason.ending.reputation_crisis"]
-      : ["reason.ending.danger"];
+    ? [demoIdsV1.reasonEndingStable]
+    : input.reputation < demoValuesV1.nonNegativeFortyFive
+      ? [demoIdsV1.reasonEndingDanger, demoIdsV1.reasonEndingReputationCrisis]
+      : [demoIdsV1.reasonEndingDanger];
   return {
-    endingId: stable ? "ending.stable" : "ending.danger",
+    endingId: stable ? demoIdsV1.endingStable : demoIdsV1.endingDanger,
     status: stable ? "completed_stable" : "completed_danger",
     reasonIds,
     effects: [],
@@ -1057,7 +1399,7 @@ Expected: PASS; rule, forecast, and three ending vectors pass.
 - [ ] **Step 7: Commit all Story rules**
 
 ```bash
-git add stories/demo/src/simulation/rules/demand.ts stories/demo/src/simulation/rules/tavern.ts stories/demo/src/simulation/rules/endings.ts stories/demo/src/simulation/rules/index.ts stories/demo/src/test/ending-forecast.test.ts stories/demo/src/simulation/content/checks-endings.ts
+git add stories/demo/src/simulation/rules/demand.ts stories/demo/src/simulation/rules/tavern.ts stories/demo/src/simulation/rules/endings.ts stories/demo/src/simulation/rules/index.ts stories/demo/src/testing/rule-fixtures.ts stories/demo/src/test/ending-forecast.test.ts stories/demo/src/simulation/content/checks-endings.ts
 git commit -m "feat(story-demo): implement deterministic story rules"
 ```
 
@@ -1072,8 +1414,9 @@ git commit -m "feat(story-demo): implement deterministic story rules"
 - Create: `stories/demo/src/profile.ts`
 - Create: `stories/demo/src/story.ts`
 - Modify: `stories/demo/src/index.ts`
-- Create: `stories/demo/LICENSE.md`
+- Modify: `stories/demo/LICENSE.md`
 - Modify: `stories/demo/package.json`
+- Modify: `stories/demo/tsconfig.json`
 - Modify: `stories/demo/src/test/story-validation.test.ts`
 - Modify: `scripts/verify-stories.mjs`
 - Modify: `scripts/verify-stories.test.mjs`
@@ -1083,19 +1426,26 @@ git commit -m "feat(story-demo): implement deterministic story rules"
 
 **Interfaces:**
 - Consumes: complete data/rules/Narrative, individual public bindings/Schemas/coordinator/query builders, generic UI/Presentation contracts, and Story/asset validators.
-- Produces: Story-owned twelve-binding tuple/coordinator/Profile, complete default Demo GamePackage, Chinese catalog, fallback-only assets, typed Patch Surfaces, mixed-license scope, and stable Story verification.
+- Produces: Story-owned twelve-binding tuple/coordinator/Profile factory, post-Hotfix Simulation/Presentation materializers, complete default Demo GamePackage, Chinese catalog, fallback-only assets, typed Patch Surfaces, mixed-license scope, and stable Story verification.
 
 - [ ] **Step 1: Extend the failing Story validation test**
 
 ```ts
 // append to stories/demo/src/test/story-validation.test.ts
-import { validateStoryV1 } from "@project-tavern/base/testkit";
+import {
+  resolveStoryForTestV1,
+  validateStoryV1,
+} from "@project-tavern/base/testkit";
 import { demoStoryEntryV1 } from "../index.js";
+import { demoStateContractRevisionV1 } from "../simulation/identity.js";
 
 it("validates the complete week.poc_001 Story", () => {
   expect(validateStoryV1(demoStoryEntryV1)).toEqual({ ok: true });
+  const resolved = resolveStoryForTestV1(demoStoryEntryV1);
   const definition = demoStoryEntryV1.define();
-  expect(definition.simulation.profile.modules).toHaveLength(12);
+  expect(resolved.profile.modules).toHaveLength(12);
+  expect(resolved.provenance.resolved.stateContractRevision)
+    .toBe(demoStateContractRevisionV1);
   expect(definition.presentation.assetPacks).toEqual([]);
   expect(definition.presentation.assetSlots.every((slot) => slot.fallbackToken.startsWith("fallback."))).toBe(true);
 });
@@ -1105,7 +1455,7 @@ it("validates the complete week.poc_001 Story", () => {
 
 Run: `pnpm --filter @project-tavern/story-demo test -- src/test/story-validation.test.ts`
 
-Expected: FAIL with missing `../index.js`.
+Expected: FAIL because the existing placeholder index has no named `demoStoryEntryV1` export or complete Story implementation.
 
 - [ ] **Step 3: Add complete Chinese catalogs and fallback-only slots**
 
@@ -1132,34 +1482,108 @@ None of the four archived candidate source files is referenced by this module.
 
 ```ts
 // stories/demo/src/profile.ts
-const demoProgramV1 = Object.freeze({
-  data: demoStoryDataV1,
-  rules: demoStoryRulesV1,
-  narrativeProgram: demoNarrativeProgramV1,
-});
-const demoCoordinatorV1 = createDemoCommandCoordinatorV1(demoProgramV1);
-
-export const demoGameProfileV1 = defineGameProfile<DemoProfileTypesV1>()({
-  contractRevision: 1,
-  modules: [
-    runModuleV1, calendarModuleV1, actorsModuleV1, statusModuleV1,
-    inventoryModuleV1, facilitiesModuleV1, tavernModuleV1, workflowModuleV1,
-    worldModuleV1, progressionModuleV1, narrativeModuleV1, schedulingModuleV1,
-  ] as const,
-  stateSchema: gameStateV1Schema,
-  commandSchema: gameCommandV1Schema,
-  factSchema: domainFactV1Schema,
-  rejectionSchema: rejectionReasonV1Schema,
-  debugCommandSchema: debugCommandV1Schema,
-  coordinator: demoCoordinatorV1,
-  createBootstrapInput: (entropy) => Object.freeze({
-    rngSeed: entropy.nextNonZeroUint32(),
-    runId: parseRunId(entropy.nextUuidV4()),
-  }),
-  createInitialState: (bootstrap) => createDemoInitialStateV1(bootstrap, demoProgramV1.data),
-  projectView: (state) => projectDemoGameViewV1(state, demoProgramV1),
-});
+export function createDemoGameProfileV1(program: DeepReadonly<DemoSimulationProgramV1>) {
+  const coordinator = createDemoCommandCoordinatorV1(program);
+  return defineGameProfile<DemoProfileTypesV1>()({
+    contractRevision: 1,
+    modules: [
+      runModuleV1, calendarModuleV1, actorsModuleV1, statusModuleV1,
+      inventoryModuleV1, facilitiesModuleV1, tavernModuleV1, workflowModuleV1,
+      worldModuleV1, progressionModuleV1, narrativeModuleV1, schedulingModuleV1,
+    ] as const,
+    stateSchema: gameStateV1Schema,
+    commandSchema: gameCommandV1Schema,
+    factSchema: domainFactV1Schema,
+    rejectionSchema: rejectionReasonV1Schema,
+    debugCommandSchema: debugCommandV1Schema,
+    coordinator,
+    createBootstrapInput: (entropy) => Object.freeze({
+      rngSeed: entropy.nextNonZeroUint32(),
+      runId: parseRunId(entropy.nextUuidV4()),
+    }),
+    createInitialState: (bootstrap) => createDemoInitialStateV1(bootstrap, program.data),
+    projectView: (snapshot) => projectDemoGameViewV1(
+      snapshot.state,
+      coordinator.createQueries(snapshot),
+    ),
+  });
+}
 ```
+
+`story.ts` first assembles `demoStoryDataV1` from the exact Task 1–6 manifest/state/balance/content exports and `demoStoryRulesV1` from the seven rule functions. It then defines the source facets and maps every simulation value/rule slot into the post-Hotfix Program; no source Profile exists:
+
+```ts
+// stories/demo/src/story.ts
+type DemoSimulationPatchValuesV1 = ResolvedPatchValuesV1<
+  typeof demoSimulationPatchSurfaceV1
+>;
+type DemoPresentationPatchValuesV1 = ResolvedPatchValuesV1<
+  typeof demoPresentationPatchSurfaceV1
+>;
+
+function materializeDemoSimulationProgramV1(
+  values: DeepReadonly<DemoSimulationPatchValuesV1>,
+): DemoSimulationProgramV1 {
+  return Object.freeze({
+    data: Object.freeze({
+      ...demoStoryDataV1,
+      balance: values["value.balance"],
+    }),
+    rules: Object.freeze({
+      demand: Object.freeze({
+        resolve: values["rule.demand.resolve"],
+        preview: values["rule.demand.preview"],
+      }),
+      tavern: Object.freeze({
+        preview: values["rule.tavern.preview"],
+        settle: values["rule.tavern.settle"],
+      }),
+      checks: Object.freeze({
+        describe: values["rule.checks.describe"],
+        resolve: values["rule.checks.resolve"],
+      }),
+      endings: Object.freeze({
+        evaluate: values["rule.endings.evaluate"],
+      }),
+    }),
+  });
+}
+
+function materializeDemoPresentationV1(
+  values: DeepReadonly<DemoPresentationPatchValuesV1>,
+) {
+  return Object.freeze({
+    uiSceneGraph: demoUiSceneGraphV1,
+    textCatalogs: values["text.catalogs"],
+    assetSlots: demoAssetSlotsV1,
+    assetPacks: demoAssetPacksV1,
+  });
+}
+
+export function defineDemoStoryV1() {
+  return Object.freeze({
+    simulation: Object.freeze({
+      stateContractRevision: demoStateContractRevisionV1,
+      data: demoStoryDataV1,
+      rules: demoStoryRulesV1,
+      narrativeProgram: demoStoryDataV1.content.scenes,
+      patchSurface: demoSimulationPatchSurfaceV1,
+      materializeProgram: materializeDemoSimulationProgramV1,
+      createProfile: createDemoGameProfileV1,
+    }),
+    presentation: Object.freeze({
+      uiSceneGraph: demoUiSceneGraphV1,
+      textCatalogs: demoTextCatalogsV1,
+      assetSlots: demoAssetSlotsV1,
+      assetPacks: demoAssetPacksV1,
+      patchSurface: demoPresentationPatchSurfaceV1,
+      materializePresentation: materializeDemoPresentationV1,
+    }),
+  });
+}
+```
+
+The presentation asset Patch symbols are consumed directly by the generic asset resolver into `ResolvedStory.assets`; `materializeDemoPresentationV1` owns only the text/value projection and immutable slot/pack selection. Task 7 Story validation proves the state-contract revision reaches resolved provenance and every default provider is mapped into the base Programs/Profile. General replacement materialization is already proven by Phase 1's synthetic resolver test and Phase 2's official E2E Hotfix test, so this task does not invent seven redundant Demo Hotfix fixtures.
 
 ```ts
 // stories/demo/src/index.ts
@@ -1174,20 +1598,20 @@ export default demoStoryEntryV1;
 
 SceneGraph registers Story-owned main menu, play stage, week summary, and declared overlays. Renderers receive only `{ viewSlice, playerPort, presentation }`. Simulation slots expose all seven rules plus Balance values; presentation slots expose full text catalogs and only replaceable fallback asset slots.
 
-- [ ] **Step 5: Activate the default entry, mixed-license scope, and stable Story verifier atomically**
+- [ ] **Step 5: Activate the default entry and extend the existing mixed-license scope atomically**
 
-Create `stories/demo/LICENSE.md` mapping executable Story files/tests/scripts to PolyForm and `src/simulation/narrative/**` plus `src/presentation/text-catalogs/**` to CC BY-NC-SA. In the same edit, change package license to `SEE LICENSE IN LICENSE.md` and add only `".": "./src/index.ts"`; do not add `./development`. Update workspace/licensing policy and behavior tests, then extend `verify:stories` to keep Sandbox/E2E checks and validate Demo. Its default-closure checks use `scripts/collect-import-closure.mjs` and reject development/app/art-source/references paths; no Base/testkit closure helper exists.
+Modify the Task 3 `stories/demo/LICENSE.md` rather than recreating it: preserve the executable PolyForm mapping and `src/simulation/narrative/**` CC mapping, then add the now-existing `src/presentation/text-catalogs/**` scope to CC BY-NC-SA. The package already says `SEE LICENSE IN LICENSE.md`; add `".": "./src/index.ts"`, do not add `./development`, and add the exact direct `react: "19.2.7"` dependency because this task creates the Story-owned `.tsx` SceneGraph. In the same edit, enable `jsx: "react-jsx"` plus `DOM`/`DOM.Iterable` in `stories/demo/tsconfig.json`; the boundary verifier still forbids DOM imports from `src/simulation/**`, so enabling presentation compilation does not make DOM a simulation dependency. Extend the workspace/licensing policy, verifier, and behavior tests for the new text-catalog scope and React importer while asserting the earlier narrative mapping remains intact. Then extend `verify:stories` to keep Sandbox/E2E checks and validate Demo. Its default-closure checks use `scripts/collect-import-closure.mjs` and reject development/app/art-source/references paths; no Base/testkit closure helper exists.
 
 - [ ] **Step 6: Run full Story, licensing, and import gates**
 
 Run: `pnpm --filter @project-tavern/story-demo test -- src/test/story-validation.test.ts && pnpm verify:stories && pnpm verify:licensing && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all stable references/reachability/catalogs/rules/slots/fallbacks validate; no candidate image, development module, app module, or forbidden path is reachable.
+Expected: PASS; all stable references/reachability/catalogs/rules/slots/fallbacks validate; Demo retains its Task 3 mixed-license activation and adds only the text-catalog CC scope; no candidate image, development module, app module, or forbidden path is reachable.
 
 - [ ] **Step 7: Commit complete Demo composition**
 
 ```bash
-git add stories/demo/package.json stories/demo/LICENSE.md stories/demo/src/presentation/text-catalogs/zh-CN.ts stories/demo/src/presentation/text-catalogs/index.ts stories/demo/src/presentation/assets.ts stories/demo/src/presentation/scene-graph.tsx stories/demo/src/patch-surfaces.ts stories/demo/src/profile.ts stories/demo/src/story.ts stories/demo/src/index.ts stories/demo/src/test/story-validation.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
+git add stories/demo/package.json stories/demo/tsconfig.json stories/demo/LICENSE.md stories/demo/src/presentation/text-catalogs/zh-CN.ts stories/demo/src/presentation/text-catalogs/index.ts stories/demo/src/presentation/assets.ts stories/demo/src/presentation/scene-graph.tsx stories/demo/src/patch-surfaces.ts stories/demo/src/profile.ts stories/demo/src/story.ts stories/demo/src/index.ts stories/demo/src/test/story-validation.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
 git commit -m "feat(story-demo): compose seven-day story package"
 ```
 
@@ -1201,15 +1625,21 @@ git commit -m "feat(story-demo): compose seven-day story package"
 - Create: `stories/demo/src/test/terminal-route.integration.test.ts`
 
 **Interfaces:**
-- Consumes: the complete Task 7 GamePackage/Profile, `createEngineSessionV1`, fixed Host entropy, public `GameCommandV1`, Player dispatch result, and immutable queries.
+- Consumes: the complete Task 7 GamePackage/resolved Profile, `resolveStoryForTestV1`, `createEngineSessionV1`, explicit bootstrap input, public `GameCommandV1`, Player dispatch result, and immutable queries.
 - Produces: one `createDemoStoryHarnessV1(input)` API and all real command-through D1–D7 route tests. No content/rule test before this task dispatches a command.
 
 - [ ] **Step 1: Write the failing uniform-harness contract**
 
 ```ts
+export function resolveBaseDemoStoryV1() {
+  return resolveStoryForTestV1(demoStoryEntryV1);
+}
+
+export type DemoResolvedStoryV1 = ReturnType<typeof resolveBaseDemoStoryV1>;
+
 export interface DemoStoryHarnessInputV1 {
   readonly bootstrap: DemoGameBootstrapInputV1;
-  readonly resolvedStory?: ResolvedStoryV1;
+  readonly resolvedStory?: DemoResolvedStoryV1;
 }
 
 export interface DemoStoryHarnessV1 {
@@ -1232,7 +1662,7 @@ Expected: FAIL with missing `../testing/demo-harness.js`.
 
 - [ ] **Step 3: Implement the harness over the real Session**
 
-Create the resolved Demo Story before Session creation, instantiate its Story-owned Profile, feed `input.bootstrap` through fixed Host entropy, and delegate dispatch to `createEngineSessionV1`. Queries come from the same coordinator instance and current committed Snapshot. Test-only inspection is private to the harness; Player/public package exports remain unchanged.
+Select `const resolved = input.resolvedStory ?? resolveBaseDemoStoryV1()` before Session creation, then pass that exact `resolved.profile` and `input.bootstrap` to `createEngineSessionV1`. The local helper also gives `DemoResolvedStoryV1` its complete inferred five-parameter specialization without a cast or raw generic. Never call the source materializer/Profile factory again: a supplied Hotfix-resolved candidate must retain its own closed Program/Profile. Queries come from that same coordinator instance and current committed Snapshot. Test-only inspection is private to the harness; Player/public package exports remain unchanged.
 
 - [ ] **Step 4: Port all command-through acceptance vectors after composition**
 
@@ -1242,7 +1672,7 @@ Move the relationship/investigation route scenarios from Tasks 4/5 into the inte
 
 Run: `pnpm --filter @project-tavern/story-demo test -- src/test/*.integration.test.ts && pnpm verify:stories && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all routes commit through the one Session API, preview/execute codes agree, D1–D7 terminates exactly, and verification is unchanged.
+Expected: PASS; all routes commit through the single Session API, preview/execute codes agree, the D1–D7 flow terminates exactly as specified, and verification leaves tracked files unchanged.
 
 - [ ] **Step 6: Commit the harness and command-through routes**
 
@@ -1468,6 +1898,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { canonicalJsonBytes } from "@project-tavern/base";
 import { buildGoldenArtifactV1 } from "../testing/golden-artifact.js";
+import { referenceStrategyIdsV1 } from "../testing/reference-strategy-definitions.js";
 import { loadCommandFixtureV1 } from "../testing/run-reference-strategy.js";
 
 describe("reference seed golden weeks", () => {
@@ -1710,10 +2141,9 @@ git commit -m "test(story-demo): enforce multiseed balance gates"
 - Create: `stories/demo/src/test/fixtures/saves/save.future-format.json`
 - Create: `stories/demo/src/test/fixtures/saves/save.revision-mismatch.json`
 - Create: `stories/demo/src/test/fixtures/saves/save.digest-mismatch.json`
-- Modify: `stories/demo/package.json`
 
 **Interfaces:**
-- Consumes: Phase 3 persistence/import APIs, Demo provenance/digests, fixed command fixtures, SaveRecord schemas, and Story development entry contract.
+- Consumes: Phase 3 persistence/import APIs, the deterministic test-only resolved Demo identity from Task 7A, fixed command fixtures, SaveRecord schemas, and Story development entry contract.
 - Produces: four command-derived preview anchors, three valid SaveRecords covering Opening/WorldAction/terminal states, five invalid/recovery fixtures, read-only verification, and a separate explicit Save regeneration command.
 
 - [ ] **Step 1: Write the failing Save fixture matrix test**
@@ -1723,14 +2153,14 @@ git commit -m "test(story-demo): enforce multiseed balance gates"
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { validateSaveImportCandidateV1 } from "@project-tavern/base/runtime";
-import { demoResolvedStoryV1 } from "../story.js";
+import { resolveBaseDemoStoryV1 } from "../testing/demo-harness.js";
 import { createDemoSaveValidationContextV1 } from "../testing/save-fixture-builder.js";
 
 const readFixture = async (name: string): Promise<Uint8Array> =>
   new TextEncoder().encode(await readFile(new URL(`./fixtures/saves/${name}.json`, import.meta.url), "utf8"));
 
 describe("Demo Save fixtures", () => {
-  const context = createDemoSaveValidationContextV1(demoResolvedStoryV1);
+  const context = createDemoSaveValidationContextV1(resolveBaseDemoStoryV1());
 
   it.each([
     ["save.auto-opening", "exact"],
@@ -1792,26 +2222,32 @@ export const demoDevelopmentEntryV1 = defineStoryDevelopmentEntry({
 
 ```ts
 // stories/demo/src/testing/save-fixture-builder.ts
-export function buildDemoSaveFixtureMatrixV1(): Readonly<
-  Record<DemoSaveFixtureNameV1, StrictJsonObjectV1>
-> {
-  const autoOpening = saveFromCommandsV1("auto.current", "auto", commandsToOpeningV1);
-  const quickWorld = saveFromCommandsV1("quick", "quick", commandsToAwaitingWorldCompletionV1);
-  const manualCompleted = saveFromCommandsV1("manual", "manual", commandsToD7SummaryV1);
+export async function buildDemoSaveFixtureMatrixV1(): Promise<Readonly<
+  Record<DemoSaveFixtureNameV1, Uint8Array>
+>> {
+  const autoOpening = await saveRecordFromCommandsV1(
+    "auto.current", "auto", commandsToOpeningV1,
+  );
+  const quickWorld = await saveRecordFromCommandsV1(
+    "quick", "quick", commandsToAwaitingWorldCompletionV1,
+  );
+  const manualCompleted = await saveRecordFromCommandsV1(
+    "manual", "manual", commandsToD7SummaryV1,
+  );
   return Object.freeze({
-    "save.auto-opening": autoOpening,
-    "save.quick-world-action": quickWorld,
-    "save.manual-completed": manualCompleted,
-    "save.auto-current-corrupt": withStateDigestV1(autoOpening, invalidDigestV1),
-    "save.auto-previous-valid": withSlotV1(autoOpening, "auto.previous"),
-    "save.future-format": withFormatRevisionV1(manualCompleted, 2),
-    "save.revision-mismatch": withStoryRevisionV1(manualCompleted, 2),
-    "save.digest-mismatch": withStateDigestV1(manualCompleted, invalidDigestV1),
+    "save.auto-opening": encodeSaveRecordV1(autoOpening, demoSaveCodecV1),
+    "save.quick-world-action": encodeSaveRecordV1(quickWorld, demoSaveCodecV1),
+    "save.manual-completed": encodeSaveRecordV1(manualCompleted, demoSaveCodecV1),
+    "save.auto-current-corrupt": encodeNegativeSaveMutationV1(autoOpening, (record) => withStateDigestV1(record, invalidDigestV1)),
+    "save.auto-previous-valid": encodeSaveRecordV1(withSlotV1(autoOpening, "auto.previous"), demoSaveCodecV1),
+    "save.future-format": encodeNegativeSaveMutationV1(manualCompleted, (record) => withFormatRevisionV1(record, 2)),
+    "save.revision-mismatch": encodeNegativeSaveMutationV1(manualCompleted, (record) => withStoryRevisionV1(record, 2)),
+    "save.digest-mismatch": encodeNegativeSaveMutationV1(manualCompleted, (record) => withStateDigestV1(record, invalidDigestV1)),
   });
 }
 ```
 
-`saveFromCommandsV1` replays literal commands through `DemoCommandCoordinatorV1`, captures the committed Snapshot once, computes current provenance and state digest, and validates the generated record before returning it. Each `with*V1` negative-fixture helper deep-clones through Canonical JSON and changes only the named field; `withSlotV1` also recomputes the cross-field slot metadata required for a valid previous record.
+`saveRecordFromCommandsV1` is async: it obtains one `resolved = resolveBaseDemoStoryV1()`, replays literal commands through `createDemoStoryHarnessV1({ resolvedStory: resolved, bootstrap })`, awaits each public Session dispatch in authored order, captures the committed Snapshot once, uses that same resolved provenance to compute the state digest, and validates the generated record before returning it. `buildDemoSaveFixtureMatrixV1` awaits its three legal bases sequentially before applying deterministic negative transforms. The helper's build identity is explicitly test-only; these tracked files are compatibility fixtures and never masquerade as production Player saves. Phase 6 production artifacts resolve their own build identity through the Loader. Valid records are encoded only by public `encodeSaveRecordV1`. Each negative-fixture transform deep-clones a legal record through Canonical JSON and changes only the named field; `encodeNegativeSaveMutationV1` then emits `canonicalJsonBytes` directly because deliberately invalid future/digest records cannot pass the public valid-record encoder. `withSlotV1` recomputes the cross-field slot metadata required for a valid previous record and therefore still uses `encodeSaveRecordV1`. Every fixture is canonical UTF-8 with no BOM, indentation, or trailing newline.
 
 ```js
 // stories/demo/scripts/update-save-fixtures.mjs
@@ -1821,8 +2257,9 @@ import { buildDemoSaveFixtureMatrixV1 } from "../dist/testing/save-fixture-build
 
 const directory = resolve(import.meta.dirname, "../src/test/fixtures/saves");
 await mkdir(directory, { recursive: true });
-for (const [name, record] of Object.entries(buildDemoSaveFixtureMatrixV1())) {
-  await writeFile(resolve(directory, `${name}.json`), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+const matrix = await buildDemoSaveFixtureMatrixV1();
+for (const [name, bytes] of Object.entries(matrix)) {
+  await writeFile(resolve(directory, `${name}.json`), bytes);
 }
 ```
 
@@ -1881,7 +2318,7 @@ git commit -m "test(story-demo): add persistence fixtures"
 
 - [ ] **Step 1: Add the exact root phase script**
 
-```json
+```jsonc
 // package.json scripts addition
 {
   "verify:phase4": "pnpm verify:phase2 && pnpm verify:persistence-diagnostics && pnpm verify:stories && pnpm verify:fixtures && pnpm verify:golden && pnpm verify:balance && pnpm --filter @project-tavern/story-demo test && pnpm build"

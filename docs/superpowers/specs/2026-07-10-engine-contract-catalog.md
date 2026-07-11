@@ -233,15 +233,22 @@ type RunStatus =
 ```ts
 interface RngStateV1 {
   readonly algorithm: "xorshift32-v1";
-  readonly cursor: NonZeroUint32;
+  readonly cursor: Uint32;
   readonly rawDrawCount: NonNegativeSafeInteger;
 }
+
+declare const rngStateV1Schema: RuntimeSchemaV1<RngStateV1>;
 
 interface GameSnapshotEnvelopeV1<TState, TRngState> {
   readonly state: TState;
   readonly rng: TRngState;
   readonly commandSequence: NonNegativeSafeInteger;
 }
+
+declare function createGameSnapshotEnvelopeSchemaV1<TState, TRngState>(
+  stateSchema: RuntimeSchemaV1<TState>,
+  rngStateSchema: RuntimeSchemaV1<TRngState>,
+): RuntimeSchemaV1<GameSnapshotEnvelopeV1<TState, TRngState>>;
 
 type GameSnapshotV1 = GameSnapshotEnvelopeV1<GameStateV1, RngStateV1>;
 
@@ -2430,9 +2437,9 @@ interface StoryDevelopmentSupportV1 {
 }
 ```
 
-`DemoStoryDataV1` 是 `stories/demo` 交给 authoring builder 的可序列化源数据，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved facets。完整 StoryEntry 还要选择 GameProfile、StoryRules、UI SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些含函数的启动期源码合同由架构规格与本节下方合同约束，不进入 Save JSON。Developer support 由单独的 `./development` entry 提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
+`DemoStoryDataV1` 是 `stories/demo` 交给 authoring builder 的可序列化源数据，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved roots。完整 StoryEntry 还要选择 Module，并声明 SimulationProgram materializer、GameProfile factory、StoryRules、UI SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些含函数的启动期源码合同由架构规格与本节下方合同约束，不进入 Save JSON。Developer support 由单独的 `./development` entry 提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
 
-`AssetSourceRecordV1` 是经过治理校验后的 compiled projection，不是素材准入申请。`docs/art/first-web-visual-pack.md` 的 source provenance、`inputUseReview`、用户 selection 与 terms review 是 authoring authority：只要任一非空输入缺少事前 approved `inputUseReview`，或 selection/terms 双闸门未过，validator 就不得生成 `AssetProviderEntryV1`，候选只能留在 Player manifest 之外。不能因为 compiled record 没有这些 authoring 字段而绕过准入。
+`AssetSourceRecordV1` 是治理校验后的编译投影，不是素材准入申请。`docs/art/first-web-visual-pack.md` 中的来源记录、`inputUseReview`、用户选择和条款审查才是创作侧的准入依据：若任一非空输入的 `inputUseReview` 未事先获批，或选择/条款两个闸门尚未通过，校验器不得生成 `AssetProviderEntryV1`，候选必须留在 Player 清单之外。编译记录不含这些创作侧字段，不能据此绕过准入。
 
 `runtimePath` 必须是相对 provider Asset Pack/Hotfix root 的 POSIX 路径，不能包含空段、`.`、`..`、反斜杠、query 或 fragment。`packs` 保持 Story 明确选择的顺序；slot definition 先冻结，provider 无权改 kind/usage/overridePolicy/几何/fallback。Resolver 按 pack 顺序应用：未知 slot 失败；每个 slot 的首个 provider 可取代 code fallback；后续 provider 只允许覆盖 `replaceable` slot。全部 packs 完成后，asset Hotfix 才可替换仍为 `replaceable` 的最终 provider；sealed slot 不暴露 asset Patch Slot。`overrideChain` 记录实际 provider 链，runtime image 的最后一项必须等于 `provider`；code fallback 的链为空。
 
@@ -2450,6 +2457,9 @@ type StateSlotId = Brand<string, "StateSlotId">;
 type LocaleId = Brand<string, "LocaleId">; // canonical BCP 47, e.g. zh-CN
 type PatchSymbolId = Brand<string, "PatchSymbolId">;
 type HotfixId = Brand<string, "HotfixId">;
+
+declare function parseModuleId(value: unknown): ModuleId;
+declare function parseStateSlotId(value: unknown): StateSlotId;
 
 interface RuntimeSchemaV1<T> {
   parse(value: unknown): T;
@@ -2711,8 +2721,11 @@ interface GameProfileV1<
   createInitialState(
     bootstrap: DeepReadonly<TTypes["bootstrapInput"]>,
   ): TTypes["state"];
-  projectView(state: DeepReadonly<TTypes["state"]>): TTypes["viewModel"];
+  projectView(snapshot: DeepReadonly<TTypes["snapshot"]>): TTypes["viewModel"];
 }
+
+// projectView implementations derive queries from this same Snapshot through
+// their own coordinator; callers never supply a second query source.
 
 interface LocalizedTextCatalogV1 {
   readonly locale: LocaleId;
@@ -2797,18 +2810,96 @@ interface PatchSetAdoptionDeclarationV1 {
   readonly simulationPatchSetDigest: Digest;
 }
 
+type GamePackageResolutionFailureCodeV1 =
+  | "story.define_threw"
+  | "story.define_thenable"
+  | "story.nondeterministic"
+  | "story.contract_invalid"
+  | "story.materialization_threw"
+  | "story.materialization_thenable"
+  | "story.program_invalid"
+  | "story.presentation_invalid"
+  | "story.profile_invalid"
+  | "hotfix.duplicate_id"
+  | "hotfix.target_mismatch"
+  | "hotfix.requires_missing"
+  | "hotfix.requires_order"
+  | "hotfix.conflict"
+  | "hotfix.collision"
+  | "hotfix.unknown_symbol"
+  | "hotfix.provider_mismatch"
+  | "hotfix.install_threw"
+  | "hotfix.install_thenable"
+  | "hotfix.output_invalid"
+  | "asset.governance_invalid"
+  | "asset.slot_unknown"
+  | "asset.slot_sealed"
+  | "asset.path_invalid"
+  | "build_identity.invalid";
+
+interface GamePackageResolutionFailureV1 {
+  readonly code: GamePackageResolutionFailureCodeV1;
+  readonly rejectedHotfixIds: readonly HotfixId[];
+  readonly details: StrictJsonObjectV1;
+}
+
+type GamePackageResolutionResultV1<TResolvedStory> =
+  | { readonly kind: "resolved"; readonly resolved: TResolvedStory }
+  | { readonly kind: "failed"; readonly failure: GamePackageResolutionFailureV1 };
+
+type GameBootstrapResolutionResultV1<TResolvedStory, TResolvedIdentity> =
+  | {
+      readonly kind: "ready";
+      readonly base: TResolvedStory;
+      readonly resolved: TResolvedStory;
+      readonly lastSuccessfulResolvedIdentity: TResolvedIdentity | null;
+    }
+  | {
+      readonly kind: "safe_mode";
+      readonly base: TResolvedStory;
+      readonly resolved: TResolvedStory;
+      readonly code: GamePackageResolutionFailureCodeV1;
+      readonly rejectedHotfixIds: readonly HotfixId[];
+      readonly details: StrictJsonObjectV1;
+      readonly lastSuccessfulResolvedIdentity: TResolvedIdentity | null;
+    }
+  | {
+      readonly kind: "fatal";
+      readonly code: GamePackageResolutionFailureCodeV1;
+      readonly rejectedHotfixIds: readonly HotfixId[];
+      readonly details: StrictJsonObjectV1;
+      readonly lastSuccessfulResolvedIdentity: TResolvedIdentity | null;
+    };
+
+declare const patchSurfaceValuesV1: unique symbol;
+
+interface PatchSurfaceValueMapWitnessV1<TValues> {
+  /** Compile-time inference witness emitted by define*PatchSurface; no runtime field. */
+  readonly [patchSurfaceValuesV1]?: (values: TValues) => TValues;
+}
+
+type ResolvedPatchValuesV1<TSurface> =
+  TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues>
+    ? TValues
+    : never;
+
 interface StorySimulationFacetV1<
   TProfile,
   TData,
   TRules,
   TNarrativeProgram,
   TSimulationPatchSurface,
+  TSimulationProgram,
 > {
-  readonly profile: TProfile;
+  readonly stateContractRevision: PositiveSafeInteger;
   readonly data: TData;
   readonly rules: TRules;
   readonly narrativeProgram: TNarrativeProgram;
   readonly patchSurface: TSimulationPatchSurface;
+  materializeProgram(
+    values: DeepReadonly<ResolvedPatchValuesV1<TSimulationPatchSurface>>,
+  ): TSimulationProgram;
+  createProfile(program: DeepReadonly<TSimulationProgram>): TProfile;
 }
 
 interface StoryPresentationFacetV1<
@@ -2817,12 +2908,16 @@ interface StoryPresentationFacetV1<
   TAssetSlots,
   TAssetPacks,
   TPresentationPatchSurface,
+  TPresentationProgram,
 > {
   readonly uiSceneGraph: TUiSceneGraph;
   readonly textCatalogs: TTextCatalogs;
   readonly assetSlots: TAssetSlots;
   readonly assetPacks: TAssetPacks;
   readonly patchSurface: TPresentationPatchSurface;
+  materializePresentation(
+    values: DeepReadonly<ResolvedPatchValuesV1<TPresentationPatchSurface>>,
+  ): TPresentationProgram;
 }
 
 interface StoryDefinitionV1<TSimulationFacet, TPresentationFacet> {
@@ -2876,13 +2971,17 @@ interface ResolvedStoryV1<
 }
 ```
 
-`GameModuleBindingV1`、`GameProfileV1` 与 `ResolvedStoryV1` 是 Base 的泛型合同；Demo State/Command/Fact/Query 只是它们的一次具体化。`GameProfileTypeMapV1<TBootstrapInput,TState,TRngState>` 使 Snapshot 必然是 `GameSnapshotEnvelopeV1<TState,TRngState>`，并用 invariant phantom witness 把 Module tuple、Profile Schema、Coordinator、Query surface、RNG trace 与 ViewModel 绑定为同一组类型；`GameModuleTupleForProfileV1` 使异构 tuple 中任何来自另一 Profile 的 Binding 在编译期退化为 `never`。Stateful Binding 必须同时携带局部 State/Command/Query/Proposal Schema、局部 invariants、只读 port 和 owner-scoped proposal/apply capability，不能只注册一个 State Schema。Stateless Binding 只允许用于 World/Scheduling 这类由 Coordinator 调用的纯服务：`stateSlots=[]`，`ownerOperationSchema/ownerProposalSchema/owner=null`，只暴露强类型 `services`；它在类型和运行时都没有 State Schema、初始 slice、read port、local invariant 或写能力。服务函数和输入输出 Schema仍进入 simulation digest。
+`parseModuleId` 使用第 2.2 节的 stable-ID 字节长度与小写命名规则。`parseStateSlotId` 表示真实 State 对象路径：接受以 `simulation.` 或 `story.` 开头的点分 TypeScript 属性段，允许 `activeWorkflow`、`resolvedChecks` 等既有 camelCase 字段，但拒绝空段、索引、转义、`__proto__`、`prototype` 和 `constructor`。`defineGameProfile` 仍必须确认每个解析后的路径确实存在于组合 State Schema、非空 slot 恰有一个 owner，不能把“语法可解析”当作“路径已注册”。两者都是 Base 根入口的无后缀公开构造函数；不得用 `as ModuleId`、`as StateSlotId` 或未定义的本地 `moduleId(...)` 绕过。
 
-Owner `propose` 只读取自己的 State slice 和显式 dependency ports，返回经过 Schema 校验的 `ModuleOwnerProposalEnvelopeV1 { payload, facts }`；`apply` 只接收该 proposal 并返回该 owner 的 State slice。proposal 的 payload 只能描述本 owner 的变化，现金账本行等 owner-owned 记录也随 payload 一次物化；Facts 只解释该 proposal，不能被重新应用。Coordinator 按 authored order 把返回 slice 装回唯一候选 Snapshot、汇总 proposal Facts/账本并运行全量 invariants，最后才一次提交 sequence/RNG/state，因此 Module 不会取得可写的全局 State。上述函数以及 stateless services/dependency-port composition 都进入 simulation manifest/digest。`defineGameProfile` 还必须运行无法仅靠泛型表达的 invariants：Module ID/state slot 唯一、每个非空 slot 恰有一个 stateful owner、stateless Binding 必须 `stateSlots=[]` 且三个 owner 字段为 null、stateful Binding 必须至少一个 state slot且拥有完整 owner字段、依赖存在且无环、dependency ports 与声明一致、组合 Schema 封闭、Coordinator 和 ViewModel projection 与该 Profile 同源。
+`GameModuleBindingV1`、`GameProfileV1` 与 `ResolvedStoryV1` 是 Base 的泛型合同；Demo State/Command/Fact/Query 只是它们的一次具体化。`GameProfileTypeMapV1<TBootstrapInput,TState,TRngState>` 使 Snapshot 必然是 `GameSnapshotEnvelopeV1<TState,TRngState>`，并用 invariant phantom witness 把 Module tuple、Profile Schema、Coordinator、Query surface、RNG trace 与 ViewModel 绑定为同一组类型；`GameModuleTupleForProfileV1` 使异构 tuple 中任何来自另一 Profile 的 Binding 在编译期退化为 `never`。Stateful Binding 必须同时携带局部 State/Command/Query/Proposal Schema、局部 invariants、只读 port 和 owner-scoped proposal/apply capability，不能只注册一个 State Schema。Stateless Binding 只允许用于 World/Scheduling 这类由 Coordinator 调用的纯服务：`stateSlots=[]`，`ownerOperationSchema/ownerProposalSchema/owner=null`，只暴露强类型 `services`；它在类型和运行时都没有 State Schema、初始 slice、read port、local invariant 或写能力。服务函数和输入输出 Schema 仍进入 simulation digest。
 
-Story npm 包的默认入口只暴露一个 `GamePackageV1`，即 StoryEntry；`define()` 必须同步、无参数且顶层无平台 I/O。Developer fixtures、预览数据和备注只从独立 `./development` export 的 `StoryDevelopmentEntryV1` 取得。Player build 不解析、不导入也不打包该子路径；Developer build 使用静态 alias 显式选择它。
+Owner `propose` 只读取自己的 State slice 和显式 dependency ports，返回经过 Schema 校验的 `ModuleOwnerProposalEnvelopeV1 { payload, facts }`；`apply` 只接收该 proposal 并返回该 owner 的 State slice。proposal 的 payload 只能描述本 owner 的变化，现金账本行等 owner-owned 记录也随 payload 一次物化；Facts 只解释该 proposal，不能被重新应用。Coordinator 按 authored order 把返回 slice 装回唯一候选 Snapshot、汇总 proposal Facts/账本并运行全量 invariants，最后才一次提交 sequence/RNG/state，因此 Module 不会取得可写的全局 State。上述函数以及 stateless services/dependency-port composition 都进入 simulation manifest/digest。`defineGameProfile` 还必须运行无法仅靠泛型表达的 invariants：Module ID/state slot 唯一、每个非空 slot 恰有一个 stateful owner、stateless Binding 必须 `stateSlots=[]` 且三个 owner 字段为 null、stateful Binding 必须至少一个 state slot 且拥有完整 owner 字段、依赖存在且无环、dependency ports 与声明一致、组合 Schema 封闭、Coordinator 和 ViewModel projection 与该 Profile 同源。
 
-Simulation facet 包含 Profile、规则、Balance、State definitions，以及 Narrative 的稳定 scene/node/cursor、分支、condition、check、command 和 Effect 控制流；这些进入 state-contract/simulation manifests。Presentation facet 包含 React `UiSceneGraph`、真实文本、视觉 cue 映射、素材和布局；它不能作为 simulation facet 的依赖。这样“Scene”不会被粗略归入 presentation：authoring `NarrativeSceneV1`/`StoryContentV1` 可以混合书写，但 validator 必须把它编译成无表现值的 NarrativeProgram 与按稳定 ID 索引的 NarrativePresentationMap，再分别摘要；同一源文件可以贡献两个 canonical projections。
+Story npm 包的默认入口只暴露一个 `GamePackageV1`，即 StoryEntry；`define()` 必须同步、无参数且顶层无平台 I/O。source simulation facet 不携带预先闭合的 Profile：它声明不可由 Hotfix 修改的 `stateContractRevision`、基础 data/rules/Narrative、PatchSurface、纯同步 `materializeProgram` 和 `createProfile`；source presentation facet 对称地声明 `materializePresentation`。Resolver 在 fresh candidate registries 上完成全部 Hotfix 后，为两个 surface 分别生成按 symbol 精确键控且深冻结的 `ResolvedPatchValuesV1<TSurface>`，各调用 materializer 一次；两个返回值必须先通过 Story/contract validation 并 runtime deep-freeze，随后才以该不可变 SimulationProgram 调用 `createProfile` 一次。返回的 Profile 必须闭合这份 post-Hotfix SimulationProgram，PresentationProgram 必须包含 post-Hotfix text/value，asset symbols 则由同一 candidate 直接进入独立的 `ResolvedStory.assets` provider resolution；Resolver 随后从该 revision、实际 Profile 的规范 manifest、两个 Program 的规范投影、函数/import-closure provider digests 和 Patch traces 计算 state-contract/simulation/presentation identities，校验后才冻结 `ResolvedStory`。摘要不包含摘要自身，Profile/Program 也没有运行中重新物化入口。Developer fixtures、预览数据和备注只从独立 `./development` export 的 `StoryDevelopmentEntryV1` 取得。Player build 不解析、不导入也不打包该子路径；Developer build 使用静态 alias 显式选择它。
+
+`@project-tavern/base/testkit` 的 `resolveStoryForTestV1(entry)` 只为测试 driver 提供一个未打补丁的 `ResolvedStoryV1`：它仍调用真实 `resolveGamePackageV1`、运行全部 Schema/reference/invariant 校验，并使用确定性的测试专用 build/governance 输入。其摘要只用于测试稳定性，不得写入生产 Save/Debug provenance。source `StoryDefinitionV1.simulation` 不含可运行 Profile 或 `simulationDigest`；测试 Session 必须先取得 `resolved.profile`。Resolved identity 由 EngineSession/Save/Replay 边界绑定，不作为 Demo 玩法 Coordinator 的输入。
+
+ResolvedStory 的 simulation root 包含 post-Hotfix Profile、SimulationProgram、规则、Balance、State definitions，以及 Narrative 的稳定 scene/node/cursor、分支、condition、check、command 和 Effect 控制流；source simulation facet 只声明 revision、基础内容、PatchSurface 和 materializer/Profile factory。这些进入 state-contract/simulation manifests。Presentation root 包含 React `UiSceneGraph`、真实文本、视觉 cue 映射、素材和布局；它不能作为 simulation root 的依赖。这样“Scene”不会被粗略归入 presentation：authoring `NarrativeSceneV1`/`StoryContentV1` 可以混合书写，但 validator 必须把它编译成无表现值的 NarrativeProgram 与按稳定 ID 索引的 NarrativePresentationMap，再分别摘要；同一源文件可以贡献两个 canonical projections。
 
 `StoryContentV1.texts` 只声明稳定 TextId；真实字符串位于 `TextCatalogSetV1`。Locale ID 必须是规范化 BCP 47、深值唯一；default locale 的 catalog 必须覆盖全部 TextId。非默认 catalog 可以是部分翻译，但 fallback 链必须存在、无环并最终到达 default；走完整条链仍缺失是 Story validation error，不把 TextId 本身显示给 Player。v1 的 Presentation PatchSurface 暴露一个强类型 `text.catalogs` slot，替换值是完整 `TextCatalogSetV1`；不做隐式对象 merge。Hotfix 可以通过替换整套 catalog 添加语言或覆盖部分文本，但解析后仍重新验证完整 fallback 合同。
 
@@ -2895,6 +2994,8 @@ Hotfix 脚本暴露 `HotfixEntryV1`；`install()` 可以执行普通同步 JavaS
 provider digest 的规范输入冻结如下：默认 provider 使用构建生成的 slot-local source/import-closure digest；Hotfix rule 使用 `hotfixResolvedDigest + surface + symbolId + replacementOrdinal`；serializable value/text/asset 再加入替换值的 Canonical JSON digest。provider digest 的 domain 是 `project-tavern:patch-provider:v1`，不序列化函数对象或使用 `Function#toString()`。PatchSet 使用 `project-tavern:patch-set:v1` 分别摘要完整 `AppliedHotfixV1[]`、只保留 simulation traces 且丢弃空 Hotfix 项的投影，以及只保留 presentation traces 且丢弃空项的投影；空数组也各有稳定 digest。额外的纯 presentation Hotfix 不改变 `PatchSetIdentityV1.simulationDigest`。同一 Hotfix contract suite 必须在两个全新 candidate registries 中安装两次，比较 replacement trace、serializable values 和所有 rule vectors，防止受管补丁依赖隐式环境。
 
 Loader 输入列表就是唯一顺序：ID 深值唯一，`ordinal` 从 1 连续递增；`requires` 只能引用更早条目；任一条目的 `conflicts` 命中集合中其他 ID 即失败；Loader 不按文件名排序或自动拓扑重排。全部 Hotfix 作为一个 bootstrap candidate 原子解析、校验和冻结，任何失败都不产生部分 `ResolvedStory`。
+
+`resolveGamePackageV1` 只返回 `GamePackageResolutionResultV1`，不以任意 thrown shape 作为公共协议；所有同步 throw/thenable/Schema/引用/素材/identity 失败先归一化为上述 closed code、按输入顺序去重的 `rejectedHotfixIds` 和受 Strict JSON 限制的 details。Web bootstrap controller 首先解析无补丁 base：base 失败固定为 `fatal`，没有 runnable Story，且 `rejectedHotfixIds=[]`；base 成功后 candidate 失败固定为 `safe_mode`，其 `base` 与 `resolved` 是同一已验证 base 引用，不偷偷重试子集；candidate 成功为 `ready`。无补丁启动时 `ready.base===ready.resolved`。三种结果都携带只用于诊断的 last-success identity，不能把该记录当成 resolved content。
 
 `rule`/simulation `value` 只能替换既有合同，不能增加 State 字段、Command/Fact kind、Module 或生命周期 hook；presentation `value`/`text`/`asset` 不能参与模拟判定。第三方绕过 Registry 修改内部对象或浏览器全局属于非托管行为，不在兼容和复现承诺内。
 
@@ -3919,6 +4020,23 @@ interface SaveRecordEnvelopeV1<
   readonly simulationLineage: TSimulationLineage;
 }
 
+declare function createSaveRecordEnvelopeSchemaV1<
+  TSnapshot,
+  TProvenance,
+  TSlotMetadata,
+  TSimulationLineage,
+>(
+  snapshotSchema: RuntimeSchemaV1<TSnapshot>,
+  provenanceSchema: RuntimeSchemaV1<TProvenance>,
+  slotMetadataSchema: RuntimeSchemaV1<TSlotMetadata>,
+  simulationLineageSchema: RuntimeSchemaV1<TSimulationLineage>,
+): RuntimeSchemaV1<SaveRecordEnvelopeV1<
+  TSnapshot,
+  TProvenance,
+  TSlotMetadata,
+  TSimulationLineage
+>>;
+
 type SaveRecordV1 = SaveRecordEnvelopeV1<
   GameSnapshotV1,
   BuildProvenanceV1,
@@ -4726,7 +4844,7 @@ type ImportCompatibilityOutcomeV1 =
 ## 11. 必须由 Schema + invariants 同时保证的条件
 
 1. `GameSnapshotV1` 是唯一权威容器；Narrative 只在 `state.story.narrative`，workflow 只在 `state.simulation.activeWorkflow`，设施建设/机会决策只在 `state.simulation.facilities`，Tavern 不复制这些状态。
-2. RNG cursor 非零；`rawDrawCount` 和 `commandSequence` 单调不减。每次 `RuleRng.nextInt` 满足 `1 <= exclusiveMax <= 2^32` 且 `0 <= result < exclusiveMax`。成功命令 sequence 恰加 1；拒绝/故障保持原 Snapshot 引用、RNG 和 sequence。
+2. RNG cursor 是合法 `Uint32`，新局 `initialSeed` 非零；`rawDrawCount` 和 `commandSequence` 单调不减。每次 `RuleRng.nextInt` 满足 `1 <= exclusiveMax <= 2^32` 且 `0 <= result < exclusiveMax`。成功命令 sequence 恰加 1；拒绝/故障保持原 Snapshot 引用、RNG 和 sequence。
 3. cash、AP、stamina、reputation、teamwork、quantity 不为负；stamina 不超过 maximum；mood 只在 -2..2。
 4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= ResolvedStory.manifest.playableDays`。terminal status 的 day/phase 必须等于当前 Story 的 `levyDue`/Ending policy，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 Demo Module/Profile invariant。
 5. 只有 `calendar.advance_phase` 改变 day/phase；AP 不跨时段结转。不可行动时段与营业日由当前 Story 的 serviceDays、levyDue 和 Event/Condition 数据决定。当前 day/phase 已等于 `levyDue` 时，该命令固定拒绝为 `calendar.phase_blocked { blocker:"levy_due" }`，不能越过终局等待点；D7 普通动作则由 Action visibility/availability 的日界 gate 关闭。
@@ -4757,7 +4875,7 @@ type ImportCompatibilityOutcomeV1 =
 30. Aura countdown policy 满足 `defaultRemaining <= maximumRemaining`。initial 与普通 authored `aura.apply` 必须使用 definition 的 kind/unit/defaultRemaining；`debug.aura.apply` 可以在同一 countdown unit 内选择 `1..maximumRemaining`，但不能换 unit，until-cleared definition 也只能创建 until-cleared instance。持久实例的 kind/unit 必须匹配 definition，remaining 不超过 maximum；因此 PoC 的 angry/sign/strain 生命周期不会被合法但错误的 Effect payload 改写。
 31. Aura allowedTargets 按 `kind`、actorId 规范化且深值唯一，instance target 必须精确命中一项，不能只因同为 actor 就把 heroine Aura 加给 player。所有 collector 的适用 Modifier 使用同一全序：base component（若有）最先；随后 source-kind 为 `story < facility < aura < event`。story 以 sourceId、rule-output index 排序；facility 以 facilityId、definition index 排序；aura 以 appliedAtSequence、instanceId、definition index 排序；event/session 以 triggeredEventIds 的既有因果次序、append index 排序。筛选不改变相对顺序；AppliedModifier、OpeningBaseline、OpeningLedger、Demand explanation 与 stamina components 都保留该序，不能按 target/kind/数值重新排序。
 32. 每个 ResolvedStory 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；Profile 的 State/Command/Fact/Rejection/DebugCommand schemas、Coordinator、queries 和 ViewModel projection 必须来自同一组合。Base generic contract tests 使用 synthetic GamePackage，不能以 Demo 联合类型代替泛型边界。
-33. Simulation facet 只能依赖 Base、Module core 和自身 simulation sources；Presentation facet 可以消费只读 ViewModel/Player Port，但 Profile/Coordinator 不得导入 Presentation facet。Narrative 稳定 scene/node/cursor、conditions/checks/commands/effects 同时进入 state-contract/simulation manifests；TextCatalog、UiSceneGraph renderer、视觉 cue、CSS 和 Asset providers 进入 presentation manifest。
+33. Resolved simulation root 只能依赖 Base、Module core 和自身 simulation sources；source presentation facet 及 resolved presentation root 可以消费只读 ViewModel/Player Port，但 Profile/Coordinator 不得导入它们。Narrative 稳定 scene/node/cursor、conditions/checks/commands/effects 同时进入 state-contract/simulation manifests；TextCatalog、UiSceneGraph renderer、视觉 cue、CSS 和 Asset providers 进入 presentation manifest。
 34. Simulation Patch Registry 只接受 `rule | value`，Presentation Registry 只接受 `value | text | asset`；slot surface 不能由 Hotfix 改写。Provider/Hotfix/PatchSet digest 必须使用 §7.3 和 §10 的冻结算法；安装完成立即撤销写权限。TextCatalog default 完整、Locale/fallback 无环且最终到达 default。Asset slot definition 不可被 provider 覆盖；packs 后才应用 asset Hotfix，sealed slot 不暴露 patch slot；Resolved assets 与 slots 一一对应。
 35. PatchSet adoption declaration 必须精确匹配 Story ID/revision、stateContractRevision/digest、from/to simulation digests 和当前 simulationPatchSetDigest；不得由其中任一 Hotfix 泛化授权，纯 presentation PatchSet 差异不阻断。新局 lineage 为空，exact load 保留，adoption 只追加；当前 DebugBundle 的 replay base/log/current Snapshot 始终属于同一 simulation digest。
 

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the complete Demo-v1 gameplay module set, its single atomic `CommandCoordinator`, and an independent deterministic `stories/e2e` GamePackage that proves module composition, VN branch/rejoin, interruptible opening, two-stage WorldAction, cross-module effects, and terminal ending behavior without importing Demo Story content.
+**Goal:** Implement the complete Demo v1 gameplay module set, its single atomic `CommandCoordinator`, and an independent deterministic `stories/e2e` GamePackage that proves module composition, VN branch/rejoin, interruptible opening, two-stage WorldAction, cross-module effects, and terminal ending behavior without importing Demo Story content.
 
-**Architecture:** `@project-tavern/modules` owns the concrete Demo-v1 contract spine, individual bindings/schemas, stateless World/Scheduling services, immutable queries/projections, and the coordinator builder; it does not own a `GameProfileV1` or a twelve-Module tuple. Every stateful Module proposes and applies only its own state slice; World and Scheduling are explicitly stateless; only the coordinator reads multiple public ports, routes effect intents, owns the candidate Snapshot/RNG transaction, and returns one `executeAttempt` result. `stories/e2e` is the first real Profile consumer: it statically selects all twelve public bindings, supplies Story rules/data, constructs the sole coordinator/Profile, and proves the complete integration with tiny original content.
+**Architecture:** `@project-tavern/modules` owns the concrete Demo v1 contract spine, individual bindings/schemas, stateless World/Scheduling services, immutable queries/projections, and the coordinator builder; it does not own a `GameProfileV1` or a twelve-Module tuple. Every stateful Module proposes and applies only its own state slice; World and Scheduling are explicitly stateless; only the coordinator reads multiple public ports, routes effect intents, owns the candidate Snapshot/RNG transaction, and returns one `executeAttempt` result. `stories/e2e` is the first real Profile consumer: it statically selects all twelve public bindings, supplies Story rules/data, constructs the sole coordinator/Profile, and proves the complete integration with tiny original content.
 
 **Tech Stack:** Node.js 24 LTS, pnpm workspace, strict TypeScript 7, Zod strict schemas, Vitest, fast-check, React scene contributions from `@project-tavern/ui`, and the Phase 1 `@project-tavern/base` authoring/runtime/testkit contracts.
 
@@ -14,7 +14,7 @@
 - Implement exactly these public Module IDs: `run`, `calendar`, `actors`, `status`, `inventory`, `facilities`, `tavern`, `workflow`, `world`, `progression`, `narrative`, and `scheduling`.
 - `run`, `calendar`, `actors`, `status`, `inventory`, `facilities`, `tavern`, `workflow`, `progression`, and `narrative` are stateful. `world` and `scheduling` are stateless with `stateSlots: []` and null owner fields.
 - Demo v1 has no Module-to-Module read edges. Only the single `DemoCommandCoordinatorV1` may combine public read ports and owner-scoped proposal/apply capabilities.
-- `@project-tavern/modules` exports individual bindings, strict Schemas, branded contract types, query/projector factories, and `createDemoCommandCoordinatorV1(input)` only. It must not export a preassembled Module tuple, `GameProfileV1`, `GamePackageV1`, Story identity, Story rules, or Story content.
+- `@project-tavern/modules` exports individual bindings, strict Schemas, branded contract types, query/projector factories, and `createDemoCommandCoordinatorV1(program)` only. It must not export a preassembled Module tuple, `GameProfileV1`, `GamePackageV1`, Story identity, Story rules, or Story content.
 - Task 1 freezes the complete profile-bound type spine before the first real binding is authored. Every Module uses the same curried `defineDemoGameModuleV1` witness; no task may use unbound `defineGameModule({...})`, a temporary `unknown`/`never` profile, or defer `pnpm typecheck` to a later commit.
 - The coordinator's only execution method is `executeAttempt(snapshot, command, context)`. It returns result plus the same RNG diagnostics later consumed by `EngineSession`; no command or rule may be executed a second time for logging.
 - A rejected or faulted attempt preserves the exact committed Snapshot object reference, committed RNG, and `commandSequence`. No DomainFact is emitted for rejected/faulted attempts.
@@ -46,7 +46,7 @@
 - Create: `packages/modules/src/profile/types.ts` — complete profile-bound `DemoProfileTypesV1`, `DemoGameBootstrapInputV1`, aggregate state/command/fact/rejection/fault/context/query/ViewModel types.
 - Create: `packages/modules/src/profile/define-demo-module.ts` — the single curried `defineGameModule<DemoProfileTypesV1>()` witness used by every binding.
 - Create: `packages/modules/src/profile/constants.ts` — exact module keys, empty dependency graph, state owners, Effect owner map, and stable ordering tables.
-- Create: `packages/modules/src/profile/schemas.ts` — aggregate Snapshot/command/fact/rejection/debug schemas assembled from module-owned schemas.
+- Create in Task 15, then complete in Task 17: `packages/modules/src/profile/schemas.ts` — strict aggregate state schema required by candidate cloning, then command/fact/rejection/debug schemas assembled from module-owned schemas.
 - Create: `packages/modules/src/profile/profile-contract.test.ts` — type witness, ownership, stateless binding, dependency, and schema-closure tests.
 - Create: `packages/modules/src/testing/builders.ts` — test-only fixed bootstrap/Snapshot/data builders; not exported by the Player entry.
 
@@ -153,7 +153,7 @@
 
 **Interfaces:**
 - Consumes: `Brand`, Base safe-integer brands/parsers, `GameProfileTypeMapV1`, `GameSnapshotEnvelopeV1`, `ModuleOwnerProposalEnvelopeV1`, `RngStateV1`, `RngDrawTraceV1`, and strict-schema primitives from `@project-tavern/base`.
-- Produces: the complete `DemoProfileTypesV1` witness, all owner/service type-only contracts, `defineDemoGameModuleV1`, `DemoGameBootstrapInputV1`, `gameModuleKeysV1`, `gameModuleDependenciesV1`, `statefulOwnerKeysV1`, and `effectIntentOwnerByKindV1`. Every later binding can compile and typecheck independently against this exact spine; no Profile is composed here.
+- Produces: the complete `DemoProfileTypesV1` witness, all owner/service type-only contracts, exact `DemoSimulationProgramV1`, concrete `DemoCommandExecutionResultV1`/`DemoCommandExecutionAttemptV1` aliases, `defineDemoGameModuleV1`, `DemoGameBootstrapInputV1`, every game-specific brand including `FixtureId`, exact `parseFixtureId`/`fixtureIdSchemaV1`, frozen `gameModuleDescriptorsV1`, `gameModuleKeysV1`, `gameModuleDependenciesV1`, `statefulOwnerKeysV1`, and `effectIntentOwnerByKindV1`. Every later binding can compile and typecheck independently against this exact spine; no Profile is composed here.
 
 - [ ] **Step 1: Write the failing ownership and type-witness test**
 
@@ -164,13 +164,14 @@ import type { NonNegativeSafeInteger, NonZeroUint32, RunId } from "@project-tave
 import type { DayIndex, Money } from "./domain-values.js";
 import {
   effectIntentOwnerByKindV1,
+  gameModuleDescriptorsV1,
   gameModuleDependenciesV1,
   gameModuleKeysV1,
   statefulOwnerKeysV1,
 } from "./constants.js";
 import type { DemoGameBootstrapInputV1, DemoProfileTypesV1 } from "./types.js";
 
-describe("Demo-v1 profile catalog", () => {
+describe("Demo v1 profile catalog", () => {
   it("freezes twelve modules with no direct read edges", () => {
     expect(gameModuleKeysV1).toEqual([
       "run", "calendar", "actors", "status", "inventory", "facilities",
@@ -181,6 +182,22 @@ describe("Demo-v1 profile catalog", () => {
       "run", "calendar", "actors", "status", "inventory", "facilities",
       "tavern", "workflow", "progression", "narrative",
     ]);
+    expect(gameModuleKeysV1.map((key) => gameModuleDescriptorsV1[key].id)).toEqual([
+      "module.run", "module.calendar", "module.actors", "module.status",
+      "module.inventory", "module.facilities", "module.tavern", "module.workflow",
+      "module.world", "module.progression", "module.narrative", "module.scheduling",
+    ]);
+    expect(gameModuleKeysV1.map((key) => gameModuleDescriptorsV1[key].stateSlots)).toEqual([
+      ["simulation.run"], ["simulation.calendar"], ["simulation.actors"], ["simulation.status"],
+      ["simulation.inventory"], ["simulation.facilities"], ["simulation.tavern"],
+      ["simulation.activeWorkflow"], [],
+      ["story.facts", "story.quests", "story.outcomes", "story.resolvedChecks"],
+      ["story.narrative"], [],
+    ]);
+    expect(Object.isFrozen(gameModuleDescriptorsV1)).toBe(true);
+    expect(gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key]))).toBe(true);
+    expect(gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key].stateSlots))).toBe(true);
+    expect(gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key].dependencies))).toBe(true);
   });
 
   it("requires explicit deterministic bootstrap identity", () => {
@@ -205,9 +222,18 @@ describe("Demo-v1 profile catalog", () => {
 });
 ```
 
+`domain-values.test.ts` also freezes the development-fixture brand instead of deferring it to Story code:
+
+```ts
+expect(parseFixtureId("fixture.e2e_bootstrap")).toBe("fixture.e2e_bootstrap");
+expect(fixtureIdSchemaV1.parse("fixture.e2e_replay_tail")).toBe("fixture.e2e_replay_tail");
+expect(() => parseFixtureId("fixture/E2E/bootstrap")).toThrow();
+expectTypeOf<ReturnType<typeof parseFixtureId>>().toEqualTypeOf<FixtureId>();
+```
+
 - [ ] **Step 2: Run the test and verify it fails before the catalog exists**
 
-Run: `pnpm --filter @project-tavern/modules test -- src/profile/profile-contract.test.ts`
+Run: `pnpm exec vitest run packages/modules/src/profile/profile-contract.test.ts`
 
 Expected: FAIL with `Cannot find module './constants.js'` or `Cannot find module './types.js'`.
 
@@ -215,6 +241,12 @@ Expected: FAIL with `Cannot find module './constants.js'` or `Cannot find module
 
 ```ts
 // packages/modules/src/profile/constants.ts
+import {
+  parseModuleId,
+  parsePositiveSafeInteger,
+  parseStateSlotId,
+} from "@project-tavern/base";
+
 export const gameModuleKeysV1 = [
   "run", "calendar", "actors", "status", "inventory", "facilities",
   "tavern", "workflow", "world", "progression", "narrative", "scheduling",
@@ -222,10 +254,57 @@ export const gameModuleKeysV1 = [
 
 export type GameModuleKeyV1 = (typeof gameModuleKeysV1)[number];
 
+interface DemoModuleDescriptorV1 {
+  readonly id: ReturnType<typeof parseModuleId>;
+  readonly contractRevision: ReturnType<typeof parsePositiveSafeInteger>;
+  readonly stateSlots: readonly ReturnType<typeof parseStateSlotId>[];
+  readonly dependencies: readonly ReturnType<typeof parseModuleId>[];
+}
+
+function descriptorV1(
+  id: string,
+  stateSlots: readonly string[],
+  dependencies: readonly string[] = [],
+): DemoModuleDescriptorV1 {
+  return Object.freeze({
+    id: parseModuleId(id),
+    contractRevision: parsePositiveSafeInteger(1),
+    stateSlots: Object.freeze(stateSlots.map((slot) => parseStateSlotId(slot))),
+    dependencies: Object.freeze(dependencies.map((dependency) => parseModuleId(dependency))),
+  });
+}
+
+export const gameModuleDescriptorsV1 = Object.freeze({
+  run: descriptorV1("module.run", ["simulation.run"]),
+  calendar: descriptorV1("module.calendar", ["simulation.calendar"]),
+  actors: descriptorV1("module.actors", ["simulation.actors"]),
+  status: descriptorV1("module.status", ["simulation.status"]),
+  inventory: descriptorV1("module.inventory", ["simulation.inventory"]),
+  facilities: descriptorV1("module.facilities", ["simulation.facilities"]),
+  tavern: descriptorV1("module.tavern", ["simulation.tavern"]),
+  workflow: descriptorV1("module.workflow", ["simulation.activeWorkflow"]),
+  world: descriptorV1("module.world", []),
+  progression: descriptorV1("module.progression", [
+    "story.facts", "story.quests", "story.outcomes", "story.resolvedChecks",
+  ]),
+  narrative: descriptorV1("module.narrative", ["story.narrative"]),
+  scheduling: descriptorV1("module.scheduling", []),
+} as const satisfies Record<GameModuleKeyV1, ReturnType<typeof descriptorV1>>);
+
 export const gameModuleDependenciesV1 = Object.freeze({
-  run: [], calendar: [], actors: [], status: [], inventory: [], facilities: [],
-  tavern: [], workflow: [], world: [], progression: [], narrative: [], scheduling: [],
-} as const satisfies Record<GameModuleKeyV1, readonly GameModuleKeyV1[]>);
+  run: gameModuleDescriptorsV1.run.dependencies,
+  calendar: gameModuleDescriptorsV1.calendar.dependencies,
+  actors: gameModuleDescriptorsV1.actors.dependencies,
+  status: gameModuleDescriptorsV1.status.dependencies,
+  inventory: gameModuleDescriptorsV1.inventory.dependencies,
+  facilities: gameModuleDescriptorsV1.facilities.dependencies,
+  tavern: gameModuleDescriptorsV1.tavern.dependencies,
+  workflow: gameModuleDescriptorsV1.workflow.dependencies,
+  world: gameModuleDescriptorsV1.world.dependencies,
+  progression: gameModuleDescriptorsV1.progression.dependencies,
+  narrative: gameModuleDescriptorsV1.narrative.dependencies,
+  scheduling: gameModuleDescriptorsV1.scheduling.dependencies,
+} as const);
 
 export const statefulOwnerKeysV1 = [
   "run", "calendar", "actors", "status", "inventory", "facilities",
@@ -255,10 +334,13 @@ export const effectIntentOwnerByKindV1 = Object.freeze({
 } as const);
 ```
 
+`gameModuleDescriptorsV1` is the only descriptor authority for this Profile. Every stateful and stateless Binding implemented in Tasks 2–13 must use `descriptor: gameModuleDescriptorsV1.<key>` by reference. A Binding must not reconstruct an equal-looking descriptor, repeat a raw Module/State-slot string, cast a string to a brand, or introduce a local parser alias. All descriptor IDs, every non-empty State slot, and every future dependency value therefore cross the unsuffixed Base parsers exactly once in this registry; the v1 ABI revision also crosses `parsePositiveSafeInteger(1)` and the private `DemoModuleDescriptorV1` return type makes the registry itself satisfy the descriptor shape before any Binding consumes it.
+
 ```ts
 // packages/modules/src/profile/types.ts
 import type {
   CommandExecutionAttemptEnvelopeV1,
+  CommandExecutionResultEnvelopeV1,
   GameSnapshotEnvelopeV1,
   GameBootstrapInputV1,
   GameProfileTypeMapV1,
@@ -269,6 +351,11 @@ import type {
 
 export interface DemoGameBootstrapInputV1 extends GameBootstrapInputV1 {
   readonly runId: RunId;
+}
+
+export interface DemoSimulationProgramV1 {
+  readonly data: DemoStoryDataV1;
+  readonly rules: StoryRulesV1;
 }
 
 export interface DemoProfileTypesV1 extends GameProfileTypeMapV1<
@@ -282,12 +369,18 @@ export interface DemoProfileTypesV1 extends GameProfileTypeMapV1<
   readonly rejection: RejectionReasonV1;
   readonly fault: EngineFaultV1;
   readonly debugCommand: DebugCommandV1;
-  readonly executionContext: DemoExecutionContextV1;
+  readonly executionContext: undefined;
   readonly queries: EngineQueriesV1;
   readonly viewModel: DemoRuntimeGameViewV1;
 }
 
 export type GameSnapshotV1 = GameSnapshotEnvelopeV1<GameStateV1, RngStateV1>;
+export type DemoCommandExecutionResultV1 = CommandExecutionResultEnvelopeV1<
+  GameSnapshotV1,
+  DomainFactV1,
+  RejectionReasonV1,
+  EngineFaultV1
+>;
 export type DemoCommandExecutionAttemptV1 = CommandExecutionAttemptEnvelopeV1<
   GameSnapshotV1,
   DomainFactV1,
@@ -298,15 +391,15 @@ export type DemoCommandExecutionAttemptV1 = CommandExecutionAttemptEnvelopeV1<
 >;
 ```
 
-In the same step, `domain-values.ts` defines the Catalog's game-specific brands and exact parsers. Signed integers validate `Number.isSafeInteger`, reject negative zero, then brand; `DayIndex`/`AbsoluteDayIndex`/`Quantity` delegate to Base positive-safe parsing; `Money` delegates to Base non-negative parsing; each semantic ID parser first enforces the shared stable-ID regex/UTF-8 length and then its required namespace. It also exports closed-enum parsers such as `parseActorId` and `parseAttributeId`, plus bounded parsers such as `parseDieFace`; Story code never widens those values through raw literals. `RunId`, `NonZeroUint32`, and generic safe-integer brands continue to come from Base. Its hostile tests cover wrong namespace, unsafe integer, negative zero, empty/overlong ID, invalid closed-enum values, and cross-brand type witnesses.
+In the same step, `domain-values.ts` defines the Catalog's game-specific brands and exact parsers. Signed integers validate `Number.isSafeInteger`, reject negative zero, then brand; `DayIndex`/`AbsoluteDayIndex`/`Quantity` delegate to Base positive-safe parsing; `Money` delegates to Base non-negative parsing; each semantic ID parser first enforces the shared stable-ID regex/UTF-8 length and then its required namespace. `FixtureId` uses the required `fixture.` namespace; `parseFixtureId` is its only constructor and `fixtureIdSchemaV1` is the strict runtime Schema exported with it. The file also exports closed-enum parsers such as `parseActorId` and `parseAttributeId`, plus bounded parsers such as `parseDieFace`; Story code never widens those values through raw literals. `RunId`, `NonZeroUint32`, and generic safe-integer brands continue to come from Base. Its hostile tests cover wrong namespace, unsafe integer, negative zero, empty/overlong ID, invalid closed-enum values, and cross-brand type witnesses.
 
-Create all twelve `contract.ts` files as the complete type-only spine from the Contract Catalog: each state field uses its exact safe-integer or per-kind ID brand; every command/operation/fact/rejection/effect union is closed; `RunReadPortV1` retains `RunId`/`NonZeroUint32`; `CalendarStateV1` uses `DayIndex`, `PolicyId | null`, and `NonNegativeSafeInteger`; Inventory uses `Money`, `Quantity`, `BatchId`, and `LedgerEntryId`; Narrative uses `SceneId`, `NodeId`, `ChoiceId`, `TextId`, `AssetId`, and `CharacterId`. The files export no permissive Schema and no implementation. `profile/types.ts` imports those exact types to close `GameStateV1`, all seventeen `GameCommandV1` branches, all current DomainFact/rejection/fault branches, queries, execution context, and ViewModel. Circular imports are forbidden: owner contracts import Base plus `domain-values.ts`; `profile/types.ts` imports owner contracts; owner contracts never import `profile/types.ts`.
+Create all twelve `contract.ts` files as the complete type-only spine from the Contract Catalog: each state field uses its exact safe-integer or per-kind ID brand; every command/operation/fact/rejection/effect union is closed; `RunReadPortV1` retains `RunId`/`NonZeroUint32`; `RunCompletionV1` owns the exact Catalog `LevyResolutionV1`/`EndingSummaryV1` shape and has one type-only `OutcomeEntryV1` reference to Progression; `CalendarStateV1` uses `DayIndex`, `PolicyId | null`, and `NonNegativeSafeInteger`; Inventory uses `Money`, `Quantity`, `BatchId`, and `LedgerEntryId`; Narrative uses `SceneId`, `NodeId`, `ChoiceId`, `TextId`, `AssetId`, and `CharacterId`. The files export no permissive Schema and no implementation. `profile/types.ts` imports those exact types to close `GameStateV1`, all seventeen `GameCommandV1` branches, all current DomainFact/rejection/fault branches, queries, execution context, and ViewModel. Circular imports are forbidden: owner contracts import Base plus `domain-values.ts`, except the explicit one-way Run→Progression `import type` for the persisted completion summary; `profile/types.ts` imports owner contracts; owner contracts never import `profile/types.ts`, and Progression never imports Run.
 
 - [ ] **Step 4: Create the one profile-bound Module authoring witness**
 
 ```ts
 // packages/modules/src/profile/define-demo-module.ts
-import { defineDemoGameModuleV1 } from "../profile/define-demo-module.js";
+import { defineGameModule } from "@project-tavern/base";
 import type { DemoProfileTypesV1 } from "./types.js";
 
 export const defineDemoGameModuleV1 = defineGameModule<DemoProfileTypesV1>();
@@ -326,10 +419,36 @@ import {
   parseRunId,
 } from "@project-tavern/base";
 import {
+  parseAbsoluteDayIndex,
+  parseActionId,
+  parseActorId,
+  parseAttributeBonus,
+  parseAuraId,
+  parseAuraInstanceId,
+  parseBatchId,
+  parseCharacterId,
+  parseCheckBandId,
+  parseCheckId,
+  parseChoiceId,
+  parseCustomerSegmentId,
   parseDayIndex,
+  parseDieFace,
+  parseEventId,
+  parseFacilityId,
+  parseFactId,
+  parseIngredientId,
   parseMoney,
+  parseMoodPoint,
+  parseNodeId,
   parsePolicyId,
+  parseQuantity,
+  parseRecipeId,
   parseReasonId,
+  parseSafeInteger,
+  parseSceneId,
+  parseStoryToken,
+  parseTextId,
+  parseWorldStepId,
 } from "../profile/domain-values.js";
 
 export const referenceBootstrapV1 = Object.freeze({
@@ -343,16 +462,111 @@ export const alternateBootstrapV1 = Object.freeze({
 }) satisfies DemoGameBootstrapInputV1;
 
 export const contractValuesV1 = Object.freeze({
+  absoluteDay2: parseAbsoluteDayIndex(2),
+  absoluteDay3: parseAbsoluteDayIndex(3),
   day1: parseDayIndex(1),
+  day2: parseDayIndex(2),
+  day3: parseDayIndex(3),
+  day7: parseDayIndex(7),
   zero: parseNonNegativeSafeInteger(0),
   one: parseNonNegativeSafeInteger(1),
+  two: parseNonNegativeSafeInteger(2),
+  three: parseNonNegativeSafeInteger(3),
+  four: parseNonNegativeSafeInteger(4),
+  five: parseNonNegativeSafeInteger(5),
+  seven: parseNonNegativeSafeInteger(7),
+  ten: parseNonNegativeSafeInteger(10),
+  fifty: parseNonNegativeSafeInteger(50),
+  onePositive: parsePositiveSafeInteger(1),
   twoPositive: parsePositiveSafeInteger(2),
+  threePositive: parsePositiveSafeInteger(3),
+  fourPositive: parsePositiveSafeInteger(4),
+  fivePositive: parsePositiveSafeInteger(5),
+  eightPositive: parsePositiveSafeInteger(8),
+  tenPositive: parsePositiveSafeInteger(10),
+  negativeThree: parseSafeInteger(-3),
+  negativeTwo: parseSafeInteger(-2),
+  zeroSigned: parseSafeInteger(0),
+  oneSigned: parseSafeInteger(1),
+  twoSigned: parseSafeInteger(2),
+  threeSigned: parseSafeInteger(3),
+  fourSigned: parseSafeInteger(4),
+  nineSigned: parseSafeInteger(9),
+  hundredSigned: parseSafeInteger(100),
+  twoHundredSigned: parseSafeInteger(200),
+  oneQuantity: parseQuantity(1),
+  twoQuantity: parseQuantity(2),
+  threeQuantity: parseQuantity(3),
+  zeroMoney: parseMoney(0),
+  oneMoney: parseMoney(1),
+  twoMoney: parseMoney(2),
+  threeMoney: parseMoney(3),
+  sevenMoney: parseMoney(7),
   tenMoney: parseMoney(10),
+  neutralMood: parseMoodPoint(0),
+  attributeBonus1: parseAttributeBonus(1),
+  die3: parseDieFace(3),
+  die4: parseDieFace(4),
 });
 
 export const e2eIdsV1 = Object.freeze({
+  actionBranch: parseActionId("action.e2e_branch"),
+  actionFacility: parseActionId("action.e2e_facility"),
+  actionWorld: parseActionId("action.e2e_world"),
+  actorHeroine: parseActorId("actor.heroine"),
+  actorPlayer: parseActorId("actor.player"),
+  auraSign: parseAuraId("aura.e2e_sign"),
+  auraStrain: parseAuraId("aura.e2e_strain"),
+  auraInstance1: parseAuraInstanceId("aura:1:0"),
+  bandComplete: parseCheckBandId("band.e2e_complete"),
+  batchInitial0: parseBatchId("batch:initial:0"),
+  batchInitial1: parseBatchId("batch:initial:1"),
+  characterHeroine: parseCharacterId("character.e2e_heroine"),
+  checkWorld: parseCheckId("check.e2e_world"),
+  choiceLeft: parseChoiceId("choice.e2e_left"),
+  choiceRight: parseChoiceId("choice.e2e_right"),
+  choiceWorldBasic: parseChoiceId("choice.e2e_world_basic"),
+  choiceWorldPrepared: parseChoiceId("choice.e2e_world_prepared"),
+  eventA: parseEventId("event.e2e_a"),
+  eventB: parseEventId("event.e2e_b"),
+  eventHigh: parseEventId("event.e2e_high"),
+  eventOpeningInterrupt: parseEventId("event.e2e_opening_interrupt"),
+  facilityStorage: parseFacilityId("facility.e2e_storage"),
+  factBranch: parseFactId("fact.e2e_branch"),
+  ingredientGrain: parseIngredientId("ingredient.e2e_grain"),
+  ingredientMissing: parseIngredientId("ingredient.e2e_missing"),
+  nodeBranchChoice: parseNodeId("node.e2e_branch.choice"),
+  nodeBranchEnd: parseNodeId("node.e2e_branch.end"),
+  nodeBranchShared: parseNodeId("node.e2e_branch.shared"),
   policyBalanced: parsePolicyId("policy.e2e_balanced"),
+  reasonBranch: parseReasonId("reason.e2e_branch"),
+  reasonClosed: parseReasonId("reason.e2e_closed"),
+  reasonConsume: parseReasonId("reason.e2e_consume"),
+  reasonCost: parseReasonId("reason.e2e_cost"),
+  reasonFacility: parseReasonId("reason.e2e_facility"),
+  reasonFacilitySkip: parseReasonId("reason.e2e_facility_skip"),
+  reasonInitial: parseReasonId("reason.e2e_initial"),
+  reasonOpening: parseReasonId("reason.e2e_opening"),
+  reasonPrepare: parseReasonId("reason.e2e_prepare"),
   reasonRest: parseReasonId("reason.e2e_rest"),
+  reasonReward: parseReasonId("reason.e2e_reward"),
+  reasonSign: parseReasonId("reason.e2e_sign"),
+  reasonStrain: parseReasonId("reason.e2e_strain"),
+  recipeStew: parseRecipeId("recipe.e2e_stew"),
+  sceneA: parseSceneId("scene.e2e_a"),
+  sceneB: parseSceneId("scene.e2e_b"),
+  sceneBranch: parseSceneId("scene.e2e_branch"),
+  sceneOpeningInterrupt: parseSceneId("scene.e2e_opening_interrupt"),
+  segmentGuests: parseCustomerSegmentId("segment.e2e_guests"),
+  stepDeparture: parseWorldStepId("step.e2e_departure"),
+  stepReturn: parseWorldStepId("step.e2e_return"),
+  textLeft: parseTextId("text.e2e_left"),
+  textRight: parseTextId("text.e2e_right"),
+  textShared: parseTextId("text.e2e_shared"),
+  tokenBranchLeft: parseStoryToken("branch.e2e_left"),
+  tokenBranchNone: parseStoryToken("branch.e2e_none"),
+  tokenBranchRight: parseStoryToken("branch.e2e_right"),
+  tokenBranchUnknown: parseStoryToken("branch.e2e_unknown"),
 });
 ```
 
@@ -438,14 +652,45 @@ Expected: FAIL with `Cannot find module './run-module.js'`.
 import type {
   ModuleOwnerProposalEnvelopeV1,
   NonZeroUint32,
+  PositiveSafeInteger,
   RunId,
 } from "@project-tavern/base";
+import type { EndingId, Money, ReasonId } from "../profile/domain-values.js";
+import type { OutcomeEntryV1 } from "../progression/contract.js";
+
 export type RunStatus =
   | "setup"
   | "active"
   | "completed_stable"
   | "completed_danger"
   | "failed_arrears";
+
+export type LevyResolutionV1 =
+  | {
+      readonly kind: "paid";
+      readonly levyAmount: Money;
+      readonly cash: { readonly before: Money; readonly after: Money };
+    }
+  | {
+      readonly kind: "arrears";
+      readonly levyAmount: Money;
+      readonly availableCash: Money;
+      readonly shortfall: Money;
+    };
+
+export interface EndingSummaryV1 {
+  readonly relationship: OutcomeEntryV1;
+  readonly investigation: OutcomeEntryV1;
+}
+
+export interface RunCompletionV1 {
+  readonly endingId: EndingId;
+  readonly status: "completed_stable" | "completed_danger" | "failed_arrears";
+  readonly levy: LevyResolutionV1;
+  readonly reasonIds: readonly ReasonId[];
+  readonly summary: EndingSummaryV1;
+  readonly completedAtSequence: PositiveSafeInteger;
+}
 
 export interface RunStateV1 {
   readonly runId: RunId;
@@ -473,7 +718,8 @@ export interface RunReadPortV1 {
 
 ```ts
 // packages/modules/src/run/run-module.ts
-import { defineGameModule } from "@project-tavern/base";
+import { defineDemoGameModuleV1 } from "../profile/define-demo-module.js";
+import { gameModuleDescriptorsV1 } from "../profile/constants.js";
 import {
   runFactV1Schema,
   runOwnerOperationV1Schema,
@@ -484,7 +730,7 @@ import type { RunOwnerProposalV1, RunStateV1 } from "./contract.js";
 
 export const runModuleV1 = defineDemoGameModuleV1({
   bindingKind: "stateful",
-  descriptor: { id: "module.run", contractRevision: 1, stateSlots: ["simulation.run"], dependencies: [] },
+  descriptor: gameModuleDescriptorsV1.run,
   stateSchema: runStateV1Schema,
   ownerOperationSchema: runOwnerOperationV1Schema,
   ownerProposalSchema: runOwnerProposalV1Schema,
@@ -518,7 +764,7 @@ export const runModuleV1 = defineDemoGameModuleV1({
 });
 ```
 
-`contract.ts` adds strict `runCompletionV1Schema`, `runFactV1Schema`, `runStateV1Schema`, `runOwnerOperationV1Schema`, and `runOwnerProposalV1Schema` for the Task 1 types; `runFactV1Schema` accepts only owner-produced `run.completed`, and every object uses `z.strictObject`. `activate` emits no fact because only the coordinator can construct the already-declared `run.started` aggregate variant after demand seeds exist. Add `expect(() => runStateV1Schema.parse({ ...initial, extra: true })).toThrow()` to the focused test so no temporary permissive schema can pass.
+`contract.ts` adds strict `levyResolutionV1Schema`, `endingSummaryV1Schema`, `runCompletionV1Schema`, `runFactV1Schema`, `runStateV1Schema`, `runOwnerOperationV1Schema`, and `runOwnerProposalV1Schema` for the Task 1 types; `runFactV1Schema` accepts only owner-produced `run.completed`, and every object uses `z.strictObject`. The one-way `import type` of `OutcomeEntryV1` is persisted ABI composition only: it creates no runtime Module read/dependency edge, and Progression never imports Run. `activate` emits no fact because only the coordinator can construct the already-declared `run.started` aggregate variant after demand seeds exist. Add `expect(() => runStateV1Schema.parse({ ...initial, extra: true })).toThrow()` to the focused test so no temporary permissive schema can pass.
 
 `buildE2eRunCompletionV1()` lives in `testing/builders.ts` and constructs `EndingId`, `ReasonId`, `OutcomeId`, `StoryToken`, and `Money` through the matching public Modules parsers; only generic safe-integer values use Base parsers. It is test-only and never enters the Player export.
 
@@ -709,7 +955,7 @@ function proposeCalendar(
 }
 ```
 
-Wire this function into a `bindingKind: "stateful"` binding with ID `module.calendar`, slot `simulation.calendar`, strict schemas for every operation/fact/rejection, and an invariant that day is positive, AP is non-negative, and `lifePolicyId` is null only during setup (the aggregate run-status half of that invariant is added in Task 17).
+Wire this function into a `bindingKind: "stateful"` binding with `descriptor: gameModuleDescriptorsV1.calendar`, strict schemas for every operation/fact/rejection, and an invariant that day is positive, AP is non-negative, and `lifePolicyId` is null only during setup (the aggregate run-status half of that invariant is added in Task 17). The Binding repeats neither the Module ID nor the State-slot string.
 
 - [ ] **Step 5: Run the Calendar tests**
 
@@ -741,12 +987,13 @@ git commit -m "feat(modules): add calendar state owner"
 ```ts
 // packages/modules/src/actors/actors-module.test.ts
 import { describe, expect, it } from "vitest";
+import { contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { actorsModuleV1 } from "./actors-module.js";
 
 const state = {
-  player: { actorId: "actor.player", stamina: { current: 2, maximum: 10 }, mood: 0, attributes: { body: "C", social: "C", intellect: "B" } },
-  heroine: { actorId: "actor.heroine", stamina: { current: 10, maximum: 10 }, mood: 0 },
-  relationship: { affection: 0, teamwork: 0, stage: "cold" },
+  player: { actorId: "actor.player", stamina: { current: contractValuesV1.two, maximum: contractValuesV1.tenPositive }, mood: contractValuesV1.neutralMood, attributes: { body: "C", social: "C", intellect: "B" } },
+  heroine: { actorId: "actor.heroine", stamina: { current: contractValuesV1.ten, maximum: contractValuesV1.tenPositive }, mood: contractValuesV1.neutralMood },
+  relationship: { affection: contractValuesV1.zeroSigned, teamwork: contractValuesV1.zero, stage: "cold" },
 } as const;
 
 describe("actorsModuleV1", () => {
@@ -755,11 +1002,11 @@ describe("actorsModuleV1", () => {
       kind: "adjust_stamina",
       actorId: "actor.player",
       mode: "cost",
-      components: [{ requestedDelta: -3, reason: { kind: "command", commandKind: "actor.prepare_food", reasonId: "reason.e2e_prepare" } }],
+      components: [{ requestedDelta: contractValuesV1.negativeThree, reason: { kind: "command", commandKind: "actor.prepare_food", reasonId: e2eIdsV1.reasonPrepare } }],
     }, {});
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "actor.insufficient_stamina", details: { actorId: "actor.player", required: 3, available: 2 } },
+      rejection: { code: "actor.insufficient_stamina", details: { actorId: "actor.player", required: contractValuesV1.three, available: contractValuesV1.two } },
     });
   });
 
@@ -769,14 +1016,14 @@ describe("actorsModuleV1", () => {
       actorId: "actor.player",
       mode: "recovery",
       components: [
-        { requestedDelta: 3, reason: { kind: "command", commandKind: "actor.rest", reasonId: "reason.e2e_rest" } },
-        { requestedDelta: -2, reason: { kind: "aura", auraId: "aura.e2e_strain", reasonId: "reason.e2e_strain" } },
+        { requestedDelta: contractValuesV1.threeSigned, reason: { kind: "command", commandKind: "actor.rest", reasonId: e2eIdsV1.reasonRest } },
+        { requestedDelta: contractValuesV1.negativeTwo, reason: { kind: "aura", auraId: e2eIdsV1.auraStrain, reasonId: e2eIdsV1.reasonStrain } },
       ],
     }, {});
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
-    expect(result.proposal.payload.player.stamina.current).toBe(3);
-    expect(result.proposal.facts[0]).toMatchObject({ kind: "actor.stamina_changed", value: { before: 2, after: 3 } });
+    expect(result.proposal.payload.player.stamina.current).toBe(contractValuesV1.three);
+    expect(result.proposal.facts[0]).toMatchObject({ kind: "actor.stamina_changed", value: { before: contractValuesV1.two, after: contractValuesV1.three } });
   });
 });
 ```
@@ -814,19 +1061,19 @@ export function resolveStaminaChangeV1(
   maximum: PositiveSafeInteger,
   mode: "cost" | "recovery" | "effect",
   components: readonly StaminaChangeComponentV1[],
-): { readonly kind: "applied"; readonly after: NonNegativeSafeInteger } | { readonly kind: "insufficient"; readonly required: PositiveSafeInteger } {
+): { readonly kind: "applied"; readonly after: NonNegativeSafeInteger } | { readonly kind: "insufficient"; readonly required: NonNegativeSafeInteger } {
   const requested = components.reduce((sum, component) => sum + component.requestedDelta, 0);
   if (mode === "recovery") {
     return { kind: "applied", after: parseNonNegativeSafeInteger(Math.min(maximum, before + Math.max(0, requested))) };
   }
   if (before + requested < 0) {
-    return { kind: "insufficient", required: parsePositiveSafeInteger(Math.abs(requested)) };
+    return { kind: "insufficient", required: parseNonNegativeSafeInteger(Math.abs(requested)) };
   }
   return { kind: "applied", after: parseNonNegativeSafeInteger(Math.min(maximum, before + requested)) };
 }
 ```
 
-Use this function inside a stateful `module.actors` binding for slot `simulation.actors`. The strict schemas fix mood to `-2..2`, stamina to `0..maximum`, attribute ranks to `C | B | A | S | S+`, and stage to the Catalog's seven-value union. Every successful adjustment emits the exact ordered before/after fact and original components.
+Use this function inside a stateful Binding with `descriptor: gameModuleDescriptorsV1.actors`. The strict schemas fix mood to `-2..2`, stamina to `0..maximum`, attribute ranks to `C | B | A | S | S+`, and stage to the Catalog's seven-value union. Every successful adjustment emits the exact ordered before/after fact and original components.
 
 - [ ] **Step 5: Run focused and property tests**
 
@@ -860,17 +1107,18 @@ git commit -m "feat(modules): add actors state owner"
 ```ts
 // packages/modules/src/status/status-module.test.ts
 import { describe, expect, it } from "vitest";
+import { contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { statusModuleV1 } from "./status-module.js";
 
 describe("statusModuleV1", () => {
   it("rejects a duplicate aura target instead of stacking or refreshing", () => {
     const aura = {
-      instanceId: "aura:1:0",
-      auraId: "aura.e2e_sign",
+      instanceId: e2eIdsV1.auraInstance1,
+      auraId: e2eIdsV1.auraSign,
       target: { kind: "tavern" },
-      source: { kind: "story_action", actionId: "action.e2e_branch" },
-      duration: { kind: "countdown", unit: "opening", remaining: 1 },
-      appliedAtSequence: 1,
+      source: { kind: "story_action", actionId: e2eIdsV1.actionBranch },
+      duration: { kind: "countdown", unit: "opening", remaining: contractValuesV1.onePositive },
+      appliedAtSequence: contractValuesV1.one,
     } as const;
     const result = statusModuleV1.owner!.propose({ auras: [aura] }, { kind: "apply", aura }, {});
     expect(result).toEqual({
@@ -881,22 +1129,22 @@ describe("statusModuleV1", () => {
 
   it("expires an opening aura only when the collector marked it applicable", () => {
     const aura = {
-      instanceId: "aura:1:0",
-      auraId: "aura.e2e_sign",
+      instanceId: e2eIdsV1.auraInstance1,
+      auraId: e2eIdsV1.auraSign,
       target: { kind: "tavern" },
-      source: { kind: "story_action", actionId: "action.e2e_branch" },
-      duration: { kind: "countdown", unit: "opening", remaining: 1 },
-      appliedAtSequence: 1,
+      source: { kind: "story_action", actionId: e2eIdsV1.actionBranch },
+      duration: { kind: "countdown", unit: "opening", remaining: contractValuesV1.onePositive },
+      appliedAtSequence: contractValuesV1.one,
     } as const;
     const result = statusModuleV1.owner!.propose(
       { auras: [aura] },
-      { kind: "tick", unit: "opening", applicableInstanceIds: [aura.instanceId], reason: { kind: "aura", auraId: aura.auraId, reasonId: "reason.e2e_sign" } },
+      { kind: "tick", unit: "opening", applicableInstanceIds: [aura.instanceId], reason: { kind: "aura", auraId: aura.auraId, reasonId: e2eIdsV1.reasonSign } },
       {},
     );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload.auras).toEqual([]);
-    expect(result.proposal.facts).toEqual([{ kind: "aura.expired", instanceId: aura.instanceId, auraId: aura.auraId, reason: { kind: "aura", auraId: aura.auraId, reasonId: "reason.e2e_sign" } }]);
+    expect(result.proposal.facts).toEqual([{ kind: "aura.expired", instanceId: aura.instanceId, auraId: aura.auraId, reason: { kind: "aura", auraId: aura.auraId, reasonId: e2eIdsV1.reasonSign } }]);
   });
 });
 ```
@@ -934,7 +1182,7 @@ function tickAurasV1(
 }
 ```
 
-The stateful binding owns only `simulation.status`. `apply` validates exact allowed target and duration policy supplied in the operation; `clear` requires one matching instance; `tick` requires unique `applicableInstanceIds`. Sort collected modifiers by `appliedAtSequence`, then `instanceId`, then definition index without reordering the authoritative Aura array.
+The stateful Binding uses `descriptor: gameModuleDescriptorsV1.status`. `apply` validates exact allowed target and duration policy supplied in the operation; `clear` requires one matching instance; `tick` requires unique `applicableInstanceIds`. Sort collected modifiers by `appliedAtSequence`, then `instanceId`, then definition index without reordering the authoritative Aura array.
 
 - [ ] **Step 4: Add negative lifecycle vectors**
 
@@ -968,46 +1216,47 @@ git commit -m "feat(modules): add status aura owner"
 ```ts
 // packages/modules/src/inventory/inventory-module.test.ts
 import { describe, expect, it } from "vitest";
+import { contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { inventoryModuleV1 } from "./inventory-module.js";
 
 describe("inventoryModuleV1", () => {
   it("consumes earliest expiry, acquisition day, then batch ID", () => {
     const state = {
-      startingCash: 10,
-      cash: 10,
+      startingCash: contractValuesV1.tenMoney,
+      cash: contractValuesV1.tenMoney,
       ingredientBatches: [
-        { batchId: "batch:initial:1", ingredientId: "ingredient.e2e_grain", quantity: 2, acquiredDay: 1, lastUsableDay: 3, refrigerationExtended: false, source: { kind: "initial", reasonId: "reason.e2e_initial" } },
-        { batchId: "batch:initial:0", ingredientId: "ingredient.e2e_grain", quantity: 2, acquiredDay: 1, lastUsableDay: 2, refrigerationExtended: false, source: { kind: "initial", reasonId: "reason.e2e_initial" } },
+        { batchId: e2eIdsV1.batchInitial1, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity, acquiredDay: contractValuesV1.day1, lastUsableDay: contractValuesV1.absoluteDay3, refrigerationExtended: false, source: { kind: "initial", reasonId: e2eIdsV1.reasonInitial } },
+        { batchId: e2eIdsV1.batchInitial0, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity, acquiredDay: contractValuesV1.day1, lastUsableDay: contractValuesV1.absoluteDay2, refrigerationExtended: false, source: { kind: "initial", reasonId: e2eIdsV1.reasonInitial } },
       ],
       itemStacks: [],
       ledger: [],
     } as const;
     const result = inventoryModuleV1.owner!.propose(state, {
       kind: "consume_ingredients",
-      lines: [{ ingredientId: "ingredient.e2e_grain", quantity: 3 }],
-      reason: { kind: "command", commandKind: "tavern.opening.start", reasonId: "reason.e2e_opening" },
+      lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.threeQuantity }],
+      reason: { kind: "command", commandKind: "tavern.opening.start", reasonId: e2eIdsV1.reasonOpening },
     }, {});
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.facts[0]).toMatchObject({
       kind: "inventory.consumed",
       lines: [
-        { batchId: "batch:initial:0", ingredientId: "ingredient.e2e_grain", quantity: 2 },
-        { batchId: "batch:initial:1", ingredientId: "ingredient.e2e_grain", quantity: 1 },
+        { batchId: e2eIdsV1.batchInitial0, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity },
+        { batchId: e2eIdsV1.batchInitial1, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity },
       ],
     });
   });
 
   it("keeps cash equal to starting cash plus ledger deltas", () => {
     const result = inventoryModuleV1.owner!.propose(
-      { startingCash: 10, cash: 10, ingredientBatches: [], itemStacks: [], ledger: [] },
-      { kind: "append_ledger", commandSequence: 1, entries: [{ category: "story_cost", reasonId: "reason.e2e_cost", cashDelta: -3, valuationDelta: 0, subject: { kind: "action", actionId: "action.e2e_branch" } }] },
+      { startingCash: contractValuesV1.tenMoney, cash: contractValuesV1.tenMoney, ingredientBatches: [], itemStacks: [], ledger: [] },
+      { kind: "append_ledger", commandSequence: contractValuesV1.one, entries: [{ category: "story_cost", reasonId: e2eIdsV1.reasonCost, cashDelta: contractValuesV1.negativeThree, valuationDelta: contractValuesV1.zeroSigned, subject: { kind: "action", actionId: e2eIdsV1.actionBranch } }] },
       {},
     );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
-    expect(result.proposal.payload.cash).toBe(7);
-    expect(result.proposal.payload.ledger.reduce((sum, entry) => sum + entry.cashDelta, 10)).toBe(7);
+    expect(result.proposal.payload.cash).toBe(contractValuesV1.sevenMoney);
+    expect(result.proposal.payload.ledger.reduce((sum, entry) => sum + entry.cashDelta, contractValuesV1.tenMoney)).toBe(contractValuesV1.sevenMoney);
   });
 });
 ```
@@ -1093,6 +1342,7 @@ git commit -m "feat(modules): add inventory and ledger owner"
 ```ts
 // packages/modules/src/facilities/facilities-module.test.ts
 import { describe, expect, it } from "vitest";
+import { contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { facilitiesModuleV1 } from "./facilities-module.js";
 
 describe("facilitiesModuleV1", () => {
@@ -1101,36 +1351,36 @@ describe("facilitiesModuleV1", () => {
       { built: [], decisions: [] },
       {
         kind: "choose",
-        opportunityId: "action.e2e_facility",
-        decision: { kind: "built", facilityId: "facility.e2e_storage" },
-        builtAtSequence: 4,
-        reason: { kind: "facility", facilityId: "facility.e2e_storage", reasonId: "reason.e2e_facility" },
+        opportunityId: e2eIdsV1.actionFacility,
+        decision: { kind: "built", facilityId: e2eIdsV1.facilityStorage },
+        builtAtSequence: contractValuesV1.fourPositive,
+        reason: { kind: "facility", facilityId: e2eIdsV1.facilityStorage, reasonId: e2eIdsV1.reasonFacility },
       },
       {},
     );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload).toEqual({
-      built: [{ facilityId: "facility.e2e_storage", builtAtSequence: 4 }],
-      decisions: [{ opportunityId: "action.e2e_facility", decision: { kind: "built", facilityId: "facility.e2e_storage" } }],
+      built: [{ facilityId: e2eIdsV1.facilityStorage, builtAtSequence: contractValuesV1.fourPositive }],
+      decisions: [{ opportunityId: e2eIdsV1.actionFacility, decision: { kind: "built", facilityId: e2eIdsV1.facilityStorage } }],
     });
   });
 
   it("rejects a second choice for the same opportunity", () => {
     const state = {
       built: [],
-      decisions: [{ opportunityId: "action.e2e_facility", decision: { kind: "skipped" } }],
+      decisions: [{ opportunityId: e2eIdsV1.actionFacility, decision: { kind: "skipped" } }],
     } as const;
     const result = facilitiesModuleV1.owner!.propose(state, {
       kind: "choose",
-      opportunityId: "action.e2e_facility",
+      opportunityId: e2eIdsV1.actionFacility,
       decision: { kind: "skipped" },
-      builtAtSequence: 5,
-      reason: { kind: "command", commandKind: "facility.choose", reasonId: "reason.e2e_facility_skip" },
+      builtAtSequence: contractValuesV1.fivePositive,
+      reason: { kind: "command", commandKind: "facility.choose", reasonId: e2eIdsV1.reasonFacilitySkip },
     }, {});
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "facility.choice_committed", details: { opportunityId: "action.e2e_facility", choice: { kind: "skipped" } } },
+      rejection: { code: "facility.choice_committed", details: { opportunityId: e2eIdsV1.actionFacility, choice: { kind: "skipped" } } },
     });
   });
 });
@@ -1221,13 +1471,14 @@ git commit -m "feat(modules): add facilities state owner"
 ```ts
 // packages/modules/src/tavern/tavern-module.test.ts
 import { describe, expect, it } from "vitest";
+import { contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { tavernModuleV1 } from "./tavern-module.js";
 
 const initial = {
-  reputation: 50,
-  unlockedRecipeIds: ["recipe.e2e_stew"],
+  reputation: contractValuesV1.fifty,
+  unlockedRecipeIds: [e2eIdsV1.recipeStew],
   helper: { unlocked: false, tier: "apprentice" },
-  preparation: { day: 1, actionCount: 0 },
+  preparation: { day: contractValuesV1.day1, actionCount: contractValuesV1.zero },
   servicePlan: null,
   demandSeeds: [],
   currentDemand: null,
@@ -1238,16 +1489,16 @@ describe("tavernModuleV1", () => {
   it("rejects a closed plan with a menu", () => {
     const result = tavernModuleV1.owner!.propose(initial, {
       kind: "set_plan",
-      plan: { mode: "closed", menu: [{ recipeId: "recipe.e2e_stew", portions: 1 }] },
-      reason: { kind: "command", commandKind: "tavern.plan.set", reasonId: "reason.e2e_closed" },
+      plan: { mode: "closed", menu: [{ recipeId: e2eIdsV1.recipeStew, portions: contractValuesV1.oneQuantity }] },
+      reason: { kind: "command", commandKind: "tavern.plan.set", reasonId: e2eIdsV1.reasonClosed },
     }, {});
     expect(result).toEqual({ kind: "rejected", rejection: { code: "tavern.invalid_plan", details: { reason: "closed_has_menu" } } });
   });
 
   it("stores materialized demand as an immutable daily value", () => {
     const demand = {
-      day: 1,
-      segments: [{ segmentId: "segment.e2e_guests", preview: { min: 2, max: 2 }, actualCustomers: 2, modifiers: [] }],
+      day: contractValuesV1.day1,
+      segments: [{ segmentId: e2eIdsV1.segmentGuests, preview: { min: contractValuesV1.twoSigned, max: contractValuesV1.twoSigned }, actualCustomers: contractValuesV1.two, modifiers: [] }],
     } as const;
     const result = tavernModuleV1.owner!.propose(initial, { kind: "materialize_demand", demand }, {});
     expect(result.kind).toBe("proposed");
@@ -1345,17 +1596,17 @@ git commit -m "feat(modules): add tavern planning and demand owner"
 // packages/modules/src/workflow/workflow-module.test.ts
 import { describe, expect, it } from "vitest";
 import { workflowModuleV1 } from "./workflow-module.js";
-import { buildOpeningSessionV1 } from "../testing/builders.js";
+import { buildOpeningSessionV1, contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 
 describe("workflowModuleV1", () => {
   it("preserves a completed blocking scene gap before explicit continue", () => {
     const opening = buildOpeningSessionV1({
       checkpoint: "middle",
-      blockingEvent: { eventId: "event.e2e_opening_interrupt", sceneId: "scene.e2e_opening_interrupt" },
+      blockingEvent: { eventId: e2eIdsV1.eventOpeningInterrupt, sceneId: e2eIdsV1.sceneOpeningInterrupt },
     });
     const cleared = workflowModuleV1.owner!.propose(
       opening,
-      { kind: "clear_opening_blocking_event", eventId: "event.e2e_opening_interrupt" },
+      { kind: "clear_opening_blocking_event", eventId: e2eIdsV1.eventOpeningInterrupt },
       {},
     );
     expect(cleared.kind).toBe("proposed");
@@ -1367,7 +1618,7 @@ describe("workflowModuleV1", () => {
     const opening = buildOpeningSessionV1({ checkpoint: "started", blockingEvent: null });
     const result = workflowModuleV1.owner!.propose(
       opening,
-      { kind: "start", workflow: { kind: "world_action", actionId: "action.e2e_world", optionId: "choice.e2e_world_basic", beginStepId: "step.e2e_departure", completionStepId: "step.e2e_return", preparationBonus: 0, startedAtSequence: 3, startedDay: 1, startedPhase: "morning", progress: "begin_scene", paidCostEntryIds: [], choices: [] } },
+      { kind: "start", workflow: { kind: "world_action", actionId: e2eIdsV1.actionWorld, optionId: e2eIdsV1.choiceWorldBasic, beginStepId: e2eIdsV1.stepDeparture, completionStepId: e2eIdsV1.stepReturn, preparationBonus: contractValuesV1.zeroSigned, startedAtSequence: contractValuesV1.threePositive, startedDay: contractValuesV1.day1, startedPhase: "morning", progress: "begin_scene", paidCostEntryIds: [], choices: [] } },
       {},
     );
     expect(result).toEqual({ kind: "rejected", rejection: { code: "workflow.conflict", details: { activeKind: "opening", attemptedKind: "world_action" } } });
@@ -1453,38 +1704,39 @@ git commit -m "feat(modules): add workflow state machines"
 ```ts
 // packages/modules/src/progression/progression-module.test.ts
 import { describe, expect, it } from "vitest";
+import { contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { progressionModuleV1 } from "./progression-module.js";
 
 describe("progressionModuleV1", () => {
   it("rejects a value outside the Story definition", () => {
     const state = {
-      facts: [{ factId: "fact.e2e_branch", value: { kind: "token", value: "branch.e2e_none" } }],
+      facts: [{ factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchNone } }],
       quests: [],
       outcomes: [],
       resolvedChecks: [],
     } as const;
     const result = progressionModuleV1.owner!.propose(state, {
       kind: "set_fact",
-      factId: "fact.e2e_branch",
-      value: { kind: "token", value: "branch.e2e_unknown" },
-      definition: { kind: "token", defaultValue: "branch.e2e_none", allowedValues: ["branch.e2e_none", "branch.e2e_left", "branch.e2e_right"] },
-      reason: { kind: "story_action", actionId: "action.e2e_branch", reasonId: "reason.e2e_branch" },
+      factId: e2eIdsV1.factBranch,
+      value: { kind: "token", value: e2eIdsV1.tokenBranchUnknown },
+      definition: { kind: "token", defaultValue: e2eIdsV1.tokenBranchNone, allowedValues: [e2eIdsV1.tokenBranchNone, e2eIdsV1.tokenBranchLeft, e2eIdsV1.tokenBranchRight] },
+      reason: { kind: "story_action", actionId: e2eIdsV1.actionBranch, reasonId: e2eIdsV1.reasonBranch },
     }, {});
     expect(result).toEqual({ kind: "rejected", rejection: { code: "engine.invariant_rejected", details: { invariantCode: "story.value_invalid" } } });
   });
 
   it("appends a resolved check once and never stores its effects", () => {
     const check = {
-      checkId: "check.e2e_world",
-      actorId: "actor.player",
-      dice: [4, 3],
-      attributeBonus: 1,
-      preparationBonus: 1,
+      checkId: e2eIdsV1.checkWorld,
+      actorId: e2eIdsV1.actorPlayer,
+      dice: [contractValuesV1.die4, contractValuesV1.die3],
+      attributeBonus: contractValuesV1.attributeBonus1,
+      preparationBonus: contractValuesV1.oneSigned,
       modifiers: [],
-      totalBonus: 2,
-      total: 9,
-      bandId: "band.e2e_complete",
-      resolvedAtSequence: 8,
+      totalBonus: contractValuesV1.twoSigned,
+      total: contractValuesV1.nineSigned,
+      bandId: e2eIdsV1.bandComplete,
+      resolvedAtSequence: contractValuesV1.eightPositive,
     } as const;
     const result = progressionModuleV1.owner!.propose(
       { facts: [], quests: [], outcomes: [], resolvedChecks: [] },
@@ -1564,19 +1816,20 @@ git commit -m "feat(modules): add progression state owner"
 ```ts
 // packages/modules/src/narrative/narrative-module.test.ts
 import { describe, expect, it } from "vitest";
+import { e2eIdsV1 } from "../testing/builders.js";
 import { readNarrativeDirectiveV1 } from "./interpreter.js";
 import { narrativeModuleV1 } from "./narrative-module.js";
 
 const scene = {
-  sceneId: "scene.e2e_branch",
-  entryNodeId: "node.e2e_branch.choice",
+  sceneId: e2eIdsV1.sceneBranch,
+  entryNodeId: e2eIdsV1.nodeBranchChoice,
   nodes: [
-    { kind: "choice", nodeId: "node.e2e_branch.choice", choices: [
-      { choiceId: "choice.e2e_left", textId: "text.e2e_left", showWhen: [], enableWhen: [], confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] }, effects: [{ kind: "fact.set", factId: "fact.e2e_branch", value: { kind: "token", value: "branch.e2e_left" }, reasonId: "reason.e2e_branch" }], nextNodeId: "node.e2e_branch.shared" },
-      { choiceId: "choice.e2e_right", textId: "text.e2e_right", showWhen: [], enableWhen: [], confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] }, effects: [{ kind: "fact.set", factId: "fact.e2e_branch", value: { kind: "token", value: "branch.e2e_right" }, reasonId: "reason.e2e_branch" }], nextNodeId: "node.e2e_branch.shared" },
+    { kind: "choice", nodeId: e2eIdsV1.nodeBranchChoice, choices: [
+      { choiceId: e2eIdsV1.choiceLeft, textId: e2eIdsV1.textLeft, showWhen: [], enableWhen: [], confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] }, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchLeft }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeBranchShared },
+      { choiceId: e2eIdsV1.choiceRight, textId: e2eIdsV1.textRight, showWhen: [], enableWhen: [], confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] }, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchRight }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeBranchShared },
     ] },
-    { kind: "line", nodeId: "node.e2e_branch.shared", speakerId: "character.e2e_heroine", textId: "text.e2e_shared", nextNodeId: "node.e2e_branch.end" },
-    { kind: "end", nodeId: "node.e2e_branch.end" },
+    { kind: "line", nodeId: e2eIdsV1.nodeBranchShared, speakerId: e2eIdsV1.characterHeroine, textId: e2eIdsV1.textShared, nextNodeId: e2eIdsV1.nodeBranchEnd },
+    { kind: "end", nodeId: e2eIdsV1.nodeBranchEnd },
   ],
 } as const;
 
@@ -1587,27 +1840,27 @@ describe("Narrative v1", () => {
       cursor: { sceneId: scene.sceneId, nodeId: scene.entryNodeId },
     });
     expect(scene.nodes[0].choices.map((choice) => choice.nextNodeId)).toEqual([
-      "node.e2e_branch.shared", "node.e2e_branch.shared",
+      e2eIdsV1.nodeBranchShared, e2eIdsV1.nodeBranchShared,
     ]);
   });
 
   it("rejects a stale choice cursor without moving Narrative", () => {
     const state = {
       status: "active",
-      source: { kind: "story_action", actionId: "action.e2e_branch" },
+      source: { kind: "story_action", actionId: e2eIdsV1.actionBranch },
       cursor: { sceneId: scene.sceneId, nodeId: scene.entryNodeId },
       callStack: [],
       stage: { backgroundAssetId: null, characters: [], transition: "cut" },
     } as const;
     const result = narrativeModuleV1.owner!.propose(state, {
       kind: "commit_choice",
-      expectedCursor: { sceneId: scene.sceneId, nodeId: "node.e2e_branch.shared" },
-      choiceId: "choice.e2e_left",
-      nextCursor: { sceneId: scene.sceneId, nodeId: "node.e2e_branch.shared" },
+      expectedCursor: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared },
+      choiceId: e2eIdsV1.choiceLeft,
+      nextCursor: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared },
     }, {});
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "narrative.cursor_mismatch", details: { expected: { sceneId: scene.sceneId, nodeId: "node.e2e_branch.shared" }, actual: state.cursor } },
+      rejection: { code: "narrative.cursor_mismatch", details: { expected: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared }, actual: state.cursor } },
     });
   });
 });
@@ -1719,6 +1972,7 @@ git commit -m "feat(modules): add narrative state and interpreter"
 ```ts
 // packages/modules/src/world/world-service.test.ts
 import { describe, expect, it } from "vitest";
+import { buildWorldActionDefinitionV1, contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { worldModuleV1, createWorldBeginPlanV1 } from "./world-service.js";
 
 describe("worldModuleV1", () => {
@@ -1732,15 +1986,15 @@ describe("worldModuleV1", () => {
 
   it("creates a two-step begin plan without mutating input", () => {
     const definition = buildWorldActionDefinitionV1();
-    const plan = createWorldBeginPlanV1(definition, "choice.e2e_world_prepared");
+    const plan = createWorldBeginPlanV1(definition, e2eIdsV1.choiceWorldPrepared);
     expect(plan).toMatchObject({
-      actionId: "action.e2e_world",
-      optionId: "choice.e2e_world_prepared",
-      cashCost: 2,
-      staminaCost: 1,
-      firstStep: { phase: "morning", apCost: 1 },
-      secondStep: { phase: "afternoon", apCost: 1 },
-      preparationBonus: 1,
+      actionId: e2eIdsV1.actionWorld,
+      optionId: e2eIdsV1.choiceWorldPrepared,
+      cashCost: contractValuesV1.twoMoney,
+      staminaCost: contractValuesV1.one,
+      firstStep: { phase: "morning", apCost: contractValuesV1.one },
+      secondStep: { phase: "afternoon", apCost: contractValuesV1.one },
+      preparationBonus: contractValuesV1.oneSigned,
     });
     expect(definition.options).toHaveLength(2);
   });
@@ -1830,6 +2084,12 @@ git commit -m "feat(modules): add stateless world service"
 ```ts
 // packages/modules/src/scheduling/scheduler-service.test.ts
 import { describe, expect, it } from "vitest";
+import {
+  buildEventV1,
+  contractValuesV1,
+  e2eIdsV1,
+  fixedRuleRngV1,
+} from "../testing/builders.js";
 import { scheduleContextV1, schedulingModuleV1 } from "./scheduler-service.js";
 
 describe("schedulingModuleV1", () => {
@@ -1840,26 +2100,26 @@ describe("schedulingModuleV1", () => {
     expect(schedulingModuleV1.ownerProposalSchema).toBeNull();
     expect(schedulingModuleV1.owner).toBeNull();
     const result = scheduleContextV1({
-      context: { kind: "phase.entered", day: 2, phase: "morning" },
+      context: { kind: "phase.entered", day: contractValuesV1.day2, phase: "morning" },
       events: [
-        buildEventV1({ eventId: "event.e2e_b", priority: 100, sceneId: null }),
-        buildEventV1({ eventId: "event.e2e_a", priority: 100, sceneId: null }),
-        buildEventV1({ eventId: "event.e2e_high", priority: 200, sceneId: null }),
+        buildEventV1({ eventId: e2eIdsV1.eventB, priority: contractValuesV1.hundredSigned, sceneId: null }),
+        buildEventV1({ eventId: e2eIdsV1.eventA, priority: contractValuesV1.hundredSigned, sceneId: null }),
+        buildEventV1({ eventId: e2eIdsV1.eventHigh, priority: contractValuesV1.twoHundredSigned, sceneId: null }),
       ],
       conditionResults: new Map(),
       rng: fixedRuleRngV1([]),
     });
     expect(result.selected.map((event) => event.eventId)).toEqual([
-      "event.e2e_high", "event.e2e_a", "event.e2e_b",
+      e2eIdsV1.eventHigh, e2eIdsV1.eventA, e2eIdsV1.eventB,
     ]);
   });
 
   it("faults instead of queuing two blocking scenes", () => {
     const result = scheduleContextV1({
-      context: { kind: "phase.entered", day: 2, phase: "morning" },
+      context: { kind: "phase.entered", day: contractValuesV1.day2, phase: "morning" },
       events: [
-        buildEventV1({ eventId: "event.e2e_a", priority: 200, sceneId: "scene.e2e_a" }),
-        buildEventV1({ eventId: "event.e2e_b", priority: 100, sceneId: "scene.e2e_b" }),
+        buildEventV1({ eventId: e2eIdsV1.eventA, priority: contractValuesV1.twoHundredSigned, sceneId: e2eIdsV1.sceneA }),
+        buildEventV1({ eventId: e2eIdsV1.eventB, priority: contractValuesV1.hundredSigned, sceneId: e2eIdsV1.sceneB }),
       ],
       conditionResults: new Map(),
       rng: fixedRuleRngV1([]),
@@ -1939,27 +2199,28 @@ git commit -m "feat(modules): add stateless scheduler service"
 ```ts
 // packages/modules/src/coordinator/effect-router.test.ts
 import { describe, expect, it } from "vitest";
+import { buildCandidateFacadeV1, contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { routeEffectBatchV1 } from "./effect-router.js";
 
 describe("routeEffectBatchV1", () => {
   it("applies effects in authored order so later proposals see earlier candidate state", () => {
     const candidate = buildCandidateFacadeV1();
     const result = routeEffectBatchV1([
-      { kind: "inventory.grant", lines: [{ ingredientId: "ingredient.e2e_grain", quantity: 1 }], source: { kind: "story_action", actionId: "action.e2e_branch" }, reasonId: "reason.e2e_reward" },
-      { kind: "inventory.consume", lines: [{ ingredientId: "ingredient.e2e_grain", quantity: 1 }], reasonId: "reason.e2e_consume" },
-      { kind: "fact.set", factId: "fact.e2e_branch", value: { kind: "token", value: "branch.e2e_left" }, reasonId: "reason.e2e_branch" },
+      { kind: "inventory.grant", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity }], source: { kind: "story_action", actionId: e2eIdsV1.actionBranch }, reasonId: e2eIdsV1.reasonReward },
+      { kind: "inventory.consume", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity }], reasonId: e2eIdsV1.reasonConsume },
+      { kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchLeft }, reasonId: e2eIdsV1.reasonBranch },
     ], candidate.effectContext());
     expect(result.kind).toBe("applied");
     expect(candidate.readInventory().ingredientBatches).toEqual([]);
-    expect(candidate.readProgression().facts[0].value).toEqual({ kind: "token", value: "branch.e2e_left" });
+    expect(candidate.readProgression().facts[0].value).toEqual({ kind: "token", value: e2eIdsV1.tokenBranchLeft });
   });
 
   it("restores every owner slice when a later effect rejects", () => {
     const candidate = buildCandidateFacadeV1();
     const before = candidate.snapshotState();
     const result = routeEffectBatchV1([
-      { kind: "reputation.adjust", delta: 1, reasonId: "reason.e2e_reward" },
-      { kind: "inventory.consume", lines: [{ ingredientId: "ingredient.e2e_missing", quantity: 1 }], reasonId: "reason.e2e_consume" },
+      { kind: "reputation.adjust", delta: contractValuesV1.oneSigned, reasonId: e2eIdsV1.reasonReward },
+      { kind: "inventory.consume", lines: [{ ingredientId: e2eIdsV1.ingredientMissing, quantity: contractValuesV1.oneQuantity }], reasonId: e2eIdsV1.reasonConsume },
     ], candidate.effectContext());
     expect(result.kind).toBe("rejected");
     expect(candidate.snapshotState()).toEqual(before);
@@ -2031,12 +2292,13 @@ git commit -m "feat(modules): route cross-owner effects atomically"
 - Create: `packages/modules/src/coordinator/candidate.ts`
 - Create: `packages/modules/src/coordinator/command-coordinator.ts`
 - Create: `packages/modules/src/coordinator/command-coordinator.test.ts`
+- Create: `packages/modules/src/profile/schemas.ts`
 - Modify: `packages/modules/src/profile/types.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
-- Consumes: every stateful owner, World/Scheduling services, Base transactional RNG, `CommandExecutionAttemptEnvelopeV1`, and one immutable `DemoSimulationProgramV1` supplied to the builder.
-- Produces: `createDemoCommandCoordinatorV1(program)` and the one `DemoCommandCoordinatorV1.executeAttempt` implementation. The builder closes rules/data/Narrative for queries; each execution receives only branded identity context and owns candidate state/RNG, guard ordering, proposals, facts, invariants, sequence, and diagnostics.
+- Consumes: every stateful owner and its strict State Schema, World/Scheduling services, Base transactional RNG, `CommandExecutionAttemptEnvelopeV1`, and one immutable `DemoSimulationProgramV1` supplied to the builder.
+- Produces: strict `gameStateV1Schema`, strict `gameSnapshotV1Schema`, `createDemoCommandCoordinatorV1(program)`, and the one `DemoCommandCoordinatorV1.executeAttempt` implementation. The builder closes the post-Hotfix rules/data program for queries; each execution uses `undefined` context and owns candidate state/RNG, guard ordering, proposals, facts, invariants, sequence, and diagnostics. Resolved identity belongs to the Story/Session boundary, not gameplay input.
 
 - [ ] **Step 1: Write failing atomicity and same-attempt diagnostics tests**
 
@@ -2044,16 +2306,24 @@ git commit -m "feat(modules): route cross-owner effects atomically"
 // packages/modules/src/coordinator/command-coordinator.test.ts
 import { describe, expect, it } from "vitest";
 import { createDemoCommandCoordinatorV1 } from "./command-coordinator.js";
-import { buildE2eExecutionContextV1, buildSequenceZeroSnapshotV1 } from "../testing/builders.js";
+import {
+  buildModuleContractProgramV1,
+  buildSequenceZeroSnapshotV1,
+  contractValuesV1,
+} from "../testing/builders.js";
 
 describe("DemoCommandCoordinatorV1", () => {
   it("commits run.start once with demand, Narrative, RNG trace, and sequence 1", () => {
     const coordinator = createDemoCommandCoordinatorV1(buildModuleContractProgramV1());
     const snapshot = buildSequenceZeroSnapshotV1();
-    const attempt = coordinator.executeAttempt(snapshot, { kind: "run.start" }, buildE2eExecutionContextV1());
+    const attempt = coordinator.executeAttempt(
+      snapshot,
+      { kind: "run.start" },
+      undefined,
+    );
     expect(attempt.result.kind).toBe("committed");
     if (attempt.result.kind !== "committed") throw new Error("expected commit");
-    expect(attempt.result.snapshot.commandSequence).toBe(1);
+    expect(attempt.result.snapshot.commandSequence).toBe(contractValuesV1.one);
     expect(attempt.result.snapshot.state.simulation.tavern.demandSeeds).not.toEqual([]);
     expect(attempt.result.snapshot.state.story.narrative.source).toEqual({ kind: "manifest_start" });
     expect(attempt.result.facts.filter((fact) => fact.kind === "run.started")).toEqual([{
@@ -2069,7 +2339,11 @@ describe("DemoCommandCoordinatorV1", () => {
   it("returns the exact input Snapshot on rejection", () => {
     const coordinator = createDemoCommandCoordinatorV1(buildModuleContractProgramV1());
     const snapshot = buildSequenceZeroSnapshotV1();
-    const attempt = coordinator.executeAttempt(snapshot, { kind: "actor.rest" }, buildE2eExecutionContextV1());
+    const attempt = coordinator.executeAttempt(
+      snapshot,
+      { kind: "actor.rest" },
+      undefined,
+    );
     expect(attempt.result.kind).toBe("rejected");
     expect(attempt.result.snapshot).toBe(snapshot);
     expect(attempt.diagnostics.committedRngAfter).toBe(snapshot.rng);
@@ -2086,18 +2360,97 @@ Expected: FAIL with missing coordinator/candidate helpers.
 
 - [ ] **Step 3: Implement the isolated candidate holder**
 
+Create the strict aggregate State Schema before the candidate imports it:
+
+```ts
+// packages/modules/src/profile/schemas.ts
+import {
+  createGameSnapshotEnvelopeSchemaV1,
+  rngStateV1Schema,
+} from "@project-tavern/base";
+import { z } from "zod";
+import { actorsStateV1Schema } from "../actors/contract.js";
+import { calendarStateV1Schema } from "../calendar/contract.js";
+import { facilitiesStateV1Schema } from "../facilities/contract.js";
+import { inventoryStateV1Schema } from "../inventory/contract.js";
+import { narrativeRuntimeStateV1Schema } from "../narrative/contract.js";
+import {
+  factEntryV1Schema,
+  outcomeEntryV1Schema,
+  questEntryV1Schema,
+  resolvedCheckV1Schema,
+} from "../progression/contract.js";
+import { runStateV1Schema } from "../run/contract.js";
+import { statusStateV1Schema } from "../status/contract.js";
+import { tavernStateV1Schema } from "../tavern/contract.js";
+import { activeWorkflowV1Schema } from "../workflow/contract.js";
+
+export const demoSimulationStateV1Schema = z.strictObject({
+  run: runStateV1Schema,
+  calendar: calendarStateV1Schema,
+  actors: actorsStateV1Schema,
+  inventory: inventoryStateV1Schema,
+  status: statusStateV1Schema,
+  facilities: facilitiesStateV1Schema,
+  tavern: tavernStateV1Schema,
+  activeWorkflow: activeWorkflowV1Schema.nullable(),
+});
+
+export const storyRuntimeStateV1Schema = z.strictObject({
+  facts: z.array(factEntryV1Schema),
+  quests: z.array(questEntryV1Schema),
+  outcomes: z.array(outcomeEntryV1Schema),
+  resolvedChecks: z.array(resolvedCheckV1Schema),
+  narrative: narrativeRuntimeStateV1Schema,
+});
+
+export const gameStateV1Schema = z.strictObject({
+  simulation: demoSimulationStateV1Schema,
+  story: storyRuntimeStateV1Schema,
+});
+
+export const gameSnapshotV1Schema = createGameSnapshotEnvelopeSchemaV1(
+  gameStateV1Schema,
+  rngStateV1Schema,
+);
+```
+
 ```ts
 // packages/modules/src/coordinator/candidate.ts
+import {
+  createTransactionalRngV1,
+  parseNonNegativeSafeInteger,
+} from "@project-tavern/base";
+import type {
+  CommandExecutionDiagnosticsEnvelopeV1,
+  DeepReadonly,
+  RngDrawTraceV1,
+  RngStateV1,
+} from "@project-tavern/base";
+import { gameStateV1Schema } from "../profile/schemas.js";
+import type {
+  DomainFactV1,
+  GameSnapshotV1,
+  GameStateV1,
+} from "../profile/types.js";
+
+function deepFreezeParsedStrictJsonV1(value: unknown): void {
+  if (value === null || typeof value !== "object") return;
+  const children = Array.isArray(value) ? value : Object.values(value);
+  for (const child of children) deepFreezeParsedStrictJsonV1(child);
+  Object.freeze(value);
+}
+
 export class DemoCandidateV1 {
-  readonly #committed: GameSnapshotV1;
+  readonly #committed: DeepReadonly<GameSnapshotV1>;
   #state: GameStateV1;
-  readonly rng: TransactionRngV1;
+  readonly rng: ReturnType<typeof createTransactionalRngV1>;
   readonly facts: DomainFactV1[] = [];
 
-  constructor(snapshot: Readonly<GameSnapshotV1>) {
-    this.#committed = snapshot as GameSnapshotV1;
-    this.#state = structuredClone(snapshot.state);
-    this.rng = createTransactionRngV1(snapshot.rng);
+  constructor(snapshot: DeepReadonly<GameSnapshotV1>) {
+    this.#committed = snapshot;
+    this.#state = gameStateV1Schema.parse(structuredClone(snapshot.state));
+    this.rng = createTransactionalRngV1(snapshot.rng);
   }
 
   readState(): DeepReadonly<GameStateV1> {
@@ -2113,25 +2466,30 @@ export class DemoCandidateV1 {
   }
 
   commit(): GameSnapshotV1 {
-    return Object.freeze({
-      state: deepFreeze(this.#state),
-      rng: this.rng.currentState(),
-      commandSequence: this.#committed.commandSequence + 1,
-    });
+    const state = gameStateV1Schema.parse(structuredClone(this.#state));
+    const snapshot = {
+      state,
+      rng: this.rng.candidateState(),
+      commandSequence: parseNonNegativeSafeInteger(this.#committed.commandSequence + 1),
+    } satisfies GameSnapshotV1;
+    deepFreezeParsedStrictJsonV1(snapshot);
+    return snapshot;
   }
 
-  diagnostics(committedRngAfter: RngStateV1): CommandExecutionDiagnosticsV1 {
+  diagnostics(
+    committedRngAfter: RngStateV1,
+  ): CommandExecutionDiagnosticsEnvelopeV1<RngStateV1, RngDrawTraceV1> {
     return {
       committedRngBefore: this.#committed.rng,
-      attemptedDraws: this.rng.draws(),
-      candidateRngAfter: this.rng.currentState(),
+      attemptedDraws: this.rng.attemptedDraws(),
+      candidateRngAfter: this.rng.candidateState(),
       committedRngAfter,
     };
   }
 }
 ```
 
-`structuredClone` here operates only on already validated Strict JSON state. Use the Phase 1 deep-freeze utility on commit. No candidate method is exported through package public exports.
+Both clones cross `gameStateV1Schema.parse`; no assertion turns unvalidated data into `GameStateV1`. `#committed` remains `DeepReadonly` and retains the exact input object for rejection/fault rollback. `deepFreezeParsedStrictJsonV1` is private to `candidate.ts`, recursively freezes only the already parsed Strict-JSON tree, and does not depend on an unexported Base helper. Sequence advancement crosses `parseNonNegativeSafeInteger`, and RNG evidence uses the frozen Phase 1 API's documented `attemptedDraws()` method. No candidate class/helper is exported through package public exports.
 
 - [ ] **Step 4: Implement guard order and the first command handlers**
 
@@ -2164,7 +2522,10 @@ Implement handlers for `run.start`, `policy.choose`, `inventory.buy`, `actor.pre
 - [ ] **Step 5: Return committed/rejected/faulted attempts from one execution**
 
 ```ts
-function rejectAttemptV1(snapshot: GameSnapshotV1, rejection: RejectionReasonV1): CommandExecutionAttemptV1 {
+// packages/modules/src/coordinator/command-coordinator.ts
+import type { DemoCommandExecutionAttemptV1 } from "../profile/types.js";
+
+function rejectAttemptV1(snapshot: GameSnapshotV1, rejection: RejectionReasonV1): DemoCommandExecutionAttemptV1 {
   return {
     result: { kind: "rejected", snapshot, reasons: [rejection] },
     diagnostics: {
@@ -2175,7 +2536,7 @@ function rejectAttemptV1(snapshot: GameSnapshotV1, rejection: RejectionReasonV1)
   };
 }
 
-function commitAttemptV1(candidate: DemoCandidateV1): CommandExecutionAttemptV1 {
+function commitAttemptV1(candidate: DemoCandidateV1): DemoCommandExecutionAttemptV1 {
   const snapshot = candidate.commit();
   return {
     result: { kind: "committed", snapshot, facts: candidate.facts },
@@ -2195,7 +2556,7 @@ Expected: PASS for sequence-zero Start, guard order, same-object rejection, purc
 - [ ] **Step 7: Commit the transaction/coordinator core**
 
 ```bash
-git add packages/modules/src/coordinator/candidate.ts packages/modules/src/coordinator/command-coordinator.ts packages/modules/src/coordinator/command-coordinator.test.ts packages/modules/src/profile/types.ts packages/modules/src/index.ts
+git add packages/modules/src/coordinator/candidate.ts packages/modules/src/coordinator/command-coordinator.ts packages/modules/src/coordinator/command-coordinator.test.ts packages/modules/src/profile/schemas.ts packages/modules/src/profile/types.ts packages/modules/src/index.ts
 git commit -m "feat(modules): coordinate core commands atomically"
 ```
 
@@ -2288,7 +2649,36 @@ git commit -m "feat(modules): coordinate interruptible opening"
 
 - [ ] **Step 1: Add failing WorldAction and ordinary-boundary tests**
 
-Assert Begin deducts first-step costs once and starts the departure Scene; phase advance reaches the authored second step; Complete deducts second-step AP, persists one check, applies Inventory/Fact/Outcome effects once, and clears Workflow. Add planned closure, emergency closure, spoilage, Aura expiry, night recovery, next-day demand, Scheduler conflict rollback, and levy-due advance rejection tests. All IDs and resources come from branded builders.
+Assert Begin deducts first-step costs once and starts the departure Scene; phase advance reaches the authored second step; Complete deducts second-step AP, persists one check, applies Inventory/Fact/Outcome effects once, and clears Workflow. Add planned closure, emergency closure, spoilage, Aura expiry, night recovery, next-day demand, Scheduler conflict rollback, and levy-due advance rejection tests. All IDs and resources come from branded builders. `buildCrossPeriodOrderSnapshotV1()` fixes an already-resolved evening with one spoiled batch, three expiring Auras (phase-end, day-end, and night-recovery), both actors below maximum, nonzero preparation, a saved plan, D2 service demand, and one unconditional D2-morning Scheduler event. The current Condition DSL deliberately has no Demand predicate; exact Fact order plus the post-transition Tavern state prove the boundary ordering. Its assertion is:
+
+```ts
+const coordinator = createDemoCommandCoordinatorV1(buildModuleContractProgramV1());
+const attempt = coordinator.executeAttempt(
+  buildCrossPeriodOrderSnapshotV1(),
+  { kind: "calendar.advance_phase" },
+  undefined,
+);
+expect(attempt.result.kind).toBe("committed");
+if (attempt.result.kind !== "committed") throw new Error("expected commit");
+expect(attempt.result.facts.map((fact) => fact.kind)).toEqual([
+  "inventory.spoiled",
+  "aura.expired",
+  "aura.expired",
+  "actor.stamina_changed",
+  "actor.stamina_changed",
+  "aura.expired",
+  "calendar.phase_advanced",
+  "demand.materialized",
+  "scheduler.event_triggered",
+  "fact.set",
+]);
+expect(attempt.result.snapshot.state.simulation.tavern.preparation).toEqual({
+  day: contractValuesV1.day2,
+  actionCount: contractValuesV1.zero,
+});
+expect(attempt.result.snapshot.state.simulation.tavern.servicePlan).toBeNull();
+expect(attempt.result.snapshot.state.simulation.tavern.currentDemand?.day).toBe(contractValuesV1.day2);
+```
 
 - [ ] **Step 2: Run and observe missing World/Calendar handlers**
 
@@ -2298,7 +2688,7 @@ Expected: FAIL with `command.handler_not_implemented` for `world.action.begin` o
 
 - [ ] **Step 3: Implement exact phase-boundary order**
 
-Use this immutable order: Inventory spoilage, phase-end Auras, day-end Auras, Actors recovery, night-recovery Auras, Tavern reset/demand materialization, then Calendar advance. WorldAction replaces only the authored boundary portions stated by its progress state; it never bypasses the shared boundary helper or resolves a check more than once.
+Use this immutable cross-period order, appending each owner proposal's facts immediately and never sorting afterward: (1) finish all old-period settlement, including Inventory spoilage and any old-evening closure; (2) tick phase-end then day-end Auras; (3) calculate/apply Actors night recovery while night-recovery Auras are still active, then tick those Auras; (4) reset Tavern preparation/plan for the destination day, emitting no synthetic reset fact; (5) apply the Calendar mutation and append its `calendar.phase_advanced`; (6) against the post-Calendar candidate, materialize destination-day service demand and append the same-value `demand.materialized`, or clear demand without a fact on a non-service day; (7) only then construct and run `day.ended`, `week.ended`, and `phase.entered` Scheduler contexts, appending each `scheduler.event_triggered` and its authored effect facts in context order. WorldAction replaces only the authored boundary portions stated by its progress state; it never bypasses the shared boundary helper or resolves a check more than once.
 
 - [ ] **Step 4: Run focused/type/full-current gates**
 
@@ -2354,21 +2744,22 @@ git commit -m "feat(modules): materialize levy endings"
 ## Task 17: Assemble Strict Aggregate Schemas and the Public Module Surface
 
 **Files:**
-- Create: `packages/modules/src/profile/schemas.ts`
+- Modify: `packages/modules/src/profile/schemas.ts`
 - Create: `packages/modules/type-tests/public-exports.test-d.ts`
 - Modify: `packages/modules/src/profile/types.ts`
 - Modify: `packages/modules/src/profile/profile-contract.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
-- Consumes: the Task 1 type spine plus every owner/service Schema and binding.
-- Produces: strict aggregate state/command/fact/rejection/fault/debug Schemas, concrete `DebugCommandOperationResultForV1<C>`, and public exports for each individual binding. It deliberately does not create a Module tuple, Profile, coordinator instance, or Story-specific program.
+- Consumes: the Task 1 type spine, Task 15's strict aggregate State Schema, plus every owner/service Schema and binding.
+- Produces: the remaining strict aggregate command/fact/rejection/fault/debug Schemas, concrete `DemoCommandExecutionResultV1`, `DemoCommandExecutionAttemptV1`, `DebugCommandOperationResultForV1<C>`, and public exports for each individual binding. It deliberately does not create a Module tuple, Profile, coordinator instance, or Story-specific program.
 
 - [ ] **Step 1: Add failing aggregate ownership and strict-schema tests**
 
 ```ts
 // append to packages/modules/src/profile/profile-contract.test.ts
-import { gameCommandV1Schema, gameStateV1Schema } from "./schemas.js";
+import { gameCommandV1Schema, gameSnapshotV1Schema, gameStateV1Schema } from "./schemas.js";
+import { buildSequenceZeroSnapshotV1 } from "../testing/builders.js";
 import {
   actorsModuleV1,
   calendarModuleV1,
@@ -2384,25 +2775,33 @@ import {
   worldModuleV1,
 } from "../index.js";
 
-it("exports ten stateful and two stateless profile-bound bindings", () => {
+it("exports registry-owned ten stateful and two stateless profile-bound bindings", () => {
   const bindings = [
     runModuleV1, calendarModuleV1, actorsModuleV1, statusModuleV1,
     inventoryModuleV1, facilitiesModuleV1, tavernModuleV1, workflowModuleV1,
     worldModuleV1, progressionModuleV1, narrativeModuleV1, schedulingModuleV1,
   ] as const;
-  expect(bindings.map((module) => module.descriptor.id)).toEqual([
-    "module.run", "module.calendar", "module.actors", "module.status",
-    "module.inventory", "module.facilities", "module.tavern", "module.workflow",
-    "module.world", "module.progression", "module.narrative", "module.scheduling",
-  ]);
+  expect(bindings.map((module) => module.descriptor.id)).toEqual(
+    gameModuleKeysV1.map((key) => gameModuleDescriptorsV1[key].id),
+  );
+  gameModuleKeysV1.forEach((key, index) => {
+    expect(bindings[index]?.descriptor).toBe(gameModuleDescriptorsV1[key]);
+  });
   expect(bindings.filter((module) => module.bindingKind === "stateful")).toHaveLength(10);
   expect(bindings.filter((module) => module.bindingKind === "stateless")).toHaveLength(2);
 });
 
 it("rejects unknown keys at aggregate boundaries", () => {
   expect(() => gameCommandV1Schema.parse({ kind: "actor.rest", extra: true })).toThrow();
-  const state = buildInitialGameStateV1();
+  const initialSnapshot = buildSequenceZeroSnapshotV1();
+  const state = initialSnapshot.state;
   expect(() => gameStateV1Schema.parse({ ...state, extra: true })).toThrow();
+  expect(() => gameSnapshotV1Schema.parse({
+    state,
+    rng: initialSnapshot.rng,
+    commandSequence: initialSnapshot.commandSequence,
+    extra: true,
+  })).toThrow();
 });
 
 ```
@@ -2411,42 +2810,139 @@ it("rejects unknown keys at aggregate boundaries", () => {
 
 Run: `pnpm --filter @project-tavern/modules test -- src/profile/profile-contract.test.ts`
 
-Expected: FAIL with missing `schemas.js` and missing aggregate public exports.
+Expected: FAIL with missing named `gameCommandV1Schema` and missing aggregate public exports; the Task 15 `gameStateV1Schema` import itself already resolves.
 
-- [ ] **Step 3: Assemble schemas from owner-owned pieces**
+- [ ] **Step 3: Complete the aggregate schema file from owner-owned pieces**
 
 ```ts
-// packages/modules/src/profile/schemas.ts
-export const demoSimulationStateV1Schema = z.strictObject({
-  run: runStateV1Schema,
-  calendar: calendarStateV1Schema,
-  actors: actorsStateV1Schema,
-  inventory: inventoryStateV1Schema,
-  status: statusStateV1Schema,
-  facilities: facilitiesStateV1Schema,
-  tavern: tavernStateV1Schema,
-  activeWorkflow: activeWorkflowV1Schema.nullable(),
-});
+// packages/modules/src/profile/schemas.ts (append; do not redefine Task 15 state schemas)
+import {
+  parseActionId,
+  parseChoiceId,
+  parseFacilityId,
+  parseIngredientId,
+  parseNodeId,
+  parsePolicyId,
+  parseQuantity,
+  parseRecipeId,
+  parseSceneId,
+} from "./domain-values.js";
 
-export const storyRuntimeStateV1Schema = z.strictObject({
-  facts: z.array(factEntryV1Schema),
-  quests: z.array(questEntryV1Schema),
-  outcomes: z.array(outcomeEntryV1Schema),
-  resolvedChecks: z.array(resolvedCheckV1Schema),
-  narrative: narrativeRuntimeStateV1Schema,
-});
+const policyIdCommandV1Schema = z.string().transform(parsePolicyId);
+const ingredientIdCommandV1Schema = z.string().transform(parseIngredientId);
+const actionIdCommandV1Schema = z.string().transform(parseActionId);
+const facilityIdCommandV1Schema = z.string().transform(parseFacilityId);
+const recipeIdCommandV1Schema = z.string().transform(parseRecipeId);
+const choiceIdCommandV1Schema = z.string().transform(parseChoiceId);
+const sceneIdCommandV1Schema = z.string().transform(parseSceneId);
+const nodeIdCommandV1Schema = z.string().transform(parseNodeId);
+const quantityCommandV1Schema = z.number().transform(parseQuantity);
 
-export const gameStateV1Schema = z.strictObject({
-  simulation: demoSimulationStateV1Schema,
-  story: storyRuntimeStateV1Schema,
+const purchaseLineCommandV1Schema = z.strictObject({
+  ingredientId: ingredientIdCommandV1Schema,
+  quantity: quantityCommandV1Schema,
+});
+const plannedRecipeCommandV1Schema = z.strictObject({
+  recipeId: recipeIdCommandV1Schema,
+  portions: quantityCommandV1Schema,
+});
+const tavernPlanCommandV1Schema = z.strictObject({
+  mode: z.enum(["manual", "assisted", "delegated", "closed"]),
+  menu: z.array(plannedRecipeCommandV1Schema).max(16),
+});
+const facilityChoiceCommandV1Schema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("build"), facilityId: facilityIdCommandV1Schema }),
+  z.strictObject({ kind: z.literal("skip") }),
+]);
+
+const runStartCommandV1Schema = z.strictObject({ kind: z.literal("run.start") });
+const policyChooseCommandV1Schema = z.strictObject({
+  kind: z.literal("policy.choose"),
+  policyId: policyIdCommandV1Schema,
+});
+const inventoryBuyCommandV1Schema = z.strictObject({
+  kind: z.literal("inventory.buy"),
+  lines: z.array(purchaseLineCommandV1Schema).min(1).max(64),
+});
+const actorPrepareFoodCommandV1Schema = z.strictObject({ kind: z.literal("actor.prepare_food") });
+const actorRestCommandV1Schema = z.strictObject({ kind: z.literal("actor.rest") });
+const storyActionStartCommandV1Schema = z.strictObject({
+  kind: z.literal("story.action.start"),
+  actionId: actionIdCommandV1Schema,
+});
+const facilityChooseCommandV1Schema = z.strictObject({
+  kind: z.literal("facility.choose"),
+  opportunityId: actionIdCommandV1Schema,
+  choice: facilityChoiceCommandV1Schema,
+});
+const tavernPlanSetCommandV1Schema = z.strictObject({
+  kind: z.literal("tavern.plan.set"),
+  plan: tavernPlanCommandV1Schema,
+});
+const tavernOpeningStartCommandV1Schema = z.strictObject({ kind: z.literal("tavern.opening.start") });
+const tavernOpeningContinueCommandV1Schema = z.strictObject({ kind: z.literal("tavern.opening.continue") });
+const tavernOpeningFinalizeCommandV1Schema = z.strictObject({ kind: z.literal("tavern.opening.finalize") });
+const worldActionBeginCommandV1Schema = z.strictObject({
+  kind: z.literal("world.action.begin"),
+  actionId: actionIdCommandV1Schema,
+  optionId: choiceIdCommandV1Schema,
+});
+const worldActionCompleteCommandV1Schema = z.strictObject({ kind: z.literal("world.action.complete") });
+const narrativeAdvanceCommandV1Schema = z.strictObject({ kind: z.literal("narrative.advance") });
+const narrativeChooseCommandV1Schema = z.strictObject({
+  kind: z.literal("narrative.choose"),
+  sceneId: sceneIdCommandV1Schema,
+  nodeId: nodeIdCommandV1Schema,
+  choiceId: choiceIdCommandV1Schema,
+});
+const calendarAdvancePhaseCommandV1Schema = z.strictObject({ kind: z.literal("calendar.advance_phase") });
+const levyPayCommandV1Schema = z.strictObject({ kind: z.literal("levy.pay") });
+
+export const gameCommandV1Schema = z.discriminatedUnion("kind", [
+  runStartCommandV1Schema,
+  policyChooseCommandV1Schema,
+  inventoryBuyCommandV1Schema,
+  actorPrepareFoodCommandV1Schema,
+  actorRestCommandV1Schema,
+  storyActionStartCommandV1Schema,
+  facilityChooseCommandV1Schema,
+  tavernPlanSetCommandV1Schema,
+  tavernOpeningStartCommandV1Schema,
+  tavernOpeningContinueCommandV1Schema,
+  tavernOpeningFinalizeCommandV1Schema,
+  worldActionBeginCommandV1Schema,
+  worldActionCompleteCommandV1Schema,
+  narrativeAdvanceCommandV1Schema,
+  narrativeChooseCommandV1Schema,
+  calendarAdvancePhaseCommandV1Schema,
+  levyPayCommandV1Schema,
+]).superRefine((command, context) => {
+  if (command.kind === "inventory.buy") {
+    const ids = command.lines.map((line) => line.ingredientId);
+    if (new Set(ids).size !== ids.length) {
+      context.addIssue({ code: "custom", message: "inventory.buy lines must use unique ingredient IDs" });
+    }
+  }
+  if (command.kind === "tavern.plan.set") {
+    const ids = command.plan.menu.map((line) => line.recipeId);
+    if (new Set(ids).size !== ids.length) {
+      context.addIssue({ code: "custom", message: "tavern menu recipe IDs must be unique" });
+    }
+    if (command.plan.mode === "closed" && command.plan.menu.length !== 0) {
+      context.addIssue({ code: "custom", message: "closed plan must have an empty menu" });
+    }
+    if (command.plan.mode !== "closed" && command.plan.menu.length === 0) {
+      context.addIssue({ code: "custom", message: "open plan must have at least one recipe" });
+    }
+  }
 });
 ```
 
-Build `gameCommandV1Schema` as the exact seventeen-variant discriminated union. Aggregate fact/rejection/debug unions from module-owned schemas plus the strict coordinator-produced `run.started`, scheduler, opening, service, WorldAction, Narrative, and levy fact variants. Do not widen any branch with `z.unknown`, `z.record`, passthrough, optional `undefined`, or arbitrary strings.
+These seventeen local strict objects correspond one-for-one with the Catalog command union; Task 17 owns them and does not import imaginary branch Schemas from Tasks 2–13. Aggregate fact/rejection/debug unions from module-owned schemas plus the strict coordinator-produced `run.started`, scheduler, opening, service, WorldAction, Narrative, and levy fact variants. Do not widen any branch with `z.unknown`, `z.record`, passthrough, optional `undefined`, or arbitrary strings.
 
 - [ ] **Step 4: Publish only the closed Modules API**
 
-`packages/modules/src/index.ts` exports every individual `*ModuleV1`, the aggregate Schemas, branded contract types, concrete `DebugCommandOperationResultForV1<C>`, `createDemoCommandCoordinatorV1`, `createDemoQueriesV1`, and `projectDemoGameViewV1`. It has no exported array/tuple, `defineGameProfile` call, `GameProfileV1` value, Story identity, Story rules/data, or GamePackage. `packages/modules/type-tests/public-exports.test-d.ts` consumes all twelve bindings plus the DebugCommand result specialization with the single Task 1 phantom type, rejects an unbound/foreign binding, and contains a consumed `@ts-expect-error` import for a nonexistent `demoGameProfileV1` export; this file is typechecked but never loaded by Vitest.
+`packages/modules/src/index.ts` exports every individual `*ModuleV1`, `gameStateV1Schema`, `gameSnapshotV1Schema`, the remaining aggregate Schemas, branded contract types including `FixtureId`, `parseFixtureId`, `fixtureIdSchemaV1`, concrete `DemoCommandExecutionResultV1`, `DemoCommandExecutionAttemptV1`, `DebugCommandOperationResultForV1<C>`, `createDemoCommandCoordinatorV1`, `createDemoQueriesV1`, and `projectDemoGameViewV1`. It has no exported array/tuple, `defineGameProfile` call, `GameProfileV1` value, Story identity, Story rules/data, or GamePackage. `packages/modules/type-tests/public-exports.test-d.ts` consumes all twelve bindings, `gameSnapshotV1Schema`, the Fixture ID parser/Schema, both concrete command-execution aliases, plus the DebugCommand result specialization with the single Task 1 phantom type, rejects an unbound/foreign binding, and contains a consumed `@ts-expect-error` import for a nonexistent `demoGameProfileV1` export; this file is typechecked but never loaded by Vitest.
 
 - [ ] **Step 5: Run profile contract, boundary, cycle, and type gates**
 
@@ -2478,33 +2974,44 @@ git commit -m "feat(modules): publish strict gameplay contracts"
 ```ts
 // packages/modules/src/coordinator/queries.test.ts
 import { describe, expect, it } from "vitest";
+import type { GameCommandV1 } from "../profile/types.js";
+import {
+  buildActiveSnapshotV1,
+  buildInsufficientOpeningSnapshotV1,
+  buildModuleContractProgramV1,
+  contractValuesV1,
+  e2eIdsV1,
+} from "../testing/builders.js";
+import { createDemoCommandCoordinatorV1 } from "./command-coordinator.js";
 import { createDemoQueriesV1 } from "./queries.js";
 
 describe("EngineQueriesV1", () => {
   it("returns the exact command value in every preview", () => {
-    const command = { kind: "inventory.buy", lines: [{ ingredientId: "ingredient.e2e_grain", quantity: 2 }] } as const;
-    const preview = createDemoQueriesV1(buildActiveSnapshotV1(), buildE2eExecutionContextV1()).previewCommand(command);
+    const program = buildModuleContractProgramV1();
+    const command: GameCommandV1 = { kind: "inventory.buy", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity }] };
+    const preview = createDemoQueriesV1(buildActiveSnapshotV1(), program).previewCommand(command);
     expect(preview.command).toEqual(command);
   });
 
   it("hides actual demand and random offsets", () => {
-    const forecast = createDemoQueriesV1(buildActiveSnapshotV1(), buildE2eExecutionContextV1()).getDemandForecast();
+    const program = buildModuleContractProgramV1();
+    const forecast = createDemoQueriesV1(buildActiveSnapshotV1(), program).getDemandForecast();
     expect(forecast).toEqual({
-      day: 1,
-      lines: [{ segmentId: "segment.e2e_guests", range: { min: 2, max: 2 }, modifiers: [] }],
+      day: contractValuesV1.day1,
+      lines: [{ segmentId: e2eIdsV1.segmentGuests, range: { min: contractValuesV1.twoSigned, max: contractValuesV1.twoSigned }, modifiers: [] }],
     });
     expect(JSON.stringify(forecast)).not.toContain("actualCustomers");
     expect(JSON.stringify(forecast)).not.toContain("randomOffset");
   });
 
   it("matches execution rejection codes", () => {
+    const program = buildModuleContractProgramV1();
     const snapshot = buildInsufficientOpeningSnapshotV1();
-    const context = buildE2eExecutionContextV1();
-    const preview = createDemoQueriesV1(snapshot, context).previewCommand({ kind: "tavern.opening.start" });
-    const attempt = createDemoCommandCoordinatorV1(buildModuleContractProgramV1()).executeAttempt(
+    const preview = createDemoQueriesV1(snapshot, program).previewCommand({ kind: "tavern.opening.start" });
+    const attempt = createDemoCommandCoordinatorV1(program).executeAttempt(
       snapshot,
       { kind: "tavern.opening.start" },
-      context,
+      undefined,
     );
     expect(preview.allowed).toBe(false);
     expect(attempt.result.kind).toBe("rejected");
@@ -2529,23 +3036,23 @@ export function createDemoQueriesV1(
   program: DeepReadonly<DemoSimulationProgramV1>,
 ): EngineQueriesV1 {
   return Object.freeze({
-    getAvailableActions: () => projectAvailableActionsV1(snapshot, context),
-    explainAvailability: (actionId) => explainAvailabilityV1(snapshot, actionId, context),
-    previewCommand: (command) => previewCommandV1(snapshot, command, context),
-    previewTavernPlan: (plan) => previewTavernPlanV1(snapshot, plan, context),
-    getNarrativeProjection: () => projectNarrativeV1(snapshot, context),
-    getRunStartControl: () => projectRunStartControlV1(snapshot, context),
-    getLifePolicySelection: () => projectLifePolicySelectionV1(snapshot, context),
-    getTavernOpeningControl: () => projectOpeningControlV1(snapshot, context),
+    getAvailableActions: () => projectAvailableActionsV1(snapshot, program),
+    explainAvailability: (actionId) => explainAvailabilityV1(snapshot, actionId, program),
+    previewCommand: (command) => previewCommandV1(snapshot, command, program),
+    previewTavernPlan: (plan) => previewTavernPlanV1(snapshot, plan, program),
+    getNarrativeProjection: () => projectNarrativeV1(snapshot, program),
+    getRunStartControl: () => projectRunStartControlV1(snapshot, program),
+    getLifePolicySelection: () => projectLifePolicySelectionV1(snapshot, program),
+    getTavernOpeningControl: () => projectOpeningControlV1(snapshot, program),
     getDemandForecast: () => projectDemandForecastV1(snapshot),
-    getObligationForecast: () => projectObligationForecastV1(snapshot, context),
+    getObligationForecast: () => projectObligationForecastV1(snapshot, program),
     getResolvedChecks: () => snapshot.state.story.resolvedChecks,
     getRunCompletion: () => snapshot.state.simulation.run.completion,
   });
 }
 ```
 
-Every `previewCommand` branch uses the same global guard, Action availability, owner calculator, Story rule preview, and confirmation merge functions as execution. It must not normalize or replace the submitted command. `previewTavernPlan` distinguishes prospective current state from committed OpeningBaseline. Obligation forecast uses only authored policy and committed-plan lower bounds. `createDemoCommandCoordinatorV1(program)` closes the same immutable program for `createQueries`; `executeAttempt` validates that its branded `DemoExecutionContextV1.simulationDigest` matches that program before running a command.
+Every `previewCommand` branch uses the same global guard, Action availability, owner calculator, Story rule preview, and confirmation merge functions as execution. It must not normalize or replace the submitted command. `previewTavernPlan` distinguishes prospective current state from committed OpeningBaseline. Obligation forecast uses only authored policy and committed-plan lower bounds. `createDemoCommandCoordinatorV1(program)` closes the same post-Hotfix immutable program for `createQueries`; Demo execution context is exactly `undefined`. Query calculators receive that program, while ResolvedStory/EngineSession own provenance and compatibility checks.
 
 - [ ] **Step 4: Project the immutable game view**
 
@@ -2579,6 +3086,7 @@ git commit -m "feat(modules): expose deterministic game queries"
 - Create: `stories/e2e/src/patch-surfaces.ts`
 - Create: `stories/e2e/src/presentation/text-catalogs.ts`
 - Create: `stories/e2e/src/presentation/assets.ts`
+- Create: `stories/e2e/src/presentation/scene-graph.tsx`
 - Create: `stories/e2e/src/profile.ts`
 - Create: `stories/e2e/src/story.ts`
 - Modify: `stories/e2e/src/index.ts`
@@ -2591,25 +3099,35 @@ git commit -m "feat(modules): expose deterministic game queries"
 
 **Interfaces:**
 - Consumes: public Base authoring helpers, twelve individual public Module bindings/Schemas/coordinator/query builders, Base/UI presentation contracts, and code-native asset fallback types.
-- Produces: the first real twelve-binding `GameProfileV1`, side-effect-free `@project-tavern/story-e2e` default GamePackage, fixed branded identity/revision, deterministic rules/data, typed Patch Surfaces, complete `zh-CN` catalog, and fallback-only assets. It does not expose development fixtures yet.
+- Produces: the first real twelve-binding post-resolution `GameProfileV1`, side-effect-free `@project-tavern/story-e2e` default GamePackage with typed Program materialization/Profile factory, fixed branded identity/revision, deterministic rules/data, typed Patch Surfaces, complete `zh-CN` catalog, and fallback-only assets. It does not expose development fixtures yet.
 
 - [ ] **Step 1: Write the failing independent-Story contract test**
 
 ```ts
 // stories/e2e/src/test/story-contract.test.ts
 import { describe, expect, it } from "vitest";
-import { validateStoryV1 } from "@project-tavern/base/testkit";
+import {
+  resolveStoryForTestV1,
+  validateStoryV1,
+} from "@project-tavern/base/testkit";
 import { e2eStoryEntryV1 } from "../index.js";
+import {
+  e2eStateContractRevisionV1,
+  e2eStoryIdentityV1,
+} from "../simulation/identity.js";
 
 describe("story.e2e_001", () => {
   it("defines an independent all-real-module Story", () => {
-    expect(e2eStoryEntryV1.identity).toEqual({ id: "story.e2e_001", revision: 1 });
-    const definition = e2eStoryEntryV1.define();
-    expect(definition.simulation.profile.modules.map((module) => module.descriptor.id)).toEqual([
+    expect(e2eStoryEntryV1.identity).toEqual(e2eStoryIdentityV1);
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    expect(resolved.profile.modules.map((module) => module.descriptor.id)).toEqual([
       "module.run", "module.calendar", "module.actors", "module.status",
       "module.inventory", "module.facilities", "module.tavern", "module.workflow",
       "module.world", "module.progression", "module.narrative", "module.scheduling",
     ]);
+    expect(resolved.provenance.resolved.stateContractRevision)
+      .toBe(e2eStateContractRevisionV1);
+    expect(resolved.simulationProgram.data.manifest.playableDays).toBe(7);
     expect(validateStoryV1(e2eStoryEntryV1)).toEqual({ ok: true });
   });
 
@@ -2623,13 +3141,13 @@ describe("story.e2e_001", () => {
 
 - [ ] **Step 2: Run and verify the Story entry is absent**
 
-Run: `pnpm --filter @project-tavern/story-e2e test -- src/test/story-contract.test.ts`
+Run: `pnpm exec vitest run stories/e2e/src/test/story-contract.test.ts`
 
-Expected: FAIL with missing `../index.js`.
+Expected: FAIL because the existing placeholder index has no named `e2eStoryEntryV1` export or Story implementation.
 
 - [ ] **Step 3: Freeze package metadata and public exports**
 
-```json
+```jsonc
 // stories/e2e/package.json
 {
   "name": "@project-tavern/story-e2e",
@@ -2647,12 +3165,14 @@ Expected: FAIL with missing `../index.js`.
     "@project-tavern/base": "workspace:*",
     "@project-tavern/modules": "workspace:*",
     "@project-tavern/ui": "workspace:*",
-    "@project-tavern/assets": "workspace:*"
+    "@project-tavern/assets": "workspace:*",
+    "react": "19.2.7",
+    "zod": "4.4.3"
   }
 }
 ```
 
-`stories/e2e/LICENSE.md` assigns TypeScript implementation/tests/scripts to PolyForm Noncommercial and assigns `src/presentation/text-catalogs.ts` plus later `src/simulation/narrative.ts` to CC BY-NC-SA 4.0, linking the exact root legal texts. In the same step, update `workspace-policy.mjs` and licensing verifier tests from the Phase 1 single PolyForm package declaration to `SEE LICENSE IN LICENSE.md`; assert the scope file exists and names both licenses. This package metadata/scope/policy change must pass `pnpm verify:licensing` before the commit.
+`stories/e2e/LICENSE.md` assigns TypeScript implementation/tests/scripts to PolyForm Noncommercial and assigns `src/presentation/text-catalogs.ts` plus later `src/simulation/narrative.ts` to CC BY-NC-SA 4.0, linking the exact root legal texts. Its `tsconfig.json` keeps simulation imports DOM-free through the boundary verifier but enables `jsx: "react-jsx"` and the DOM library for the owned presentation file; the package directly owns pinned React because Task 19 already compiles a `.tsx` SceneGraph. In the same step, update `workspace-policy.mjs` and licensing verifier tests from the Phase 1 single PolyForm package declaration to `SEE LICENSE IN LICENSE.md`; assert the scope file exists and names both licenses. This package metadata/scope/policy change must pass `pnpm verify:licensing` before the commit.
 
 - [ ] **Step 4: Add exact minimal content and balance**
 
@@ -2670,13 +3190,15 @@ export const e2eReferenceSeedV1 = parseNonZeroUint32(0x00023049);
 export const e2eReferenceRunIdV1 = parseRunId("00000000-0000-4000-8000-00000000e2e0");
 ```
 
-`simulation/ids.ts` calls the matching public Modules parser for every Policy/Action/Event/Checkpoint/Scene/Node/Choice/Fact/Outcome/Ingredient/Recipe/Facility/Aura/CustomerSegment/Check/CheckBand/Ending/Text/Asset/Reason/WorldStep/StoryToken/Character ID and exports one frozen `e2eIdsV1` registry. Only generic `RunId`, `NonZeroUint32`, and safe-integer values use Base parsers. Every command, state definition, Narrative node, rule result, ViewModel, and test fixture uses that registry; no `as ActionId`, `as string`, or raw-ID widening is allowed.
+`simulation/ids.ts` calls the matching public Modules parser for every Policy/Action/Event/Checkpoint/Scene/Node/Choice/Fact/Outcome/Ingredient/Recipe/Facility/Aura/CustomerSegment/Check/CheckBand/Ending/Text/Asset/Reason/WorldStep/StoryToken/Character/Fixture ID and exports one frozen `e2eIdsV1` registry, including `checkpointOpeningInterrupt` and the eight reserved development IDs `fixture.e2e_bootstrap`, `fixture.e2e_branch_left`, `fixture.e2e_opening_interrupted`, `fixture.e2e_opening_shortage`, `fixture.e2e_world_departure`, `fixture.e2e_world_ready`, `fixture.e2e_levy_due`, and `fixture.e2e_replay_tail`, all constructed with `parseFixtureId`. It also exports `e2eValuesV1`, whose `day1`, `day7`, `playableDays7`, `zero`, `one`, `onePositive`, `zeroSigned`, `oneSigned`, `oneQuantity`, `tenQuantity`, `zeroMoney`, `oneMoney`, and `twoMoney` members are created by their exact DayIndex/Base-safe-integer/SafeInteger/Quantity/Money parsers; `priority100` is explicitly created with `parseSafeInteger(100)`. Only generic `RunId` and `NonZeroUint32` remain in `identity.ts`. Every command, state definition, Narrative node, rule result, ViewModel, and test fixture uses those registries; no branded ID or numeric value is widened through an assertion. Exact ABI literals such as `contractRevision: 1`, `dataRevision: 1`, and `DemandRandomOffset` remain literals rather than being misrepresented as brands.
 
 ```ts
 // stories/e2e/src/simulation/data.ts
+import { e2eIdsV1, e2eValuesV1 } from "./ids.js";
+
 export const e2eStoryDataV1: DemoStoryDataV1 = Object.freeze({
   dataRevision: 1,
-  manifest: { titleTextId: e2eIdsV1.textTitle, initialSceneId: e2eIdsV1.sceneManifest, playableDays: parsePositiveSafeInteger(7) },
+  manifest: { titleTextId: e2eIdsV1.textTitle, initialSceneId: e2eIdsV1.sceneManifest, playableDays: e2eValuesV1.playableDays7 },
   stateDefinitions: {
     facts: [
       { factId: e2eIdsV1.factBranch, value: { kind: "token", defaultValue: e2eIdsV1.tokenBranchNone, allowedValues: [e2eIdsV1.tokenBranchNone, e2eIdsV1.tokenBranchLeft, e2eIdsV1.tokenBranchRight] } },
@@ -2694,26 +3216,28 @@ export const e2eStoryDataV1: DemoStoryDataV1 = Object.freeze({
 });
 ```
 
-`e2eBalanceV1` contains one balanced policy (`2/2/2`, recovery 1), one service day (D1), one segment, one ingredient, one recipe, all four service modes, one facility, two Auras, levy amount 1 due D7 afternoon, menu/purchase/preparation limits of 1, narrative step limit 64, and call depth 4. Starting cash/stamina are 10; base D1 demand is exactly 2. IDs use only the `*.e2e_*` namespace.
+`e2eBalanceV1` contains one balanced policy (`2/2/2`, recovery 1), one service day (D1), one segment, one ingredient with unit price 1, one recipe, all four service modes, one facility, two Auras, levy amount 1 due D7 afternoon, menu/purchase/preparation limits of 1, narrative step limit 64, and call depth 4. Starting cash/stamina are 10; base D1 demand is exactly 2. IDs use only the `*.e2e_*` namespace.
 
 - [ ] **Step 5: Add deterministic rules and typed Patch Surfaces**
 
 ```ts
 // stories/e2e/src/simulation/rules.ts
+import { parseSafeInteger } from "@project-tavern/modules";
+import { e2eValuesV1 } from "./ids.js";
+
 export const e2eStoryRulesV1: StoryRulesV1 = Object.freeze({
   demand: {
     resolve: (input, rng) => ({
-      lines: input.segments.map((line) => ({
-        day: line.day,
-        segmentId: line.segmentId,
-        randomOffset: (rng.nextInt({ exclusiveMax: 1, purpose: `demand:${line.day}:${line.segmentId}` }) * 0) as 0,
-      })),
+      lines: input.segments.map((line) => {
+        rng.nextInt({ exclusiveMax: e2eValuesV1.onePositive, purpose: `demand:${line.day}:${line.segmentId}` });
+        return { day: line.day, segmentId: line.segmentId, randomOffset: 0 };
+      }),
     }),
     preview: (input) => ({
       day: input.day,
       lines: input.seeds.map((seed) => ({
         segmentId: seed.segmentId,
-        range: { min: seed.baseCustomers, max: seed.baseCustomers },
+        range: { min: parseSafeInteger(seed.baseCustomers), max: parseSafeInteger(seed.baseCustomers) },
         actualCustomers: seed.baseCustomers,
         modifiers: [],
       })),
@@ -2738,9 +3262,10 @@ export const e2ePresentationPatchSurfaceV1 = definePresentationPatchSurface({
 });
 ```
 
-`stories/e2e/src/profile.ts` is the first place to construct the twelve-binding tuple. It defines one immutable `DemoSimulationProgramV1`, passes it to `createDemoCommandCoordinatorV1(program)`, and calls the curried Base authoring helper:
+`stories/e2e/src/profile.ts` is the first place to construct the twelve-binding tuple. It receives one immutable post-Hotfix `DemoSimulationProgramV1`, passes it to `createDemoCommandCoordinatorV1(program)`, and calls the curried Base authoring helper:
 
 ```ts
+// stories/e2e/src/profile.ts
 export function createE2eGameProfileV1(program: DeepReadonly<DemoSimulationProgramV1>) {
   const coordinator = createDemoCommandCoordinatorV1(program);
   return defineGameProfile<DemoProfileTypesV1>()({
@@ -2761,16 +3286,120 @@ export function createE2eGameProfileV1(program: DeepReadonly<DemoSimulationProgr
       runId: parseRunId(entropy.nextUuidV4()),
     }),
     createInitialState: (bootstrap) => createE2eInitialStateV1(bootstrap, program.data),
-    projectView: (state) => projectDemoGameViewV1(state, program),
+    projectView: (snapshot) => projectDemoGameViewV1(
+      snapshot.state,
+      coordinator.createQueries(snapshot),
+    ),
   });
 }
 ```
 
-`createE2eInitialStateV1` calls the ten stateful bindings' `createInitialState` functions and supplies only Story-owned definitions where required; it does not mutate an initialized slice. `DemoExecutionContextV1` contains only the resolved branded simulation digest used to reject mismatched execution; rule/data/Narrative functions remain in the coordinator closure. The contract test includes a type witness for the exact twelve-binding tuple and proves Host entropy is consumed once per bootstrap.
+`createE2eInitialStateV1` calls the ten stateful bindings' `createInitialState` functions and supplies only Story-owned definitions where required; it does not mutate an initialized slice. The contract test includes a type witness for the exact twelve-binding tuple and proves Host entropy is consumed once per bootstrap. Demo command execution context is exactly `undefined`; resolved identity stays at the Story/EngineSession boundary and never becomes a gameplay rule input.
 
 - [ ] **Step 6: Add complete text/fallback presentation and compose the entry**
 
 `e2eTextCatalogsV1` has one canonical `zh-CN` catalog containing every declared TextId exactly once. `e2eAssetSlotsV1` contains `background.e2e_tavern` and `character.e2e_heroine_neutral`, both `code_fallback`, with no Asset Pack providers.
+
+Task 19 also supplies one code-native headless Scene so the independently validated Story has a complete presentation before Task 20 replaces it with playable main-menu/play/summary contributions:
+
+```tsx
+// stories/e2e/src/presentation/scene-graph.tsx
+import { defineUiScene, defineUiSceneGraph } from "@project-tavern/ui";
+
+export const e2eUiSceneGraphV1 = defineUiSceneGraph({
+  initialSceneId: "ui_scene.e2e_bootstrap",
+  scenes: [defineUiScene({
+    id: "ui_scene.e2e_bootstrap",
+    select: (view) => view,
+    renderer: () => null,
+  })],
+});
+```
+
+The source definition has no pre-resolved Profile. Its exact materialization maps every exposed simulation/presentation Patch symbol into the Programs consumed by the resolver:
+
+```ts
+// stories/e2e/src/story.ts
+import type {
+  DeepReadonly,
+  ResolvedPatchValuesV1,
+} from "@project-tavern/base";
+import type { DemoSimulationProgramV1 } from "@project-tavern/modules";
+import {
+  e2ePresentationPatchSurfaceV1,
+  e2eSimulationPatchSurfaceV1,
+} from "./patch-surfaces.js";
+import { e2eAssetSlotsV1 } from "./presentation/assets.js";
+import { e2eUiSceneGraphV1 } from "./presentation/scene-graph.js";
+import { e2eTextCatalogsV1 } from "./presentation/text-catalogs.js";
+import { createE2eGameProfileV1 } from "./profile.js";
+import { e2eStoryDataV1 } from "./simulation/data.js";
+import { e2eStateContractRevisionV1 } from "./simulation/identity.js";
+import { e2eStoryRulesV1 } from "./simulation/rules.js";
+
+type E2eSimulationPatchValuesV1 = ResolvedPatchValuesV1<
+  typeof e2eSimulationPatchSurfaceV1
+>;
+type E2ePresentationPatchValuesV1 = ResolvedPatchValuesV1<
+  typeof e2ePresentationPatchSurfaceV1
+>;
+
+function materializeE2eSimulationProgramV1(
+  values: DeepReadonly<E2eSimulationPatchValuesV1>,
+): DemoSimulationProgramV1 {
+  const data = Object.freeze({
+    ...e2eStoryDataV1,
+    balance: values["value.balance"],
+  });
+  const rules = Object.freeze({
+    ...e2eStoryRulesV1,
+    tavern: Object.freeze({
+      ...e2eStoryRulesV1.tavern,
+      settle: values["rule.tavern.settle"],
+    }),
+    checks: Object.freeze({
+      ...e2eStoryRulesV1.checks,
+      resolve: values["rule.checks.resolve"],
+    }),
+  });
+  return Object.freeze({ data, rules });
+}
+
+function materializeE2ePresentationV1(
+  values: DeepReadonly<E2ePresentationPatchValuesV1>,
+) {
+  return Object.freeze({
+    uiSceneGraph: e2eUiSceneGraphV1,
+    textCatalogs: values["text.catalogs"],
+    assetSlots: e2eAssetSlotsV1,
+    assetPacks: Object.freeze([]),
+  });
+}
+
+export function defineE2eStoryV1() {
+  return Object.freeze({
+    simulation: Object.freeze({
+      stateContractRevision: e2eStateContractRevisionV1,
+      data: e2eStoryDataV1,
+      rules: e2eStoryRulesV1,
+      narrativeProgram: e2eStoryDataV1.content.scenes,
+      patchSurface: e2eSimulationPatchSurfaceV1,
+      materializeProgram: materializeE2eSimulationProgramV1,
+      createProfile: createE2eGameProfileV1,
+    }),
+    presentation: Object.freeze({
+      uiSceneGraph: e2eUiSceneGraphV1,
+      textCatalogs: e2eTextCatalogsV1,
+      assetSlots: e2eAssetSlotsV1,
+      assetPacks: Object.freeze([]),
+      patchSurface: e2ePresentationPatchSurfaceV1,
+      materializePresentation: materializeE2ePresentationV1,
+    }),
+  });
+}
+```
+
+The Task 19 contract test asserts `e2eStateContractRevisionV1` reaches resolved provenance and that the three simulation defaults plus `text.catalogs` appear in the two base materialized Programs. Phase 1's synthetic resolver test proves a replacement changes Program/Profile-observed behavior; Task 22A repeats that proof with the official E2E Hotfix. The resolver, not this Story function, performs contract validation and runtime deep-freeze before `createProfile`.
 
 ```ts
 // stories/e2e/src/index.ts
@@ -2800,7 +3429,7 @@ Expected: PASS; Story validation reports no missing/duplicate IDs, references, c
 - [ ] **Step 9: Commit the independent Story definition and its atomic policy activation**
 
 ```bash
-git add stories/e2e/package.json stories/e2e/tsconfig.json stories/e2e/LICENSE.md stories/e2e/src/index.ts stories/e2e/src/story.ts stories/e2e/src/profile.ts stories/e2e/src/simulation/identity.ts stories/e2e/src/simulation/ids.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/rules.ts stories/e2e/src/patch-surfaces.ts stories/e2e/src/presentation/text-catalogs.ts stories/e2e/src/presentation/assets.ts stories/e2e/src/test/story-contract.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
+git add stories/e2e/package.json stories/e2e/tsconfig.json stories/e2e/LICENSE.md stories/e2e/src/index.ts stories/e2e/src/story.ts stories/e2e/src/profile.ts stories/e2e/src/simulation/identity.ts stories/e2e/src/simulation/ids.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/rules.ts stories/e2e/src/patch-surfaces.ts stories/e2e/src/presentation/text-catalogs.ts stories/e2e/src/presentation/assets.ts stories/e2e/src/presentation/scene-graph.tsx stories/e2e/src/test/story-contract.test.ts scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/workspace-policy.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
 git commit -m "feat(story-e2e): define independent module fixture story"
 ```
 
@@ -2808,8 +3437,9 @@ git commit -m "feat(story-e2e): define independent module fixture story"
 
 **Files:**
 - Create: `stories/e2e/src/testing/session-harness.ts`
+- Create: `stories/e2e/src/testing/scenario-commands.ts`
 - Create: `stories/e2e/src/simulation/narrative.ts`
-- Create: `stories/e2e/src/presentation/scene-graph.tsx`
+- Modify: `stories/e2e/src/presentation/scene-graph.tsx`
 - Create: `stories/e2e/src/test/branch-rejoin.integration.test.ts`
 - Modify: `stories/e2e/src/simulation/data.ts`
 - Modify: `stories/e2e/src/story.ts`
@@ -2817,41 +3447,202 @@ git commit -m "feat(story-e2e): define independent module fixture story"
 
 **Interfaces:**
 - Consumes: Narrative interpreter/coordinator, Story state definitions, generic UI scene/contribution contracts, PresentationReadPort, and the resolved E2E simulation facet.
-- Produces: a test-only command driver that mutates only through the real Profile coordinator, manifest VN, branch/rejoin VN, stable stage cues, Story-owned main menu/play scenes, and a headless integration test proving local divergence and convergence.
+- Produces: a test-only command driver that mutates only through the real Profile coordinator, one typed command-derived scenario registry for later integration tests, manifest VN, branch/rejoin VN, stable stage cues, Story-owned main menu/play scenes, and a headless integration test proving local divergence and convergence.
 
 - [ ] **Step 1: Write the failing branch/rejoin integration test**
 
 ```ts
 // stories/e2e/src/testing/session-harness.ts
-export function createE2eSessionHarnessV1(): E2eSessionHarnessV1 {
-  const definition = e2eStoryEntryV1.define();
-  return E2eSessionHarnessV1.create({
-    profile: definition.simulation.profile,
-    context: createE2eExecutionContextV1(definition.simulation),
-    bootstrap: { rngSeed: e2eReferenceSeedV1, runId: e2eReferenceRunIdV1 },
-  });
+import {
+  createTransactionalRngV1,
+  parseNonNegativeSafeInteger,
+} from "@project-tavern/base";
+import type { DeepReadonly } from "@project-tavern/base";
+import {
+  resolveStoryForTestV1,
+  strictJsonRoundTripV1,
+} from "@project-tavern/base/testkit";
+import {
+  gameSnapshotV1Schema,
+  type DemoCommandExecutionAttemptV1,
+  type DemoGameBootstrapInputV1,
+  type EngineQueriesV1,
+  type GameCommandV1,
+  type GameSnapshotV1,
+} from "@project-tavern/modules";
+import { e2eStoryEntryV1 } from "../index.js";
+import {
+  e2eReferenceRunIdV1,
+  e2eReferenceSeedV1,
+} from "../simulation/identity.js";
+import { e2eIdsV1 } from "../simulation/ids.js";
+import type { createE2eGameProfileV1 } from "../profile.js";
+
+type E2eGameProfileV1 = ReturnType<typeof createE2eGameProfileV1>;
+
+export interface E2eSessionHarnessV1 {
+  commit(command: DeepReadonly<GameCommandV1>): DeepReadonly<GameSnapshotV1>;
+  commitAttempt(command: DeepReadonly<GameCommandV1>): DeepReadonly<DemoCommandExecutionAttemptV1>;
+  snapshot(): DeepReadonly<GameSnapshotV1>;
+  queries(): EngineQueriesV1;
+  loadCommands(commands: readonly DeepReadonly<GameCommandV1>[]): void;
+  drainNarrative(): void;
+  roundTripCurrentSnapshot(): DeepReadonly<GameSnapshotV1>;
+  startAndChoosePolicy(): void;
+}
+
+export interface E2eSessionHarnessOptionsV1 {
+  readonly profile?: E2eGameProfileV1;
+  readonly bootstrap?: DemoGameBootstrapInputV1;
+}
+
+class PrivateE2eSessionHarnessV1 implements E2eSessionHarnessV1 {
+  readonly #profile: E2eGameProfileV1;
+  #snapshot: GameSnapshotV1;
+
+  constructor(
+    profile: E2eGameProfileV1,
+    bootstrap: DemoGameBootstrapInputV1,
+  ) {
+    this.#profile = profile;
+    this.#snapshot = gameSnapshotV1Schema.parse({
+      state: this.#profile.createInitialState(bootstrap),
+      rng: createTransactionalRngV1(bootstrap.rngSeed).candidateState(),
+      commandSequence: parseNonNegativeSafeInteger(0),
+    });
+  }
+
+  commitAttempt(
+    command: DeepReadonly<GameCommandV1>,
+  ): DeepReadonly<DemoCommandExecutionAttemptV1> {
+    const attempt = this.#profile.coordinator.executeAttempt(this.#snapshot, command, undefined);
+    if (attempt.result.kind !== "committed") {
+      throw new Error(`scenario command did not commit: ${attempt.result.kind}`);
+    }
+    this.#snapshot = gameSnapshotV1Schema.parse(attempt.result.snapshot);
+    return attempt;
+  }
+
+  commit(command: DeepReadonly<GameCommandV1>): DeepReadonly<GameSnapshotV1> {
+    this.commitAttempt(command);
+    return this.#snapshot;
+  }
+
+  snapshot(): DeepReadonly<GameSnapshotV1> {
+    return this.#snapshot;
+  }
+
+  queries(): EngineQueriesV1 {
+    return this.#profile.coordinator.createQueries(this.#snapshot);
+  }
+
+  loadCommands(commands: readonly DeepReadonly<GameCommandV1>[]): void {
+    for (const command of commands) this.commit(command);
+  }
+
+  drainNarrative(): void {
+    for (let step = 0; step < 64; step += 1) {
+      const projection = this.queries().getNarrativeProjection();
+      if (projection === null || projection.status !== "active") return;
+      if (projection.choices.length !== 0) {
+        throw new Error("drainNarrative cannot choose a player branch");
+      }
+      this.commit({ kind: "narrative.advance" });
+    }
+    throw new Error("drainNarrative exceeded the E2E step bound");
+  }
+
+  roundTripCurrentSnapshot(): DeepReadonly<GameSnapshotV1> {
+    this.#snapshot = strictJsonRoundTripV1(this.#snapshot, gameSnapshotV1Schema);
+    return this.#snapshot;
+  }
+
+  startAndChoosePolicy(): void {
+    this.commit({ kind: "run.start" });
+    this.drainNarrative();
+    this.commit({ kind: "policy.choose", policyId: e2eIdsV1.policyBalanced });
+  }
+}
+
+export function createE2eSessionHarnessV1(
+  options: E2eSessionHarnessOptionsV1 = {},
+): E2eSessionHarnessV1 {
+  const bootstrap = options.bootstrap ?? {
+    rngSeed: e2eReferenceSeedV1,
+    runId: e2eReferenceRunIdV1,
+  };
+  if (options.profile !== undefined) {
+    return new PrivateE2eSessionHarnessV1(options.profile, bootstrap);
+  }
+
+  const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+  return new PrivateE2eSessionHarnessV1(resolved.profile, bootstrap);
 }
 ```
 
-`E2eSessionHarnessV1` stores one private committed Snapshot. `commit` invokes `profile.coordinator.executeAttempt` exactly once and adopts only a committed result; selectors call `profile.coordinator.createQueries`; convenience methods expand to public `GameCommandV1` values. It exposes no owner capability and never applies a proposal or rule directly.
+The default harness therefore resolves the unpatched E2E `GamePackageV1` through the real Base resolver before constructing any Profile-backed state. The testkit supplies deterministic test-only build/governance inputs, but returns the same frozen `ResolvedStoryV1` shape and runs the same validation as production. A caller exercising an already resolved Hotfix candidate passes that exact `resolved.profile`; Demo has no digest-bearing gameplay context to mismatch. `commitAttempt` performs exactly one coordinator call, commits only its committed Snapshot, and returns that same attempt so replay tests can observe `diagnostics.attemptedDraws`; `commit` delegates to it and returns the resulting Snapshot without executing twice. `resolveStoryForTestV1` and this harness remain test-only imports and are absent from the Story Player closure.
+
+`roundTripCurrentSnapshot` canonicalizes, bounded-parses, validates, and replaces only the harness's own current private Snapshot, then returns that validated Snapshot. It accepts no external value and therefore is not an authoritative-state setter. It is absent from Player/package exports; the private implementation exposes no owner capability and never applies a proposal or rule directly.
+
+```ts
+// stories/e2e/src/testing/scenario-commands.ts
+import type { GameCommandV1 } from "@project-tavern/modules";
+import { e2eIdsV1 } from "../simulation/ids.js";
+
+function deepFreezeScenarioValueV1(value: unknown): void {
+  if (value === null || typeof value !== "object") return;
+  for (const child of Array.isArray(value) ? value : Object.values(value)) {
+    deepFreezeScenarioValueV1(child);
+  }
+  Object.freeze(value);
+}
+
+export function freezeScenarioCommandsV1(
+  commands: readonly GameCommandV1[],
+): readonly GameCommandV1[] {
+  const frozen = [...commands];
+  deepFreezeScenarioValueV1(frozen);
+  return frozen;
+}
+
+export const commandsToBranchLeftV1 = freezeScenarioCommandsV1([
+  { kind: "run.start" },
+  { kind: "narrative.advance" },
+  { kind: "policy.choose", policyId: e2eIdsV1.policyBalanced },
+  { kind: "story.action.start", actionId: e2eIdsV1.actionBranch },
+  {
+    kind: "narrative.choose",
+    sceneId: e2eIdsV1.sceneBranch,
+    nodeId: e2eIdsV1.nodeBranchChoice,
+    choiceId: e2eIdsV1.choiceLeft,
+  },
+  { kind: "narrative.advance" },
+]);
+```
+
+Each later task extends this same registry only with public-command routes made possible by that task's content, never with a handwritten Snapshot.
 
 ```ts
 // stories/e2e/src/test/branch-rejoin.integration.test.ts
 import { describe, expect, it } from "vitest";
+import { e2eIdsV1 } from "../simulation/ids.js";
 import { createE2eSessionHarnessV1 } from "../testing/session-harness.js";
 
 describe("E2E branch/rejoin VN", () => {
   it.each([
-    ["choice.e2e_left", "branch.e2e_left"],
-    ["choice.e2e_right", "branch.e2e_right"],
+    [e2eIdsV1.choiceLeft, e2eIdsV1.tokenBranchLeft],
+    [e2eIdsV1.choiceRight, e2eIdsV1.tokenBranchRight],
   ] as const)("commits %s and rejoins the shared line", (choiceId, branchToken) => {
     const harness = createE2eSessionHarnessV1();
     harness.startAndChoosePolicy();
-    harness.commit({ kind: "story.action.start", actionId: "action.e2e_branch" });
+    harness.commit({ kind: "story.action.start", actionId: e2eIdsV1.actionBranch });
     const projection = harness.queries().getNarrativeProjection();
-    harness.commit({ kind: "narrative.choose", sceneId: projection.cursor!.sceneId, nodeId: projection.cursor!.nodeId, choiceId });
-    expect(harness.snapshot().state.story.facts).toContainEqual({ factId: "fact.e2e_branch", value: { kind: "token", value: branchToken } });
-    expect(harness.queries().getNarrativeProjection().textId).toBe("text.e2e_shared_line");
+    if (projection === null || projection.cursor === null) throw new Error("expected choice cursor");
+    harness.commit({ kind: "narrative.choose", sceneId: projection.cursor.sceneId, nodeId: projection.cursor.nodeId, choiceId });
+    expect(harness.snapshot().state.story.facts).toContainEqual({ factId: e2eIdsV1.factBranch, value: { kind: "token", value: branchToken } });
+    const shared = harness.queries().getNarrativeProjection();
+    if (shared === null) throw new Error("expected shared line");
+    expect(shared.textId).toBe(e2eIdsV1.textSharedLine);
     harness.commit({ kind: "narrative.advance" });
     expect(harness.snapshot().state.story.narrative.status).toBe("completed");
   });
@@ -2868,17 +3659,19 @@ Expected: FAIL with `command.unknown_reference` for `action.e2e_branch`.
 
 ```ts
 // stories/e2e/src/simulation/narrative.ts
+import { e2eIdsV1 } from "./ids.js";
+
 export const e2eBranchSceneV1: NarrativeSceneV1 = Object.freeze({
-  sceneId: "scene.e2e_branch",
-  entryNodeId: "node.e2e_branch_stage",
+  sceneId: e2eIdsV1.sceneBranch,
+  entryNodeId: e2eIdsV1.nodeBranchStage,
   nodes: [
-    { kind: "stageCue", nodeId: "node.e2e_branch_stage", cue: { kind: "character.show", slot: "center", characterId: "character.e2e_heroine", poseAssetId: "character.e2e_heroine_neutral" }, nextNodeId: "node.e2e_branch_choice" },
-    { kind: "choice", nodeId: "node.e2e_branch_choice", choices: [
-      { choiceId: "choice.e2e_left", textId: "text.e2e_choice_left", showWhen: [], enableWhen: [], confirmation: emptyConfirmationV1, effects: [{ kind: "fact.set", factId: "fact.e2e_branch", value: { kind: "token", value: "branch.e2e_left" }, reasonId: "reason.e2e_branch" }], nextNodeId: "node.e2e_shared_line" },
-      { choiceId: "choice.e2e_right", textId: "text.e2e_choice_right", showWhen: [], enableWhen: [], confirmation: emptyConfirmationV1, effects: [{ kind: "fact.set", factId: "fact.e2e_branch", value: { kind: "token", value: "branch.e2e_right" }, reasonId: "reason.e2e_branch" }], nextNodeId: "node.e2e_shared_line" },
+    { kind: "stageCue", nodeId: e2eIdsV1.nodeBranchStage, cue: { kind: "character.show", slot: "center", characterId: e2eIdsV1.characterHeroine, poseAssetId: e2eIdsV1.assetHeroineNeutral }, nextNodeId: e2eIdsV1.nodeBranchChoice },
+    { kind: "choice", nodeId: e2eIdsV1.nodeBranchChoice, choices: [
+      { choiceId: e2eIdsV1.choiceLeft, textId: e2eIdsV1.textChoiceLeft, showWhen: [], enableWhen: [], confirmation: emptyConfirmationV1, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchLeft }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeSharedLine },
+      { choiceId: e2eIdsV1.choiceRight, textId: e2eIdsV1.textChoiceRight, showWhen: [], enableWhen: [], confirmation: emptyConfirmationV1, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchRight }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeSharedLine },
     ] },
-    { kind: "line", nodeId: "node.e2e_shared_line", speakerId: "character.e2e_heroine", textId: "text.e2e_shared_line", nextNodeId: "node.e2e_branch_end" },
-    { kind: "end", nodeId: "node.e2e_branch_end" },
+    { kind: "line", nodeId: e2eIdsV1.nodeSharedLine, speakerId: e2eIdsV1.characterHeroine, textId: e2eIdsV1.textSharedLine, nextNodeId: e2eIdsV1.nodeBranchEnd },
+    { kind: "end", nodeId: e2eIdsV1.nodeBranchEnd },
   ],
 });
 ```
@@ -2887,19 +3680,39 @@ export const e2eBranchSceneV1: NarrativeSceneV1 = Object.freeze({
 
 ```tsx
 // stories/e2e/src/presentation/scene-graph.tsx
-export const e2eUiSceneGraphV1 = defineUiSceneGraph({
-  initialSceneId: "ui_scene.e2e_main_menu",
-  scenes: [
-    defineUiScene({ id: "ui_scene.e2e_main_menu", select: (view) => view.runStart, renderer: E2eMainMenuScene }),
-    defineUiScene({ id: "ui_scene.e2e_play", select: (view) => view, renderer: E2ePlayScene }),
-    defineUiScene({ id: "ui_scene.e2e_summary", select: (view) => view.completion, renderer: E2eSummaryScene }),
-  ],
+import { e2eIdsV1 } from "../simulation/ids.js";
+
+const e2eUiSceneIdsV1 = Object.freeze({
+  mainMenu: "ui_scene.e2e_main_menu",
+  play: "ui_scene.e2e_play",
+  summary: "ui_scene.e2e_summary",
 });
 
-function E2eMainMenuScene({ viewSlice, playerPort, presentation }: PlayerRendererContextV1<RunStartControlProjectionV1>) {
-  const title = presentation.text("text.e2e_title");
-  return <button type="button" onClick={() => playerPort.commands.dispatch(viewSlice.command)}>{title.text}</button>;
-}
+export const e2eUiSceneGraphV1 = defineUiSceneGraph({
+  initialSceneId: e2eUiSceneIdsV1.mainMenu,
+  scenes: [
+    defineUiScene({
+      id: e2eUiSceneIdsV1.mainMenu,
+      select: (view) => view.runStart,
+      renderer: ({ viewSlice, playerPort, presentation }) => {
+        const title = presentation.text(e2eIdsV1.textTitle);
+        return <button type="button" onClick={() => playerPort.commands.dispatch(viewSlice.command)}>{title.text}</button>;
+      },
+    }),
+    defineUiScene({
+      id: e2eUiSceneIdsV1.play,
+      select: (view) => view,
+      renderer: () => <div data-e2e-scene="play" />,
+    }),
+    defineUiScene({
+      id: e2eUiSceneIdsV1.summary,
+      select: (view) => view.completion,
+      renderer: ({ viewSlice }) => viewSlice === null
+        ? null
+        : <div data-e2e-scene="summary" />,
+    }),
+  ],
+});
 ```
 
 No renderer imports `GameSnapshotV1`, `EngineSessionV1`, owner capabilities, or the development entry.
@@ -2913,7 +3726,7 @@ Expected: PASS for both branch tokens; both reach `text.e2e_shared_line`, then c
 - [ ] **Step 6: Commit VN and Story scene contributions**
 
 ```bash
-git add stories/e2e/src/testing/session-harness.ts stories/e2e/src/simulation/narrative.ts stories/e2e/src/presentation/scene-graph.tsx stories/e2e/src/test/branch-rejoin.integration.test.ts stories/e2e/src/simulation/data.ts stories/e2e/src/story.ts stories/e2e/src/presentation/text-catalogs.ts
+git add stories/e2e/src/testing/session-harness.ts stories/e2e/src/testing/scenario-commands.ts stories/e2e/src/simulation/narrative.ts stories/e2e/src/presentation/scene-graph.tsx stories/e2e/src/test/branch-rejoin.integration.test.ts stories/e2e/src/simulation/data.ts stories/e2e/src/story.ts stories/e2e/src/presentation/text-catalogs.ts
 git commit -m "feat(story-e2e): prove vn branch and rejoin"
 ```
 
@@ -2921,6 +3734,7 @@ git commit -m "feat(story-e2e): prove vn branch and rejoin"
 
 **Files:**
 - Create: `stories/e2e/src/test/opening-interruption.integration.test.ts`
+- Modify: `stories/e2e/src/testing/scenario-commands.ts`
 - Modify: `stories/e2e/src/simulation/data.ts`
 - Modify: `stories/e2e/src/simulation/narrative.ts`
 - Modify: `stories/e2e/src/presentation/text-catalogs.ts`
@@ -2931,10 +3745,45 @@ git commit -m "feat(story-e2e): prove vn branch and rejoin"
 
 - [ ] **Step 1: Write the failing interruption/resume test**
 
+Extend the typed scenario registry before importing it in the red test:
+
+```ts
+// stories/e2e/src/testing/scenario-commands.ts: extend the existing import
+import { e2eIdsV1, e2eValuesV1 } from "../simulation/ids.js";
+
+export function buildCommandsToOpeningStartV1(): readonly GameCommandV1[] {
+  return freezeScenarioCommandsV1([
+    { kind: "run.start" },
+    { kind: "narrative.advance" },
+    { kind: "policy.choose", policyId: e2eIdsV1.policyBalanced },
+    { kind: "inventory.buy", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: e2eValuesV1.oneQuantity }] },
+    { kind: "actor.prepare_food" },
+    { kind: "tavern.plan.set", plan: { mode: "manual", menu: [{ recipeId: e2eIdsV1.recipeStew, portions: e2eValuesV1.oneQuantity }] } },
+    { kind: "calendar.advance_phase" },
+    { kind: "calendar.advance_phase" },
+  ]);
+}
+
+export const commandsToInterruptedOpeningV1 = freezeScenarioCommandsV1([
+  ...buildCommandsToOpeningStartV1(),
+  { kind: "tavern.opening.start" },
+]);
+
+export const commandsToOpeningShortageV1 = freezeScenarioCommandsV1([
+  { kind: "run.start" },
+  { kind: "narrative.advance" },
+  { kind: "policy.choose", policyId: e2eIdsV1.policyBalanced },
+  { kind: "tavern.plan.set", plan: { mode: "manual", menu: [{ recipeId: e2eIdsV1.recipeStew, portions: e2eValuesV1.oneQuantity }] } },
+  { kind: "calendar.advance_phase" },
+  { kind: "calendar.advance_phase" },
+]);
+```
+
 ```ts
 // stories/e2e/src/test/opening-interruption.integration.test.ts
 import { describe, expect, it } from "vitest";
-import { strictJsonRoundTripV1 } from "@project-tavern/base/testkit";
+import { e2eIdsV1 } from "../simulation/ids.js";
+import { buildCommandsToOpeningStartV1 } from "../testing/scenario-commands.js";
 import { createE2eSessionHarnessV1 } from "../testing/session-harness.js";
 
 describe("E2E opening interruption", () => {
@@ -2945,11 +3794,11 @@ describe("E2E opening interruption", () => {
     expect(interrupted.state.simulation.activeWorkflow).toMatchObject({
       kind: "opening",
       checkpoint: "middle",
-      blockingEvent: { eventId: "event.e2e_opening_interrupt", sceneId: "scene.e2e_opening_interrupt" },
+      blockingEvent: { eventId: e2eIdsV1.eventOpeningInterrupt, sceneId: e2eIdsV1.sceneOpeningInterrupt },
     });
     const cashAfterStart = interrupted.state.simulation.inventory.cash;
-    const restored = strictJsonRoundTripV1(interrupted);
-    harness.anchorSnapshot(restored);
+    const restored = harness.roundTripCurrentSnapshot();
+    expect(restored).toEqual(interrupted);
     harness.drainNarrative();
     harness.commit({ kind: "tavern.opening.continue" });
     expect(harness.snapshot().state.simulation.inventory.cash).toBe(cashAfterStart);
@@ -2970,25 +3819,29 @@ Expected: FAIL because Start reaches `ready_to_finalize` without `event.e2e_open
 
 ```ts
 // append to stories/e2e/src/simulation/data.ts content.events
+import { e2eIdsV1, e2eValuesV1 } from "./ids.js";
+
 {
-  eventId: "event.e2e_opening_interrupt",
-  checkpointId: "checkpoint.e2e_opening_interrupt",
+  eventId: e2eIdsV1.eventOpeningInterrupt,
+  checkpointId: e2eIdsV1.checkpointOpeningInterrupt,
   trigger: { kind: "opening.middle" },
-  priority: 100,
+  priority: e2eValuesV1.priority100,
   weightedGroupId: null,
-  weight: 0,
-  when: [{ kind: "calendar.matches", day: 1, phases: ["evening"] }],
-  sceneId: "scene.e2e_opening_interrupt",
+  weight: e2eValuesV1.zero,
+  when: [{ kind: "calendar.matches", day: e2eValuesV1.day1, phases: ["evening"] }],
+  sceneId: e2eIdsV1.sceneOpeningInterrupt,
   effects: [{
     kind: "modifier.add",
     lifetime: "opening_session",
-    modifier: { kind: "capacity.add", source: { kind: "event", eventId: "event.e2e_opening_interrupt" }, modes: ["manual"], amount: 1, reasonId: "reason.e2e_opening_interrupt" },
-    reasonId: "reason.e2e_opening_interrupt",
+    modifier: { kind: "capacity.add", source: { kind: "event", eventId: e2eIdsV1.eventOpeningInterrupt }, modes: ["manual"], amount: e2eValuesV1.oneSigned, reasonId: e2eIdsV1.reasonOpeningInterrupt },
+    reasonId: e2eIdsV1.reasonOpeningInterrupt,
   }],
 }
 ```
 
 The Scene contains one narration node and one end node. Its end clears only `blockingEvent`; the checkpoint remains `middle` until explicit Continue.
+
+The Step 1 registry extension already supplies the three frozen public-command routes. The interrupted route ends immediately after Start; the shortage route reaches the applicable rejected/closure boundary without encoding or submitting the rejected Start command. Step 3 adds only the Event/Scene/content that changes the already-compiling test from its intended behavioral red to green.
 
 - [ ] **Step 4: Run interruption and replay-determinism tests**
 
@@ -2999,7 +3852,7 @@ Expected: PASS; strict JSON round-trip retains baseline/checkpoint/Narrative; Co
 - [ ] **Step 5: Commit the interruption fixture behavior**
 
 ```bash
-git add stories/e2e/src/test/opening-interruption.integration.test.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/narrative.ts stories/e2e/src/presentation/text-catalogs.ts
+git add stories/e2e/src/test/opening-interruption.integration.test.ts stories/e2e/src/testing/scenario-commands.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/narrative.ts stories/e2e/src/presentation/text-catalogs.ts
 git commit -m "test(story-e2e): cover interrupted opening workflow"
 ```
 
@@ -3007,6 +3860,7 @@ git commit -m "test(story-e2e): cover interrupted opening workflow"
 
 **Files:**
 - Create: `stories/e2e/src/test/world-ending.integration.test.ts`
+- Modify: `stories/e2e/src/testing/scenario-commands.ts`
 - Modify: `stories/e2e/src/simulation/data.ts`
 - Modify: `stories/e2e/src/simulation/narrative.ts`
 - Modify: `stories/e2e/src/simulation/rules.ts`
@@ -3018,16 +3872,63 @@ git commit -m "test(story-e2e): cover interrupted opening workflow"
 
 - [ ] **Step 1: Write failing WorldAction and ending tests**
 
+Extend the scenario registry before the red test imports these routes:
+
+```ts
+// append to stories/e2e/src/testing/scenario-commands.ts
+export function buildCommandsToWorldMorningV1(): readonly GameCommandV1[] {
+  return commandsToBranchLeftV1;
+}
+
+export const commandsToWorldDepartureV1 = freezeScenarioCommandsV1([
+  ...buildCommandsToWorldMorningV1(),
+  { kind: "world.action.begin", actionId: e2eIdsV1.actionWorld, optionId: e2eIdsV1.choiceWorldPrepared },
+]);
+
+export const commandsToWorldReadyV1 = freezeScenarioCommandsV1([
+  ...commandsToWorldDepartureV1,
+  { kind: "narrative.advance" },
+  { kind: "calendar.advance_phase" },
+  { kind: "narrative.advance" },
+]);
+
+export function buildCommandsToLevyDueV1(
+  route: "stable" | "arrears",
+): readonly GameCommandV1[] {
+  const spendToArrears: readonly GameCommandV1[] = route === "arrears"
+    ? [{ kind: "inventory.buy", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: e2eValuesV1.tenQuantity }] }]
+    : [];
+  return freezeScenarioCommandsV1([
+    { kind: "run.start" },
+    { kind: "narrative.advance" },
+    { kind: "policy.choose", policyId: e2eIdsV1.policyBalanced },
+    ...spendToArrears,
+    { kind: "tavern.plan.set", plan: { mode: "closed", menu: [] } },
+    ...Array.from({ length: 19 }, (): GameCommandV1 => ({ kind: "calendar.advance_phase" })),
+  ]);
+}
+
+export const commandsToLevyDueV1 = buildCommandsToLevyDueV1("stable");
+export const commandsToReplayTailV1 = freezeScenarioCommandsV1([
+  ...commandsToLevyDueV1,
+  { kind: "levy.pay" },
+]);
+```
+
+The E2E balance fixes grain price to one and starting cash to ten, so the single branded ten-quantity purchase is a legal command that produces the arrears route without an anchored State mutation. The route tests must assert every generated command commits before asserting the terminal outcome.
+
 ```ts
 // stories/e2e/src/test/world-ending.integration.test.ts
 import { describe, expect, it } from "vitest";
+import { e2eIdsV1, e2eValuesV1 } from "../simulation/ids.js";
+import { buildCommandsToLevyDueV1, buildCommandsToWorldMorningV1 } from "../testing/scenario-commands.js";
 import { createE2eSessionHarnessV1 } from "../testing/session-harness.js";
 
 describe("E2E WorldAction and ending", () => {
   it("moves through two scenes, resolves one check, and applies cross-owner rewards", () => {
     const harness = createE2eSessionHarnessV1();
     harness.loadCommands(buildCommandsToWorldMorningV1());
-    harness.commit({ kind: "world.action.begin", actionId: "action.e2e_world", optionId: "choice.e2e_world_prepared" });
+    harness.commit({ kind: "world.action.begin", actionId: e2eIdsV1.actionWorld, optionId: e2eIdsV1.choiceWorldPrepared });
     harness.drainNarrative();
     harness.commit({ kind: "calendar.advance_phase" });
     harness.drainNarrative();
@@ -3035,21 +3936,21 @@ describe("E2E WorldAction and ending", () => {
     const snapshot = harness.snapshot();
     expect(snapshot.state.simulation.activeWorkflow).toBeNull();
     expect(snapshot.state.story.resolvedChecks).toHaveLength(1);
-    expect(snapshot.state.story.facts).toContainEqual({ factId: "fact.e2e_world", value: { kind: "boolean", value: true } });
-    expect(snapshot.state.story.outcomes).toContainEqual({ outcomeId: "outcome.e2e_investigation", value: { kind: "token", value: "investigation.e2e_complete" } });
-    expect(snapshot.state.simulation.inventory.ingredientBatches.some((batch) => batch.ingredientId === "ingredient.e2e_grain")).toBe(true);
+    expect(snapshot.state.story.facts).toContainEqual({ factId: e2eIdsV1.factWorld, value: { kind: "boolean", value: true } });
+    expect(snapshot.state.story.outcomes).toContainEqual({ outcomeId: e2eIdsV1.outcomeInvestigation, value: { kind: "token", value: e2eIdsV1.tokenInvestigationComplete } });
+    expect(snapshot.state.simulation.inventory.ingredientBatches.some((batch) => batch.ingredientId === e2eIdsV1.ingredientGrain)).toBe(true);
   });
 
   it.each([
-    [2, "completed_stable"],
-    [0, "failed_arrears"],
-  ] as const)("ends from D7 cash %i as %s", (cash, status) => {
+    ["stable", "completed_stable"],
+    ["arrears", "failed_arrears"],
+  ] as const)("ends the D7 %s route as %s", (route, status) => {
     const harness = createE2eSessionHarnessV1();
-    harness.anchorFixtureState(buildLevyDueSnapshotV1({ cash }));
+    harness.loadCommands(buildCommandsToLevyDueV1(route));
     harness.commit({ kind: "levy.pay" });
     expect(harness.snapshot().state.simulation.run.status).toBe(status);
     expect(harness.queries().getRunCompletion()?.status).toBe(status);
-    expect(harness.snapshot().state.simulation.calendar).toMatchObject({ day: 7, phase: "afternoon" });
+    expect(harness.snapshot().state.simulation.calendar).toMatchObject({ day: e2eValuesV1.day7, phase: "afternoon" });
   });
 });
 ```
@@ -3064,38 +3965,44 @@ Expected: FAIL with unknown `action.e2e_world` or missing ending definition.
 
 ```ts
 // append to stories/e2e/src/simulation/data.ts
+import { e2eIdsV1, e2eValuesV1 } from "./ids.js";
+
 const e2eWorldActionV1: WorldActionDefinitionV1 = {
-  actionId: "action.e2e_world",
-  nameTextId: "text.e2e_world",
+  actionId: e2eIdsV1.actionWorld,
+  nameTextId: e2eIdsV1.textWorld,
   availability: [],
-  reasonId: "reason.e2e_world",
-  baseCashCost: 1,
-  playerStaminaCost: 1,
+  reasonId: e2eIdsV1.reasonWorld,
+  baseCashCost: e2eValuesV1.oneMoney,
+  playerStaminaCost: e2eValuesV1.one,
   beginEffects: [],
   options: [
-    { optionId: "choice.e2e_world_basic", labelTextId: "text.e2e_world_basic", availability: [], additionalCashCost: 0, preparationBonus: 0, beginEffects: [], confirmation: emptyConfirmationV1 },
-    { optionId: "choice.e2e_world_prepared", labelTextId: "text.e2e_world_prepared", availability: [], additionalCashCost: 1, preparationBonus: 1, beginEffects: [], confirmation: emptyConfirmationV1 },
+    { optionId: e2eIdsV1.choiceWorldBasic, labelTextId: e2eIdsV1.textWorldBasic, availability: [], additionalCashCost: e2eValuesV1.zeroMoney, preparationBonus: e2eValuesV1.zeroSigned, beginEffects: [], confirmation: emptyConfirmationV1 },
+    { optionId: e2eIdsV1.choiceWorldPrepared, labelTextId: e2eIdsV1.textWorldPrepared, availability: [], additionalCashCost: e2eValuesV1.oneMoney, preparationBonus: e2eValuesV1.oneSigned, beginEffects: [], confirmation: emptyConfirmationV1 },
   ],
   steps: [
-    { stepId: "step.e2e_world_departure", phase: "morning", apCost: 1, sceneId: "scene.e2e_world_departure" },
-    { stepId: "step.e2e_world_return", phase: "afternoon", apCost: 1, sceneId: "scene.e2e_world_return" },
+    { stepId: e2eIdsV1.stepWorldDeparture, phase: "morning", apCost: e2eValuesV1.one, sceneId: e2eIdsV1.sceneWorldDeparture },
+    { stepId: e2eIdsV1.stepWorldReturn, phase: "afternoon", apCost: e2eValuesV1.one, sceneId: e2eIdsV1.sceneWorldReturn },
   ],
-  checkId: "check.e2e_world",
+  checkId: e2eIdsV1.checkWorld,
 };
 ```
 
 The complete check band grants one grain batch, sets `fact.e2e_world=true`, and sets `outcome.e2e_investigation=investigation.e2e_complete`. Both World scenes contain one narration and one end node. The prepared option's fixed seed reaches the complete band; the test asserts the persisted `checkId`, `total`, `bandId`, two dice in the inclusive range `1..6`, and no second resolution. The E2E Story deliberately does not reuse the Demo Story's reference-seed `[4, 3]` oracle.
 
+The Step 1 registry extension already defines every World/levy/replay route as a deeply frozen `readonly GameCommandV1[]` assembled from `e2eIdsV1`/`e2eValuesV1`. Step 3 adds only the WorldAction/check/ending content required to change the intended unknown-reference red to green. The two levy routes reach D7 through public commands and differ only through the legal purchase choice, never through an anchored resource value.
+
 - [ ] **Step 4: Add exact ending rule outputs**
 
 ```ts
 // stories/e2e/src/simulation/rules.ts
+import { e2eIdsV1 } from "./ids.js";
+
 function evaluateE2eEndingV1(input: Readonly<EndingInputV1>): EndingResultV1 {
   const status = input.levy.kind === "arrears" ? "failed_arrears" : "completed_stable";
-  const endingId = status === "failed_arrears" ? "ending.e2e_arrears" : "ending.e2e_stable";
-  const reasonId = status === "failed_arrears" ? "reason.e2e_ending_arrears" : "reason.e2e_ending_stable";
-  const relationship = input.outcomes.find((entry) => entry.outcomeId === "outcome.e2e_relationship")!;
-  const investigation = input.outcomes.find((entry) => entry.outcomeId === "outcome.e2e_investigation")!;
+  const endingId = status === "failed_arrears" ? e2eIdsV1.endingArrears : e2eIdsV1.endingStable;
+  const reasonId = status === "failed_arrears" ? e2eIdsV1.reasonEndingArrears : e2eIdsV1.reasonEndingStable;
+  const relationship = input.outcomes.find((entry) => entry.outcomeId === e2eIdsV1.outcomeRelationship)!;
+  const investigation = input.outcomes.find((entry) => entry.outcomeId === e2eIdsV1.outcomeInvestigation)!;
   return { endingId, status, reasonIds: [reasonId], effects: [], summary: { relationship, investigation } };
 }
 ```
@@ -3109,7 +4016,7 @@ Expected: PASS; WorldAction stages, check vector, rewards, paid ending, arrears 
 - [ ] **Step 6: Commit World/ending integration**
 
 ```bash
-git add stories/e2e/src/test/world-ending.integration.test.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/narrative.ts stories/e2e/src/simulation/rules.ts stories/e2e/src/presentation/text-catalogs.ts
+git add stories/e2e/src/test/world-ending.integration.test.ts stories/e2e/src/testing/scenario-commands.ts stories/e2e/src/simulation/data.ts stories/e2e/src/simulation/narrative.ts stories/e2e/src/simulation/rules.ts stories/e2e/src/presentation/text-catalogs.ts
 git commit -m "test(story-e2e): cover world action and ending"
 ```
 
@@ -3119,29 +4026,56 @@ git commit -m "test(story-e2e): cover world action and ending"
 - Create: `stories/e2e/src/development/hotfixes/official-balance-hotfix.ts`
 - Create: `stories/e2e/src/development/hotfixes/conflicting-rule-hotfix.ts`
 - Create: `stories/e2e/src/testing/resolve-startup.ts`
+- Create: `stories/e2e/src/testing/hotfix-test-vectors.ts`
 - Create: `stories/e2e/src/test/hotfix-startup.integration.test.ts`
+- Create: `stories/e2e/type-tests/hotfix-harness.test-d.ts`
+- Modify: `stories/e2e/src/simulation/ids.ts`
 - Modify: `stories/e2e/src/patch-surfaces.ts`
 - Modify: `stories/e2e/src/test/story-contract.test.ts`
 - Modify: `stories/e2e/package.json`
+- Modify: `stories/e2e/tsconfig.json`
 - Modify: `scripts/verify-stories.mjs`
 - Modify: `scripts/verify-stories.test.mjs`
 
 **Interfaces:**
 - Consumes: Base PatchSurface/Hotfix/Story/build-identity resolvers, the generic Web `createGameBootstrapControllerV1`, the E2E Story entry, one official value+rule Hotfix, generic Save envelope Schema, same-attempt diagnostics, and the real Story-owned Profile/harness.
-- Produces: an E2E adapter over the same generic Loader bootstrap controller with `ready | safe_mode`, one pre-session official patch path, deterministic provenance-bound Save-contract/replay vectors, and conflict fallback. It exposes no Snapshot/state setter and never installs a Hotfix into a live Session.
+- Produces: an E2E adapter over the same generic Loader bootstrap controller with `ready | safe_mode`, one pre-session official patch path, a fully named `hotfix-test-vectors.ts` implementation for bootstrap/Save Schema/probe/replay expectations, deterministic provenance-bound Save-contract/replay vectors, and conflict fallback. It exposes no Snapshot/state setter and never installs a Hotfix into a live Session.
 
 - [ ] **Step 1: Write failing startup, digest, Save-contract, replay, and conflict tests**
 
 ```ts
+// stories/e2e/src/test/hotfix-startup.integration.test.ts imports
+import { describe, expect, it } from "vitest";
+import { strictJsonRoundTripV1 } from "@project-tavern/base/testkit";
+import { officialBalanceHotfixV1 } from "../development/hotfixes/official-balance-hotfix.js";
+import { conflictingRuleHotfixV1 } from "../development/hotfixes/conflicting-rule-hotfix.js";
+import {
+  createResolvedE2eSessionHarnessV1,
+  e2eReferenceBootstrapV1,
+  e2eSaveRecordSchemaV1,
+  expectedOfficialPatchProbeV1,
+  replayHotfixCommandsV1,
+  replayHotfixSaveRecordV1,
+  runHotfixProbeCommandsV1,
+  runHotfixReplayVectorV1,
+} from "../testing/hotfix-test-vectors.js";
+import { resolveE2eStartupV1 } from "../testing/resolve-startup.js";
+
 it("applies an official value and rule patch before the Session exists", async () => {
   const startup = await resolveE2eStartupV1({ hotfixes: [officialBalanceHotfixV1] });
   expect(startup.kind).toBe("ready");
   if (startup.kind !== "ready") throw new Error("expected patched startup");
   expect(startup.resolved.provenance.resolved.patchSet.appliedHotfixes.map((entry) => entry.identity.id))
-    .toEqual([e2eHotfixIdsV1.officialBalance]);
+    .toEqual([officialBalanceHotfixV1.manifest.identity.id]);
   expect(startup.resolved.provenance.resolved.simulationDigest)
     .not.toBe(startup.base.provenance.resolved.simulationDigest);
-  const harness = createE2eSessionHarnessV1({ resolved: startup.resolved, bootstrap: e2eReferenceBootstrapV1 });
+  expect(startup.resolved.provenance.resolved.stateContractRevision)
+    .toBe(startup.base.provenance.resolved.stateContractRevision);
+  expect(startup.resolved.provenance.resolved.stateContractDigest)
+    .toBe(startup.base.provenance.resolved.stateContractDigest);
+  expect(startup.resolved.provenance.resolved.presentationDigest)
+    .toBe(startup.base.provenance.resolved.presentationDigest);
+  const harness = createResolvedE2eSessionHarnessV1(startup.resolved, e2eReferenceBootstrapV1);
   expect(await runHotfixProbeCommandsV1(harness)).toEqual(expectedOfficialPatchProbeV1);
 });
 
@@ -3149,12 +4083,13 @@ it("binds Save-contract provenance and replay to the resolved simulation", async
   const first = await resolveE2eStartupV1({ hotfixes: [officialBalanceHotfixV1] });
   if (first.kind !== "ready") throw new Error("expected ready");
   const run = await runHotfixReplayVectorV1(first.resolved);
-  const parsed = e2eSaveRecordSchemaV1.parse(strictJsonRoundTripV1(run.saveRecord));
+  const parsed = strictJsonRoundTripV1(run.saveRecord, e2eSaveRecordSchemaV1);
   expect(parsed.provenance.resolved.simulationDigest)
     .toBe(first.resolved.provenance.resolved.simulationDigest);
   const replay = await replayHotfixCommandsV1(first.resolved, run.commands, run.bootstrap);
   expect(replay.finalStateDigest).toBe(run.finalStateDigest);
   expect(replay.rngDraws).toEqual(run.rngDraws);
+  expect(replay.facts).toEqual(run.facts);
 });
 
 it("enters base safe mode when patches conflict", async () => {
@@ -3164,15 +4099,75 @@ it("enters base safe mode when patches conflict", async () => {
   expect(startup).toMatchObject({
     kind: "safe_mode",
     code: "hotfix.conflict",
-    rejectedHotfixIds: [e2eHotfixIdsV1.officialBalance, e2eHotfixIdsV1.conflictingRule],
+    rejectedHotfixIds: [
+      officialBalanceHotfixV1.manifest.identity.id,
+      conflictingRuleHotfixV1.manifest.identity.id,
+    ],
   });
   if (startup.kind !== "safe_mode") throw new Error("expected safe mode");
   expect(startup.resolved.provenance.resolved.simulationDigest)
     .toBe(startup.base.provenance.resolved.simulationDigest);
 });
+
+it("rejects a patched Save under base resolution before replay", async () => {
+  const patched = await resolveE2eStartupV1({ hotfixes: [officialBalanceHotfixV1] });
+  const base = await resolveE2eStartupV1({ hotfixes: [] });
+  if (patched.kind !== "ready" || base.kind !== "ready") throw new Error("expected ready");
+  const run = await runHotfixReplayVectorV1(patched.resolved);
+  await expect(replayHotfixSaveRecordV1(
+    base.resolved,
+    run.saveRecord,
+    run.commands,
+    run.bootstrap,
+  )).resolves.toEqual({
+    kind: "rejected",
+    code: "identity.simulation_digest_mismatch",
+    attemptedCommands: 0,
+  });
+});
 ```
 
-The Save-contract test uses the generic Phase 1 `SaveRecordEnvelopeV1`/Schema only; Phase 3 later proves IndexedDB/import/adoption behavior. It serializes the exact resolved engine/story/state/simulation/presentation/application identities, Snapshot, state digest, and empty lineage. It neither calls a persistence service that does not yet exist nor invents a Base testkit helper.
+The companion compile-only boundary test is equally explicit:
+
+```ts
+// stories/e2e/type-tests/hotfix-harness.test-d.ts
+import { createE2eSessionHarnessV1 } from "../src/testing/session-harness.js";
+
+const harness = createE2eSessionHarnessV1();
+// @ts-expect-error no authoritative State setter
+harness.setState({});
+// @ts-expect-error no arbitrary Snapshot replacement
+harness.replaceSnapshot({});
+// @ts-expect-error no Module owner capability
+harness.owner;
+// @ts-expect-error no direct PatchSurface mutation
+harness.patchSurface;
+```
+
+The Save-contract test uses the generic Phase 1 `SaveRecordEnvelopeV1`/Schema only; Phase 3 later proves IndexedDB/import/adoption behavior. It serializes the exact Story, Engine and resolved state/simulation/presentation identities, Snapshot, state digest, and empty lineage. `appBuildId` remains diagnostics-only and is not written into Save provenance. The test neither calls a persistence service that does not yet exist nor invents a Base testkit helper.
+
+`stories/e2e/src/testing/hotfix-test-vectors.ts` is not a bag of implied test globals. It imports `createSaveRecordEnvelopeSchemaV1`, `digestCanonical`, fixed ISO/digest parsers, `gameSnapshotV1Schema`, the public resolved-provenance types/Schemas, `commandsToInterruptedOpeningV1`, and the real harness. It defines and exports all eight names imported above:
+
+```ts
+export const e2eReferenceBootstrapV1 = Object.freeze({
+  rngSeed: e2eReferenceSeedV1,
+  runId: e2eReferenceRunIdV1,
+}) satisfies DemoGameBootstrapInputV1;
+
+export const e2eSaveRecordSchemaV1 = createSaveRecordEnvelopeSchemaV1(
+  gameSnapshotV1Schema,
+  e2eBuildProvenanceV1Schema,
+  e2eSaveSlotMetadataV1Schema,
+  e2eSimulationLineageV1Schema,
+);
+
+export const expectedOfficialPatchProbeV1 = Object.freeze({
+  startingCash: e2eValuesV1.officialPatchedStartingCash,
+  settledRevenue: e2eValuesV1.officialPatchedRevenue,
+});
+```
+
+The same file defines the three local strict specialization Schemas passed to the Save factory, with every Catalog field spelled out by `z.strictObject`: `e2eBuildProvenanceV1Schema` covers Story/Engine/resolved identities and excludes `appBuildId`; `e2eSaveSlotMetadataV1Schema` fixes a manual slot and captured sequence; `e2eSimulationLineageV1Schema` fixes the empty lineage. `createResolvedE2eSessionHarnessV1(resolved, bootstrap)` passes only that exact `resolved.profile` and the bootstrap to Task 20's harness options; it never redefines the source Story or re-resolves away the selected Hotfix set. `runHotfixProbeCommandsV1` runs the frozen opening route, drains/continues/finalizes it, then returns exactly `{ startingCash, settledRevenue }`. `runHotfixReplayVectorV1` executes one literal frozen public-command list through `commitAttempt`, concatenates each returned committed `result.facts` and same-attempt `diagnostics.attemptedDraws` in command order, constructs a strict generic Save record with fixed `savedAt`, record revision, provenance, manual-slot metadata, empty lineage, `digestCanonical("project-tavern:state:v1", snapshot)`, and returns `{ saveRecord, commands, bootstrap, finalStateDigest, rngDraws, facts }`. `replayHotfixCommandsV1` creates a fresh Profile/candidate from the same resolved Story/bootstrap, executes the supplied commands once each through the same method, and returns the same final digest, draw array, and ordered Facts. `replayHotfixSaveRecordV1` compares the Save blocking identity before creating a harness; a mismatch returns the stable identity code with `attemptedCommands: 0`. Every helper has an explicit return interface in this file; none uses a State setter or derives expected IDs from raw strings. The official patched cash/revenue values are added to Task 22A's typed `e2eValuesV1` registry with the matching Money parsers.
 
 - [ ] **Step 2: Run and verify startup integration is absent**
 
@@ -3182,11 +4177,11 @@ Expected: FAIL with missing `resolve-startup.js`/official Hotfix fixture.
 
 - [ ] **Step 3: Define the official patches and pre-session safe-mode resolver**
 
-The official Hotfix targets exactly `value.balance` and `rule.tavern.settle`, includes expected provider digests, and replaces them with values/functions that pass the same strict slot Schemas. `resolveE2eStartupV1` is a thin E2E adapter over `createGameBootstrapControllerV1`: it supplies the public Story resolver, explicit Hotfix entries, and an in-memory Host record store, but does not reimplement safe-mode policy. The generic controller always resolves the unpatched base first, attempts all requested Hotfixes in authored order, and constructs the Profile/Session only after success. Unknown target, provider mismatch, requires/conflicts/supersedes failure, invalid output Schema, or install throw returns a bounded `safe_mode` result with the untouched base-resolved Story and ordered rejected Hotfix IDs. It never retries a subset silently. Add `@project-tavern/web: workspace:*` to the E2E package only for this Story→Web test/application edge; the default E2E Story closure remains free of Web imports.
+The official Hotfix targets exactly `value.balance` and `rule.tavern.settle`, includes expected provider digests, and replaces them with values/functions that pass the same strict slot Schemas. The `patch-surfaces.ts` modification exports one frozen typed `e2ePatchProviderDigestsV1` registry generated from those slot descriptors; Hotfix files consume it rather than repeating digest strings. The `story-contract.test.ts` modification asserts source PatchSurface/default objects remain frozen and a resolved official candidate changes materialized balance/settlement behavior while preserving state-contract and presentation identities. `resolveE2eStartupV1` is a thin E2E adapter over `createGameBootstrapControllerV1`: it supplies the public Story resolver, explicit Hotfix entries, and an in-memory Host record store, but does not reimplement safe-mode policy. The generic controller always resolves the unpatched base first, attempts all requested Hotfixes in authored order, and constructs the Profile/Session only after success. Unknown target, provider mismatch, requires/conflicts/supersedes failure, invalid output Schema, or install throw returns the Catalog's bounded `safe_mode` result with the untouched base-resolved Story and ordered rejected Hotfix IDs. It never retries a subset silently. Add `@project-tavern/web: workspace:*` to the E2E package and the matching Web project reference to `stories/e2e/tsconfig.json` only for this Story→Web test/application edge; the default E2E Story closure remains free of Web imports.
 
 - [ ] **Step 4: Prove provenance and replay without an authoritative-state escape hatch**
 
-Run one fixed branded bootstrap and literal public-command list under the patched resolved Story, construct the generic Save record from the committed Snapshot, then create a fresh patched Profile/Session and replay the same public commands. Assert final state/RNG/fact digests and all draw traces match. Attempting to replay the patched record under base resolution is refused on simulation digest before any command runs. Static assertions reject `setState`, `replaceSnapshot`, owner capabilities, and direct PatchSurface mutation from the harness/Player surface.
+Run one fixed branded bootstrap and literal public-command list under the patched resolved Story, construct the generic Save record from the committed Snapshot, then create a fresh patched Profile/Session and replay the same public commands. Assert final state digest, ordered committed Facts, and all RNG draw traces match. Attempting to replay the patched record under base resolution is refused on simulation digest before any command runs. Static assertions reject `setState`, `replaceSnapshot`, owner capabilities, and direct PatchSurface mutation from the harness/Player surface.
 
 - [ ] **Step 5: Extend stable Story verification and run all gates**
 
@@ -3199,7 +4194,7 @@ Expected: PASS; value/rule replacements change the simulation digest and probe r
 - [ ] **Step 6: Commit Hotfix integration only**
 
 ```bash
-git add stories/e2e/src/development/hotfixes stories/e2e/src/testing/resolve-startup.ts stories/e2e/src/test/hotfix-startup.integration.test.ts stories/e2e/src/patch-surfaces.ts stories/e2e/src/test/story-contract.test.ts stories/e2e/package.json scripts/verify-stories.mjs scripts/verify-stories.test.mjs
+git add stories/e2e/src/development/hotfixes stories/e2e/src/testing/resolve-startup.ts stories/e2e/src/testing/hotfix-test-vectors.ts stories/e2e/src/test/hotfix-startup.integration.test.ts stories/e2e/type-tests/hotfix-harness.test-d.ts stories/e2e/src/simulation/ids.ts stories/e2e/src/patch-surfaces.ts stories/e2e/src/test/story-contract.test.ts stories/e2e/package.json stories/e2e/tsconfig.json scripts/verify-stories.mjs scripts/verify-stories.test.mjs
 git commit -m "test(story-e2e): prove pre-session hotfix integration"
 ```
 
@@ -3226,20 +4221,22 @@ git commit -m "test(story-e2e): prove pre-session hotfix integration"
 // stories/e2e/src/test/fixture-contract.test.ts
 import { describe, expect, it } from "vitest";
 import { validateDevelopmentFixturesV1 } from "@project-tavern/base/testkit";
+import { fixtureIdSchemaV1, gameCommandV1Schema } from "@project-tavern/modules";
 import { e2eDevelopmentEntryV1 } from "../development.js";
+import { e2eIdsV1 } from "../simulation/ids.js";
 
 describe("E2E development fixtures", () => {
   it("freezes eight command-derived fixtures", () => {
     const support = e2eDevelopmentEntryV1.defineDevelopmentSupport();
     expect(support.fixtures.map((fixture) => fixture.fixtureId)).toEqual([
-      "fixture.e2e_bootstrap",
-      "fixture.e2e_branch_left",
-      "fixture.e2e_opening_interrupted",
-      "fixture.e2e_opening_shortage",
-      "fixture.e2e_world_departure",
-      "fixture.e2e_world_ready",
-      "fixture.e2e_levy_due",
-      "fixture.e2e_replay_tail",
+      e2eIdsV1.fixtureBootstrap,
+      e2eIdsV1.fixtureBranchLeft,
+      e2eIdsV1.fixtureOpeningInterrupted,
+      e2eIdsV1.fixtureOpeningShortage,
+      e2eIdsV1.fixtureWorldDeparture,
+      e2eIdsV1.fixtureWorldReady,
+      e2eIdsV1.fixtureLevyDue,
+      e2eIdsV1.fixtureReplayTail,
     ]);
     expect(validateDevelopmentFixturesV1(e2eDevelopmentEntryV1, {
       fixtureIdSchema: fixtureIdSchemaV1,
@@ -3259,6 +4256,19 @@ Expected: FAIL with missing `../development.js`.
 
 ```ts
 // stories/e2e/src/development/fixtures.ts
+import type { StoryDevelopmentSupportV1 } from "@project-tavern/base";
+import { e2eReferenceSeedV1 } from "../simulation/identity.js";
+import { e2eIdsV1 } from "../simulation/ids.js";
+import {
+  commandsToBranchLeftV1,
+  commandsToInterruptedOpeningV1,
+  commandsToLevyDueV1,
+  commandsToOpeningShortageV1,
+  commandsToReplayTailV1,
+  commandsToWorldDepartureV1,
+  commandsToWorldReadyV1,
+} from "../testing/scenario-commands.js";
+
 export const e2eFixturesV1: StoryDevelopmentSupportV1["fixtures"] = Object.freeze([
   { fixtureId: e2eIdsV1.fixtureBootstrap, seed: e2eReferenceSeedV1, commands: [] },
   { fixtureId: e2eIdsV1.fixtureBranchLeft, seed: e2eReferenceSeedV1, commands: commandsToBranchLeftV1 },
@@ -3271,7 +4281,9 @@ export const e2eFixturesV1: StoryDevelopmentSupportV1["fixtures"] = Object.freez
 ]);
 ```
 
-Each `commandsTo*V1` constant is a literal readonly `GameCommandV1[]`; Narrative commands copy exact stable scene/node IDs from this Story. In fixture order, the test Host returns fixed run IDs `00000000-0000-4000-8000-00000000f001`, `00000000-0000-4000-8000-00000000f002`, `00000000-0000-4000-8000-00000000f003`, `00000000-0000-4000-8000-00000000f004`, `00000000-0000-4000-8000-00000000f005`, `00000000-0000-4000-8000-00000000f006`, `00000000-0000-4000-8000-00000000f007`, and `00000000-0000-4000-8000-00000000f008`. The validator submits every command, rejects any non-committed result, validates the final Snapshot, and reruns the list with the same corresponding ID to compare final state/RNG/facts/digests. It never stores a handwritten Snapshot.
+Each `commandsTo*V1` constant comes from the command-derived scenario registry established in Tasks 20–22 and is a literal readonly `GameCommandV1[]`; Narrative commands copy exact stable scene/node IDs from this Story. Base `validateDevelopmentFixturesV1` performs its frozen structural/determinism/ID/seed/command-Schema checks only. The root `verify-fixtures.mjs` execution layer resolves the E2E Story and, in fixture order, supplies fixed run IDs `00000000-0000-4000-8000-00000000f001`, `00000000-0000-4000-8000-00000000f002`, `00000000-0000-4000-8000-00000000f003`, `00000000-0000-4000-8000-00000000f004`, `00000000-0000-4000-8000-00000000f005`, `00000000-0000-4000-8000-00000000f006`, `00000000-0000-4000-8000-00000000f007`, and `00000000-0000-4000-8000-00000000f008`. That verifier submits every command, rejects any non-committed result, validates the final Snapshot, and reruns the list with the same corresponding ID to compare final state/RNG/facts/digests. It never stores a handwritten Snapshot.
+
+The eight Fixture IDs already exist in Task 19's `simulation/ids.ts` and were committed in Task 19; Task 23 consumes them without modifying that file. All three Task 23 source files shown above are listed in **Files** and in Step 9's `git add`, so the package export and implementation land atomically.
 
 - [ ] **Step 4: Export only the dedicated development entry**
 
@@ -3292,7 +4304,7 @@ export const e2eDevelopmentEntryV1 = defineStoryDevelopmentEntry({
 
 In `stories/e2e/package.json`, add `"./development": "./src/development.ts"` in the same edit that creates that file, plus a read-only `verify:fixtures`. Extend `scripts/verify-fixtures.mjs` and its behavior tests so the stable root wrapper validates existing Sandbox fixtures and all eight E2E command-derived fixtures; extend `verify:stories` so its production closure check uses `scripts/collect-import-closure.mjs` and proves `stories/e2e/src/index.ts` reaches neither `development.ts` nor any `development/**` file. Retain every prior Sandbox/E2E/Hotfix check.
 
-```json
+```jsonc
 // package.json scripts additions
 {
   "verify:phase2": "pnpm verify:stories && pnpm verify:fixtures && pnpm verify:boundaries && pnpm verify:cycles && pnpm typecheck && pnpm --filter @project-tavern/modules test && pnpm --filter @project-tavern/story-e2e test"
@@ -3335,7 +4347,7 @@ git commit -m "test(story-e2e): freeze integration fixtures"
 - [ ] Exactly 12 real Module bindings exist: 10 stateful owners and 2 stateless services; all 12 are selected by `stories/e2e`.
 - [ ] `@project-tavern/modules` exports no Profile/tuple/GamePackage; `stories/e2e` is the first real consumer and owns its twelve-binding tuple, coordinator instance, bootstrap, initial-state assembly, and Profile.
 - [ ] The complete profile-bound type spine exists before the first binding commit; every Phase 2 task passes `pnpm typecheck` and current `pnpm verify` at its commit boundary.
-- [ ] The Demo-v1 dependency graph has exactly 0 Module-to-Module read edges, every non-empty state slot has exactly 1 owner, and there is exactly 1 `DemoCommandCoordinatorV1`.
+- [ ] The Demo v1 dependency graph has exactly 0 Module-to-Module read edges, every non-empty state slot has exactly 1 owner, and there is exactly 1 `DemoCommandCoordinatorV1`.
 - [ ] All 17 `GameCommandV1` variants have committed, typed rejection, and applicable fault vectors; no handler returns `command.handler_not_implemented`.
 - [ ] The Effect router exhaustively handles all 19 current `EffectIntentV1` kinds and rolls back a batch when any later effect fails.
 - [ ] Narrative contract tests cover all 11 node kinds, both stable interpreter limits, stale cursor rejection, stage cues, call/return, and atomic effect/checkpoint behavior.

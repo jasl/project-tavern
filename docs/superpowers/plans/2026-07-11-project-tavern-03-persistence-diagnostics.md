@@ -878,8 +878,27 @@ Expected: FAIL because attempts are not yet retained or replayed.
 - [ ] **Step 4: Implement log append and eviction**
 
 ```ts
-export interface CommandLogV1<TSnapshot, TLoggedCommand, TEntry> {
-  append(command: TLoggedCommand, attempt: CommandExecutionAttemptLikeV1): void;
+export interface CommandLogV1<
+  TSnapshot,
+  TLoggedCommand,
+  TEntry,
+  TFact,
+  TRejection,
+  TFault,
+  TRngState,
+  TRngDrawTrace,
+> {
+  append(
+    command: TLoggedCommand,
+    attempt: CommandExecutionAttemptEnvelopeV1<
+      TSnapshot,
+      TFact,
+      TRejection,
+      TFault,
+      TRngState,
+      TRngDrawTrace
+    >,
+  ): void;
   establishAnchor(snapshot: TSnapshot): void;
   replayBase(): DeepReadonly<TSnapshot>;
   entries(): readonly TEntry[];
@@ -1250,7 +1269,7 @@ Digest-changing invalidation sets `hmr_invalidated`, blocks new and already-queu
 
 Normalize persistence/asset/UI/async failures into `runtimeFailures`. Do not convert an ordinary Coordinator fault into `runtime.dispatch_failed`; only an out-of-contract Runtime boundary throw uses that code.
 
-Add exactly `RuntimeInvalidationControllerV1` and `createRuntimeInvalidationControllerV1` to the closed `@project-tavern/base/runtime/developer` barrel and its sorted inventory entry. Extend `runtime-developer-exports.test-d.ts` with positive Developer-subpath imports and negative Player-safe-root imports. Invalidating a Session is a Developer mutation capability: `@project-tavern/base/runtime` must neither export it nor gain a static edge to `./developer`.
+Add exactly `RuntimeInvalidationControllerV1` and `createRuntimeInvalidationControllerV1` to the closed `@project-tavern/base/runtime/developer` barrel and its sorted inventory entry. The factory is implemented inside Base and wraps EngineSession's private invalidation capability; callers receive only the closed Developer controller, never the private handle or an extended Player-safe runtime control. Extend `runtime-developer-exports.test-d.ts` with positive Developer-subpath imports and negative Player-safe-root imports. Invalidating a Session is a Developer mutation capability: `@project-tavern/base/runtime` must neither export it nor gain a static edge to `./developer`.
 
 Implement `installResolvedDigestHmrV1` in `@project-tavern/web/developer`. It accepts a structural `ImportMetaHotLikeV1`, an immutable identity resolver, and the Base invalidation controller; snapshots the accepted tuple at boot; installs the real `hot.accept` callback; re-resolves on each accepted JavaScript update; and invalidates once when any tuple field differs or resolution fails. It never guesses from filenames. Equal tuples are a no-op, so Vite's CSS handling and general UI/developer-note changes remain normal HMR. Export the helper and its public types only from `apps/web/src/developer/index.ts`; extend `developer-exports.test-d.ts` with a positive `@project-tavern/web/developer` import and a negative Player-root import.
 
@@ -1462,11 +1481,31 @@ git commit -m "test(runtime): freeze save and debug fixtures"
 - [ ] **Step 1: Write the failing phase-gate contract test**
 
 ```js
+import assert from "node:assert/strict";
+import test from "node:test";
+
+const expectedPhase3CommandsV1 = [
+  ["pnpm", ["--filter", "@project-tavern/base", "run", "test:runtime"]],
+  ["pnpm", ["--filter", "@project-tavern/web", "run", "test:host"]],
+  ["pnpm", ["--filter", "@project-tavern/story-e2e", "run", "test:runtime"]],
+  ["pnpm", ["verify:fixtures"]],
+  ["pnpm", ["verify:public-exports"]],
+  ["pnpm", ["test:node"]],
+  ["pnpm", ["verify:boundaries"]],
+  ["pnpm", ["verify:licensing"]],
+  ["pnpm", ["build"]],
+];
+
 test("owns an exact read-only Phase 3 command list", async () => {
   const { phase3VerificationCommandsV1 } = await import(
     "./verify-persistence-diagnostics.mts"
   );
   assert.deepEqual(phase3VerificationCommandsV1, expectedPhase3CommandsV1);
+  assert(Object.isFrozen(phase3VerificationCommandsV1));
+  for (const command of phase3VerificationCommandsV1) {
+    assert(Object.isFrozen(command));
+    assert(Object.isFrozen(command[1]));
+  }
   assert(!phase3VerificationCommandsV1.some(([, args]) =>
     args.some((arg) => /regenerate|update:|release:prepare/u.test(arg))
   ));
@@ -1486,17 +1525,22 @@ Expected: FAIL because the Phase 3 verifier module and package-owned aliases do 
 `scripts/verify-persistence-diagnostics.mts` runs these existing commands sequentially and exits on the first nonzero result:
 
 ```ts
-const commands = [
-  ["pnpm", ["--filter", "@project-tavern/base", "run", "test:runtime"]],
-  ["pnpm", ["--filter", "@project-tavern/web", "run", "test:host"]],
-  ["pnpm", ["--filter", "@project-tavern/story-e2e", "run", "test:runtime"]],
-  ["pnpm", ["verify:fixtures"]],
-  ["pnpm", ["verify:public-exports"]],
-  ["pnpm", ["test:node"]],
-  ["pnpm", ["verify:boundaries"]],
-  ["pnpm", ["verify:licensing"]],
-  ["pnpm", ["build"]],
-] as const;
+const phase3CommandV1 = <TArgs extends readonly string[]>(
+  executable: "pnpm",
+  args: TArgs,
+) => Object.freeze([executable, Object.freeze(args)] as const);
+
+export const phase3VerificationCommandsV1 = Object.freeze([
+  phase3CommandV1("pnpm", ["--filter", "@project-tavern/base", "run", "test:runtime"]),
+  phase3CommandV1("pnpm", ["--filter", "@project-tavern/web", "run", "test:host"]),
+  phase3CommandV1("pnpm", ["--filter", "@project-tavern/story-e2e", "run", "test:runtime"]),
+  phase3CommandV1("pnpm", ["verify:fixtures"]),
+  phase3CommandV1("pnpm", ["verify:public-exports"]),
+  phase3CommandV1("pnpm", ["test:node"]),
+  phase3CommandV1("pnpm", ["verify:boundaries"]),
+  phase3CommandV1("pnpm", ["verify:licensing"]),
+  phase3CommandV1("pnpm", ["build"]),
+] as const);
 ```
 
 Add the exact root script:

@@ -4,7 +4,7 @@
 
 **Goal:** Produce one reproducibly built, fully verified, license-complete Player artifact and immutable-SHA GitHub workflows that can deploy those exact bytes to protected GitHub Pages without rebuilding.
 
-**Architecture:** A single nonpublishing `pnpm verify` expands all deterministic code/test/build/browser gates and leaves an ignored `dist/player` built from the current checkout. Release preparation verifies and manifests those bytes; CI uploads them. An authorized Pages job downloads the artifact produced by its own successful verification job, wraps it for Pages, deploys it without checkout/build, and runs read-only remote smoke.
+**Architecture:** A single nonpublishing `pnpm verify` expands all deterministic code/test/build/browser gates. One closed artifact wrapper builds Demo Player, Demo Developer, and E2E Player, leaving the release-eligible ignored `dist/player` from the current checkout; release preparation verifies and manifests those exact bytes and CI uploads them. An authorized Pages job downloads the artifact produced by its own successful verification job, wraps it for Pages, deploys it without checkout/build, and runs read-only remote smoke.
 
 **Tech Stack:** Existing Project Tavern workspace, Vite production build, Playwright 1.61.1, Node.js 24.18.0, pnpm 11.11.0, GitHub Actions pinned to immutable commit SHAs, GitHub Pages with HashRouter and relative assets.
 
@@ -20,6 +20,7 @@
 - Every uploaded artifact sets `retention-days: 30`. Failure evidence is bounded and path-scrubbed.
 - Registry audit is a separate scheduled/manual workflow. A transient registry failure does not make local deterministic verification flaky.
 - Release `.mts` tools are type-erasable and run directly under pinned Node 24 native TypeScript stripping; they use no transform-required TypeScript feature or second TS runtime.
+- `pnpm test:scripts` recursively discovers and executes every `scripts/**/*.test.mjs` and `scripts/**/*.test.ts` exactly once through the Phase 1 runner; Phase 6 release/docs subdirectories may not depend on shallow globs or hand-maintained test lists.
 - Release bundles include `LICENSE.md`, `NOTICE`, the three project legal texts, `THIRD_PARTY_NOTICES.md`, and an artifact-specific license inventory.
 - `references/`, Phase A source candidates, terms-pending assets, secrets, `.env`, Developer modules, Story `./development`, fixtures, local paths, and source maps are forbidden from Player.
 - Rollback is forward-only: revert/fix source, run the current workflow, and deploy the new current-run artifact. Never redeploy an older cross-run artifact or lower the IndexedDB database revision.
@@ -52,6 +53,8 @@ The SHA/tag pairs above are exact. Task 5 augments every record with authoritati
 ```text
 scripts/verify.mjs                         # complete local/CI nonpublishing gate, extended from Phase 1
 scripts/verify-release.mjs                 # full release-only expansion
+scripts/run-script-tests.mjs               # recursive Node/Vitest script-test owner from Phase 1
+scripts/run-script-tests.test.mjs          # final no-omission/duplicate discovery contract
 scripts/release/build-artifact.mts         # flavor/Story build wrapper
 scripts/release/create-artifact-manifest.mts
 scripts/release/verify-player-artifact.mts
@@ -79,12 +82,11 @@ docs/checkpoints/                           # final evidence template
 - Create: `scripts/release/build-config.mts`
 - Modify: root `vite.config.ts`
 - Modify: `package.json`
-- Test: `scripts/release/build-artifact.test.ts`
 
 **Interfaces:**
 
 - Consumes: the closed Story-owned application-root map from Phase 5 (`demo/player`, `demo/developer`, `e2e/player`).
-- Produces: `buildArtifact({ story, flavor, outDir, sourcemap })` plus exact `build:player` and `build:developer` scripts.
+- Produces: `buildArtifact({ story, flavor, outDir, sourcemap })` as the only production build entry plus exact `build:player`, `build:developer`, and `build:e2e-player` scripts.
 
 - [ ] **Step 1: Write failing build-config and argument-validation tests**
 
@@ -92,6 +94,13 @@ docs/checkpoints/                           # final evidence template
 it("pins the production Player to the Demo-owned Player root", () => {
   const config = resolveBuildConfig({ story: "demo", flavor: "player", outDir: "dist/player" });
   expect(config.applicationHtml).toBe("stories/demo/player.html");
+  expect(config.sourcemap).toBe(false);
+  expect(config.base).toBe("./");
+});
+
+it("pins the E2E Player to the same closed artifact wrapper", () => {
+  const config = resolveBuildConfig({ story: "e2e", flavor: "player", outDir: "dist/e2e-player" });
+  expect(config.applicationHtml).toBe("stories/e2e/player.html");
   expect(config.sourcemap).toBe(false);
   expect(config.base).toBe("./");
 });
@@ -126,22 +135,23 @@ Replace the Phase 1 build-script implementations, without renaming the public co
 ```json
 {
   "build:player": "node scripts/release/build-artifact.mts --story demo --flavor player --out-dir dist/player --sourcemap false",
-  "build:developer": "node scripts/release/build-artifact.mts --story demo --flavor developer --out-dir dist/developer --sourcemap true"
+  "build:developer": "node scripts/release/build-artifact.mts --story demo --flavor developer --out-dir dist/developer --sourcemap true",
+  "build:e2e-player": "node scripts/release/build-artifact.mts --story e2e --flavor player --out-dir dist/e2e-player --sourcemap false"
 }
 ```
 
-- [ ] **Step 4: Build both flavors and run current verification**
+- [ ] **Step 4: Build all three closed applications and run current verification**
 
-Run: `pnpm build:player && pnpm build:developer && pnpm verify:ui:flavors && pnpm verify`
+Run: `pnpm build:player && pnpm build:developer && pnpm build:e2e-player && pnpm verify:ui:flavors && pnpm test:scripts && pnpm verify`
 
-Expected: PASS; `dist/player` has no `.map`; `dist/developer` is not referenced by Player HTML.
+Expected: PASS; all three commands pass through `build-artifact.mts`; `dist/player` and `dist/e2e-player` have no `.map`; `dist/developer` is not referenced by either Player HTML; the nested release-tool test is discovered exactly once.
 
 - [ ] **Step 5: Commit the build wrapper**
 
 ```bash
 git add -- scripts/release/build-artifact.mts scripts/release/build-artifact.test.ts scripts/release/build-config.mts vite.config.ts package.json
 git diff --cached --check
-git commit -m "build: freeze player and developer artifacts"
+git commit -m "build: freeze all browser artifacts"
 ```
 
 ### Task 2: Create artifact manifests and verify Player contents/licenses
@@ -291,7 +301,7 @@ export async function compareArtifactDirectories(
 ): Promise<{ readonly equal: boolean; readonly differences: readonly string[] }>;
 ```
 
-Freeze the outer repository's 40-lower-hex `HEAD` before creating two fresh temporary workspace copies from `git archive <that HEAD>`. Archive workspaces have no `.git`, so the reproducibility driver passes that exact value through a dedicated `PROJECT_TAVERN_SOURCE_COMMIT` input; the build wrapper accepts it only in this archive mode, validates its form and equality to the archive source chosen by the outer driver, and otherwise resolves/validates live `git rev-parse HEAD`. Install from the same pnpm store with frozen lockfile, build/prepare/verify each Player artifact, assert both `build-input.sourceCommit` values equal the frozen outer HEAD, then compare sorted file path/digest/size/license-scope tuples plus detached manifest digests. The Playwright web server serves an existing root `dist/player` under `/nested/tavern/`; test configuration must not call Vite build.
+Freeze the outer repository's 40-character lowercase hexadecimal `HEAD` value before creating two fresh temporary workspace copies with `git archive <that HEAD>`. Archive workspaces have no `.git`, so the reproducibility driver passes that exact value through a dedicated `PROJECT_TAVERN_SOURCE_COMMIT` input; the build wrapper accepts it only in this archive mode, validates its form and equality to the archive source chosen by the outer driver, and otherwise resolves/validates live `git rev-parse HEAD`. Install from the same pnpm store with frozen lockfile, build/prepare/verify each Player artifact, assert both `build-input.sourceCommit` values equal the frozen outer HEAD, then compare sorted file path/digest/size/license-scope tuples plus detached manifest digests. The Playwright web server serves an existing root `dist/player` under `/nested/tavern/`; test configuration must not call Vite build.
 
 Add the exact scripts:
 
@@ -323,6 +333,7 @@ git commit -m "test(release): prove reproducible nested-base player"
 - Modify: `scripts/verify.mjs`
 - Modify: `scripts/verify-release.mjs`
 - Modify: `scripts/verify.test.mjs`
+- Modify: `scripts/run-script-tests.test.mjs`
 - Create: `scripts/docs/check-links.mts`
 - Create: `scripts/docs/check-links.test.ts`
 - Modify: `package.json`
@@ -331,15 +342,15 @@ git commit -m "test(release): prove reproducible nested-base player"
 
 **Interfaces:**
 
-- Consumes: every stable local verification script through Phase 5 plus Phase 6 Tasks 1–3; workflow validation is attached only after Task 5 creates it.
-- Produces: deterministic ordered `pnpm verify`, the local portion of `pnpm verify:release`, and documented developer commands.
+- Consumes: every stable local verification script through Phase 5, Phase 1's recursive script-test owner, and Phase 6 Tasks 1–3; workflow validation is attached only after Task 5 creates it.
+- Produces: deterministic ordered `pnpm verify`, the local portion of `pnpm verify:release`, a final no-omission contract for recursive Node/TypeScript script tests, and documented developer commands.
 
 - [ ] **Step 1: Write failing orchestration-order and side-effect tests**
 
 ```ts
 expect(verificationSteps.map((step) => step.id)).toEqual([
   "toolchain", "format", "lint", "lint-styles", "licensing", "boundaries", "cycles",
-  "typecheck", "unit", "contract", "property", "stories", "fixtures",
+  "typecheck", "unit", "contract", "property", "scripts", "stories", "fixtures",
   "golden", "balance", "assets", "build-player", "build-developer", "build-e2e-player",
   "ui-flavors", "bundle", "e2e-smoke", "ui-chromium", "artifact", "docs-links",
 ]);
@@ -347,9 +358,25 @@ expect(verificationSteps.every((step) => !step.command.includes("update:") && !s
   .toBe(true);
 ```
 
+Extend `run-script-tests.test.mjs` against the live Phase 6 checkout as well as synthetic fixtures. Recursively enumerate `scripts/` without `git ls-files` or shell globbing, compare it with `discoverScriptTestsV1`, and assert the union is exact:
+
+```js
+test("owns every live recursive script test exactly once", async () => {
+  const expected = await recursivelyListScriptTestsV1(repositoryRoot);
+  const discovered = await discoverScriptTestsV1(repositoryRoot);
+  assert.deepEqual([...discovered.node, ...discovered.vitest].sort(), expected);
+  assert.equal(new Set([...discovered.node, ...discovered.vitest]).size, expected.length);
+  assert(expected.some((path) => path === "scripts/release/build-artifact.test.ts"));
+  assert(expected.some((path) => path === "scripts/ui/verify-ui.test.ts"));
+  assert(expected.some((path) => path === "scripts/verify.test.mjs"));
+});
+```
+
+The test also injects one omitted and one duplicated nested path and requires stable `script_test.missing_owner`/`script_test.duplicate_owner` failures. It does not hardcode the complete inventory; the three witnesses only prove all owner kinds/directories are present.
+
 - [ ] **Step 2: Run orchestrator tests and confirm failure**
 
-Run: `node --test scripts/verify.test.mjs && pnpm exec vitest run scripts/docs/check-links.test.ts`
+Run: `node --test scripts/run-script-tests.test.mjs scripts/verify.test.mjs && pnpm exec vitest run scripts/docs/check-links.test.ts`
 
 Expected: FAIL because the final orchestration and link checker do not exist.
 
@@ -359,7 +386,7 @@ Expected: FAIL because the final orchestration and link checker do not exist.
 /** @typedef {{ readonly id: string, readonly command: string, readonly args: readonly string[] }} VerificationStepV1 */
 ```
 
-Use `spawnSync(command,args,{stdio:"inherit"})` without shell interpolation. Print the failing step ID and preserve its exit code. `build:player` creates the complete legal/manifested artifact once; later UI-flavor, bundle, and artifact steps are inspect-only. `verify:ui`/`ui-chromium` uses the already built Demo Player, Demo Developer, and E2E Player roots. Unit/contract/property discovery explicitly covers all Phase 3 runtime suites, so the checkpoint-only `verify:persistence-diagnostics` is not nested for a second build. At Task 4, `verify:release` runs `pnpm verify`, WebKit/full browser E2E, artifact verification, and reproducibility; Task 5 appends workflow validation only after that command exists.
+Use `spawnSync(command,args,{stdio:"inherit"})` without shell interpolation. Print the failing step ID and preserve its exit code. The `scripts` step is exactly `pnpm test:scripts`; it runs once after unit/contract/property and before any build, recursively executing every Node and TypeScript script test then present. `build:player` creates the complete legal/manifested artifact once; later UI-flavor, bundle, and artifact steps are inspect-only. `verify:ui`/`ui-chromium` uses the already built Demo Player, Demo Developer, and E2E Player roots. Unit/contract/property discovery explicitly covers all Phase 3 runtime suites, while the script runner owns all release/docs/UI/asset tool tests, so the checkpoint-only `verify:persistence-diagnostics` is not nested for a second build. At Task 4, `verify:release` runs `pnpm verify`, WebKit/full browser E2E, artifact verification, and reproducibility; Task 5 appends workflow validation only after that command exists.
 
 Preserve the stronger Phase 1 immutability guard: snapshot the sorted tracked path plus `digestBytes` of every `git ls-files -z` entry and `git status --porcelain=v1` before execution, compare both in `finally` even after a failing step, and reject unexpected untracked files outside the explicit ignored-output allowlist. Equal status text alone is insufficient because a dirty tracked file could change bytes while remaining `M`.
 
@@ -369,14 +396,14 @@ Finalize browser public names over the prebuilt three-root config: `test:e2e:smo
 
 - [ ] **Step 4: Run the complete local gate twice**
 
-Run: `pnpm verify && pnpm verify && pnpm verify:release`
+Run: `pnpm test:scripts && pnpm verify && pnpm verify && pnpm verify:release`
 
-Expected: all three exit 0; no tracked file changes and no unexplained skipped/quarantined test.
+Expected: all three exit 0; tracked files remain unchanged; every skipped or quarantined test is explained.
 
 - [ ] **Step 5: Commit the public verification contract**
 
 ```bash
-git add -- scripts/verify.mjs scripts/verify-release.mjs scripts/verify.test.mjs scripts/docs package.json README.md CONTRIBUTING.md
+git add -- scripts/verify.mjs scripts/verify-release.mjs scripts/verify.test.mjs scripts/run-script-tests.test.mjs scripts/docs package.json README.md CONTRIBUTING.md
 git diff --cached --check
 git commit -m "build: unify project verification"
 ```
@@ -603,6 +630,7 @@ Run from a clean checkout with the exact pinned Node/pnpm versions:
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm test:scripts
 pnpm verify
 pnpm verify:release
 pnpm release:repro
@@ -615,7 +643,8 @@ git status --short --branch
 Acceptance criteria:
 
 - All commands exit 0 twice where the reproducibility plan requires it; no tracked file changes and no unexplained skip/quarantine.
-- Player and Developer both build; only Player is release-eligible. Player has no source map, Developer/development graph, fixtures, local paths, `references/`, candidate source media, terms-pending asset, secret, or remote runtime asset URL.
+- Demo Player, Demo Developer, and E2E Player all build through the single artifact wrapper; only Demo Player is release-eligible. Both Player outputs have no source map, Developer/development graph, fixtures, local paths, `references/`, candidate source media, terms-pending asset, secret, or remote runtime asset URL.
+- `pnpm test:scripts` and the final ordered `scripts` verification step recursively discover and execute every `scripts/**/*.test.ts` and `scripts/**/*.test.mjs` exactly once, including later workflow, Pages, post-deploy, and docs tests; omission/duplication fixtures fail deterministically.
 - Every artifact payload file except the self-excluding manifest has a sorted SHA-256 entry and one-or-more license scopes; checkpoint/CI evidence records the manifest file's own SHA-256, and required legal/notices retain canonical hashes.
 - Two fresh clean builds have identical path/size/digest/license tuples and identical Story/Engine/resolved/app identities.
 - Prebuilt Player works at a nested base path through new game, initial VN, policy selection, first action, save, refresh, and continue.

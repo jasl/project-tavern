@@ -14,7 +14,7 @@
 - Before every phase, re-read live `AGENTS.md`, the three authoritative specs, the phase plan, package exports, scripts, routes, `git status`, and the previous checkpoint evidence. Live repository state wins over remembered file paths.
 - The first Goal covers automated engineering delivery and a feedback-ready artifact. It does not claim the game is fun, declare the five-person playtest passed, approve generated assets, start Unity, or authorize a remote deployment.
 - Do not create Electron, `stories/common`, a public npm release, a Mod manager, a package store, a migration framework, ECS, event bus, CQRS/event sourcing, dependency-injection container, generic scripting DSL, or visual Story editor.
-- Simulation is snapshot-authoritative and command-driven. One coordinator owns candidate commit/sequence/RNG; Modules cannot write another owner; UI and Hotfix never write State.
+- Simulation is snapshot-authoritative and command-driven. One coordinator owns candidate commit/sequence/RNG; a Module cannot write state owned by another Module; UI and Hotfix never write State.
 - `stories/e2e` is the first real consumer of all public Modules and owns independent minimal content. It must not import Demo Story content, private helpers, fixtures, text, or IDs.
 - Browser E2E proves integration and player-visible outcomes. Formula ordering, rejection details, invariants, and balance distributions stay in fast Vitest/fast-check suites.
 - Code-native asset fallbacks are a complete mandatory deliverable. Candidate/terms-pending art remains excluded without explicit user selection and terms approval.
@@ -300,7 +300,7 @@ git diff --check
 git status --short --branch
 ```
 
-Expected: all verification exits 0; only the intended handoff documentation is uncommitted before its commit.
+Expected: all verification commands exit 0; only the intended handoff documentation remains uncommitted before its commit.
 
 - [ ] **Step 3: Commit the engineering handoff**
 

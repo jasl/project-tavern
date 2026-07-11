@@ -8,7 +8,7 @@
 
 ## 当前七日 PoC
 
-- [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：当前技术架构权威；定义 package 化 Base/UI、Story-owned Modules/Scenes、Loader/Host、Hotfix、中央舞台、存档/调试、测试、构建与素材边界。
+- [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：当前技术架构权威；定义 Base/UI 包、由 Story 组合的 Modules、Story 自有 Scenes、Loader/Host、Hotfix、中央舞台、存档/调试、测试、构建与素材边界。
 - [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级合同；区分 Base 共享 envelope 与 Demo Module/Story 具体 ABI，穷举 Snapshot、命令/Fact/拒绝、规则、Narrative、resolved provenance、Save/Debug 和关键不变量。
 - [`superpowers/specs/2026-07-11-repository-licensing-design.md`](superpowers/specs/2026-07-11-repository-licensing-design.md)：MIT Engine、PolyForm 非商业游戏代码、CC BY-NC-SA 原创内容、第三方材料与无许可材料治理边界。
 - [`superpowers/plans/2026-07-11-repository-licensing-implementation.md`](superpowers/plans/2026-07-11-repository-licensing-implementation.md)：标准法律文本、范围声明、验证器、第三方/商标/贡献政策和公开入口的实施记录。

@@ -8,7 +8,7 @@
 
 - 高层游戏设计已经形成基线；
 - 七日 PoC 的范围、规则、首轮数值与测试场景已经落盘；
-- package 化 Base/UI、Story-owned Modules/Scenes、Loader/Host、Hotfix 与 E2E 集成 Story 的架构规格和字段 ABI 已冻结为第一轮 Goal 的实施基线；
+- Base/UI 包、由 Story 组合的 Modules、Story 自有 Scenes、Loader/Host、Hotfix 与 E2E 集成 Story 的架构规格和字段 ABI 已冻结为第一轮 Goal 的实施基线；
 - 旧五阶段计划已因架构重组被清理；新的六阶段实施路线已经完成，尚未创建或启动长期 Goal；
 - Phase A 的 UI、酒馆、女主与招牌四张 Image Gen 校准候选已经归档，尚未选为运行时素材；
 - 尚未创建前端脚手架；

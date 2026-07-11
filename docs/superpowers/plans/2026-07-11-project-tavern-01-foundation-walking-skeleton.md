@@ -28,6 +28,7 @@
 - All Base structured values use strict closed Schemas. No `Record<string, unknown>` escape hatch, arbitrary script string, callback registry, `eval`, function serialization, `NaN`, `Infinity`, unsafe integer, negative zero, or `undefined` in serializable data.
 - `references/` stays ignored, untracked, unread by production/tests/build/generation, absent from manifests and artifacts, and outside all project licenses.
 - Verification commands are read-only with respect to tracked files. Only `regenerate:fixtures`, `update:golden`, `update:screenshots`, and `release:prepare` may write their documented outputs; `pnpm verify` never calls them.
+- Script-test discovery is recursive and filesystem-driven: every `scripts/**/*.test.mjs` is owned by the Node runner and every `scripts/**/*.test.ts` is owned by the dedicated Vitest `scripts` project exactly once. No phase may rely on the shallow `scripts/*.test.mjs` glob or an enumerated list that can omit a future nested test.
 - Every behavior slice follows focused red, observed expected failure, minimal green implementation, focused pass, phase gate, current `pnpm verify`, staged diff review, and the exact commit shown in the task.
 - The first red must fail on the target behavior, not a broken toolchain, missing browser binary, invalid unrelated fixture, or syntax/type error.
 - Use English identifiers and Chinese player-facing/design prose. Use SPDX headers matching each file's actual software license.
@@ -44,6 +45,7 @@
 - Create `vitest.config.ts`, `playwright.config.ts`, `vite.config.ts`, `.oxlintrc.json`, `.prettierrc.json`, and `.prettierignore`: test/build/format/type-aware-lint entrypoints without a legacy app root.
 - Create `scripts/workspace-policy.mjs`: exact package/license/dependency/facet policy shared by verifiers.
 - Create `scripts/classify-vitest-project.mjs`: stable mutually exclusive workspace test ownership reused by Vitest config and discovery guard.
+- Create `scripts/run-script-tests.mjs`: recursively discover and execute all Node and TypeScript tests below `scripts/`, with a behavior test that rejects missing/duplicate ownership.
 - Create `scripts/collect-import-closure.mjs`: resolve package exports and static production closure for Engine, Story simulation, Story presentation, and Application manifests.
 - Create `packages/base/public-exports.v1.json` and `scripts/verify-public-exports.mjs`: exact Base entry targets/symbols plus a TypeScript consumer contract.
 - Create `scripts/verify-toolchain.mjs`, `verify-boundaries.mjs`, `verify-cycles.mjs`, `verify-stories.mjs`, `verify-fixtures.mjs`, `verify-golden.mjs`, `verify-assets.mjs`, `verify-bundle.mjs`, `verify-artifact.mjs`, `verify-release.mjs`, and colocated `*.test.mjs`: real phase-adapted checks.
@@ -171,7 +173,7 @@ Use this exact manifest matrix:
 | `packages/modules/package.json` | `@project-tavern/modules` | `PolyForm-Noncommercial-1.0.0` | Base/UI via `workspace:*`, Zod `4.4.3` |
 | `packages/assets/package.json` | `@project-tavern/assets` | `SEE LICENSE IN LICENSE.md` | Base via `workspace:*` |
 | `stories/demo/package.json` | `@project-tavern/story-demo` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, Zod `4.4.3` |
-| `stories/e2e/package.json` | `@project-tavern/story-e2e` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, Zod `4.4.3` |
+| `stories/e2e/package.json` | `@project-tavern/story-e2e` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, React `19.2.7`, Zod `4.4.3` |
 | `stories/sandbox/package.json` | `@project-tavern/story-sandbox` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Assets/Web via `workspace:*`, Zod `4.4.3` |
 | `apps/web/package.json` | `@project-tavern/web` | `MIT` | Base/UI via `workspace:*`, React/React DOM/Vite runtime |
 
@@ -327,6 +329,7 @@ Expected: every verifier and its negative tests pass, `pnpm verify` runs the rea
 - Create: `packages/base/src/contracts/digest.ts`
 - Create: `packages/base/src/contracts/digest.test.ts`
 - Create: `packages/base/src/contracts/snapshot.ts`
+- Create: `packages/base/src/contracts/snapshot.test.ts`
 - Create: `packages/base/src/contracts/index.ts`
 - Create: `packages/base/type-tests/public-exports.test-d.ts`
 - Modify: `packages/base/src/index.ts`
@@ -335,7 +338,7 @@ Expected: every verifier and its negative tests pass, `pnpm verify` runs the rea
 **Interfaces:**
 
 - Consumes: Task 2's strict TypeScript/package graph and the Catalog's values, Strict JSON, Canonical JSON, digest, and generic Snapshot contracts.
-- Produces: `Brand`, `DeepReadonly`, `NonNegativeSafeInteger`, `PositiveSafeInteger`, `NonZeroUint32`, `RunId`, `Digest`, exact parsers `parseNonNegativeSafeInteger`, `parsePositiveSafeInteger`, `parseNonZeroUint32`, `parseRunId`, and `parseDigest`, `RuntimeSchemaV1<T>`, `StrictJsonValueV1`, `StrictJsonLimitsInputV1`, `parseStrictJsonLimitsV1`, `StrictJsonResultV1`, `parseStrictJson`, `canonicalJsonBytes`, closed `DigestDomainV1`, semantic `digestCanonical`, raw-file `digestBytes`, and `GameSnapshotEnvelopeV1<TState,TRngState>` for every later contract, resolver, fixture, Save/Debug codec, and Story validator.
+- Produces: `Brand`, `DeepReadonly`, `ModuleId`, `StateSlotId`, `NonNegativeSafeInteger`, `PositiveSafeInteger`, `NonZeroUint32`, `RunId`, `Digest`, exact unsuffixed parsers `parseModuleId`, `parseStateSlotId`, `parseNonNegativeSafeInteger`, `parsePositiveSafeInteger`, `parseNonZeroUint32`, `parseRunId`, and `parseDigest`, `RuntimeSchemaV1<T>`, `StrictJsonValueV1`, `StrictJsonLimitsInputV1`, `parseStrictJsonLimitsV1`, `StrictJsonResultV1`, `parseStrictJson`, `canonicalJsonBytes`, closed `DigestDomainV1`, semantic `digestCanonical`, raw-file `digestBytes`, `GameSnapshotEnvelopeV1<TState,TRngState>`, and generic `createGameSnapshotEnvelopeSchemaV1(stateSchema, rngStateSchema)` for every later contract, resolver, fixture, Save/Debug codec, and Story validator.
 
 - [ ] **Step 1: Write hostile-input and canonical-vector tests**
 
@@ -343,6 +346,10 @@ Tests must include actual bytes and exact outcomes:
 
 ```ts
 expect(() => parseNonNegativeSafeInteger(-0)).toThrow("negative zero");
+expect(parseModuleId("synthetic.parity")).toBe("synthetic.parity");
+expect(parseStateSlotId("simulation.counter")).toBe("simulation.counter");
+expect(() => parseModuleId(" Synthetic.parity")).toThrow();
+expect(() => parseStateSlotId("simulation.counter/../../escape")).toThrow();
 expect(parseStrictJson(new TextEncoder().encode('{"a":1,"a":2}'), limits))
   .toMatchObject({ ok: false, error: { code: "object.duplicate_key" } });
 expect(parseStrictJson(Uint8Array.of(0xef, 0xbb, 0xbf, 0x7b, 0x7d), limits))
@@ -361,6 +368,13 @@ expect(digestCanonical("project-tavern:state:v1", { a: 1 }))
 expect(digestBytes(new TextEncoder().encode("abc")))
   .toBe("sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 
+const snapshotSchema = createGameSnapshotEnvelopeSchemaV1(counterStateSchema, syntheticRngStateSchema);
+expect(snapshotSchema.parse({ state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0 }))
+  .toEqual({ state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0 });
+expect(() => snapshotSchema.parse({
+  state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0, extra: true,
+})).toThrow();
+
 // @ts-expect-error semantic digest domains are a closed Catalog union
 digestCanonical("project-tavern:ad-hoc:v1", { a: 1 });
 ```
@@ -368,9 +382,12 @@ digestCanonical("project-tavern:ad-hoc:v1", { a: 1 });
 Add the package export type test only after the root contract exists:
 
 ```ts
-import type { GameSnapshotEnvelopeV1 } from "@project-tavern/base";
+import type { GameSnapshotEnvelopeV1, ModuleId, StateSlotId } from "@project-tavern/base";
+import { parseModuleId, parseStateSlotId } from "@project-tavern/base";
 
 export declare const publicSnapshot: GameSnapshotEnvelopeV1<unknown, unknown>;
+export const publicModuleId: ModuleId = parseModuleId("synthetic.parity");
+export const publicStateSlotId: StateSlotId = parseStateSlotId("simulation.counter");
 
 // @ts-expect-error package internals are intentionally not exported
 export type ForbiddenDeepImport = typeof import("@project-tavern/base/src/contracts/snapshot.js");
@@ -378,9 +395,9 @@ export type ForbiddenDeepImport = typeof import("@project-tavern/base/src/contra
 
 - [ ] **Step 2: Run red**
 
-Run: `pnpm exec vitest run packages/base/src/contracts/values.test.ts packages/base/src/contracts/strict-json.test.ts packages/base/src/contracts/canonical-json.test.ts packages/base/src/contracts/digest.test.ts`
+Run: `pnpm exec vitest run packages/base/src/contracts/values.test.ts packages/base/src/contracts/strict-json.test.ts packages/base/src/contracts/canonical-json.test.ts packages/base/src/contracts/digest.test.ts packages/base/src/contracts/snapshot.test.ts`
 
-Expected: FAIL because the four target modules/exports do not exist.
+Expected: FAIL because the five target modules/exports do not exist.
 
 - [ ] **Step 3: Implement the closed contracts**
 
@@ -392,7 +409,16 @@ export interface GameSnapshotEnvelopeV1<TState, TRngState> {
   readonly rng: TRngState;
   readonly commandSequence: NonNegativeSafeInteger;
 }
+
+export function createGameSnapshotEnvelopeSchemaV1<TState, TRngState>(
+  stateSchema: RuntimeSchemaV1<TState>,
+  rngStateSchema: RuntimeSchemaV1<TRngState>,
+): RuntimeSchemaV1<GameSnapshotEnvelopeV1<TState, TRngState>>;
 ```
+
+The generic Snapshot Schema factory accepts only a plain object with exactly `state`, `rng`, and `commandSequence`; delegates the first two fields to the supplied strict runtime Schemas; parses sequence with `parseNonNegativeSafeInteger`; rejects accessors, custom prototypes, arrays, and unknown keys; and returns a fresh frozen envelope. It does not infer a concrete game State or RNG shape inside Base.
+
+Implement `parseModuleId` with the Catalog stable-ID rule `^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$` and UTF-8 byte length `3..96`. Implement `parseStateSlotId` as a real dot-path parser rooted at `simulation.` or `story.`: accept existing camelCase property segments such as `activeWorkflow` and `resolvedChecks`, but reject empty/index/escaped segments and the dangerous names `__proto__`, `prototype`, and `constructor`. Both parsers return their distinct brands without normalization and are exported unsuffixed from the Base root.
 
 Strict JSON performs bounded UTF-8 decode followed by duplicate/dangerous-key-aware parsing and enforces byte/depth/node/member/array/string limits. A success result still exposes `value: unknown`; every caller must immediately pass it to the appropriate strict envelope Schema rather than treating parser success as domain validation. Canonical JSON rejects custom prototypes, accessors, cycles, functions, symbols, `undefined`, non-finite/unsafe numbers, and negative zero; it sorts keys by Unicode code point and emits UTF-8 without ambient locale/newline behavior.
 
@@ -412,7 +438,7 @@ Expected: all pass; the root Base import compiles and the `@ts-expect-error` dee
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -- packages/base/src/contracts/values.ts packages/base/src/contracts/values.test.ts packages/base/src/contracts/strict-json.ts packages/base/src/contracts/strict-json.test.ts packages/base/src/contracts/canonical-json.ts packages/base/src/contracts/canonical-json.test.ts packages/base/src/contracts/digest.ts packages/base/src/contracts/digest.test.ts packages/base/src/contracts/snapshot.ts packages/base/src/contracts/index.ts packages/base/src/index.ts packages/base/type-tests/public-exports.test-d.ts tsconfig.check.json
+git add -- packages/base/src/contracts/values.ts packages/base/src/contracts/values.test.ts packages/base/src/contracts/strict-json.ts packages/base/src/contracts/strict-json.test.ts packages/base/src/contracts/canonical-json.ts packages/base/src/contracts/canonical-json.test.ts packages/base/src/contracts/digest.ts packages/base/src/contracts/digest.test.ts packages/base/src/contracts/snapshot.ts packages/base/src/contracts/snapshot.test.ts packages/base/src/contracts/index.ts packages/base/src/index.ts packages/base/type-tests/public-exports.test-d.ts tsconfig.check.json
 git diff --cached --check
 git commit -m "feat(base): add strict deterministic data contracts"
 ```
@@ -432,19 +458,35 @@ git commit -m "feat(base): add strict deterministic data contracts"
 **Interfaces:**
 
 - Consumes: Task 3 safe-integer, immutable Snapshot, and closed-value contracts plus the Catalog's xorshift32-v1 and execution-attempt semantics.
-- Produces: `RngStateV1`, `RngDrawTraceV1`, transactional `RuleRngV1`, `CommandExecutionResultEnvelopeV1`, `CommandExecutionDiagnosticsEnvelopeV1`, and `CommandExecutionAttemptEnvelopeV1`, guaranteeing rejected/faulted exact Snapshot reference, attempted draw evidence without committed RNG movement, and the frozen 14-draw vector.
+- Produces: `RngStateV1`, strict public `rngStateV1Schema`, `RngDrawTraceV1`, transactional `RuleRngV1`, exact `createTransactionalRngV1(input: NonZeroUint32 | DeepReadonly<RngStateV1>): RuleRngV1`, `CommandExecutionResultEnvelopeV1`, `CommandExecutionDiagnosticsEnvelopeV1`, and `CommandExecutionAttemptEnvelopeV1`, guaranteeing seed initialization, exact committed-state resumption, rejected/faulted exact Snapshot reference, attempted draw evidence without committed RNG movement, and the frozen 14-draw vector.
 
 - [ ] **Step 1: Write fixed-vector and rollback tests**
 
 ```ts
 const rng = createTransactionalRngV1(parseNonZeroUint32(0x00023049));
-expect(Array.from({ length: 12 }, () => rng.nextInt({ exclusiveMax: 3, purpose: "offset" }) - 1))
+expect(rngStateV1Schema.parse({ algorithm: "xorshift32-v1", cursor: 0, rawDrawCount: 0 }))
+  .toEqual({ algorithm: "xorshift32-v1", cursor: 0, rawDrawCount: 0 });
+expect(() => rngStateV1Schema.parse({
+  algorithm: "xorshift32-v1", cursor: 0x1_0000_0000, rawDrawCount: 0,
+})).toThrow();
+expect(Array.from({ length: 12 }, () => rng.nextInt({ exclusiveMax: 3, purpose: "demand:offset" }) - 1))
   .toEqual(Array(12).fill(0));
 expect([
-  rng.nextInt({ exclusiveMax: 6, purpose: "die.1" }) + 1,
-  rng.nextInt({ exclusiveMax: 6, purpose: "die.2" }) + 1,
+  rng.nextInt({ exclusiveMax: 6, purpose: "check:die.1" }) + 1,
+  rng.nextInt({ exclusiveMax: 6, purpose: "check:die.2" }) + 1,
 ]).toEqual([4, 3]);
 expect(rng.candidateState()).toEqual({ algorithm: "xorshift32-v1", cursor: 0x4e7b7f2e, rawDrawCount: 14 });
+expect(rng.attemptedDraws()).toHaveLength(14);
+expect(Object.keys(rng).sort()).toEqual(["attemptedDraws", "candidateState", "nextInt"]);
+expect(Object.isFrozen(rng)).toBe(true);
+
+const committedState = rng.candidateState();
+const resumed = createTransactionalRngV1(committedState);
+expect(resumed.candidateState()).toEqual(committedState);
+expect(resumed.attemptedDraws()).toEqual([]);
+expect(resumed.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }))
+  .toBe(rng.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }));
+expect(resumed.candidateState()).toEqual(rng.candidateState());
 
 const rejected = rejectAttemptV1(snapshot, rng, [{ code: "synthetic.reject" }]);
 expect(rejected.result.snapshot).toBe(snapshot);
@@ -477,9 +519,12 @@ export interface CommandExecutionAttemptEnvelopeV1<TSnapshot, TFact, TRejection,
   readonly result: CommandExecutionResultEnvelopeV1<TSnapshot, TFact, TRejection, TFault>;
   readonly diagnostics: CommandExecutionDiagnosticsEnvelopeV1<TRngState, TRngDrawTrace>;
 }
+
+export function createTransactionalRngV1(input: NonZeroUint32): RuleRngV1;
+export function createTransactionalRngV1(input: DeepReadonly<RngStateV1>): RuleRngV1;
 ```
 
-`nextInt` accepts `1..2^32`, increments `rawDrawCount` for every raw draw including discarded samples, and never uses floating scaling or direct biased modulo. Attempt factories never mutate input objects.
+`rngStateV1Schema` is a strict object Schema for exactly `{ algorithm: "xorshift32-v1", cursor: Uint32, rawDrawCount: NonNegativeSafeInteger }`. Its internal cursor validation accepts every integer in `0..2^32-1` as required by the persisted Catalog ABI; it does not expose a new `parseUint32` public symbol. `createTransactionalRngV1` still requires a fresh `NonZeroUint32` seed, while the State overload accepts a deep-readonly committed `RngStateV1`, parses through that Schema, copies the supplied cursor/count exactly, starts `attemptedDraws()` empty, and performs no warm-up draw, seed rehash, or counter reset. Every `purpose` is validated against the Catalog rule `^(demand|check|scheduler):[a-z0-9._:-]+$` with byte length `1..128`. The next draw after resume must equal a still-live generator continued from the same State. It returns one frozen object whose complete public API is exactly `nextInt`, `candidateState`, and `attemptedDraws`; it exposes no generic cursor setter, raw draw primitive, or undocumented `draws()` alias. `attemptedDraws()` returns a readonly frozen snapshot of every attempted raw draw in stable attempt order, including discarded rejection-sampling draws. `nextInt` accepts `1..2^32`, increments `rawDrawCount` for every raw draw including discarded samples, and never uses floating scaling or direct biased modulo. Attempt factories never mutate input objects. This clarification changes no public type name beyond the already planned transactional `RuleRngV1` surface.
 
 - [ ] **Step 4: Run focused/property/type gates and commit**
 
@@ -520,13 +565,15 @@ Expected: fixed-vector, rollback, and property tests pass; typecheck is clean; o
 **Interfaces:**
 
 - Consumes: Task 3 closed values/Schemas/Snapshot and Task 4 RNG/execution-attempt contracts.
-- Produces: the exact Catalog `BootstrapEntropyV1`, `GameBootstrapInputV1`, `GameProfileTypeMapV1<TBootstrapInput,TState,TRngState>`, phantom witness, distinct stateful/stateless `GameModuleBindingV1`, owner proposal envelope, `CommandCoordinatorV1.executeAttempt`, `GameProfileV1.createBootstrapInput`, `GamePackageV1`, generic `StoryDevelopmentEntryV1`/`StoryDevelopmentSupportV1`, `defineGameModule`, `defineGameProfile`, `defineGamePackage`, `defineStoryDevelopmentEntry`, and `@project-tavern/base/testkit` with `createFixedBootstrapEntropyV1`, `createSyntheticCounterGamePackageV1`, `strictJsonRoundTripV1`, and `validateDevelopmentFixturesV1` but no Story/Module/import-closure implementation.
+- Produces: the exact Catalog `BootstrapEntropyV1`, `GameBootstrapInputV1`, `GameProfileTypeMapV1<TBootstrapInput,TState,TRngState>`, phantom witness, distinct stateful/stateless `GameModuleBindingV1`, owner proposal envelope, `CommandCoordinatorV1.executeAttempt`, `GameProfileV1.createBootstrapInput`, source `StorySimulationFacetV1` with `materializeProgram`/`createProfile`, inferred `ResolvedPatchValuesV1<TSurface>`, `GamePackageV1`, generic `StoryDevelopmentEntryV1`/`StoryDevelopmentSupportV1`, `defineGameModule`, `defineGameProfile`, `defineGamePackage`, `defineStoryDevelopmentEntry`, and `@project-tavern/base/testkit` with `createFixedBootstrapEntropyV1`, `createSyntheticCounterGamePackageV1`, exact `strictJsonRoundTripV1<T>(value: DeepReadonly<T>, schema: RuntimeSchemaV1<T>): T`, and `validateDevelopmentFixturesV1` but no concrete Story/Module/import-closure implementation.
 
 - [ ] **Step 1: Write profile invariant and cross-profile type tests**
 
 Cover duplicate Module ID, duplicate State slot, missing dependency, dependency cycle, stateful missing owner/schema, stateless nonempty slot/owner, and a valid one-stateful-plus-one-stateless profile. The stateless Binding has only descriptor/command-query Schemas/typed `services` plus null owner fields; it has no State Schema, initial slice, read port, or local invariant. `createFixedBootstrapEntropyV1` must prove `createBootstrapInput` consumes fresh entropy exactly once per lifecycle operation. `defineStoryDevelopmentEntry` validates/fixes the exact synchronous Catalog source shape without knowing a concrete Story command; generic `validateDevelopmentFixturesV1(entry, { fixtureIdSchema, commandSchema })` invokes support twice and rejects a throw/thenable, nondeterministic result, duplicate fixture IDs, invalid seeds, or invalid commands. Add a compile-time witness:
 
 ```ts
+import { parseModuleId } from "@project-tavern/base";
+
 const defineA = defineGameModule<ProfileATypesV1>();
 const defineB = defineGameModule<ProfileBTypesV1>();
 const moduleB = defineB(validBindingB);
@@ -537,7 +584,7 @@ defineGameProfile<ProfileATypesV1>()({ ...validProfileA, modules: [moduleB] });
 const parity = defineGameModule<SyntheticTypesV1>()({
   bindingKind: "stateless",
   descriptor: {
-    id: moduleId("synthetic.parity"),
+    id: parseModuleId("synthetic.parity"),
     contractRevision: 1,
     stateSlots: [],
     dependencies: [],
@@ -550,6 +597,13 @@ const parity = defineGameModule<SyntheticTypesV1>()({
   owner: null,
   services: parityServiceV1,
 });
+
+const roundTripped = strictJsonRoundTripV1(
+  { count: parseNonNegativeSafeInteger(2) },
+  syntheticCounterStateV1Schema,
+);
+expect(roundTripped).toEqual({ count: 2 });
+expect(() => strictJsonRoundTripV1({ count: 2, extra: true }, syntheticCounterStateV1Schema)).toThrow();
 ```
 
 - [ ] **Step 2: Run red**
@@ -560,9 +614,11 @@ Expected: FAIL on missing authoring/testkit exports.
 
 - [ ] **Step 3: Implement the exact type spine and runtime validation**
 
-Use the Catalog signatures without widening Snapshot/state/RNG to independent unknowns. `defineGameProfile` verifies IDs/slots/owner triads/dependencies/DAG/closed Schemas and deep-freezes the accepted definition. Error messages are diagnostics, not new persisted ABI codes. `defineGamePackage` is side-effect-free and freezes only the source entry; resolver tasks freeze resolved outputs.
+Use the Catalog signatures without widening Snapshot/state/RNG to independent unknowns. `defineGameProfile` verifies IDs/slots/owner triads/dependencies/DAG/closed Schemas and deep-freezes the accepted definition. Error messages are diagnostics, not new persisted ABI codes. `defineGamePackage` is side-effect-free and freezes only the source entry; its simulation facet contains a positive, non-patchable `stateContractRevision`, source data/rules/Narrative/PatchSurface, plus synchronous `materializeProgram(resolvedPatchValues)` and `createProfile(program)`, never a pre-resolved Profile. `ResolvedPatchValuesV1<TSurface>` is inferred through a private phantom witness carried by the typed PatchSurface and exposes only its exact symbol-to-value map; Task 6 makes the authoring helpers supply that witness. Resolver tasks freeze resolved outputs.
 
 The neutral testkit counter owns `synthetic.counter`, accepts `synthetic.increment|reject|fault`, emits `synthetic.incremented`, and uses no tavern/Story-specific production package. Its coordinator returns one attempt with the same diagnostics later consumed by Session.
+
+`strictJsonRoundTripV1<T>` performs exactly `canonicalJsonBytes(value)` → `parseStrictJson(bytes, fixedTestkitLimitsV1)` → `schema.parse(parsed.value)`. It throws the bounded Strict-JSON error on parse failure, never returns the unvalidated parser value, never uses `JSON.stringify`/`JSON.parse`, and preserves branded output only because the caller-supplied runtime Schema reconstructs it.
 
 - [ ] **Step 4: Run and commit**
 
@@ -606,7 +662,7 @@ Expected: authoring and neutral testkit suites pass, cross-profile misuse remain
 **Interfaces:**
 
 - Consumes: Task 3 Canonical JSON/digests, Task 5 authoring/testkit contracts, and the Catalog's Hotfix, asset, provenance, and PatchSurface rules.
-- Produces: `definePatchSlot`, `defineSimulationPatchSurface`, and `definePresentationPatchSurface`; separate simulation/presentation Patch registries; exact Hotfix order/requires/conflicts/supersedes/target checks; public `PatchSetAdoptionDeclarationV1`; `ResolvedAssetManifestV1`; frozen `ResolvedStoryV1`; one public generic `resolveGamePackageV1` composition function; layered engine/story/state/simulation/presentation/application identities; and public testkit `validateStoryV1` backed by those real resolvers.
+- Produces: `definePatchSlot`, `defineSimulationPatchSurface`, and `definePresentationPatchSurface`; separate simulation/presentation Patch registries whose private witnesses populate Task 5's `ResolvedPatchValuesV1<TSurface>`; exact Hotfix order/requires/conflicts/supersedes/target checks; closed `GamePackageResolutionFailureCodeV1`/failure/result contracts; public `PatchSetAdoptionDeclarationV1`; `ResolvedAssetManifestV1`; frozen `ResolvedStoryV1`; one public generic `resolveGamePackageV1` composition function; layered engine/story/state/simulation/presentation/application identities; and public testkit `resolveStoryForTestV1`/`validateStoryV1` backed by those real resolvers.
 
 - [ ] **Step 1: Write resolver contract tests**
 
@@ -629,6 +685,21 @@ it("keeps unapproved candidate providers outside the compiled manifest", () => {
     (asset) => asset.delivery === "code_fallback",
   )).toBe(true);
 });
+
+it("resolves an unpatched Story through the real resolver for test drivers", () => {
+  const resolved = resolveStoryForTestV1(syntheticStoryEntryV1);
+  expect(resolved.frozen).toBe(true);
+  expect(resolved.provenance.resolved.simulationDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
+  expect(() => resolveStoryForTestV1(invalidSyntheticStoryEntryV1)).toThrow();
+});
+
+it("materializes a Profile from the post-Hotfix program", () => {
+  const base = resolveStoryForTestV1(syntheticStoryEntryV1);
+  const patched = resolveSyntheticStoryV1({ hotfixes: [syntheticRuleHotfixV1] });
+  expect(base.simulationProgram.ruleResult).not.toBe(patched.simulationProgram.ruleResult);
+  expect(runSyntheticProfileV1(patched.profile)).toBe(patched.simulationProgram.ruleResult);
+  expect(runSyntheticProfileV1(base.profile)).toBe(base.simulationProgram.ruleResult);
+});
 ```
 
 - [ ] **Step 2: Run red**
@@ -645,7 +716,11 @@ Asset resolution freezes slots first, applies packs in authored order, then asse
 
 Build identity consumes workspace-relative POSIX import-closure records `{ path, sha256, facet }` produced by the repository collector in Task 12, rejects dynamic/unowned/reference/symlink inputs, sorts by path, and excludes mtime/absolute path/chunk name/environment traversal order.
 
-`resolveGamePackageV1` is the only public resolver value. It accepts the typed GamePackage, explicit ordered Hotfix list, compiled asset-governance input, and generated build-identity input, then atomically returns the frozen `ResolvedStoryV1` or the resolver's bounded structured failure. Its generic parameter/return structure is declared with the function; no separate public input/output bag is added. The lower-level Hotfix, asset, Story, and build-identity resolver functions remain private implementation details.
+`resolveGamePackageV1` is the only public resolver value. It accepts the typed GamePackage, explicit ordered Hotfix list, compiled asset-governance input, and generated build-identity input, then returns exactly `GamePackageResolutionResultV1<ResolvedStoryV1<...>>`. All throws/thenables/contract/provider/materialization/build failures are normalized to the Catalog's closed code, ordered rejected Hotfix IDs, and bounded Strict-JSON details; no arbitrary thrown shape crosses the public boundary. Its generic parameter/return structure is declared with the function; no separate public input bag is added. The lower-level Hotfix, asset, Story, and build-identity resolver functions remain private implementation details.
+
+Resolution order is exact: call `entry.define()`; create fresh candidate Patch registries; install and validate all Hotfixes atomically; revoke writes; materialize deeply frozen, symbol-keyed `ResolvedPatchValuesV1<TSurface>` maps; call source `materializeProgram(values)` and `materializePresentation(values)` exactly once each; contract-validate and runtime-deep-freeze both returned Programs; call source `createProfile(simulationProgram)` exactly once; validate that the Profile's actual Module/schema/coordinator manifest and the SimulationProgram are same-origin; compute state/simulation/presentation identities from their canonical projections, provider/import-closure digests, and Patch traces; then deep-freeze `ResolvedStoryV1`. The source facet contains no already-closed Profile. Resolver failure before the final freeze exposes no runnable candidate: patched simulation value/rule symbols are observable through `resolved.simulationProgram` and `resolved.profile`, patched presentation text/value symbols through `resolved.presentationProgram`, and patched asset symbols through `resolved.assets`.
+
+`@project-tavern/base/testkit` additionally exposes `resolveStoryForTestV1(entry)`. It invokes that same public resolver with no Hotfixes, an empty approved-provider set, and deterministic test-only import-closure/build-identity fixtures, throws the resolver's bounded failure, and returns the frozen `ResolvedStoryV1` on success. It neither skips validation nor claims production artifact identity; its digests are stable only for deterministic tests. `validateStoryV1` shares this path and discards the resolved value after its contract assertions. This is the only testkit helper allowed to turn a source `GamePackageV1` into a runnable unpatched test Story.
 
 - [ ] **Step 4: Run and commit**
 
@@ -777,7 +852,7 @@ Expected: runtime and compile-time contract suites pass with the seven-parameter
 **Interfaces:**
 
 - Consumes: Task 3 strict values/limits/digests, Task 6 provenance, and Task 7 generic Application/Host contracts.
-- Produces: generic `SaveRecordEnvelopeV1`, public `SaveSlotHealthV1`, `SaveSlotSummaryV1`, `PersistenceStatusV1` and the remaining Save compatibility DTOs, `PersistenceOperationResultV1`, `SaveExportOperationResultV1`, `ExportedSaveV1`, exact lease statuses, generic `CommandLogEntryBaseV1`/`CommandLogEntryEnvelopeV1`, generic `RuntimeFailureEnvelopeV1`, generic `DebugBundleEnvelopeV1`, `ExportedDebugBundleV1`, and the reviewed Save/Debug strict limits and Schema factories.
+- Produces: generic `SaveRecordEnvelopeV1`, exact public `createSaveRecordEnvelopeSchemaV1(snapshotSchema, provenanceSchema, slotMetadataSchema, simulationLineageSchema)`, public `SaveSlotHealthV1`, `SaveSlotSummaryV1`, `PersistenceStatusV1` and the remaining Save compatibility DTOs, `PersistenceOperationResultV1`, `SaveExportOperationResultV1`, `ExportedSaveV1`, exact lease statuses, generic `CommandLogEntryBaseV1`/`CommandLogEntryEnvelopeV1`, the Catalog's concrete `RuntimeFaultBaseV1`/`RuntimeOperationFaultV1`, generic `DebugBundleEnvelopeV1`, `ExportedDebugBundleV1`, and the reviewed Save/Debug strict limits. Base does not invent a second runtime-failure envelope.
 
 - [ ] **Step 1: Write closed-envelope and public-shape tests**
 
@@ -807,6 +882,17 @@ it("carries owner and fencing state through every available lease branch", () =>
     requestId: handoffRequestId("request-1"),
     requestedByOwnerId: leaseOwnerId("owner-b"),
   })).toMatchObject({ ownerId: "owner-a", fencingToken: 3 });
+});
+
+it("builds a strict Save record Schema from four specialization Schemas", () => {
+  const schema = createSaveRecordEnvelopeSchemaV1(
+    syntheticSnapshotSchema,
+    syntheticProvenanceSchema,
+    syntheticSlotMetadataSchema,
+    syntheticSimulationLineageSchema,
+  );
+  expect(schema.parse(validSyntheticSaveRecord)).toEqual(validSyntheticSaveRecord);
+  expect(() => schema.parse({ ...validSyntheticSaveRecord, extra: true })).toThrow();
 });
 ```
 
@@ -844,6 +930,23 @@ export interface SaveRecordEnvelopeV1<
   readonly simulationLineage: TSimulationLineage;
 }
 
+export function createSaveRecordEnvelopeSchemaV1<
+  TSnapshot,
+  TProvenance,
+  TSlotMetadata,
+  TSimulationLineage,
+>(
+  snapshotSchema: RuntimeSchemaV1<TSnapshot>,
+  provenanceSchema: RuntimeSchemaV1<TProvenance>,
+  slotMetadataSchema: RuntimeSchemaV1<TSlotMetadata>,
+  simulationLineageSchema: RuntimeSchemaV1<TSimulationLineage>,
+): RuntimeSchemaV1<SaveRecordEnvelopeV1<
+  TSnapshot,
+  TProvenance,
+  TSlotMetadata,
+  TSimulationLineage
+>>;
+
 export interface ExportedDebugBundleV1 {
   readonly filename: string;
   readonly mediaType: "application/json";
@@ -856,7 +959,7 @@ export interface ExportedDebugBundleV1 {
 
 For both `ExportedSaveV1` and `ExportedDebugBundleV1`, `digest` means `digestBytes(bytes)` over the exact exported file bytes. It is raw-file integrity only; it never reuses a semantic digest domain or substitutes for the state/current-state digests inside the envelope.
 
-Generic CommandLog and DebugBundle envelopes preserve authored/causal array order and expose no arbitrary JSON field. Schema factories receive the concrete Snapshot/Fact/fault/UI Schemas from a Profile specialization and reject unknown keys recursively. Freeze these limits exactly:
+`createSaveRecordEnvelopeSchemaV1` builds an exact strict envelope: literal `formatRevision: 1`, positive `recordRevision`, strict `IsoUtcInstant`/`Digest`, and the four supplied specialization Schemas; it rejects unknown keys at the envelope and delegates recursive closure to those Schemas. Generic CommandLog and DebugBundle envelopes preserve authored/causal array order and expose no arbitrary JSON field. Concrete internal schemas receive the relevant Profile specializations and reject unknown keys recursively. Freeze these limits exactly:
 
 ```ts
 export const saveJsonLimitsV1 = parseStrictJsonLimitsV1({
@@ -944,11 +1047,12 @@ export interface EngineSessionRuntimeControlV1<TSnapshot> {
     readonly snapshot: DeepReadonly<TSnapshot>;
     readonly status: RuntimeSessionStatusV1;
   };
-  invalidateForHmr(): void;
 }
 ```
 
-An executed command resolves as `{ kind: "executed", execution: result }`. Admission Schema failure resolves `not_executed/validation_failed`; an unavailable Session resolves `not_executed/session_unavailable`; a queued command that reaches the head after fault/HMR resolves `not_executed/fault_paused|hmr_invalidated`. None of the four non-executed paths calls `executeAttempt`. `enqueueAuthoritative` is the only internal primitive used by no-argument lifecycle and later load/import/anchor operations; it is never placed on `PlayerApplicationPortV1`. Its required total `normalizeUnexpectedFault` converts a thrown/rejected callback into that operation's typed result while preserving the Snapshot, setting fault pause, settling the tail, and resolving rather than leaking a Promise rejection; Task 11 lifecycle maps this to `SessionAnchorResultV1 { kind: "faulted", code }`. `invalidateForHmr` preserves the current Snapshot and causes queued/new gameplay dispatch to return the exact HMR non-executed result until a permitted authoritative anchor replacement restores `ready`.
+An executed command resolves as `{ kind: "executed", execution: result }`. Admission Schema failure resolves `not_executed/validation_failed`; an unavailable Session resolves `not_executed/session_unavailable`; a queued command that reaches the head after fault/HMR resolves `not_executed/fault_paused|hmr_invalidated`. None of the four non-executed paths calls `executeAttempt`. `enqueueAuthoritative` is the only internal primitive used by no-argument lifecycle and later load/import/anchor operations; it is never placed on `PlayerApplicationPortV1`. Its required total `normalizeUnexpectedFault` converts a thrown/rejected callback into that operation's typed result while preserving the Snapshot, setting fault pause, settling the tail, and resolving rather than leaking a Promise rejection; Task 11 lifecycle maps this to `SessionAnchorResultV1 { kind: "faulted", code }`.
+
+EngineSession also has a Base-private HMR invalidation capability used by its own tests and, later, by the closed Developer controller. It preserves the current Snapshot and causes queued/new gameplay dispatch to return the exact HMR non-executed result until full rebootstrap. The capability is not a member of exported `EngineSessionRuntimeControlV1`, is absent from `@project-tavern/base/runtime`, and cannot be obtained by Player/Application consumers.
 
 - [ ] **Step 4: Run and commit**
 
@@ -995,20 +1099,29 @@ Expected: FIFO, same-tick busy, attempt-once, queued fault/HMR skip, total-norma
 - [ ] **Step 1: Write the headless walking-skeleton red test**
 
 ```ts
-const definition = sandboxStoryEntryV1.define();
+const resolved = resolveStoryForTestV1(sandboxStoryEntryV1);
 const entropy = createFixedBootstrapEntropyV1({
   uuids: ["00000000-0000-4000-8000-000000000001"],
   uint32s: [parseNonZeroUint32(0x00023049)],
 });
-const session = createSandboxSessionV1(definition.simulation.profile.createBootstrapInput(entropy));
+const session = createSandboxSessionV1(
+  resolved.profile,
+  resolved.profile.createBootstrapInput(entropy),
+);
 const pending = session.dispatch({ kind: "sandbox.counter.increment" });
 expect(session.getStatus()).toBe("busy");
 const outcome = await pending;
 expect(outcome).toMatchObject({ kind: "executed", execution: { kind: "committed" } });
 expect(session.getCurrentSnapshot().state.counter.value).toBe(1);
-expect(definition.presentation.read.text("text.sandbox.counter").text).toBe("计数");
-expect(definition.presentation.read.asset("asset.sandbox.counter", "ui_decoration").delivery)
-  .toBe("code_fallback");
+expect(resolved.presentationProgram.textCatalogs.catalogs[0]?.entries).toContainEqual({
+  textId: "text.sandbox.counter",
+  text: "计数",
+});
+const counterAsset = resolved.assets.assets.find(
+  (asset) => asset.assetId === "asset.sandbox.counter",
+);
+if (counterAsset === undefined) throw new Error("missing Sandbox counter asset");
+expect(counterAsset.delivery).toBe("code_fallback");
 ```
 
 - [ ] **Step 2: Run red**
@@ -1019,7 +1132,7 @@ Expected: FAIL because Sandbox entry/Profile/session do not exist.
 
 - [ ] **Step 3: Implement the synthetic package without importing real Modules**
 
-The Profile state is only `{ counter: { value: NonNegativeSafeInteger } }`; commands are increment, reject, and fault; Facts contain before/after; queries return count/parity; RNG has no draw for increment. The stateful owner alone proposes/applies counter state. The stateless parity service has `stateSlots=[]`, null owner fields, and typed `services`; it has no State Schema/initial slice/read port/local invariant. `createBootstrapInput(entropy)` consumes one nonzero uint32 and no UUID because Sandbox has no run identity. The coordinator is the only commit/sequence owner.
+The Profile state is only `{ counter: { value: NonNegativeSafeInteger } }`; commands are increment, reject, and fault; Facts contain before/after; queries return count/parity; RNG has no draw for increment. The stateful owner alone proposes/applies counter state. The stateless parity service has `stateSlots=[]`, null owner fields, and typed `services`; it has no State Schema, initial slice, read port, or local invariant. The source Story uses `parsePositiveSafeInteger(1)` for `stateContractRevision`, exposes one typed counter PatchSurface, materializes the post-patch counter/presentation programs, and creates its Profile only from the immutable simulation program. `createBootstrapInput(entropy)` consumes one nonzero uint32 and no UUID because Sandbox has no run identity. The coordinator is the only commit/sequence owner.
 
 Default entry exports only `sandboxStoryEntryV1: GamePackageV1`; `./development` exports only `sandboxDevelopmentEntryV1` with the fixed fixture and driver. Freeze the manifest targets as `{ ".": "./src/index.ts", "./development": "./src/development.ts" }`. Text IDs, asset IDs, and scene IDs use stable namespaces. Presentation has one complete `zh-CN` catalog and one fallback-only resolved asset entry; no remote URL or candidate art.
 
@@ -1094,7 +1207,7 @@ Expected: Sandbox unit/contract/property, fixture, golden, and 1..1000 checks pa
 **Interfaces:**
 
 - Consumes: Sandbox `GamePackage`, EngineSession, immutable ViewModel, Player ports, presentation read port, and `GameHostV1`.
-- Produces: MIT generic Player-safe Web root, bootstrap/Hotfix safe-mode controller and UI, closed `@project-tavern/web/developer` panel subpath, and PolyForm Story-owned Player/Developer composition roots; Player serves `#/play`, Developer additionally exposes `#/playground`, and state changes only by typed command dispatch.
+- Produces: MIT generic Player-safe Web root, bootstrap/Hotfix controller returning exact generic `GameBootstrapResolutionResultV1<ResolvedStory,ResolvedIdentity>`, safe-mode/fatal UI, closed `@project-tavern/web/developer` panel subpath, and PolyForm Story-owned Player/Developer composition roots; Player serves `#/play`, Developer additionally exposes `#/playground`, and state changes only by typed command dispatch.
 
 - [ ] **Step 1: Write RTL boundary tests**
 
@@ -1105,6 +1218,25 @@ The Web package type test imports Host/Loader/mount/bootstrap controller only fr
 ```ts
 // @ts-expect-error the Player-safe Web root never re-exports Developer UI
 export { DevelopmentPanel } from "@project-tavern/web";
+```
+
+The bootstrap-controller suite freezes all three result branches:
+
+```ts
+expect(await bootstrap(invalidBaseEntryV1, [])).toMatchObject({
+  kind: "fatal",
+  code: "story.contract_invalid",
+  rejectedHotfixIds: [],
+});
+expect(await bootstrap(validEntryV1, [conflictingHotfixV1])).toMatchObject({
+  kind: "safe_mode",
+  code: "hotfix.conflict",
+  rejectedHotfixIds: [conflictingHotfixV1.manifest.identity.id],
+});
+const ready = await bootstrap(validEntryV1, []);
+expect(ready.kind).toBe("ready");
+if (ready.kind !== "ready") throw new Error("expected ready");
+expect(ready.base).toBe(ready.resolved);
 ```
 
 Every DOM/RTL file starts with `// @vitest-environment jsdom` and imports `@testing-library/jest-dom/vitest`, so this task's red/green commands do not depend on the central Vitest project config that arrives in Task 12.
@@ -1153,13 +1285,13 @@ Web Host adapts both `BootstrapEntropyV1.nextNonZeroUint32()` with `crypto.getRa
 
 The Phase 1 Sandbox application still instantiates all five reviewed Player subports. Its storage adapter reports `available:false`; `save/load/clear/import` and physical-slot export return the Catalog's typed `unavailable` outcomes; lease status is `unavailable` with null owner/token. `exportCurrentSave` is the one real persistence path: it captures the accepted-time committed Sandbox Snapshot, current generated provenance, and Host metadata time, then returns Canonical `ExportedSaveV1` bytes without consulting storage. Diagnostics uses a Phase-1-specific typed unavailable result and is not rendered; Phase 3 replaces that specialization with Catalog `ExportedDebugBundleV1` rather than inventing a partial bundle.
 
-`apps/web` root exports only the generic Host, Loader, `createGameBootstrapControllerV1`, and mount factory. The controller first resolves and validates the untouched base Story, then attempts the explicit authored-order Hotfix list. Success records only the resolved combination identity through the Host atomic record store. A Hotfix conflict/provider/schema/install failure returns a bounded `safe_mode` result containing the already validated untouched base, stable code, ordered rejected IDs, and optional last-success identity; the Loader can start that base only after explicit user action. It never retries a subset, bypasses Story/Save validation, or restores a cached object. Its closed `./developer` export points to `src/developer/index.ts`; neither entry has a Sandbox/Story dependency, and the root never re-exports the Developer panel. Freeze the manifest mapping as `{ ".": "./src/index.ts", "./developer": "./src/developer/index.ts" }`. The PolyForm Sandbox owns `player.html`/`developer.html` and the two application entries. Player entry imports only the Sandbox default entry plus the MIT Web root; Developer entry may additionally import the Story's `./development` and `@project-tavern/web/developer`. `stories/sandbox/tsconfig.json` continues to compile the DOM-free simulation/presentation data and excludes `src/application`; the new `tsconfig.application.json` enables DOM/JSX only for Story application roots and references the Sandbox, UI, and Web projects. Root `tsconfig.json` references both projects without allowing a simulation → application edge.
+`apps/web` root exports only the generic Host, Loader, `createGameBootstrapControllerV1`, and mount factory. The controller first resolves and validates the untouched base Story, then attempts the explicit authored-order Hotfix list. A base failure returns Catalog `fatal` with no runnable Story and an empty rejected-ID list. Success records only the resolved combination identity through the Host atomic record store. A candidate Hotfix conflict/provider/schema/install failure returns Catalog `safe_mode` containing the already validated untouched base in both `base` and `resolved`, the closed failure code, ordered rejected IDs, bounded details, and nullable last-success identity; the Loader can start that base only after explicit user action. Candidate success returns `ready`; with no Hotfixes its `base` and `resolved` are the same reference. It never retries a subset, bypasses Story/Save validation, or restores a cached object. Its closed `./developer` export points to `src/developer/index.ts`; neither entry has a Sandbox/Story dependency, and the root never re-exports the Developer panel. Freeze the manifest mapping as `{ ".": "./src/index.ts", "./developer": "./src/developer/index.ts" }`. The PolyForm Sandbox owns `player.html`/`developer.html` and the two application entries. Player entry imports only the Sandbox default entry plus the MIT Web root; Developer entry may additionally import the Story's `./development` and `@project-tavern/web/developer`. `stories/sandbox/tsconfig.json` continues to compile the DOM-free simulation/presentation data and excludes `src/application`; the new `tsconfig.application.json` enables DOM/JSX only for Story application roots and references the Sandbox, UI, and Web projects. Root `tsconfig.json` references both projects without allowing a simulation → application edge.
 
 Vite mode selects the corresponding Story-owned HTML as the Application root, uses `base: "./"`, and keeps HashRouter-compatible routing. Loader owns loading/bootstrap/fatal surfaces but Sandbox owns active scene content. This dependency direction is PolyForm Story → MIT Web and never MIT Web → PolyForm Story.
 
 Set these focused package scripts before invoking them:
 
-```json
+```jsonc
 // packages/ui/package.json
 { "scripts": { "test": "pnpm --dir ../.. exec vitest run packages/ui/src" } }
 
@@ -1195,6 +1327,8 @@ Expected: UI and Web tests pass; parameterless lifecycle consumes Host entropy o
 - Create: `scripts/classify-vitest-project.mjs`
 - Create: `scripts/classify-vitest-project.d.mts`
 - Create: `scripts/classify-vitest-project.test.mjs`
+- Create: `scripts/run-script-tests.mjs`
+- Create: `scripts/run-script-tests.test.mjs`
 - Create: `scripts/collect-import-closure.mjs`
 - Create: `scripts/collect-import-closure.test.mjs`
 - Create: `scripts/verify-stories.mjs`
@@ -1218,20 +1352,47 @@ Expected: UI and Web tests pass; parameterless lifecycle consumes Host entropy o
 **Interfaces:**
 
 - Consumes: Tasks 1–11 workspace packages, explicit package barrels, legal policy, Sandbox fixtures/golden, and every non-browser Phase 1 command owner.
-- Produces: future-proof disjoint Vitest discovery, an exact machine-checked Base public export inventory, repository-owned import-closure tooling under `scripts/`, the stable core verifier/test command surface, and a tracked-file-immutable current `pnpm verify` that Task 13 extends with build/browser evidence.
+- Produces: future-proof disjoint workspace/script Vitest discovery, recursive Node/TypeScript script-test execution, an exact machine-checked Base public export inventory, repository-owned import-closure tooling under `scripts/`, the stable core verifier/test command surface, and a tracked-file-immutable current `pnpm verify` that Task 13 extends with build/browser evidence.
 
 - [ ] **Step 1: Write failing classifier, export-inventory, closure, and orchestrator tests**
 
-`classifyVitestProjectV1` accepts only POSIX paths under `packages/**/src`, `stories/**/src`, or `apps/**/src`. Property naming wins first, then contract naming/path ownership, then ordinary unit. Node/Playwright/type-declaration tests return `null`.
+`classifyVitestProjectV1` accepts only POSIX workspace-source paths under `packages/**/src`, `stories/**/src`, or `apps/**/src`, plus exact `scripts/**/*.test.ts` paths. Workspace property naming wins first, then contract naming/path ownership, then ordinary unit; TypeScript script tests receive the separate `scripts` owner. Node/Playwright/type-declaration tests return `null`.
 
 ```js
 assert.equal(classifyVitestProjectV1("packages/base/src/contracts/rng.property.test.ts"), "property");
 assert.equal(classifyVitestProjectV1("stories/future/src/story-contract.test.ts"), "contract");
 assert.equal(classifyVitestProjectV1("packages/base/src/testkit/new-helper.test.ts"), "contract");
 assert.equal(classifyVitestProjectV1("apps/future/src/loader/new-loader.test.tsx"), "unit");
+assert.equal(classifyVitestProjectV1("scripts/future/nested/check.test.ts"), "scripts");
+assert.equal(classifyVitestProjectV1("scripts/future/nested/check.test.mjs"), null);
 assert.equal(classifyVitestProjectV1("apps/web/e2e/player.spec.ts"), null);
 assert.equal(classifyVitestProjectV1("packages/base/type-tests/public.test-d.ts"), null);
 ```
+
+The recursive script runner has its own filesystem/spawn contract test. It creates nested `.test.mjs` and `.test.ts` fixtures plus near-miss files, then proves exact sorted ownership and one execution per owner without relying on shell glob expansion:
+
+```js
+test("discovers every nested script test exactly once", async (t) => {
+  const root = await scriptTestFixture({
+    "scripts/root.test.mjs": "node",
+    "scripts/ui/nested.test.ts": "vitest",
+    "scripts/release/deep/workflow.test.mjs": "node",
+    "scripts/release/not-a-test.ts": "ignored",
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  assert.deepEqual(await discoverScriptTestsV1(root), {
+    node: ["scripts/release/deep/workflow.test.mjs", "scripts/root.test.mjs"],
+    vitest: ["scripts/ui/nested.test.ts"],
+  });
+  assert.deepEqual(await recordScriptTestExecutionsV1(root), [
+    ["node", ["--test", "scripts/release/deep/workflow.test.mjs", "scripts/root.test.mjs"]],
+    ["pnpm", ["exec", "vitest", "run", "--project", "scripts"]],
+  ]);
+});
+```
+
+Add missing/duplicate/list-drift cases: the runner fails if Vitest list output omits or duplicates a discovered TypeScript path, if one path is classified twice, or if a test is a symlink/outside `scripts/`. An empty TypeScript set skips only the Vitest child process; it never hides Node tests.
 
 The public-export verifier rejects star barrels, missing/extra symbols, a wrong subpath target, and unsorted inventory entries:
 
@@ -1271,7 +1432,7 @@ test("keeps the Web developer subpath out of the Player closure", async () => {
 Run:
 
 ```bash
-node --test scripts/classify-vitest-project.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs scripts/verify-licensing.test.mjs
+node --test scripts/classify-vitest-project.test.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs scripts/verify-licensing.test.mjs
 pnpm typecheck
 ```
 
@@ -1306,8 +1467,12 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
         "ExportedDebugBundleV1",
         "ExportedSaveV1",
         "GameBootstrapInputV1",
+        "GameBootstrapResolutionResultV1",
         "GameHostV1",
         "GameModuleBindingV1",
+        "GamePackageResolutionFailureCodeV1",
+        "GamePackageResolutionFailureV1",
+        "GamePackageResolutionResultV1",
         "GamePackageV1",
         "GameProfileTypeMapV1",
         "GameProfileV1",
@@ -1319,6 +1484,7 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
         "HotfixEntryV1",
         "IsoUtcInstant",
         "LeaseHandoffRequestId",
+        "ModuleId",
         "ModuleOwnerProposalEnvelopeV1",
         "NonNegativeSafeInteger",
         "NonZeroUint32",
@@ -1335,13 +1501,15 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
         "ReadonlyViewSourceV1",
         "ResolvedAssetManifestV1",
         "ResolvedAssetPresentationV1",
+        "ResolvedPatchValuesV1",
         "ResolvedStoryV1",
         "ResolvedTextPresentationV1",
         "RngDrawTraceV1",
         "RngStateV1",
         "RuleRngV1",
         "RunId",
-        "RuntimeFailureEnvelopeV1",
+        "RuntimeFaultBaseV1",
+        "RuntimeOperationFaultV1",
         "RuntimeSchemaV1",
         "RuntimeSessionStatusV1",
         "RuntimeViewModelEnvelopeV1",
@@ -1357,6 +1525,7 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
         "SessionLeasePortV1",
         "SessionLeaseStatusV1",
         "SessionLifecyclePortV1",
+        "StateSlotId",
         "StoryDevelopmentEntryV1",
         "StoryDevelopmentSupportV1",
         "StrictJsonLimitsInputV1",
@@ -1367,6 +1536,8 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
         "UiContributionSetV1",
         "UiRendererBindingV1",
         "canonicalJsonBytes",
+        "createGameSnapshotEnvelopeSchemaV1",
+        "createSaveRecordEnvelopeSchemaV1",
         "createTransactionalRngV1",
         "debugBundleJsonLimitsV1",
         "defineGameModule",
@@ -1379,13 +1550,16 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
         "digestBytes",
         "digestCanonical",
         "parseDigest",
+        "parseModuleId",
         "parseNonNegativeSafeInteger",
         "parseNonZeroUint32",
         "parsePositiveSafeInteger",
         "parseRunId",
+        "parseStateSlotId",
         "parseStrictJson",
         "parseStrictJsonLimitsV1",
         "resolveGamePackageV1",
+        "rngStateV1Schema",
         "saveJsonLimitsV1"
       ]
     },
@@ -1403,6 +1577,7 @@ Create this versioned inventory. Arrays are lexicographically sorted; the verifi
       "exports": [
         "createFixedBootstrapEntropyV1",
         "createSyntheticCounterGamePackageV1",
+        "resolveStoryForTestV1",
         "strictJsonRoundTripV1",
         "validateDevelopmentFixturesV1",
         "validateStoryV1"
@@ -1420,31 +1595,46 @@ The consumer test fixes the names used by all later plans:
 import type {
   BootstrapEntropyV1,
   GameBootstrapInputV1,
+  GameBootstrapResolutionResultV1,
+  GamePackageResolutionFailureCodeV1,
+  GamePackageResolutionFailureV1,
+  GamePackageResolutionResultV1,
   GameProfileTypeMapV1,
+  ModuleId,
   NonZeroUint32,
   PatchSetAdoptionDeclarationV1,
   PersistenceStatusV1,
   ResolvedAssetPresentationV1,
+  ResolvedPatchValuesV1,
   ResolvedTextPresentationV1,
   RunId,
+  RuntimeFaultBaseV1,
+  RuntimeOperationFaultV1,
   SaveSlotHealthV1,
   SaveSlotSummaryV1,
+  StateSlotId,
   StoryDevelopmentEntryV1,
 } from "@project-tavern/base";
 import {
+  createGameSnapshotEnvelopeSchemaV1,
+  createSaveRecordEnvelopeSchemaV1,
   createTransactionalRngV1,
   defineGameModule,
   defineGamePackage,
   defineGameProfile,
   defineStoryDevelopmentEntry,
+  parseModuleId,
   parseNonZeroUint32,
   parseRunId,
+  parseStateSlotId,
   resolveGamePackageV1,
+  rngStateV1Schema,
 } from "@project-tavern/base";
 import { createEngineSessionV1 } from "@project-tavern/base/runtime";
 import {
   createFixedBootstrapEntropyV1,
   createSyntheticCounterGamePackageV1,
+  resolveStoryForTestV1,
   strictJsonRoundTripV1,
   validateDevelopmentFixturesV1,
   validateStoryV1,
@@ -1453,50 +1643,70 @@ import {
 export type Phase1ConsumerTypesV1 = {
   readonly entropy: BootstrapEntropyV1;
   readonly bootstrap: GameBootstrapInputV1;
+  readonly bootstrapResolution: GameBootstrapResolutionResultV1<unknown, unknown>;
+  readonly packageResolution: GamePackageResolutionResultV1<unknown>;
+  readonly packageResolutionFailure: GamePackageResolutionFailureV1;
+  readonly packageResolutionFailureCode: GamePackageResolutionFailureCodeV1;
   readonly profile: GameProfileTypeMapV1<GameBootstrapInputV1, unknown, unknown>;
+  readonly moduleId: ModuleId;
   readonly seed: NonZeroUint32;
   readonly adoption: PatchSetAdoptionDeclarationV1;
   readonly persistenceStatus: PersistenceStatusV1;
   readonly assetPresentation: ResolvedAssetPresentationV1<unknown, unknown, unknown>;
+  readonly patchValues: ResolvedPatchValuesV1<unknown>;
   readonly textPresentation: ResolvedTextPresentationV1<unknown, unknown>;
   readonly runId: RunId;
+  readonly runtimeFaultBase: RuntimeFaultBaseV1;
+  readonly runtimeOperationFault: RuntimeOperationFaultV1;
   readonly saveSlotHealth: SaveSlotHealthV1;
   readonly saveSlotSummary: SaveSlotSummaryV1;
+  readonly stateSlotId: StateSlotId;
   readonly development: StoryDevelopmentEntryV1<unknown>;
 };
 
 export type Phase1ConsumerValuesV1 = {
   readonly createEngineSession: typeof createEngineSessionV1;
   readonly createFixedBootstrapEntropy: typeof createFixedBootstrapEntropyV1;
+  readonly createGameSnapshotEnvelopeSchema: typeof createGameSnapshotEnvelopeSchemaV1;
+  readonly createSaveRecordEnvelopeSchema: typeof createSaveRecordEnvelopeSchemaV1;
   readonly createSyntheticCounterGamePackage: typeof createSyntheticCounterGamePackageV1;
   readonly createTransactionalRng: typeof createTransactionalRngV1;
   readonly defineGameModule: typeof defineGameModule;
   readonly defineGamePackage: typeof defineGamePackage;
   readonly defineGameProfile: typeof defineGameProfile;
   readonly defineStoryDevelopmentEntry: typeof defineStoryDevelopmentEntry;
+  readonly parseModuleId: typeof parseModuleId;
   readonly parseNonZeroUint32: typeof parseNonZeroUint32;
   readonly parseRunId: typeof parseRunId;
+  readonly parseStateSlotId: typeof parseStateSlotId;
   readonly resolveGamePackage: typeof resolveGamePackageV1;
+  readonly resolveStoryForTest: typeof resolveStoryForTestV1;
+  readonly rngStateSchema: typeof rngStateV1Schema;
   readonly strictJsonRoundTrip: typeof strictJsonRoundTripV1;
   readonly validateDevelopmentFixtures: typeof validateDevelopmentFixturesV1;
   readonly validateStory: typeof validateStoryV1;
 };
 
 // @ts-expect-error parsers do not carry a V1 suffix
+export { parseModuleIdV1 } from "@project-tavern/base";
+// @ts-expect-error parsers do not carry a V1 suffix
 export { parseNonZeroUint32V1 } from "@project-tavern/base";
+// @ts-expect-error parsers do not carry a V1 suffix
+export { parseStateSlotIdV1 } from "@project-tavern/base";
 // @ts-expect-error repository import closure belongs to scripts, never Base/testkit
 export { buildImportClosureV1 } from "@project-tavern/base/testkit";
 ```
 
 - [ ] **Step 4: Implement future-proof disjoint Vitest projects**
 
-`scripts/classify-vitest-project.mjs` exports both the pure classifier and the shared readonly include/exclude patterns; its colocated `.d.mts` fixes `VitestProjectNameV1 = "unit" | "contract" | "property"` so strict TypeScript config imports do not gain an implicit-any JS module. `vitest.config.ts` imports those patterns and defines exactly three projects over all current and future `packages/**/src/**/*.test.{ts,tsx}`, `stories/**/src/**/*.test.{ts,tsx}`, and `apps/**/src/**/*.test.{ts,tsx}`:
+`scripts/classify-vitest-project.mjs` exports both the pure classifier and the shared readonly include/exclude patterns; its colocated `.d.mts` fixes `VitestProjectNameV1 = "unit" | "contract" | "property" | "scripts"` so strict TypeScript config imports do not gain an implicit-any JS module. `vitest.config.ts` imports those patterns and defines exactly four projects over all current and future workspace/source tests plus TypeScript script tests:
 
 - `property`: basename matches `*property.test.ts(x)`;
 - `contract`: non-property basename matches `*contract.test.ts(x)`, or path is under `packages/base/src/authoring/**` or `packages/base/src/testkit/**`;
 - `unit`: every remaining workspace source `*.test.ts(x)`.
+- `scripts`: exactly `scripts/**/*.test.ts`; it does not own `.test.mjs`, `*.test-d.ts`, or workspace source tests.
 
-The classifier normalizes POSIX paths and rejects traversal. `scripts/verify.test.mjs` recursively discovers files from the filesystem, not only `git ls-files`; runs Vitest list mode for each project; and fails on zero-owner, multi-owner, missing-from-list, or duplicate-in-list paths. Adding a future package/Story/App test therefore requires no config edit. Node `scripts/**/*.test.mjs`, Playwright `apps/**/e2e/**/*.spec.ts`, and `*.test-d.ts` stay in their own runners.
+The classifier normalizes POSIX paths and rejects traversal. `scripts/verify.test.mjs` recursively discovers files from the filesystem, not only `git ls-files`; runs Vitest list mode for each project; and fails on zero-owner, multi-owner, missing-from-list, or duplicate-in-list paths. Adding a future package/Story/App or `scripts/**/*.test.ts` test therefore requires no config edit. `scripts/run-script-tests.mjs` independently discovers sorted recursive `scripts/**/*.test.mjs` and passes their exact paths to `node --test`; its full mode also cross-checks/runs the `scripts` Vitest project. Playwright `apps/**/e2e/**/*.spec.ts` and `*.test-d.ts` stay in their own runners.
 
 `.oxlintrc.json` enables correctness/suspicious/import/React/TypeScript rules, type-aware analysis, and unused-disable reporting. Oxlint/Prettier ignore only dependency folders, ignored build/report output, generated declarations, and the reviewed binary screenshot path; source, tests, scripts, manifests, JSON fixtures, and Markdown plans remain checked. Formal diagnostics still come from separately pinned TypeScript 7 through `pnpm typecheck`.
 
@@ -1524,7 +1734,8 @@ Add these exact scripts now:
   "test:unit": "vitest run --project unit",
   "test:contract": "vitest run --project contract",
   "test:property": "vitest run --project property",
-  "test:node": "node --test scripts/*.test.mjs",
+  "test:node": "node scripts/run-script-tests.mjs --kind mjs",
+  "test:scripts": "node scripts/run-script-tests.mjs",
   "test": "pnpm test:unit && pnpm test:contract && pnpm test:property",
   "regenerate:fixtures": "pnpm --filter @project-tavern/story-sandbox regenerate:fixtures",
   "update:golden": "pnpm --filter @project-tavern/story-sandbox update:golden",
@@ -1536,7 +1747,7 @@ The collector resolves package exports and static ESM production dependencies fr
 
 `verify:licensing` now validates legal hashes/notices, every workspace manifest, exact lockfile license inventory, MIT source closure, and Sandbox asset licenses. Task 13 adds built-artifact legal carriage. The four colocated wrapper tests prove `verify:stories` validates Sandbox while Demo/E2E remain intentionally non-startable, and prove fixture/golden/asset checks delegate to real read-only Sandbox validators, propagate nonzero exits, and never invoke a writer.
 
-`verify.mjs` snapshots `git ls-files -z` plus SHA-256 for every current tracked file, then runs format, lint, all core verification commands, typecheck, unit/contract/property, and TypeScript build. It compares the same path/hash map in `finally`, reports changed tracked paths, and fails even after another command fails. It never invokes a baseline writer.
+`verify.mjs` snapshots `git ls-files -z` plus SHA-256 for every current tracked file, then runs format, lint, all core verification commands, recursive script tests, typecheck, unit/contract/property, and TypeScript build. It compares the same path/hash map in `finally`, reports changed tracked paths, and fails even after another command fails. It never invokes a baseline writer.
 
 Use this exact ordered core list:
 
@@ -1555,7 +1766,7 @@ const commands = [
   ["pnpm", ["verify:balance"]],
   ["pnpm", ["verify:assets"]],
   ["pnpm", ["verify:ui"]],
-  ["pnpm", ["test:node"]],
+  ["pnpm", ["test:scripts"]],
   ["pnpm", ["typecheck"]],
   ["pnpm", ["test:unit"]],
   ["pnpm", ["test:contract"]],
@@ -1567,11 +1778,11 @@ const commands = [
 - [ ] **Step 6: Run the core gate and commit**
 
 ```bash
-node --test scripts/classify-vitest-project.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs scripts/verify-licensing.test.mjs
+node --test scripts/classify-vitest-project.test.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.test.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.test.mjs scripts/verify.test.mjs scripts/verify-licensing.test.mjs
 pnpm format:check
 pnpm lint
 pnpm typecheck
-pnpm test:node
+pnpm test:scripts
 pnpm test:unit
 pnpm test:contract
 pnpm test:property
@@ -1580,7 +1791,7 @@ before="$(git ls-files -z | xargs -0 shasum -a 256)"
 pnpm verify
 after="$(git ls-files -z | xargs -0 shasum -a 256)"
 test "$before" = "$after"
-git add -- vitest.config.ts .oxlintrc.json .prettierrc.json .prettierignore scripts/classify-vitest-project.mjs scripts/classify-vitest-project.d.mts scripts/classify-vitest-project.test.mjs scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.mjs scripts/verify-golden.test.mjs scripts/verify-assets.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.mjs scripts/verify-public-exports.test.mjs scripts/verify.mjs scripts/verify.test.mjs packages/base/public-exports.v1.json packages/base/type-tests/phase1-consumer.test-d.ts scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs package.json
+git add -- vitest.config.ts .oxlintrc.json .prettierrc.json .prettierignore scripts/classify-vitest-project.mjs scripts/classify-vitest-project.d.mts scripts/classify-vitest-project.test.mjs scripts/run-script-tests.mjs scripts/run-script-tests.test.mjs scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/verify-stories.mjs scripts/verify-stories.test.mjs scripts/verify-fixtures.mjs scripts/verify-fixtures.test.mjs scripts/verify-golden.mjs scripts/verify-golden.test.mjs scripts/verify-assets.mjs scripts/verify-assets.test.mjs scripts/verify-public-exports.mjs scripts/verify-public-exports.test.mjs scripts/verify.mjs scripts/verify.test.mjs packages/base/public-exports.v1.json packages/base/type-tests/phase1-consumer.test-d.ts scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs package.json
 git diff --cached --check
 git diff --cached --stat
 git commit -m "test: freeze core verification and public exports"
@@ -1697,7 +1908,7 @@ pnpm update:screenshots
 pnpm format:check
 pnpm lint
 pnpm typecheck
-pnpm test:node
+pnpm test:scripts
 pnpm test:unit
 pnpm test:contract
 pnpm test:property
@@ -1755,7 +1966,7 @@ pnpm verify:ui
 pnpm format:check
 pnpm lint
 pnpm typecheck
-pnpm test:node
+pnpm test:scripts
 pnpm test:unit
 pnpm test:contract
 pnpm test:property
@@ -1778,8 +1989,8 @@ Expected:
 
 - Node prints `v24.18.0`; pnpm prints `11.11.0`; frozen install succeeds without unapproved lifecycle scripts.
 - Every named command performs its documented Phase 1 check and exits 0; none is an empty success shim.
-- Every workspace source `*.test.ts(x)` is discovered exactly once by the stable unit/contract/property classifier, including paths in future package/Story/App roots; Node, Playwright, and type-only tests stay in their dedicated runners.
-- Base `.`, `./runtime`, and `./testkit` targets and symbols exactly match `public-exports.v1.json`; consumer typecheck uses `parseNonZeroUint32`, `parseRunId`, `createTransactionalRngV1`, `createFixedBootstrapEntropyV1`, and `defineStoryDevelopmentEntry`, with no suffixed parser alias or Base/testkit import-closure helper.
+- Every workspace source `*.test.ts(x)` is discovered exactly once by the stable unit/contract/property classifier, every recursive `scripts/**/*.test.ts`/`scripts/**/*.test.mjs` path is discovered and executed exactly once by its dedicated owner, and Playwright/type-only tests stay in their own runners.
+- Base `.`, `./runtime`, and `./testkit` targets and symbols exactly match `public-exports.v1.json`; consumer typecheck uses `parseModuleId`, `parseStateSlotId`, `parseNonZeroUint32`, `parseRunId`, `createGameSnapshotEnvelopeSchemaV1`, `rngStateV1Schema`, `createSaveRecordEnvelopeSchemaV1`, `createTransactionalRngV1`, `createFixedBootstrapEntropyV1`, `resolveStoryForTestV1`, and `defineStoryDevelopmentEntry`, with no suffixed parser alias or Base/testkit import-closure helper.
 - Base unit/contract/property suites import only Base and neutral testkit code; `rg -n "tavern|relationship|heroine|story\.demo" packages/base` finds no production match.
 - The fixed PRNG vector ends with cursor `0x4e7b7f2e` and `rawDrawCount=14`.
 - Reject/fault preserve the exact input Snapshot/RNG/sequence; the coordinator is called once per executed command; a queued command behind a fault resolves `not_executed/fault_paused` and is never executed.

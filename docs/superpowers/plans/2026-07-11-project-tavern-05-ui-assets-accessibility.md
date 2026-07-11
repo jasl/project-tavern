@@ -21,6 +21,7 @@
 - Support 1024×768 landscape and 768×1024 portrait tablets, use 1600×1000 as the design basis, stop stage stretching beyond 16:10, and preserve functional reflow at equivalent 200% zoom.
 - Interactive targets are at least 44×44 CSS px, information is never hover-only, keyboard focus returns after Dialog/Overlay closure, and reduced-motion removes nonessential transitions.
 - Browser tests use semantic role/name or stable `data-testid` only for non-semantic stage layers. They do not locate controls by CSS implementation class.
+- Every new `scripts/**/*.test.ts` remains owned by Phase 1's recursive `scripts` Vitest project and `pnpm test:scripts`; Phase 5 must prove the real nested UI/asset tests are discovered rather than relying only on focused filenames.
 - Every task ends with its focused suite, `pnpm verify:ui` as it exists at that commit, the current full `pnpm verify`, an exact staged-diff review, and a focused commit.
 
 ---
@@ -37,6 +38,7 @@ packages/ui/src/developer/              # MIT Developer-only framework exported 
 packages/ui/src/theme/                  # MIT tokens and responsive framing
 packages/modules/src/ui/                # PolyForm HUD and management-overlay contributions
 stories/demo/src/presentation/          # PolyForm Story-owned Scenes and contribution composition
+stories/demo/src/application/           # PolyForm Player/Developer roots and Demo HMR/rebootstrap wiring
 stories/e2e/src/presentation/           # PolyForm stable browser integration Scenes
 packages/assets/src/                    # mixed-license project asset/fallback declarations
 apps/web/src/                           # MIT generic WebHost/Loader composition
@@ -168,8 +170,6 @@ git commit -m "feat(ui): add resolved asset presentation port"
 - Modify: `packages/ui/src/runtime/create-view-bridge.test.tsx`
 - Create: `packages/ui/src/runtime/use-runtime-view.ts`
 - Modify: `packages/ui/src/index.ts`
-- Test: `packages/ui/src/contributions/registry.test.ts`
-- Test: `packages/ui/src/runtime/create-view-bridge.test.tsx`
 
 **Interfaces:**
 
@@ -286,7 +286,7 @@ expect(screen.getByRole("main", { name: "游戏舞台" })).toBeVisible();
 
 Run: `pnpm --filter @project-tavern/ui exec vitest run src/shell`
 
-Expected: FAIL because the seven-layer GameStage and responsive framing are absent; the Phase 1 minimal `game-shell.tsx` remains the file being extended, not a case-only duplicate.
+Expected: FAIL because the seven-layer GameStage and responsive framing are absent; extend the Phase 1 `game-shell.tsx` instead of creating a task-specific duplicate.
 
 - [ ] **Step 3: Implement semantic primitives and the fixed stage**
 
@@ -400,12 +400,15 @@ git commit -m "feat(ui): add accessible visual novel layer"
 - Create: `packages/ui/src/errors/errors.test.tsx`
 - Create: `packages/ui/src/diagnostics/ui-context-source.ts`
 - Create: `packages/ui/src/diagnostics/ui-context-source.test.ts`
+- Create: `packages/ui/src/diagnostics/diagnostic-export-button.tsx`
+- Create: `packages/ui/src/diagnostics/diagnostic-export-button.test.tsx`
+- Modify: `packages/ui/src/shell/game-shell.tsx`
 - Modify: `packages/ui/src/shell/game-stage.tsx`
 
 **Interfaces:**
 
 - Consumes: Overlay contribution bindings, generic `ConfirmationPresentationV1<TCommand,TReason>`, persistence/diagnostic ports, and Base slot/status DTOs.
-- Produces: one primary Overlay, bounded detail stack, generic confirmation, four-slot management, import/export/recovery, and categorized failure UI.
+- Produces: one primary Overlay, bounded detail stack, generic confirmation, four-slot management, import/export/recovery, categorized failure UI, and an always-reachable Player-safe diagnostic export control.
 
 - [ ] **Step 1: Write failing Overlay and persistence-state tests**
 
@@ -427,6 +430,8 @@ it("does not claim success before storage read-back verification", () => {
   expect(screen.getByText("正在安全写入…")).toBeVisible();
 });
 ```
+
+Add a table-driven RTL case for ordinary play, blocking VN, and `fault_paused`. In all three states, the semantic button named `导出诊断包` remains visible, keyboard-focusable, enabled, and at least 44×44 CSS px; activating it calls the read-only Player diagnostics port exactly once and never imports or opens Developer controls.
 
 - [ ] **Step 2: Run focused tests and confirm failure**
 
@@ -450,6 +455,8 @@ Generic confirmation UI receives an opaque `TCommand`, already formatted consequ
 
 Expose a generic read-only UI-session context source containing route token, bounded primary/detail Overlay IDs, dock booleans, and opaque selected action ID. It never imports `DebugUiContextV1`; Story application code owns the closed mapping. Unknown/unregistered IDs are omitted with one UI diagnostic, arrays are bounded, and a headless/unmounted UI may return no context.
 
+Mount `DiagnosticExportButton` in the persistent system-control area of `GameShell`, outside ordinary gameplay and VN input blockers. It is present in Player and Developer builds, uses only `PlayerDiagnosticsPortV1`, downloads only a successfully validated `ExportedDebugBundleV1`, and reports a typed export fault without hiding the control. The Developer build may expose additional dock actions elsewhere, but this button never becomes a shortcut to mutating DevTools.
+
 - [ ] **Step 4: Run UI, persistence integration, and accessibility unit checks**
 
 Run: `pnpm --filter @project-tavern/ui exec vitest run src/overlays src/persistence src/errors src/diagnostics && pnpm verify:fixtures && pnpm verify:ui && pnpm verify`
@@ -459,7 +466,7 @@ Expected: PASS; invalid imports and UI faults leave the active Session unchanged
 - [ ] **Step 5: Commit Overlay and recovery surfaces**
 
 ```bash
-git add -- packages/ui/src/overlays packages/ui/src/persistence packages/ui/src/errors packages/ui/src/diagnostics packages/ui/src/shell/game-stage.tsx
+git add -- packages/ui/src/overlays packages/ui/src/persistence packages/ui/src/errors packages/ui/src/diagnostics packages/ui/src/shell/game-shell.tsx packages/ui/src/shell/game-stage.tsx
 git diff --cached --check
 git commit -m "feat(ui): add overlay save and recovery surfaces"
 ```
@@ -521,15 +528,13 @@ Run:
 
 ```bash
 pnpm --filter @project-tavern/modules add --save-peer --save-exact react@19.2.7
-pnpm --filter @project-tavern/story-demo add --save-exact react@19.2.7
-pnpm --filter @project-tavern/story-e2e add --save-exact react@19.2.7
 pnpm --filter @project-tavern/story-demo add '@project-tavern/web@workspace:*'
 pnpm --filter @project-tavern/story-e2e add '@project-tavern/web@workspace:*'
 pnpm install --frozen-lockfile
 pnpm verify:licensing
 ```
 
-Expected: strict peer/dependency checks pass; Modules UI and both Story application roots resolve `react/jsx-runtime` through their own manifests, not a sibling package. Demo/E2E each declare the generic MIT `@project-tavern/web: workspace:*` dependency used by their host-specific roots; Web still has no reverse Story edge. The existing React third-party record is updated with the additional paths/importers; no duplicate legal record is created.
+Expected: strict peer/dependency checks pass; Modules UI and both Story application roots resolve `react/jsx-runtime` through their own manifests, not a sibling package. E2E and Demo retain the pinned direct React dependencies introduced with their earlier Story-owned SceneGraphs; this task adds React only for Modules. Demo/E2E each declare the generic MIT `@project-tavern/web: workspace:*` dependency used by their host-specific roots; Web still has no reverse Story edge. The existing React third-party record is updated with the additional paths/importers; no duplicate legal record is created.
 
 - [ ] **Step 2: Write failing projection-parity and no-local-formula tests**
 
@@ -608,6 +613,8 @@ git commit -m "feat(game): add tavern player interface"
 - Modify: `stories/demo/src/development.ts`
 - Create: `stories/demo/developer.html`
 - Create: `stories/demo/src/application/developer-entry.tsx`
+- Create: `stories/demo/src/application/install-demo-developer-hmr.ts`
+- Create: `stories/demo/src/application/install-demo-developer-hmr.integration.test.ts`
 - Modify: `stories/demo/src/application/create-demo-debug-ui-context.ts`
 - Modify: `stories/demo/src/application/create-demo-debug-ui-context.test.ts`
 - Modify: `stories/demo/tsconfig.application.json`
@@ -618,13 +625,14 @@ git commit -m "feat(game): add tavern player interface"
 - Create: `scripts/ui/source-graph-plugin.mts`
 - Create: `scripts/ui/verify-player-graph.mts`
 - Create: `scripts/ui/verify-player-graph.test.ts`
+- Modify: `scripts/collect-import-closure.test.mjs`
 - Modify: `vite.config.ts`
 - Modify: root `package.json`
 
 **Interfaces:**
 
-- Consumes: DeveloperApplicationPort, Story `./development` fixtures/notes, generic developer UI framework.
-- Produces: independently toggleable left/right docks, fixture preview, bounded diagnostics, and a build-time Player graph exclusion check.
+- Consumes: DeveloperApplicationPort, Story `./development` fixtures/notes, generic developer UI framework, and Phase 3's closed `installResolvedDigestHmrV1`/runtime-invalidation/full-rebootstrap contract.
+- Produces: independently toggleable left/right docks, fixture preview, bounded diagnostics, a Demo-owned `import.meta.hot` installation with export-then-full-rebootstrap recovery, and build/source-closure checks that keep all Player roots outside every Developer graph.
 
 - [ ] **Step 1: Write failing dock and Player-exclusion tests**
 
@@ -646,11 +654,53 @@ expect(JSON.stringify(playerSourceGraph)).not.toContain("./development");
 expect(JSON.stringify(playerSourceGraph)).not.toContain("DeveloperApplicationPort");
 ```
 
+Add an application-level HMR integration test using the actual Demo Developer composition, a fake structural hot channel, and fixed Host entropy:
+
+```ts
+it("invalidates the old Demo Session and fully reboots after a resolved digest changes", async () => {
+  const fixture = await createDemoDeveloperHmrFixtureV1();
+  const old = fixture.activeComposition();
+
+  await fixture.hot.acceptUpdate(fixture.withChangedSimulationDigest());
+
+  expect(old.session.getStatus()).toBe("hmr_invalidated");
+  await expect(old.player.commands.dispatch(fixture.safeCommand)).resolves.toEqual({
+    kind: "not_executed",
+    code: "hmr_invalidated",
+  });
+  expect(old.coordinatorAttemptCount()).toBe(0);
+  expect(old.pendingAutoSaveCount()).toBe(0);
+  await expect(old.player.persistence.exportCurrentSave()).resolves.toMatchObject({
+    mediaType: "application/json",
+    bytes: expect.any(Uint8Array),
+  });
+  await expect(old.player.diagnostics.exportDebugBundle()).resolves.toMatchObject({
+    mediaType: "application/json",
+    bytes: expect.any(Uint8Array),
+  });
+
+  const replacement = await fixture.fullRebootstrap();
+  expect(old.session.getStatus()).toBe("hmr_invalidated");
+  expect(replacement.session.getStatus()).toBe("ready");
+  expect(replacement.acceptedResolvedIdentity()).toEqual(fixture.changedResolvedIdentity());
+});
+
+it("keeps the Demo Session for an equal-tuple CSS or developer-note update", async () => {
+  const fixture = await createDemoDeveloperHmrFixtureV1();
+  const before = fixture.activeComposition();
+  await fixture.hot.acceptUpdate(fixture.withEqualResolvedIdentity());
+  expect(fixture.activeComposition()).toBe(before);
+  expect(before.session.getStatus()).toBe("ready");
+});
+```
+
+Extend `collect-import-closure.test.mjs` so the Phase 3 two-root owner set is deliberately expanded to exactly three Story-owned Developer roots: Sandbox, E2E, and Demo. All three must reach `apps/web/src/developer/resolved-digest-hmr.ts`, `packages/base/src/runtime/developer/index.ts`, and their own `./development` entry, and all three source roots must contain the real `import.meta.hot` handoff. The Sandbox/E2E/Demo Player roots must reach none of those paths; no Base/Web module may own `import.meta.hot` or statically import a Story.
+
 - [ ] **Step 2: Run focused Developer tests and confirm failure**
 
-Run: `pnpm --filter @project-tavern/ui exec vitest run src/developer && pnpm exec vitest run scripts/ui/verify-player-graph.test.ts`
+Run: `pnpm --filter @project-tavern/ui exec vitest run src/developer && pnpm --filter @project-tavern/story-demo exec vitest run src/application/install-demo-developer-hmr.integration.test.ts && node --test scripts/collect-import-closure.test.mjs && pnpm test:scripts`
 
-Expected: FAIL because `@project-tavern/ui/developer` and the graph verifier do not exist.
+Expected: FAIL because `@project-tavern/ui/developer`, the Demo HMR installer, the three-root closure expectation, and the graph verifier do not exist; `pnpm test:scripts` also proves the nested source-graph test is discovered by the Phase 1 runner.
 
 - [ ] **Step 3: Implement the isolated Developer graph**
 
@@ -665,6 +715,8 @@ Expected: FAIL because `@project-tavern/ui/developer` and the graph verifier do 
 
 Keep Developer routes behind `stories/demo/developer.html` and its separate Story-owned Developer application entry; add `mode=demo-developer → stories/demo/developer.html` to the closed Vite root map and set `build:developer="vite build --mode demo-developer"`. The Player root has no import edge to `./development` or `@project-tavern/ui/developer`. The left dock reads State/Fact/Aura/invariant/log summaries; the right dock resolves fixture IDs, Scene previews, notes, DebugBundle import/inspect, and controlled DebugCommands. Neither dock accepts raw JSON state edits or an arbitrary command string.
 
+`developer-entry.tsx` is the third and final Story-owned HMR root. After constructing the active Demo Developer runtime, it calls `installDemoDeveloperHmrV1`, which passes that root's real `import.meta.hot`, immutable accepted Story/Engine/resolved digest resolver, and active `RuntimeInvalidationControllerV1` to `installResolvedDigestHmrV1` from `@project-tavern/web/developer`. A changed Story/Engine/state-contract/simulation/presentation digest invalidates exactly once, cancels unstarted Auto Save, and leaves the old composition mounted only for current Save/Debug export plus the explicit full-rebootstrap action. Full rebootstrap disposes subscriptions/lease/React root, re-resolves the Demo Story, creates a fresh Host/Profile/Session/application composition, and remounts it; it never anchors or resumes the old Session. Equal resolved identity—such as pure CSS, general UI, or developer-note HMR—keeps the current composition.
+
 Wire DevDock open/close state into the same bounded UI-context source. Developer export/decode tests assert `leftDockOpen/rightDockOpen`; Player stays false. Inspecting or anchoring that bundle still does not reopen a dock or change a route automatically.
 
 Expose the generic developer route/mount helpers only as `@project-tavern/web/developer` mapped to `./src/developer/index.ts`; the default Web export must not re-export them. The Demo Developer root may import that public subpath, while Player source-graph verification rejects it.
@@ -673,16 +725,18 @@ Add a Vite 8/Rolldown evidence plugin that classifies every emitted chunk module
 
 Unit red tests use synthetic valid/invalid graph fixtures and therefore fail on missing validation behavior, never on an absent ignored build file. The built-root integration in Step 4 additionally asserts every graph is nonempty; Demo Player binds only `demo-player`/Demo root, Developer positively contains the development entry and marker, E2E binds only `e2e-player`/E2E root, and each build-input/graph digest pair matches its own output.
 
+Update the real closure test atomically with the Demo installer: its exact Developer owner list is now the three Story roots and remains closed. This is a later extension of Phase 3, not permission for generic Web/Base code or any Player root to own HMR invalidation wiring.
+
 - [ ] **Step 4: Build both flavors and prove static exclusion**
 
-Run: `pnpm build:player && pnpm build:developer && pnpm build:e2e-player && pnpm verify:ui:flavors && pnpm verify`
+Run: `pnpm --filter @project-tavern/story-demo exec vitest run src/application/install-demo-developer-hmr.integration.test.ts && node --test scripts/collect-import-closure.test.mjs && pnpm test:scripts && pnpm build:player && pnpm build:developer && pnpm build:e2e-player && pnpm verify:ui:flavors && pnpm verify`
 
-Expected: PASS; all three nonempty source graphs bind to their own roots/output digests; Demo/E2E Player emitted bytes contain no Developer entry, fixtures, notes, preview route, or mutating debug implementation, while Developer positively contains the reviewed development markers.
+Expected: PASS; all three nonempty source graphs bind to their own roots/output digests; resolved-digest HMR invalidates/exports/full-reboots the Demo Developer runtime while equal-tuple HMR keeps it ready; Demo/E2E Player emitted bytes contain no Developer entry, HMR bridge, fixtures, notes, preview route, or mutating debug implementation; recursive script-test discovery reports the nested graph test exactly once.
 
 - [ ] **Step 5: Commit Developer surfaces**
 
 ```bash
-git add -- packages/ui/src/developer packages/ui/package.json stories/demo/src/development stories/demo/src/development.ts stories/demo/developer.html stories/demo/src/application/developer-entry.tsx stories/demo/tsconfig.application.json apps/web/src/developer apps/web/package.json scripts/ui vite.config.ts package.json pnpm-lock.yaml
+git add -- packages/ui/src/developer packages/ui/package.json stories/demo/src/development stories/demo/src/development.ts stories/demo/developer.html stories/demo/src/application/developer-entry.tsx stories/demo/src/application/install-demo-developer-hmr.ts stories/demo/src/application/install-demo-developer-hmr.integration.test.ts stories/demo/src/application/create-demo-debug-ui-context.ts stories/demo/src/application/create-demo-debug-ui-context.test.ts stories/demo/tsconfig.application.json apps/web/src/developer apps/web/package.json scripts/ui scripts/collect-import-closure.test.mjs vite.config.ts package.json
 git diff --cached --check
 git commit -m "feat(ui): add isolated developer docks"
 ```
@@ -836,11 +890,13 @@ Add separate tests for Demo new-game/initial VN/policy/first action/Quick+Manual
 
 Tag the bounded Demo new-game/first-action and E2E one-command paths `@smoke`; Save recovery and Developer tooling remain in the full matrix.
 
+In `ui-infrastructure.spec.ts`, assert the Player diagnostic export button is keyboard- and touch-reachable during ordinary play and blocking VN. Use the Story-owned fault fixture in the Developer root to assert the same control remains reachable while gameplay is fault-paused; the test may inspect the downloaded Bundle metadata but must not import a mutating Developer API into the Player root.
+
 - [ ] **Step 4: Run and commit the browser harness**
 
 Run: `pnpm test:e2e:ui -- --project=chromium && pnpm test:e2e:ui -- --project=webkit && pnpm verify`
 
-Expected: all primary flows pass against their explicit roots; no server builds or rewrites tracked files.
+Expected: all primary flows pass against their explicit roots; the test servers neither build nor rewrite tracked files.
 
 ```bash
 git add -- apps/web/e2e/ui-shell.spec.ts apps/web/e2e/vn-keyboard.spec.ts apps/web/e2e/overlay-focus.spec.ts apps/web/e2e/player-first-day.spec.ts apps/web/e2e/developer-dock.spec.ts apps/web/e2e/ui-infrastructure.spec.ts apps/web/e2e/ui-targets.ts apps/web/playwright.ui.config.ts scripts/ui/serve-static.mts scripts/ui/serve-static.test.ts package.json
@@ -925,19 +981,19 @@ git commit -m "test(ui): enforce responsive accessible interaction"
 - Consumes: UI unit/contract suites and Task 9/10 browser suites over prebuilt roots.
 - Produces: final inspect-only `pnpm verify:ui` plus the Phase 5 gate.
 
-- [ ] **Step 1: Write the failing verifier-order/no-build test**
+- [ ] **Step 1: Write the failing verifier-order/no-build and recursive-discovery test**
 
-Assert the UI verifier runs RTL/contract tests followed by Chromium UI E2E; rejects `vite`, `build:*`, update/screenshot flags, and shell command strings. Extend the root-order test to require Demo Player, Demo Developer, and E2E Player builds before `verify:ui`. Run `pnpm exec vitest run scripts/ui/verify-ui.test.ts && node --test scripts/verify.test.mjs`; expected: FAIL because the final verifier/order does not exist.
+Assert the UI verifier runs RTL/contract tests followed by Chromium UI E2E; rejects `vite`, `build:*`, update/screenshot flags, and shell command strings. Extend the root-order test to retain exactly one `test:scripts` step before Demo Player, Demo Developer, and E2E Player builds and before `verify:ui`. Through the Phase 1 discovery API, compare the live recursive set with every Phase 5 `scripts/**/*.test.ts` path under `scripts/assets` and `scripts/ui`; zero-owner, duplicate-owner, or missing-from-Vitest-list paths fail. Run `pnpm test:scripts && node --test scripts/verify.test.mjs`; expected: FAIL because the final verifier/order does not exist, while the recursive runner still demonstrates that the new nested test is selected rather than skipped.
 
 - [ ] **Step 2: Implement the stable UI gate**
 
 Set `verify:ui="node scripts/ui/verify-ui.mts"`. It uses structured command/arg arrays, runs against already built Demo Player, Demo Developer, and E2E Player outputs, never builds, and never updates screenshots. WebKit remains the explicit phase/release expansion.
 
-At this phase, update the existing root orchestrator so all three builds precede `verify:ui`; retain its tracked-byte `finally` guard. Phase 6 later consolidates artifact preparation and makes every downstream bundle/UI/artifact check inspect-only without changing this public ordering guarantee.
+At this phase, update the existing root orchestrator so one recursive `test:scripts` step precedes all three builds and all three builds precede `verify:ui`; retain its tracked-byte `finally` guard. Phase 6 later consolidates artifact preparation and makes every downstream bundle/UI/artifact check inspect-only without changing this public ordering guarantee.
 
 - [ ] **Step 3: Run the full Phase 5 gate**
 
-Run: `pnpm build:player && pnpm build:developer && pnpm build:e2e-player && pnpm verify:ui && pnpm test:e2e:ui -- --project=webkit && pnpm verify:assets && pnpm verify:bundle && pnpm verify`
+Run: `pnpm test:scripts && pnpm build:player && pnpm build:developer && pnpm build:e2e-player && pnpm verify:ui && pnpm test:e2e:ui -- --project=webkit && pnpm verify:assets && pnpm verify:bundle && pnpm verify`
 
 Expected: all commands exit 0, no unexplained skipped tests, and `git status --short` is unchanged from before verification.
 
@@ -957,6 +1013,7 @@ Phase 5 is complete only when all statements below are proven in one fresh run:
 pnpm build:player
 pnpm build:developer
 pnpm build:e2e-player
+pnpm test:scripts
 pnpm verify:ui
 pnpm test:e2e:ui -- --project=webkit
 pnpm verify:assets
@@ -971,9 +1028,12 @@ git status --short --branch
 Acceptance criteria:
 
 - Demo and E2E Stories render by selecting their own Player/Developer application roots; the generic Loader/WebHost and UI Base remain unchanged and never import a Story.
+- Sandbox, E2E, and Demo are the exact three Story-owned Developer HMR roots. Demo resolved-digest changes invalidate the old Session, retain last-legal Save/Debug export, and require full rebootstrap; equal-tuple CSS/general-UI/developer-note updates retain the Session, and every Player root remains outside the HMR/Developer closure.
 - Player can start, complete the initial VN, choose policy, perform the first-day loop, use Quick/Manual Save, and recover from a valid previous Auto slot with keyboard, mouse, and touch.
+- The Player-safe `导出诊断包` control remains keyboard/touch reachable during ordinary play, blocking VN, and fault pause; it exports through the read-only diagnostics port without exposing DevTools.
 - VN/Overlay focus, blocked input, every 44×44 target, equivalent 200% reflow, reduced motion, WCAG A/AA automation, text spacing, 1024×768, 1600×1000, 768×1024 portrait/touch, and 2560×1080 capped/centered framing pass in Chromium and WebKit; VoiceOver remains separately recorded human evidence.
 - The Player graph and emitted artifact contain no Developer entry, fixture, note, preview route, mutating debug implementation, `references/` path, source image candidate, or unapproved runtime asset.
 - All current Phase A candidates are reported as valid-but-excluded; the mandatory code-native fallback artifact is complete, fully functional, and captured for later human visual review without claiming subjective approval.
 - No UI component imports Snapshot/EngineSession/owner capability, reimplements a rule/guard/formula, or reads raw TextCatalog/Asset Pack/runtimePath.
+- Every recursive Phase 5 `scripts/**/*.test.ts` and inherited `scripts/**/*.test.mjs` file is discovered and executed exactly once by `pnpm test:scripts`.
 - Worktree is clean after verification and the phase checkpoint records base/head SHA, commands, results, and remaining nonblocking asset-review status.
