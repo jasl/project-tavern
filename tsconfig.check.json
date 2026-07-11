@@ -16,7 +16,10 @@
     "apps/**/*.ts",
     "apps/**/*.tsx",
     "stories/**/*.ts",
-    "stories/**/*.tsx"
+    "stories/**/*.tsx",
+    "scripts/**/*.test.ts",
+    "scripts/**/*.d.mts",
+    "vitest.config.ts"
   ],
   "exclude": ["**/dist/**", "node_modules/**"]
 }

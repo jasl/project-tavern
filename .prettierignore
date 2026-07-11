@@ -1,0 +1,12 @@
+node_modules/
+**/dist/
+**/dist-*/
+coverage/
+playwright-report/
+test-results/
+art-source/aigc/**/*.png
+art-source/aigc/**/*.webp
+references/
+stories/sandbox/fixtures/session-zero.json
+stories/sandbox/golden/counter-walk.json
+*.tsbuildinfo

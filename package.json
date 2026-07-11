@@ -10,13 +10,30 @@
     "pnpm": "11.11.0"
   },
   "scripts": {
+    "format:check": "prettier --check .",
+    "lint": "oxlint --type-aware --deny-warnings --react-plugin --import-plugin packages stories apps scripts",
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
     "verify:toolchain": "node scripts/verify-toolchain.mjs",
     "verify:licensing": "node scripts/verify-licensing.mjs",
     "verify:boundaries": "node scripts/verify-boundaries.mjs",
     "verify:cycles": "node scripts/verify-cycles.mjs",
-    "verify": "pnpm verify:toolchain && pnpm verify:licensing && pnpm verify:boundaries && pnpm verify:cycles && pnpm typecheck && pnpm build"
+    "verify:public-exports": "node scripts/verify-public-exports.mjs",
+    "verify:stories": "node scripts/verify-stories.mjs",
+    "verify:fixtures": "node scripts/verify-fixtures.mjs",
+    "verify:golden": "node scripts/verify-golden.mjs",
+    "verify:balance": "pnpm --filter @project-tavern/story-sandbox verify:balance",
+    "verify:assets": "node scripts/verify-assets.mjs",
+    "verify:ui": "pnpm --filter @project-tavern/ui test",
+    "test:unit": "vitest run --project unit",
+    "test:contract": "vitest run --project contract",
+    "test:property": "vitest run --project property",
+    "test:node": "node scripts/run-script-tests.mjs --kind mjs",
+    "test:scripts": "node scripts/run-script-tests.mjs",
+    "test": "pnpm test:unit && pnpm test:contract && pnpm test:property",
+    "regenerate:fixtures": "pnpm --filter @project-tavern/story-sandbox regenerate:fixtures",
+    "update:golden": "pnpm --filter @project-tavern/story-sandbox update:golden",
+    "verify": "node scripts/verify.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
