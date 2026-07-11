@@ -11,6 +11,7 @@
   "include": [
     "packages/**/*.ts",
     "packages/**/*.tsx",
+    "packages/**/*.test-d.ts",
     "apps/**/*.ts",
     "apps/**/*.tsx",
     "stories/**/*.ts",
