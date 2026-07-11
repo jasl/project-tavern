@@ -109,6 +109,41 @@ export type {
   SessionAnchorResultV1,
   SessionDispatchOperationResultV1,
 } from "./presentation.js";
+export {
+  createSaveRecordEnvelopeSchemaV1,
+  exportedSaveSchemaV1,
+  saveJsonLimitsV1,
+  sessionLeaseStatusSchemaV1,
+} from "./persistence.js";
+export type {
+  ExportedSaveV1,
+  PersistenceOperationResultV1,
+  PersistenceStatusV1,
+  SaveExportOperationResultV1,
+  SaveRecordEnvelopeV1,
+  SaveSlotHealthV1,
+  SaveSlotSummaryV1,
+  SaveWriteReasonV1,
+  SessionLeaseOperationResultV1,
+  SessionLeaseStatusV1,
+} from "./persistence.js";
+export {
+  debugBundleJsonLimitsV1,
+  exportedDebugBundleSchemaV1,
+  runtimeOperationFaultSchemaV1,
+} from "./diagnostics.js";
+export type {
+  AssetLoadFaultCodeV1,
+  CommandLogEntryBaseV1,
+  CommandLogEntryEnvelopeV1,
+  DebugBundleEnvelopeV1,
+  ExportedDebugBundleV1,
+  PersistenceFaultCodeV1,
+  RuntimeFaultBaseV1,
+  RuntimeFaultCodeV1,
+  RuntimeOperationFaultV1,
+  UiFaultCodeV1,
+} from "./diagnostics.js";
 export type {
   CommandExecutionAttemptEnvelopeV1,
   CommandExecutionDiagnosticsEnvelopeV1,
