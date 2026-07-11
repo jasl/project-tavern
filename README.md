@@ -8,11 +8,11 @@
 
 - 高层游戏设计已经形成基线；
 - 七日 PoC 的范围、规则、首轮数值与测试场景已经落盘；
-- package 化 Base/UI、Story-owned Modules/Scenes、Loader/Host、Hotfix 与 E2E 集成 Story 的架构讨论已经确认，等待书面规格复核；
-- 旧五阶段计划已因架构重组被清理；新实施计划将在书面规格确认后生成；
+- package 化 Base/UI、Story-owned Modules/Scenes、Loader/Host、Hotfix 与 E2E 集成 Story 的架构规格和字段 ABI 已冻结为第一轮 Goal 的实施基线；
+- 旧五阶段计划已因架构重组被清理；新的六阶段实施路线已经完成，尚未创建或启动长期 Goal；
 - Phase A 的 UI、酒馆、女主与招牌四张 Image Gen 校准候选已经归档，尚未选为运行时素材；
 - 尚未创建前端脚手架；
-- 大规模正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围；首批原创 Image Gen Web 视觉包属于 PoC 交付。
+- 大规模正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围；PoC 必须先以 code-native fallback 完整交付，任何原创 Image Gen 候选只有在人工选定并通过条款审查后才能进入运行时或发布物。
 
 ## 文档入口
 
@@ -20,6 +20,7 @@
 - [游戏设计基线](docs/design/game-design-baseline.md)
 - [Project Tavern Web 运行时与 Story 架构](docs/superpowers/specs/2026-07-10-react-game-harness-design.md)
 - [Base Envelope 与 Demo Module Contract Catalog v1](docs/superpowers/specs/2026-07-10-engine-contract-catalog.md)
+- [第一版 PoC 六阶段实施路线](docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md)
 - [首批 Web 视觉包与 Image Gen 基线](docs/art/first-web-visual-pack.md)
 - [PoC 游戏合同](docs/poc/poc-charter.md)
 - [模拟规则与结算顺序](docs/poc/simulation-rules.md)
@@ -49,4 +50,4 @@ Copyright © 2026 Jun Jiang (jasl).
 
 ## 下一道闸门
 
-评审新的 package/Story/Hotfix 架构规格与字段目录；确认无调整后再编写新的逐任务实施计划并显式创建长期 Goal。Phase A 候选素材的选择和条款审批仍是独立的人工作业，不应被含混地视为已批准。
+确认六阶段路线后，由用户显式授权创建长期 Goal，并严格按路线的阶段顺序和停止线执行。Phase A 候选素材的选择和条款审批仍是独立的人工作业，不应被含混地视为已批准；工程 Goal 也不会自行宣告主观试玩闸门通过或执行远端发布。

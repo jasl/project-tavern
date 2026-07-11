@@ -12,6 +12,13 @@
 - [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级合同；区分 Base 共享 envelope 与 Demo Module/Story 具体 ABI，穷举 Snapshot、命令/Fact/拒绝、规则、Narrative、resolved provenance、Save/Debug 和关键不变量。
 - [`superpowers/specs/2026-07-11-repository-licensing-design.md`](superpowers/specs/2026-07-11-repository-licensing-design.md)：MIT Engine、PolyForm 非商业游戏代码、CC BY-NC-SA 原创内容、第三方材料与无许可材料治理边界。
 - [`superpowers/plans/2026-07-11-repository-licensing-implementation.md`](superpowers/plans/2026-07-11-repository-licensing-implementation.md)：标准法律文本、范围声明、验证器、第三方/商标/贡献政策和公开入口的实施记录。
+- [`superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md`](superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md)：第一版工程 Goal 的总路线、固定阶段顺序、公共命令面、跨阶段停止线和最终 Definition of Done。
+  - [`Phase 1 — Foundation & Walking Skeleton`](superpowers/plans/2026-07-11-project-tavern-01-foundation-walking-skeleton.md)
+  - [`Phase 2 — Real Modules & E2E Story`](superpowers/plans/2026-07-11-project-tavern-02-modules-e2e-story.md)
+  - [`Phase 3 — Persistence, Replay & Diagnostics`](superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md)
+  - [`Phase 4 — Demo Story & Golden Week`](superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md)
+  - [`Phase 5 — UI, Assets & Accessibility`](superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md)
+  - [`Phase 6 — Reproducible Release & Pages`](superpowers/plans/2026-07-11-project-tavern-06-release-pages.md)
 - [`art/first-web-visual-pack.md`](art/first-web-visual-pack.md)：首批 Image Gen 视觉语言、场景/人物锚点、Asset ID、安全区、来源记录与验收。
 - [`poc/poc-charter.md`](poc/poc-charter.md)：为什么做、做多少、怎样判断通过。
 - [`poc/simulation-rules.md`](poc/simulation-rules.md)：状态模型、命令、时间推进、事件与结算顺序。
@@ -19,7 +26,7 @@
 - [`poc/content-and-playtest.md`](poc/content-and-playtest.md)：固定七日场景、教学节奏与策略测试矩阵。
 - [`poc/reference-strategies.md`](poc/reference-strategies.md)：把六种 reference 策略展开为唯一命令序列的确定性 driver。
 
-权威按领域划分并写在仓库根目录 `AGENTS.md`：运行时与 Story 架构规格负责技术边界，Contract Catalog 负责字段级 ABI，`docs/poc/` 负责七日玩法与数值。
+权威按领域划分并写在仓库根目录 `AGENTS.md`：运行时与 Story 架构规格负责技术边界，Contract Catalog 负责字段级 ABI，`docs/poc/` 负责七日玩法与数值，六阶段路线只负责实施顺序、验收与停止线，不改变上游合同。
 
 ## 研究
 
@@ -28,7 +35,8 @@
 
 ## 决策状态
 
-- **已确认，待书面规格复核**：首个可玩物是七日网页 Demo Story；Base/UI 按生产级维护；Story 组合 Modules、素材和全部 Scene；无后端；固定种子；IndexedDB 本地存档；启动期 Hotfix 只覆盖公开符号；E2E Story 作为真实模块集成夹具；首批 Web 视觉包使用原创 Image Gen 素材。
+- **已确认并形成可执行计划**：首个可玩物是七日网页 Demo Story；Base/UI 按生产级维护；Story 组合 Modules、素材和全部 Scene；无后端；固定种子；IndexedDB 本地存档；启动期 Hotfix 只覆盖公开符号；E2E Story 作为真实模块集成夹具；工程工作按六阶段路线执行。首个 Player 必须在零图片素材获批的前提下依靠 code-native fallback 完整运行，Image Gen 候选仍走独立人工准入。
+- **尚未启动**：长期 Goal、前端脚手架、远端发布与主观试玩；这些不会仅因计划完成而自动开始或视为通过。
 - **本轮可调**：所有经济数值、行动/体力强度、需求与委托效率。
 - **等待试玩**：行动点与体力是否重复、经营步骤是否疲劳、预测信息量、三种营业模式是否都有用途。
 - **明确延后**：Unity、大规模正式美术、完整关系阶段、完整设施树、多周目、外部 Mod 管理器/安全沙箱、运行时 LLM、成人版本。

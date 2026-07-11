@@ -11,15 +11,16 @@ Read these before changing behavior:
 1. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — authoritative package, Base/UI, Module/Story, Loader/Host, Hotfix, save/debug, build, test, and asset boundaries.
 2. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete Demo Module/Story ABI; tavern-specific types in this file do not belong in Base.
 3. `docs/superpowers/specs/2026-07-11-repository-licensing-design.md` — authoritative MIT/PolyForm/CC scope, third-party material, trademark, and contribution boundaries.
-4. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
-5. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
-6. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
-7. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
-8. `docs/poc/reference-strategies.md` — deterministic reference inputs.
-9. `docs/design/game-design-baseline.md` — long-term product direction.
-10. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Image Gen asset IDs, safe zones, provenance, and acceptance.
+4. `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` — mandatory first-Goal phase order, checkpoints, stop lines, verification surface, and Definition of Done; follow its linked phase plans during execution.
+5. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
+6. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
+7. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
+8. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
+9. `docs/poc/reference-strategies.md` — deterministic reference inputs.
+10. `docs/design/game-design-baseline.md` — long-term product direction.
+11. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Image Gen asset IDs, safe zones, provenance, and acceptance.
 
-Authority is domain-specific: the Harness design governs technical architecture; the Contract Catalog freezes its field-level ABI; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and asset contracts. Record intentional changes in the relevant authoritative document in the same change as the code.
+Authority is domain-specific: the Harness design governs technical architecture; the Contract Catalog freezes its field-level ABI; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and asset contracts. The roadmap governs execution order and evidence but cannot override those specifications. Record intentional changes in the relevant authoritative document in the same change as the code.
 
 ## Scope constraints
 
@@ -35,6 +36,7 @@ Authority is domain-specific: the Harness design governs technical architecture;
 ## Architecture constraints
 
 - `@project-tavern/base` owns the generic Snapshot/session/transaction/persistence machinery and must not import React, DOM, concrete gameplay modules, renderer types, or a concrete Story. Browser storage is supplied through a Host/runtime adapter.
+- `apps/web` is a generic MIT Loader/WebHost/mount library and never imports a Story. Each Story owns its Player/Developer application roots, depends on the public Web mount surface, and passes its `StoryEntry` explicitly before Session creation.
 - UI sends typed commands/persistence operations and renders immutable Runtime ViewModels/projections. It never imports or receives `GameSnapshot`/`GameState`; transient `DomainFact` values are consumed by Runtime projection/diagnostics, not exposed as a second UI state API.
 - Each Story statically composes a typed `GameProfile` from public `@project-tavern/modules` entries before Session creation. Modules own exact state paths; the Demo v1 profile has no direct Module-to-Module read edges, and only its single `CommandCoordinator` combines public read ports with owner-scoped proposal/apply capabilities. Other Stories may declare an explicit acyclic public-port DAG. Do not add, remove, or replace Modules after `ResolvedStory` is frozen.
 - `EventId` is Scheduler-only. Player-invoked StoryAction, Facility opportunity, and WorldAction entries use stable `ActionId` values and typed commands; never add a no-op Event merely to reuse an Action name.
