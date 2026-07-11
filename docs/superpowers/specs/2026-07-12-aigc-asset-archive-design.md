@@ -44,31 +44,31 @@ comfyui/
 来源目录下不定义通用 Schema，可以按当前创作用途自由组织。首批 OpenAI 概念图使用以下结构：
 
 ```text
-art-source/aigc/openai/illustration/
-  heroine-neutral.unknown-model.png
-  heroine-neutral.unknown-model.txt
-  tavern-main-day.unknown-model.png
-  tavern-main-day.unknown-model.txt
-  tavern-sign-damaged.unknown-model.png
-  tavern-sign-damaged.unknown-model.txt
-  ui-player-stage-overlay.unknown-model.png
-  ui-player-stage-overlay.unknown-model.txt
+art-source/aigc/openai/illustrations/
+  heroine-neutral.png
+  heroine-neutral.txt
+  tavern-main-day.png
+  tavern-main-day.txt
+  tavern-sign-damaged.png
+  tavern-sign-damaged.txt
+  ui-player-stage-overlay.png
+  ui-player-stage-overlay.txt
 ```
 
-`illustration/` 只是当前人工分组，不是稳定 ABI。未来可在不修改引擎、Story 或验证器的前提下增加或重组下级目录。
+`illustrations/` 只是当前人工分组，不是稳定 ABI。未来可在不修改引擎、Story 或验证器的前提下增加或重组下级目录。
 
 ## 4. 文件命名与 prompt
 
-图片和 prompt 使用相同 stem：
+图片和 prompt 建议使用相同 stem：
 
 ```text
-<purpose>.<model>.<image-extension>
-<purpose>.<model>.txt
+<purpose>[.<model>].<image-extension>
+<purpose>[.<model>].txt
 ```
 
 - `<purpose>` 是人可读用途，使用简短 kebab-case。
-- `<model>` 记录当时人已知的模型名。生成工具未暴露模型时使用 `unknown-model`，不进行推断。
-- `.txt` 保存实际生成 prompt，可以附带少量人工备注；没有必填字段、标题或机器可读 Schema。
+- `<model>` 是可选的人工备注。已知且值得保留时可写入文件名；未知或不想维护时直接省略，不使用 `unknown-model` 占位。
+- `.txt` 是为了方便重新生成和调整 prompt 而保留的人工档案，可以附带少量备注；没有必填字段、标题或机器可读 Schema，也不由自动化要求必须存在。
 - 配对命名是人工约定，仓库不扫描、强制或修复图片/prompt 配对。
 - 重新生成可以直接覆盖图片与 prompt。是否保留旧版由作者自行决定；仓库不维护素材修订号或历史 digest。
 
@@ -118,10 +118,10 @@ Asset Pack digest 只用于：
 
 ## 8. 当前迁移
 
-现有 `art-source/imagegen/first-web-pack/**` 迁移到 `art-source/aigc/openai/illustration/`：
+现有 `art-source/imagegen/first-web-pack/**` 迁移到 `art-source/aigc/openai/illustrations/`：
 
-- 四张 `source.png` 改为平铺的 `<purpose>.unknown-model.png`；
-- 四份 `prompt.md` 改为平铺的 `<purpose>.unknown-model.txt`；
+- 四张 `source.png` 改为平铺的 `<purpose>.png`；
+- 四份 `prompt.md` 改为平铺的 `<purpose>.txt`；
 - 删除四份 `provenance.json`；
 - 删除 `openai-service-terms-review.v1.json` 和旧 pack README；
 - 删除所有针对旧路径、Schema、digest、review 状态和服务条款证据的自动验证。
@@ -133,7 +133,7 @@ Asset Pack digest 只用于：
 实施完成后：
 
 - 仓库不存在 AIGC service-terms review 或 provenance JSON；
-- 首批四张图和 prompt 可在 `art-source/aigc/openai/illustration/` 直接浏览和编辑；
+- 首批四张图和 prompt 可在 `art-source/aigc/openai/illustrations/` 直接浏览和编辑；
 - 没有测试、CI 或发布步骤扫描 `art-source/aigc/**` 的许可、provenance、prompt 配对或 digest；
 - `art-source/aigc/**` 不进入 Player/Pages；
 - 未入选归档图片的变化不影响 Asset Pack digest；
