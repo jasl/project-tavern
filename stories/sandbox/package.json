@@ -5,7 +5,16 @@
   "type": "module",
   "license": "PolyForm-Noncommercial-1.0.0",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./development": "./src/development.ts"
+  },
+  "scripts": {
+    "test": "pnpm --dir ../.. exec vitest run stories/sandbox/src",
+    "verify:fixtures": "node --experimental-transform-types scripts/verify-fixtures.mts",
+    "regenerate:fixtures": "node --experimental-transform-types scripts/regenerate-fixtures.mts",
+    "verify:golden": "node --experimental-transform-types scripts/verify-golden.mts",
+    "update:golden": "node --experimental-transform-types scripts/update-golden.mts",
+    "verify:balance": "node --experimental-transform-types scripts/verify-balance.mts"
   },
   "dependencies": {
     "@project-tavern/base": "workspace:*",
