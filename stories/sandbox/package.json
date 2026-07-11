@@ -1,0 +1,17 @@
+{
+  "name": "@project-tavern/story-sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@project-tavern/base": "workspace:*",
+    "@project-tavern/ui": "workspace:*",
+    "@project-tavern/assets": "workspace:*",
+    "@project-tavern/web": "workspace:*",
+    "zod": "4.4.3"
+  }
+}

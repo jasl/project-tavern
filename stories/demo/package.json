@@ -1,0 +1,17 @@
+{
+  "name": "@project-tavern/story-demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@project-tavern/base": "workspace:*",
+    "@project-tavern/ui": "workspace:*",
+    "@project-tavern/modules": "workspace:*",
+    "@project-tavern/assets": "workspace:*",
+    "zod": "4.4.3"
+  }
+}
