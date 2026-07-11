@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
-  commitAttemptV1,
   createTransactionalRngV1,
   defineGameModule,
   defineGameProfile,
-  faultAttemptV1,
   parseModuleId,
   parseNonNegativeSafeInteger,
   parsePositiveSafeInteger,
   parseStateSlotId,
-  rejectAttemptV1,
 } from "@project-tavern/base";
 import type {
   BootstrapEntropyV1,
@@ -18,6 +15,7 @@ import type {
   GameProfileV1,
   NonNegativeSafeInteger,
   RuntimeSchemaV1,
+  RuleRngV1,
 } from "@project-tavern/base";
 
 import {
@@ -45,6 +43,33 @@ interface CounterProposalV1 {
   readonly facts: readonly SandboxFactV1[];
 }
 
+function diagnostics(snapshot: SandboxSnapshotV1, rng: RuleRngV1, committedAfter = snapshot.rng) {
+  return Object.freeze({
+    committedRngBefore: snapshot.rng,
+    attemptedDraws: rng.attemptedDraws(),
+    candidateRngAfter: rng.candidateState(),
+    committedRngAfter: committedAfter,
+  });
+}
+
+export function createSandboxFaultAttemptV1(
+  snapshot: SandboxSnapshotV1,
+  fault: SandboxFaultV1,
+): CommandExecutionAttemptEnvelopeV1<
+  SandboxSnapshotV1,
+  SandboxFactV1,
+  SandboxRejectionV1,
+  SandboxFaultV1,
+  SandboxProfileTypesV1["rngState"],
+  SandboxProfileTypesV1["rngDrawTrace"]
+> {
+  const rng = createTransactionalRngV1(snapshot.rng);
+  return Object.freeze({
+    result: Object.freeze({ kind: "faulted" as const, snapshot, fault }),
+    diagnostics: diagnostics(snapshot, rng),
+  });
+}
+
 const passthrough: RuntimeSchemaV1<unknown> = Object.freeze({ parse: (value: unknown) => value });
 const operationSchema: RuntimeSchemaV1<CounterOperationV1> = Object.freeze({
   parse(value: unknown) {
@@ -53,7 +78,8 @@ const operationSchema: RuntimeSchemaV1<CounterOperationV1> = Object.freeze({
       typeof value !== "object" ||
       Object.keys(value).sort().join("\0") !== "kind\0value" ||
       Reflect.get(value, "kind") !== "set"
-    ) throw new TypeError("invalid counter operation");
+    )
+      throw new TypeError("invalid counter operation");
     return Object.freeze({
       kind: "set" as const,
       value: parseNonNegativeSafeInteger(Reflect.get(value, "value")),
@@ -179,14 +205,18 @@ export function createSandboxProfileV1(program: SandboxSimulationProgramV1): San
       const command = sandboxCommandSchemaV1.parse(commandValue);
       const rng = createTransactionalRngV1(snapshot.rng);
       if (command.kind === "sandbox.counter.reject") {
-        return rejectAttemptV1(snapshot, rng, [
-          Object.freeze({ code: "sandbox.counter.rejected" as const }),
-        ]);
+        return Object.freeze({
+          result: Object.freeze({
+            kind: "rejected" as const,
+            snapshot,
+            reasons: Object.freeze([Object.freeze({ code: "sandbox.counter.rejected" as const })]),
+          }),
+          diagnostics: diagnostics(snapshot, rng),
+        });
       }
       if (command.kind === "sandbox.counter.fault") {
-        return faultAttemptV1(
+        return createSandboxFaultAttemptV1(
           snapshot,
-          rng,
           Object.freeze({ code: "sandbox.counter.fault" as const }),
         );
       }
@@ -205,7 +235,14 @@ export function createSandboxProfileV1(program: SandboxSimulationProgramV1): San
         rng: rng.candidateState(),
         commandSequence: parseNonNegativeSafeInteger(snapshot.commandSequence + 1),
       });
-      return commitAttemptV1(snapshot, next, rng, proposal.facts);
+      return Object.freeze({
+        result: Object.freeze({
+          kind: "committed" as const,
+          snapshot: next,
+          facts: proposal.facts,
+        }),
+        diagnostics: diagnostics(snapshot, rng, next.rng),
+      });
     },
     createQueries(snapshotValue: unknown) {
       const snapshot = snapshotValue as SandboxSnapshotV1;

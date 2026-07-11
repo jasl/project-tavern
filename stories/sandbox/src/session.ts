@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
   createTransactionalRngV1,
-  faultAttemptV1,
   parseNonZeroUint32,
   parseNonNegativeSafeInteger,
 } from "@project-tavern/base";
@@ -10,10 +9,10 @@ import type { EngineSessionV1 } from "@project-tavern/base/runtime";
 
 import type {
   SandboxBootstrapInputV1,
-  SandboxFaultV1,
   SandboxProfileTypesV1,
   SandboxSnapshotV1,
 } from "./contracts.js";
+import { createSandboxFaultAttemptV1 } from "./profile.js";
 import type { SandboxProfileV1 } from "./profile.js";
 
 export function createSandboxInitialSnapshotV1(
@@ -39,9 +38,10 @@ export function createSandboxSessionV1(
       return profile.coordinator.executeAttempt(snapshot, command, undefined);
     },
     normalizeUnexpectedDispatchFault(_error, snapshot) {
-      const rng = createTransactionalRngV1(snapshot.rng);
-      const fault: SandboxFaultV1 = Object.freeze({ code: "sandbox.runtime.unexpected" });
-      return faultAttemptV1(snapshot, rng, fault);
+      return createSandboxFaultAttemptV1(
+        snapshot,
+        Object.freeze({ code: "sandbox.runtime.unexpected" }),
+      );
     },
   });
   return created.session;

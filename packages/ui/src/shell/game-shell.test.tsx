@@ -4,14 +4,14 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { createReadonlyViewSourceV1 } from "@project-tavern/base";
+import { createViewSourceV1 } from "../runtime/create-view-bridge.js";
 import { createUiContributionRegistryV1 } from "../contributions/registry.js";
 import { GameShell } from "./game-shell.js";
 
 describe("GameShell", () => {
   it("changes its rendered slice only through typed dispatch", async () => {
     type View = { readonly count: number; readonly status: string };
-    const view = createReadonlyViewSourceV1<View>(Object.freeze({ count: 0, status: "ready" }));
+    const view = createViewSourceV1<View>(Object.freeze({ count: 0, status: "ready" }));
     const dispatched: unknown[] = [];
     const playerPort = {
       commands: {

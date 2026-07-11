@@ -5,10 +5,7 @@ import type { Digest, PositiveSafeInteger } from "./values.js";
 export type PatchSurfaceKindV1 = "simulation" | "presentation";
 export type PatchSymbolKindV1 = "rule" | "value" | "text" | "asset";
 
-export interface PatchSlotDescriptorV1<
-  TKind extends PatchSymbolKindV1,
-  TValue,
-> {
+export interface PatchSlotDescriptorV1<TKind extends PatchSymbolKindV1, TValue> {
   readonly symbolId: string;
   readonly kind: TKind;
   readonly replaceable: true;
@@ -68,6 +65,40 @@ export interface PatchSetIdentityV1 {
   readonly presentationDigest: Digest;
   readonly appliedHotfixes: readonly AppliedHotfixV1[];
 }
+
+export interface PatchSetAdoptionDeclarationV1 {
+  readonly storyId: string;
+  readonly storyRevision: PositiveSafeInteger;
+  readonly stateContractRevision: PositiveSafeInteger;
+  readonly stateContractDigest: Digest;
+  readonly fromSimulationDigest: Digest;
+  readonly toSimulationDigest: Digest;
+  readonly simulationPatchSetDigest: Digest;
+}
+
+export type GameBootstrapResolutionResultV1<TResolvedStory, TResolvedIdentity> =
+  | {
+      readonly kind: "ready";
+      readonly base: TResolvedStory;
+      readonly resolved: TResolvedStory;
+      readonly lastSuccessfulResolvedIdentity: TResolvedIdentity | null;
+    }
+  | {
+      readonly kind: "safe_mode";
+      readonly base: TResolvedStory;
+      readonly resolved: TResolvedStory;
+      readonly code: GamePackageResolutionFailureCodeV1;
+      readonly rejectedHotfixIds: readonly string[];
+      readonly details: StrictJsonObjectV1;
+      readonly lastSuccessfulResolvedIdentity: TResolvedIdentity | null;
+    }
+  | {
+      readonly kind: "fatal";
+      readonly code: GamePackageResolutionFailureCodeV1;
+      readonly rejectedHotfixIds: readonly string[];
+      readonly details: StrictJsonObjectV1;
+      readonly lastSuccessfulResolvedIdentity: TResolvedIdentity | null;
+    };
 
 export type GamePackageResolutionFailureCodeV1 =
   | "story.define_threw"

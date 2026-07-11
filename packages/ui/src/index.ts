@@ -5,6 +5,7 @@ export type {
   UiContributionRenderContextV1,
   UiContributionV1,
 } from "./contributions/registry.js";
-export { useReadonlyViewV1 } from "./runtime/create-view-bridge.js";
+export { createViewSourceV1, useReadonlyViewV1 } from "./runtime/create-view-bridge.js";
+export type { MutableViewSourceV1 } from "./runtime/create-view-bridge.js";
 export { GameShell } from "./shell/game-shell.js";
 export type { GameShellPropsV1 } from "./shell/game-shell.js";

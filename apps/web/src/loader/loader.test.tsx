@@ -6,10 +6,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { digestBytes, parsePositiveSafeInteger } from "@project-tavern/base";
 import type { GamePackageV1, HotfixEntryV1 } from "@project-tavern/base";
-import {
-  createSyntheticCounterGamePackageV1,
-  deterministicBuildIdentityInputV1,
-} from "@project-tavern/base/testkit";
+import { createSyntheticCounterGamePackageV1 } from "@project-tavern/base/testkit";
 import { createWebHostV1 } from "../host/create-web-host.js";
 import { createGameBootstrapControllerV1, Loader } from "./loader.js";
 
@@ -33,9 +30,7 @@ describe("Loader", () => {
     );
     expect(await screen.findByText("安全模式：hotfix.conflict")).toBeVisible();
     expect(onReady).not.toHaveBeenCalled();
-    await userEvent.setup().click(
-      screen.getByRole("button", { name: "禁用补丁并安全启动" }),
-    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "禁用补丁并安全启动" }));
     expect(onReady).toHaveBeenCalledWith(base);
   });
 
@@ -43,7 +38,30 @@ describe("Loader", () => {
     const host = createWebHostV1();
     const bootstrap = createGameBootstrapControllerV1({
       host,
-      buildIdentity: deterministicBuildIdentityInputV1,
+      buildIdentity: {
+        engine: [
+          {
+            path: "packages/base/src/index.ts",
+            sha256: digestBytes(Uint8Array.of(1)),
+            facet: "engine",
+          },
+        ],
+        storySimulation: [
+          {
+            path: "stories/synthetic/simulation.ts",
+            sha256: digestBytes(Uint8Array.of(2)),
+            facet: "story_simulation",
+          },
+        ],
+        storyPresentation: [
+          {
+            path: "stories/synthetic/presentation.ts",
+            sha256: digestBytes(Uint8Array.of(3)),
+            facet: "story_presentation",
+          },
+        ],
+        application: [],
+      },
     });
     const invalid = {
       contractRevision: 1 as const,
@@ -59,7 +77,10 @@ describe("Loader", () => {
     const entry = createSyntheticCounterGamePackageV1();
     const first: HotfixEntryV1 = Object.freeze({
       manifest: Object.freeze({
-        identity: Object.freeze({ id: "hotfix.synthetic.first", revision: parsePositiveSafeInteger(1) }),
+        identity: Object.freeze({
+          id: "hotfix.synthetic.first",
+          revision: parsePositiveSafeInteger(1),
+        }),
         targetStoryId: entry.identity.id,
         targetStoryRevision: entry.identity.revision,
         targets: Object.freeze([]),
@@ -72,7 +93,10 @@ describe("Loader", () => {
     });
     const conflicting: HotfixEntryV1 = Object.freeze({
       manifest: Object.freeze({
-        identity: Object.freeze({ id: "hotfix.synthetic.conflicting", revision: parsePositiveSafeInteger(1) }),
+        identity: Object.freeze({
+          id: "hotfix.synthetic.conflicting",
+          revision: parsePositiveSafeInteger(1),
+        }),
         targetStoryId: entry.identity.id,
         targetStoryRevision: entry.identity.revision,
         targets: Object.freeze([]),

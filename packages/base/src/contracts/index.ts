@@ -1,16 +1,9 @@
 // SPDX-License-Identifier: MIT
-export {
-  canonicalJsonBytes,
-  CanonicalJsonError,
-} from "./canonical-json.js";
+export { canonicalJsonBytes, CanonicalJsonError } from "./canonical-json.js";
 export type { CanonicalJsonErrorCodeV1 } from "./canonical-json.js";
 export { digestBytes, digestCanonical } from "./digest.js";
 export type { DigestDomainV1 } from "./digest.js";
-export {
-  commitAttemptV1,
-  faultAttemptV1,
-  rejectAttemptV1,
-} from "./execution.js";
+export { commitAttemptV1, faultAttemptV1, rejectAttemptV1 } from "./execution.js";
 export type {
   AssetPackDigestProjectionV1,
   AssetPackResolvedIdentityV1,
@@ -77,11 +70,13 @@ export type {
   GamePackageResolutionFailureCodeV1,
   GamePackageResolutionFailureV1,
   GamePackageResolutionResultV1,
+  GameBootstrapResolutionResultV1,
   HotfixEntryV1,
   HotfixManifestV1,
   PatchReplacementPortV1,
   PatchReplacementTraceV1,
   PatchSetIdentityV1,
+  PatchSetAdoptionDeclarationV1,
   PatchSlotDescriptorV1,
   PatchSurfaceKindV1,
   PatchSymbolKindV1,
@@ -150,18 +145,10 @@ export type {
   CommandExecutionResultEnvelopeV1,
 } from "./execution.js";
 export { createTransactionalRngV1, rngStateV1Schema } from "./rng.js";
-export type {
-  RngDrawTraceV1,
-  RngStateV1,
-  RuleDrawRequestV1,
-  RuleRngV1,
-} from "./rng.js";
+export type { RngDrawTraceV1, RngStateV1, RuleDrawRequestV1, RuleRngV1 } from "./rng.js";
 export { createGameSnapshotEnvelopeSchemaV1 } from "./snapshot.js";
 export type { GameSnapshotEnvelopeV1 } from "./snapshot.js";
-export {
-  parseStrictJson,
-  parseStrictJsonLimitsV1,
-} from "./strict-json.js";
+export { parseStrictJson, parseStrictJsonLimitsV1 } from "./strict-json.js";
 export type {
   StrictJsonErrorCodeV1,
   StrictJsonErrorV1,

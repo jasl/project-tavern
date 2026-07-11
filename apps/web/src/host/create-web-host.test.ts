@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
-import type { HostRecordKeyV1 } from "@project-tavern/base";
+import type { HostRecordMutationV1 } from "@project-tavern/base";
 import { createWebHostV1 } from "./create-web-host.js";
 
 describe("Web Host", () => {
@@ -9,7 +9,15 @@ describe("Web Host", () => {
     expect(host.bootstrapEntropy.nextNonZeroUint32()).toBe(7);
     expect(host.bootstrapEntropy.nextUuidV4()).toBe("00000000-0000-4000-8000-000000000001");
     for (const key of ["b", "a"]) {
-      await host.records.commit([{ kind: "put", namespace: "settings", key: key as HostRecordKeyV1, expectedRevision: null, bytes: Uint8Array.of(1) }]);
+      await host.records.commit([
+        {
+          kind: "put",
+          namespace: "settings",
+          key: key as HostRecordMutationV1["key"],
+          expectedRevision: null,
+          bytes: Uint8Array.of(1),
+        },
+      ]);
     }
     expect((await host.records.list("settings")).map(({ key }) => key)).toEqual(["a", "b"]);
   });

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { parsePositiveSafeInteger } from "@project-tavern/base";
-import type { AssetSlotDefinitionV1 } from "@project-tavern/base";
 
 export const sandboxTextCatalogsV1 = Object.freeze({
   defaultLocale: "zh-CN" as const,
@@ -15,7 +14,7 @@ export const sandboxTextCatalogsV1 = Object.freeze({
   ]),
 });
 
-export const sandboxAssetSlotsV1: readonly AssetSlotDefinitionV1[] = Object.freeze([
+export const sandboxAssetSlotsV1 = Object.freeze([
   Object.freeze({
     assetId: "asset.sandbox.counter",
     kind: "ui" as const,

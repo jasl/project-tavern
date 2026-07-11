@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
   canonicalJsonBytes,
-  createReadonlyViewSourceV1,
-  createTransactionalRngV1,
   digestBytes,
   digestCanonical,
-  faultAttemptV1,
   parseNonNegativeSafeInteger,
-  parseNonZeroUint32,
   parsePositiveSafeInteger,
 } from "@project-tavern/base";
 import type {
@@ -23,13 +19,11 @@ import type {
   SessionLeaseStatusV1,
 } from "@project-tavern/base";
 import { createEngineSessionV1 } from "@project-tavern/base/runtime";
+import { createViewSourceV1 } from "@project-tavern/ui";
 
-import type {
-  SandboxCommandV1,
-  SandboxFaultV1,
-  SandboxProfileTypesV1,
-} from "../contracts.js";
+import type { SandboxCommandV1, SandboxProfileTypesV1 } from "../contracts.js";
 import { createSandboxInitialSnapshotV1 } from "../session.js";
+import { createSandboxFaultAttemptV1 } from "../profile.js";
 import type { SandboxResolvedStoryV1 } from "../story-entry.js";
 
 export interface SandboxApplicationViewV1 {
@@ -49,17 +43,32 @@ type SandboxPersistencePortV1 = {
   listSlots(): Promise<readonly SaveSlotSummaryV1[]>;
   getStatus(): Promise<PersistenceStatusV1>;
   save(slot: "quick" | "manual"): Promise<PersistenceOperationResultV1>;
-  load(slot: "auto.current" | "auto.previous" | "quick" | "manual"): Promise<PersistenceOperationResultV1>;
-  clear(slot: "auto.current" | "auto.previous" | "quick" | "manual"): Promise<PersistenceOperationResultV1>;
-  exportSave(slot: "auto.current" | "auto.previous" | "quick" | "manual"): Promise<SaveExportOperationResultV1>;
+  load(
+    slot: "auto.current" | "auto.previous" | "quick" | "manual",
+  ): Promise<PersistenceOperationResultV1>;
+  clear(
+    slot: "auto.current" | "auto.previous" | "quick" | "manual",
+  ): Promise<PersistenceOperationResultV1>;
+  exportSave(
+    slot: "auto.current" | "auto.previous" | "quick" | "manual",
+  ): Promise<SaveExportOperationResultV1>;
   exportCurrentSave(): Promise<ExportedSaveV1>;
   importSave(bytes: Uint8Array): Promise<PersistenceOperationResultV1>;
 };
 
 export type SandboxPlayerApplicationV1 = PlayerApplicationPortV1<
   SandboxApplicationViewV1,
-  { dispatch(command: SandboxCommandV1): ReturnType<ReturnType<typeof createEngineSessionV1<SandboxProfileTypesV1>>["session"]["dispatch"]> },
-  { createNewSession(): Promise<SessionAnchorResultV1>; restartSession(): Promise<SessionAnchorResultV1> },
+  {
+    dispatch(
+      command: SandboxCommandV1,
+    ): ReturnType<
+      ReturnType<typeof createEngineSessionV1<SandboxProfileTypesV1>>["session"]["dispatch"]
+    >;
+  },
+  {
+    createNewSession(): Promise<SessionAnchorResultV1>;
+    restartSession(): Promise<SessionAnchorResultV1>;
+  },
   SandboxPersistencePortV1,
   { exportDebugBundle(): Promise<{ readonly kind: "unavailable"; readonly code: string }> }
 >;
@@ -83,17 +92,21 @@ export function createSandboxApplicationV1(input: {
       return profile.coordinator.executeAttempt(snapshot, command, undefined);
     },
     normalizeUnexpectedDispatchFault(_error, snapshot) {
-      const rng = createTransactionalRngV1(snapshot.rng);
-      const fault: SandboxFaultV1 = Object.freeze({ code: "sandbox.runtime.unexpected" });
-      return faultAttemptV1(snapshot, rng, fault);
+      return createSandboxFaultAttemptV1(
+        snapshot,
+        Object.freeze({ code: "sandbox.runtime.unexpected" }),
+      );
     },
   });
   const project = (): SandboxApplicationViewV1 => {
     const snapshot = created.session.getCurrentSnapshot();
-    const queries = profile.coordinator.createQueries(snapshot) as { count: number; parity: "even" | "odd" };
+    const queries = profile.coordinator.createQueries(snapshot) as {
+      count: number;
+      parity: "even" | "odd";
+    };
     return Object.freeze({ ...queries, status: created.session.getStatus() });
   };
-  const view = createReadonlyViewSourceV1(project());
+  const view = createViewSourceV1(project());
   created.session.subscribe(() => view.publish(project()));
 
   const lifecycleOperation = () =>
@@ -104,7 +117,10 @@ export function createSandboxApplicationV1(input: {
         return Object.freeze({
           kind: "replace" as const,
           snapshot,
-          result: Object.freeze({ kind: "anchored" as const, commandSequence: parseNonNegativeSafeInteger(0) }),
+          result: Object.freeze({
+            kind: "anchored" as const,
+            commandSequence: parseNonNegativeSafeInteger(0),
+          }),
           anchor: "replace_replay_base" as const,
         });
       },
@@ -165,7 +181,13 @@ export function createSandboxApplicationV1(input: {
       release: async () => unavailableLease(),
     }),
     listSlots: async () => Object.freeze([]),
-    getStatus: async () => Object.freeze({ available: false, busy: false, safelySavedCommandSequence: null, lastFailureCode: "persistence.unavailable" }),
+    getStatus: async () =>
+      Object.freeze({
+        available: false,
+        busy: false,
+        safelySavedCommandSequence: null,
+        lastFailureCode: "persistence.unavailable",
+      }),
     save: async () => unavailablePersistence(),
     load: async () => unavailablePersistence(),
     clear: async () => unavailablePersistence(),
@@ -176,11 +198,17 @@ export function createSandboxApplicationV1(input: {
 
   return Object.freeze({
     view,
-    commands: Object.freeze({ dispatch: (command: SandboxCommandV1) => created.session.dispatch(command) }),
-    lifecycle: Object.freeze({ createNewSession: lifecycleOperation, restartSession: lifecycleOperation }),
+    commands: Object.freeze({
+      dispatch: (command: SandboxCommandV1) => created.session.dispatch(command),
+    }),
+    lifecycle: Object.freeze({
+      createNewSession: lifecycleOperation,
+      restartSession: lifecycleOperation,
+    }),
     persistence,
     diagnostics: Object.freeze({
-      exportDebugBundle: async () => Object.freeze({ kind: "unavailable" as const, code: "diagnostics.unavailable" }),
+      exportDebugBundle: async () =>
+        Object.freeze({ kind: "unavailable" as const, code: "diagnostics.unavailable" }),
     }),
   });
 }

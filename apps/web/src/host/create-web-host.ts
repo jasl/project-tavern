@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 import type {
   GameHostV1,
-  HostAtomicCommitResultV1,
   HostAtomicRecordStoreV1,
-  HostRecordKeyV1,
   HostRecordMutationV1,
-  HostRecordNamespaceV1,
   HostStoredRecordV1,
   IsoUtcInstant,
   NonZeroUint32,
 } from "@project-tavern/base";
 import { parseNonZeroUint32, parseNonNegativeSafeInteger } from "@project-tavern/base";
+
+type HostRecordKeyV1 = HostRecordMutationV1["key"];
+type HostRecordNamespaceV1 = Parameters<HostAtomicRecordStoreV1["read"]>[0];
+type HostAtomicCommitResultV1 = Awaited<ReturnType<HostAtomicRecordStoreV1["commit"]>>;
 
 export interface CreateWebHostOptionsV1 {
   readonly seeds?: readonly number[];
@@ -87,7 +88,8 @@ export function createWebHostV1(options: CreateWebHostOptionsV1 = {}): GameHostV
       return parseNonZeroUint32(fixed);
     }
     const values = new Uint32Array(1);
-    do cryptoPort.getRandomValues(values); while (values[0] === 0);
+    do cryptoPort.getRandomValues(values);
+    while (values[0] === 0);
     return parseNonZeroUint32(values[0]);
   };
   return Object.freeze({
@@ -105,9 +107,13 @@ export function createWebHostV1(options: CreateWebHostOptionsV1 = {}): GameHostV
     }),
     records: createMemoryRecords(),
     files: Object.freeze({
-      async selectOne() { return Object.freeze({ kind: "cancelled" as const }); },
+      async selectOne() {
+        return Object.freeze({ kind: "cancelled" as const });
+      },
       async download(request: Parameters<GameHostV1["files"]["download"]>[0]) {
-        const url = URL.createObjectURL(new Blob([request.bytes as BlobPart], { type: request.mediaType }));
+        const url = URL.createObjectURL(
+          new Blob([request.bytes as BlobPart], { type: request.mediaType }),
+        );
         const anchor = document.createElement("a");
         anchor.href = url;
         anchor.download = request.filename;
@@ -128,7 +134,14 @@ export function createWebHostV1(options: CreateWebHostOptionsV1 = {}): GameHostV
         code: string,
         details: Parameters<GameHostV1["log"]["write"]>[2],
       ) {
-        const method = level === "debug" ? console.debug : level === "info" ? console.info : level === "warn" ? console.warn : console.error;
+        const method =
+          level === "debug"
+            ? console.debug
+            : level === "info"
+              ? console.info
+              : level === "warn"
+                ? console.warn
+                : console.error;
         method(code, details);
       },
     }),
