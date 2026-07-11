@@ -58,7 +58,7 @@
 - Produces: CLI `node scripts/verify-licensing.mjs`, exit `0` on success and `1` with one error per line on failure.
 - Consumes later: the exact files and hashes added in Task 2.
 
-- [ ] **Step 1: Add verifier unit tests before the implementation exists**
+- [x] **Step 1: Add verifier unit tests before the implementation exists**
 
 Create `scripts/verify-licensing.test.mjs` with Node built-ins only. Tests must create an isolated temporary repository fixture and cover:
 
@@ -133,7 +133,7 @@ test("reports notice, reference, and package-license violations", async (t) => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and prove the module is missing**
+- [x] **Step 2: Run the tests and prove the module is missing**
 
 Run:
 
@@ -143,7 +143,7 @@ node --test scripts/verify-licensing.test.mjs
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `scripts/verify-licensing.mjs`.
 
-- [ ] **Step 3: Implement the verifier**
+- [x] **Step 3: Implement the verifier**
 
 Create `scripts/verify-licensing.mjs` with:
 
@@ -280,7 +280,7 @@ if (isMain) {
 }
 ```
 
-- [ ] **Step 4: Run unit tests**
+- [x] **Step 4: Run unit tests**
 
 Run:
 
@@ -290,7 +290,7 @@ node --test scripts/verify-licensing.test.mjs
 
 Expected: 3 tests pass, 0 fail.
 
-- [ ] **Step 5: Run the repository verifier and prove legal files are still missing**
+- [x] **Step 5: Run the repository verifier and prove legal files are still missing**
 
 Run:
 
@@ -300,7 +300,7 @@ node scripts/verify-licensing.mjs
 
 Expected: exit `1` with one `missing required file:` line for each Task 2 document.
 
-- [ ] **Step 6: Commit the verifier**
+- [x] **Step 6: Commit the verifier**
 
 ```bash
 git add scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
@@ -326,7 +326,7 @@ git commit -m "test: add repository licensing verifier"
 - Consumes: canonical hash table from `scripts/verify-licensing.mjs`.
 - Produces: the repository-visible legal scope and all files required by the verifier.
 
-- [ ] **Step 1: Confirm authoritative source bytes before editing**
+- [x] **Step 1: Confirm authoritative source bytes before editing**
 
 Run the following read-only comparisons:
 
@@ -353,7 +353,7 @@ ffcca38841adb694b6f380647e15f17c446a4d1656fed51a1e2041d064c94cc8
 e66c269d4819aaab34b49ef5220c4ddab6756f21bb5180761a4eb8561f2b7bbd
 ```
 
-- [ ] **Step 2: Add the three legal texts with `apply_patch`**
+- [x] **Step 2: Add the three legal texts with `apply_patch`**
 
 Use exactly the three streams verified in Step 1. `MIT.txt` changes only the template copyright line; PolyForm and CC remain byte-for-byte identical to their official `.txt` responses. Do not reflow, translate, trim, or add repository commentary to these files.
 
@@ -365,7 +365,7 @@ Add this single path-specific attribute because the official CC response ends wi
 
 No other path may disable whitespace checks.
 
-- [ ] **Step 3: Add the root scope and notices**
+- [x] **Step 3: Add the root scope and notices**
 
 `LICENSE.md` must contain the exact holder line, the MIT/PolyForm/CC path table from the approved spec, composite Player-bundle semantics, third-party exclusions, no-license default-denial rule, and links to all three local legal texts.
 
@@ -377,7 +377,7 @@ Required Notice: Copyright 2026 Jun Jiang (jasl).
 
 It must also direct readers to `LICENSE.md` and `THIRD_PARTY_NOTICES.md` without adding conditions to a standard license.
 
-- [ ] **Step 4: Add third-party, trademark, and contribution policies**
+- [x] **Step 4: Add third-party, trademark, and contribution policies**
 
 `THIRD_PARTY_NOTICES.md` must state that no third-party production/runtime material is currently shipped, exclude ignored `references/`, define the exact provenance fields from the approved spec, and state that unknown-license material is rejected rather than listed as approved.
 
@@ -385,7 +385,7 @@ It must also direct readers to `LICENSE.md` and `THIRD_PARTY_NOTICES.md` without
 
 `CONTRIBUTING.md` must allow MIT Engine contributions under inbound=outbound MIT, reject PolyForm/CC contributions until a CLA or assignment exists, and forbid third-party or AI content without complete rights evidence.
 
-- [ ] **Step 5: Run the verifier**
+- [x] **Step 5: Run the verifier**
 
 ```bash
 node scripts/verify-licensing.mjs
@@ -393,7 +393,7 @@ node scripts/verify-licensing.mjs
 
 Expected: `licensing verification passed`.
 
-- [ ] **Step 6: Verify legal texts against authoritative sources again**
+- [x] **Step 6: Verify legal texts against authoritative sources again**
 
 ```bash
 shasum -a 256 LICENSES/MIT.txt \
@@ -403,7 +403,7 @@ shasum -a 256 LICENSES/MIT.txt \
 
 Expected hashes exactly match Step 1.
 
-- [ ] **Step 7: Commit the legal bundle**
+- [x] **Step 7: Commit the legal bundle**
 
 ```bash
 git add .gitattributes LICENSE.md NOTICE LICENSES THIRD_PARTY_NOTICES.md TRADEMARKS.md CONTRIBUTING.md
@@ -424,7 +424,7 @@ git commit -m "legal: publish repository licensing policy"
 - Consumes: the legal bundle from Task 2.
 - Produces: discoverable public guidance and future-agent constraints.
 
-- [ ] **Step 1: Prove the public README does not yet expose the policy**
+- [x] **Step 1: Prove the public README does not yet expose the policy**
 
 Run:
 
@@ -434,7 +434,7 @@ rg -n "source-available|PolyForm-Noncommercial-1.0.0|THIRD_PARTY_NOTICES" README
 
 Expected: no complete public licensing section and no full implementation constraint set.
 
-- [ ] **Step 2: Update the README**
+- [x] **Step 2: Update the README**
 
 Add a `## 许可证` section containing:
 
@@ -444,7 +444,7 @@ Add a `## 许可证` section containing:
 
 Link `LICENSE.md`, all three local legal texts, `THIRD_PARTY_NOTICES.md`, `TRADEMARKS.md`, and `CONTRIBUTING.md`. State that third-party materials retain original terms and unlicensed material is excluded.
 
-- [ ] **Step 3: Update AGENTS.md**
+- [x] **Step 3: Update AGENTS.md**
 
 Add the licensing spec to Sources of Truth and freeze these implementation constraints:
 
@@ -455,11 +455,11 @@ Add the licensing spec to Sources of Truth and freeze these implementation const
 - run `node scripts/verify-licensing.mjs` after legal, package, dependency, asset, or build-manifest changes;
 - restricted-area contributions require the approved CLA gate.
 
-- [ ] **Step 4: Update the docs map and spec status**
+- [x] **Step 4: Update the docs map and spec status**
 
 Link this plan from `docs/README.md`. Change the licensing spec status to `已实施；标准许可证与治理文件见仓库根目录`, and add an implementation pointer to `LICENSE.md` plus this plan.
 
-- [ ] **Step 5: Run document and licensing checks**
+- [x] **Step 5: Run document and licensing checks**
 
 ```bash
 git diff --check
@@ -469,7 +469,7 @@ node scripts/verify-licensing.mjs
 
 Expected: zero whitespace errors, 3 tests pass, and `licensing verification passed`.
 
-- [ ] **Step 6: Commit repository guidance**
+- [x] **Step 6: Commit repository guidance**
 
 ```bash
 git add README.md AGENTS.md docs/README.md \
@@ -488,7 +488,7 @@ git commit -m "docs: expose repository licensing boundaries"
 - Consumes: all prior task outputs.
 - Produces: clean evidence that licensing policy, legal bytes, repository guidance, and Git scope agree.
 
-- [ ] **Step 1: Run the full licensing verification bundle**
+- [x] **Step 1: Run the full licensing verification bundle**
 
 ```bash
 node --test scripts/verify-licensing.test.mjs
@@ -499,7 +499,7 @@ git status --short --branch
 
 Expected: 3 tests pass, `licensing verification passed`, no diff-check errors, and a clean `## main` status.
 
-- [ ] **Step 2: Review the three implementation commits**
+- [x] **Step 2: Review the three implementation commits**
 
 ```bash
 git log -4 --oneline --decorate
@@ -514,6 +514,27 @@ legal: publish repository licensing policy
 docs: expose repository licensing boundaries
 ```
 
-- [ ] **Step 3: Stop if any generated or third-party file appears unexpectedly**
+- [x] **Step 3: Stop if any generated or third-party file appears unexpectedly**
 
 The only implementation paths are those in the File Map. Any dependency cache, downloaded source file outside `LICENSES/`, tracked `references/` entry, or unrelated user change is a scope failure and must not be committed.
+
+---
+
+## Execution Result
+
+Completed on 2026-07-11 directly on `main` with the user's explicit authorization.
+
+Implementation commits:
+
+- `a63f658 test: add repository licensing verifier`
+- `2eb14d1 legal: publish repository licensing policy`
+- `5191437 docs: expose repository licensing boundaries`
+
+Final evidence:
+
+- `node --test scripts/verify-licensing.test.mjs`: 3 passed, 0 failed;
+- `node scripts/verify-licensing.mjs`: `licensing verification passed`;
+- MIT, PolyForm, and CC legal files match their authoritative source bytes and frozen SHA-256 values;
+- all checked Markdown local links and fences pass;
+- `references/` has no tracked files;
+- implementation diff has no whitespace errors.
