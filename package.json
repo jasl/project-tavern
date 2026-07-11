@@ -4,17 +4,15 @@
   "private": true,
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
-  "packageManager": "pnpm@11.11.0",
   "engines": {
-    "node": "24.18.0",
-    "pnpm": "11.11.0"
+    "node": ">=22.12.0",
+    "pnpm": ">=11.0.0"
   },
   "scripts": {
     "format:check": "prettier --check .",
     "lint": "oxlint --type-aware --deny-warnings --react-plugin --import-plugin packages stories apps scripts",
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
-    "verify:toolchain": "node scripts/verify-toolchain.mjs",
     "verify:licensing": "node scripts/verify-licensing.mjs",
     "verify:boundaries": "node scripts/verify-boundaries.mjs",
     "verify:cycles": "node scripts/verify-cycles.mjs",

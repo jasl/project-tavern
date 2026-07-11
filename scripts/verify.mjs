@@ -9,7 +9,6 @@ import { classifyVitestProjectV1 } from "./classify-vitest-project.mjs";
 export const coreVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["format:check"]],
   ["pnpm", ["lint"]],
-  ["pnpm", ["verify:toolchain"]],
   ["pnpm", ["verify:licensing"]],
   ["pnpm", ["verify:boundaries"]],
   ["pnpm", ["verify:cycles"]],

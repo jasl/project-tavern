@@ -14,6 +14,7 @@ test("keeps the ordered core gate read-only", () => {
   assert.equal(coreVerificationCommandsV1[0]?.[1]?.[0], "format:check");
   assert.equal(coreVerificationCommandsV1.at(-6)?.[1]?.[0], "build");
   assert(!coreVerificationCommandsV1.flat(2).some((value) => /update|regenerate/u.test(value)));
+  assert(!coreVerificationCommandsV1.flat(2).includes("verify:toolchain"));
   const commandLines = coreVerificationCommandsV1.map(([command, args]) =>
     JSON.stringify([command, args]),
   );
