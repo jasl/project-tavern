@@ -188,8 +188,6 @@ type CheckBandId = Brand<string, "CheckBandId">;
 type EndingId = Brand<string, "EndingId">;
 type TextId = Brand<string, "TextId">;
 type AssetId = Brand<string, "AssetId">;
-type AssetSourceId = Brand<string, "AssetSourceId">;
-type LicenseId = Brand<string, "LicenseId">;
 type ReasonId = Brand<string, "ReasonId">;
 type WorldStepId = Brand<string, "WorldStepId">;
 type FixtureId = Brand<string, "FixtureId">;
@@ -2348,30 +2346,8 @@ interface AssetSlotDefinitionV1 {
   readonly pivot: AssetPivotV1 | null;
 }
 
-interface AssetSourceRecordV1 {
-  readonly sourceId: AssetSourceId;
-  readonly kind: "imagegen" | "code_native" | "project_owned" | "licensed";
-  readonly provider: string;
-  readonly createdAt: IsoUtcInstant;
-  readonly promptPath: string | null;
-  readonly inputAssetIds: readonly AssetId[];
-}
-
-interface AssetLicenseRecordV1 {
-  readonly licenseId: LicenseId;
-  readonly kind: "project_owned" | "ai_terms_approved" | "third_party";
-  readonly commercialUse: boolean;
-  readonly redistribution: boolean;
-  readonly aigcInputAllowed: boolean;
-  readonly noticeTextId: TextId | null;
-}
-
 interface AssetProviderEntryV1 {
   readonly assetId: AssetId;
-  readonly sourceId: AssetSourceId;
-  readonly licenseId: LicenseId;
-  readonly reviewStatus: "selected";
-  readonly termsStatus: "approved";
   readonly runtimePath: string;
   readonly mediaType: "image/webp" | "image/png" | "image/svg+xml";
   readonly byteLength: PositiveSafeInteger;
@@ -2382,15 +2358,11 @@ interface AssetProviderEntryV1 {
 
 interface AssetPackV1 {
   readonly identity: AssetPackSourceIdentityV1;
-  readonly sources: readonly AssetSourceRecordV1[];
-  readonly licenses: readonly AssetLicenseRecordV1[];
   readonly providers: readonly AssetProviderEntryV1[];
 }
 
 interface AssetPackDigestProjectionV1 {
   readonly identity: AssetPackSourceIdentityV1;
-  readonly sources: readonly AssetSourceRecordV1[];
-  readonly licenses: readonly AssetLicenseRecordV1[];
   readonly providers: readonly AssetProviderEntryV1[];
 }
 
@@ -2420,8 +2392,6 @@ type ResolvedAssetEntryV1 = AssetSlotDefinitionV1 &
 
 interface ResolvedAssetManifestV1 {
   readonly packs: readonly AssetPackResolvedIdentityV1[];
-  readonly sources: readonly AssetSourceRecordV1[];
-  readonly licenses: readonly AssetLicenseRecordV1[];
   readonly slots: readonly AssetSlotDefinitionV1[];
   readonly assets: readonly ResolvedAssetEntryV1[];
 }
@@ -2446,7 +2416,7 @@ interface StoryDevelopmentSupportV1 {
 
 `DemoStoryDataV1` 是 `stories/demo` 交给 authoring builder 的可序列化源数据，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved roots。完整 StoryEntry 还要选择 Module，并声明 SimulationProgram materializer、GameProfile factory、StoryRules、UI SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些含函数的启动期源码合同由架构规格与本节下方合同约束，不进入 Save JSON。Developer support 由单独的 `./development` entry 提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
 
-`AssetSourceRecordV1` 是治理校验后的编译投影，不是素材准入申请。`docs/art/first-web-visual-pack.md` 中的来源记录、`inputUseReview`、用户选择和条款审查才是创作侧的准入依据：若任一非空输入的 `inputUseReview` 未事先获批，或选择/条款两个闸门尚未通过，校验器不得生成 `AssetProviderEntryV1`，候选必须留在 Player 清单之外。编译记录不含这些创作侧字段，不能据此绕过准入。
+`AssetProviderEntryV1` 只描述已经人工复制到运行时资产根目录的技术交付文件，不记录生成服务、模型、prompt、许可判断、选择状态或 AIGC 反向来源。`art-source/aigc/**` 是独立的人工作业档案，Resolver、Asset Pack、Player 与 Pages 均不得读取它。
 
 `AssetPackResolvedIdentityV1.digest` 的 ABI 固定为：
 
@@ -2456,8 +2426,6 @@ const projection: AssetPackDigestProjectionV1 = {
     id: assetPack.identity.id,
     revision: assetPack.identity.revision,
   },
-  sources: assetPack.sources,
-  licenses: assetPack.licenses,
   providers: assetPack.providers,
 };
 
@@ -2468,13 +2436,13 @@ const resolvedIdentity: AssetPackResolvedIdentityV1 = {
 };
 ```
 
-projection 是完整 strict canonical `AssetPackV1` semantic value 的逐字段投影；必须显式构造 `{ identity: { id, revision }, sources, licenses, providers }`，不得 spread 输入对象，也不得把 `AssetPackResolvedIdentityV1.digest` 递归带回自身。`sources`、`licenses` 与 `providers` 的 authored array order 都是语义，resolver 不排序、不按 ID 规范化，也不把集合转换为 map 后再摘要；任何数组重排都必须改变 digest。每个 `sourceId`、`licenseId` 与 provider `assetId` 在各自数组中唯一，每个 provider 精确引用同 pack 已声明的 `sourceId` 与 `licenseId`，未知或重复引用在摘要/身份建立前失败。
+projection 是完整 strict canonical `AssetPackV1` semantic value 的逐字段投影；必须显式构造 `{ identity: { id, revision }, providers }`，不得 spread 输入对象，也不得把 `AssetPackResolvedIdentityV1.digest` 递归带回自身。`providers` 的 authored array order 是语义，resolver 不排序、不按 ID 规范化，也不把集合转换为 map 后再摘要；任何数组重排都必须改变 digest。每个 provider `assetId` 在 pack 中唯一，重复项在摘要/身份建立前失败。
 
-这个 digest 是 `ResolvedAssetManifestV1.packs`、provider 引用与 presentation roots 使用的 Asset Pack provider identity；它不是文件完整性 hash。图片、manifest 文件与 artifact 的精确 bytes 继续使用 `digestBytes`，不得用 raw-file hash 代替上述 semantic identity。
+这个 digest 是 `ResolvedAssetManifestV1.packs`、provider 引用与 presentation roots 使用的 Asset Pack provider identity；它不是版权/provenance 记录，也不是单文件完整性 hash。图片、manifest 文件与 artifact 的精确 bytes 继续使用 `digestBytes`，不得用 raw-file hash 代替上述 semantic identity。
 
 `runtimePath` 必须是相对 provider Asset Pack/Hotfix root 的 POSIX 路径，不能包含空段、`.`、`..`、反斜杠、query 或 fragment。`packs` 保持 Story 明确选择的顺序；slot definition 先冻结，provider 无权改 kind/usage/overridePolicy/几何/fallback。Resolver 按 pack 顺序应用：未知 slot 失败；每个 slot 的首个 provider 可取代 code fallback；后续 provider 只允许覆盖 `replaceable` slot。全部 packs 完成后，asset Hotfix 才可替换仍为 `replaceable` 的最终 provider；sealed slot 不暴露 asset Patch Slot。`overrideChain` 记录实际 provider 链，runtime image 的最后一项必须等于 `provider`；code fallback 的链为空。
 
-逻辑 Asset ID 无论是否已有正式位图都必须存在于 `slots` 和 `assets`。因此 fallback-only Story 是“所有 resolved entries 均为 `code_fallback`”，不是空 Manifest；`runtime_image` 必须同时是 selected、terms-approved，并引用聚合 manifest 中的 source/license record。运行时加载失败使用 slot 已校验的 code-native fallback，而不是接受未知素材。`eventCheckpoint` 节点由 `narrative.advance` 在同一事务构造 `story.explicit` SchedulerContext；事件处理与游标推进共同提交或回滚。
+逻辑 Asset ID 无论是否已有正式位图都必须存在于 `slots` 和 `assets`。因此 fallback-only Story 是“所有 resolved entries 均为 `code_fallback`”，不是空 Manifest；`runtime_image` 必须来自 Story 明确选择的 Asset Pack provider，并通过相对路径、媒体类型、尺寸、字节数与精确文件摘要验证。运行时加载失败使用 slot 已校验的 code-native fallback，而不是接受未知素材。`eventCheckpoint` 节点由 `narrative.advance` 在同一事务构造 `story.explicit` SchedulerContext；事件处理与游标推进共同提交或回滚。
 
 AssetRegistry 的加载组全序固定为 `bootstrap → scene → overlay`，组内保持 `ResolvedAssetManifestV1.assets` 顺序；相同最终 URL+sha256 在一次 registry 生命周期内只 fetch/decode 一次。preload 接受 AbortSignal，并对每个 AssetId 返回 `loaded | fallback | aborted` 结构化结果；单项失败不以 aggregate throw 丢弃其他结果，同一 URL/故障码每个加载周期只追加一次 runtime diagnostic。
 

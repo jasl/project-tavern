@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver complete Player and Developer browser experiences over the already verified runtime, using a generic MIT UI package, Story/Module-owned UI contributions, governed asset resolution, accessible DOM interaction, and a code-native fallback that does not depend on unapproved generated art.
+**Goal:** Deliver complete Player and Developer browser experiences over the already verified runtime, using a generic MIT UI package, Story/Module-owned UI contributions, deterministic runtime asset resolution, accessible DOM interaction, and a complete code-native fallback.
 
 **Architecture:** React receives only immutable `RuntimeViewModelEnvelopeV1`, `PlayerApplicationPortV1`, and `PresentationReadPortV1`; it never imports Snapshot, EngineSession, Story rules, owner capabilities, raw TextCatalogs, or Asset Packs. `@project-tavern/ui` owns generic shell/primitives/registry behavior, while `@project-tavern/modules` and `stories/demo` own tavern-specific HUD, overlays, Scenes, and copy. Browser image loading resolves through the frozen asset manifest and always retains a code-native fallback.
 
@@ -16,8 +16,8 @@
 - React, Zustand, CSS, Story Scene code, and Hotfixes never write `GameState` or keep a second Snapshot.
 - One primary Workspace Overlay may be open; a bounded detail stack may sit above it. VN blocks gameplay commands but not explicitly allowed save/export/system operations.
 - Runtime controls, player-visible text, focus indicators, and system symbols are semantic DOM/code-native. Generated screenshots never become interactive UI.
-- The mandatory phase gate succeeds with every current Image Gen entry still `candidate`/`termsReview=approved` but unselected, and every resolved asset using its code fallback.
-- Asset admission requires both explicit user selection and independent terms approval. The current records already carry service-terms approval; this plan validates their `not_selected` exclusion and cannot manufacture user selection. Future terms-pending assets still require independent approval.
+- The mandatory phase gate succeeds with the whole `art-source/aigc/**` archive excluded from builds and every current resolved asset using its code fallback.
+- Runtime validators inspect only promoted files under `packages/assets/**` or Story asset directories. They validate technical manifest/byte identity and never scan AIGC source archives or infer copyright status.
 - Support 1024×768 landscape and 768×1024 portrait tablets, use 1600×1000 as the design basis, stop stage stretching beyond 16:10, and preserve functional reflow at equivalent 200% zoom.
 - Interactive targets are at least 44×44 CSS px, information is never hover-only, keyboard focus returns after Dialog/Overlay closure, and reduced-motion removes nonessential transitions.
 - Browser tests use semantic role/name or stable `data-testid` only for non-semantic stage layers. They do not locate controls by CSS implementation class.
@@ -43,7 +43,7 @@ stories/e2e/src/presentation/           # PolyForm stable browser integration Sc
 packages/assets/src/                    # mixed-license project asset/fallback declarations
 apps/web/src/                           # MIT generic WebHost/Loader composition
 apps/web/e2e/                           # PolyForm game-specific browser flows
-scripts/assets/                         # provenance/runtime validators
+scripts/assets/                         # runtime manifest/byte validators
 scripts/ui/                             # flavor and renderer-boundary validators
 ```
 
@@ -739,12 +739,10 @@ git diff --cached --check
 git commit -m "feat(ui): add isolated developer docks"
 ```
 
-### Task 8: Enforce asset provenance and the fallback-only Player artifact
+### Task 8: Enforce runtime asset identity and the fallback-only Player artifact
 
 **Files:**
 
-- Create: `scripts/assets/validate-provenance.mts`
-- Create: `scripts/assets/validate-provenance.test.ts`
 - Create: `scripts/assets/validate-runtime.mts`
 - Create: `scripts/assets/validate-runtime.test.ts`
 - Modify: `scripts/verify-assets.mjs`
@@ -768,69 +766,49 @@ git commit -m "feat(ui): add isolated developer docks"
 
 **Interfaces:**
 
-- Consumes: the NUL-delimited tracked `art-source/**` inventory, visual-pack authoring provenance/review/source/prompt dependency graph, Contract Catalog compiled asset schema, and selected Story asset slots.
-- Produces: closed-inventory validators that either compile an admitted provider or prove its exclusion, plus a complete fallback-only manifest.
+- Consumes: Contract Catalog runtime Asset Pack schema, selected Story asset slots, promoted runtime files, and the artifact file inventory.
+- Produces: technical validators for runtime paths/media/dimensions/byte hashes/pack digests, proof that `art-source/aigc/**` is outside the Player graph, and a complete fallback-only manifest.
 
-- [ ] **Step 1: Write failing governance tests for current Phase A candidates**
+- [ ] **Step 1: Write failing runtime identity and archive-exclusion tests**
 
 ```ts
-it("keeps terms-approved but unselected candidates outside the runtime manifest", async () => {
-  const report = await validateProvenance(repoRoot);
-  expect(report.excluded).toEqual(expect.arrayContaining([
-    expect.objectContaining({ id: "ui-player-stage-overlay", reasons: ["not_selected"] }),
-    expect.objectContaining({ id: "tavern-main-day", reasons: ["not_selected"] }),
-    expect.objectContaining({ id: "heroine-neutral", reasons: ["not_selected"] }),
-    expect.objectContaining({ id: "tavern-sign-damaged", reasons: ["not_selected"] }),
-  ]));
-  expect(report.errors).toEqual([]);
-});
-
-it("rejects a generated edit whose inputUseReview was not approved first", async () => {
-  expect(await validateFixture("input-review-after-generation"))
-    .toContain("asset.input_review_not_prior_approved");
-});
-
-it("parses the tracked art-source inventory as NUL-delimited bytes", () => {
-  expect(parseGitLsFilesZV1(Buffer.from(
-    "art-source/pack/provenance.json\0art-source/pack/name-with-newline\nsource.png\0",
-  ))).toEqual([
-    "art-source/pack/provenance.json",
-    "art-source/pack/name-with-newline\nsource.png",
-  ]);
+it("keeps the AIGC source archive outside runtime validation", async () => {
+  const reads: string[] = [];
+  const result = await validateRuntimeAssetPacksV1(runtimeFixture, {
+    readFile: async (path) => {
+      reads.push(path);
+      return runtimeFixture.files[path];
+    },
+  });
+  expect(result.errors).toEqual([]);
+  expect(reads.every((path) => !path.startsWith("art-source/aigc/"))).toBe(true);
 });
 
 it.each([
-  ["orphan-tracked-source", "asset.tracked_file_orphan"],
-  ["orphan-tracked-review", "asset.tracked_file_orphan"],
-  ["untracked-review-dependency", "asset.dependency_untracked"],
-  ["untracked-source-dependency", "asset.dependency_untracked"],
-  ["untracked-prompt-dependency", "asset.dependency_untracked"],
-  ["unknown-tracked-pack-file", "asset.tracked_file_unknown"],
-  ["duplicate-provenance-key", "asset.json_duplicate_key"],
-  ["duplicate-review-key", "asset.json_duplicate_key"],
-  ["unsafe-review-path", "asset.review_path_unsafe"],
-  ["unsafe-source-path", "asset.source_path_unsafe"],
-  ["unsafe-prompt-path", "asset.prompt_path_unsafe"],
-  ["review-symlink-escape", "asset.review_path_symlink_escape"],
-  ["source-symlink-escape", "asset.source_path_symlink_escape"],
-  ["prompt-symlink-escape", "asset.prompt_path_symlink_escape"],
-  ["stale-review-digest-binding", "asset.review_binding_stale"],
-  ["mismatched-review-output-binding", "asset.review_binding_mismatch"],
-  ["terms-review-before-generation", "asset.review_predates_generation"],
-  ["rights-attestation-before-generation", "asset.review_predates_generation"],
-  ["content-review-before-generation", "asset.review_predates_generation"],
+  ["path-traversal", "asset.runtime_path_unsafe"],
+  ["missing-file", "asset.runtime_file_missing"],
+  ["hash-mismatch", "asset.runtime_hash_mismatch"],
+  ["dimension-mismatch", "asset.runtime_dimensions_mismatch"],
+  ["byte-length-mismatch", "asset.runtime_byte_length_mismatch"],
+  ["duplicate-provider", "asset.provider_duplicate"],
 ] as const)("rejects %s with %s", async (fixture, code) => {
-  expect(await validateFixture(fixture)).toContain(code);
+  expect(await validateRuntimeFixtureV1(fixture)).toContain(code);
+});
+
+it("binds the Asset Pack digest to provider metadata and exact bytes", async () => {
+  const first = await resolveRuntimeFixtureV1("valid");
+  const changed = await resolveRuntimeFixtureV1("changed-bytes");
+  expect(first.pack.digest).not.toBe(changed.pack.digest);
 });
 ```
 
-- [ ] **Step 2: Run governance tests and confirm failure**
+- [ ] **Step 2: Run runtime tests and confirm failure**
 
 Run: `pnpm exec vitest run scripts/assets packages/assets/src/fallbacks`
 
-Expected: FAIL because the two-stage validator, closed tracked-inventory checks, and fallbacks are missing.
+Expected: FAIL because the runtime manifest/byte validator and fallbacks are missing.
 
-- [ ] **Step 3: Implement authoring validation, compiled projection, and zero-image budgets**
+- [ ] **Step 3: Implement runtime validation and zero-image budgets**
 
 ```json
 {
@@ -841,32 +819,26 @@ Expected: FAIL because the two-stage validator, closed tracked-inventory checks,
 }
 ```
 
-Obtain the complete tracked authoring inventory by spawning `git ls-files -z -- art-source` without a shell and reading stdout as bytes. `parseGitLsFilesZV1` splits only on NUL, preserves embedded newlines verbatim, rejects malformed nonempty output without its terminal NUL, normalizes no filename, and returns a duplicate-free ordered POSIX path list. Newline splitting, `git ls-files` without `-z`, shell glob expansion, and filesystem-only discovery are forbidden.
+Validate only providers explicitly authored in Story Asset Packs. Each `runtimePath` is a safe relative POSIX path rooted in `packages/assets/**` or the active Story asset directory; absolute paths, backslashes, empty/`.`/`..` segments, query, fragment, symlink escape, `art-source/**`, `references/**`, and remote URLs fail before file reads. Every provider has a unique Asset ID and exact media type, dimensions, byte length, and `digestBytes` SHA-256 matching the promoted file.
 
-Treat that tracked set as a closed dependency graph. Every tracked `art-source/**` path must classify exactly once as an explicitly configured repository-relative root policy/readme path, a provenance record, or a review/source/prompt dependency of a valid pack; a basename or broad `**/README.md` pattern is not an allowlist. Each source/prompt belongs to exactly one provenance record. A pack-level review may be shared only by provenance records in that same pack, with identical review ID/path/digest references and an exact covered-output binding for every referencing record. Reject a known-role orphan, any referenced dependency that is untracked even if it exists on disk, any unknown tracked file, conflicting/duplicate ownership, and any dependency reached only through an untracked provenance record. Parse provenance and every JSON review with a duplicate-key-detecting parser before Schema validation; ordinary `JSON.parse` alone is insufficient.
-
-Resolve `termsReview.reviewPath` as a repository-relative path constrained to the declared visual-pack root; resolve `source.path` and `promptFile` relative to that provenance record's asset directory and constrain them to that directory. Each must use nonempty POSIX syntax with no absolute path, backslash, empty/`.`/`..` segment, query, fragment, or NUL. Walk path components with `lstat` and compare `realpath` containment before reading so a symlink cannot escape the appropriate asset/pack root or repository. A missing, unsafe, symlink-escaping, untracked, or wrong-role dependency fails before digest or admission evaluation.
-
-Bind every review to current bytes and output identity. The provenance review ID/path/digest must match the referenced review's duplicate-key-safe canonical digest; service/surface must match the generator; every covered-output and content-admission binding must exactly match `{ assetId, generator.generatedAt, sourceSha256 }`; and the tracked source bytes must match `sourceSha256`. Reject stale review digests/source bytes separately from structurally valid but mismatched IDs, service/surface, or output bindings. Output-bound service-terms review, rights attestation, and content-admission review timestamps must not precede `generator.generatedAt`; the independent `inputUseReview` keeps its opposite pre-generation requirement and must be approved before a nonempty input is used. Its `reviewedInputs` must equal `inputAssets` in length, order, and Asset ID, and every bound source SHA-256 must still match that input's current archived source before generation.
-
-Only after the complete inventory, JSON, path, binding, timestamp, provenance, and licensing checks pass may the compiler consider admission. Compile only entries whose user review is `selected` and terms review is `approved`. For the current terms-approved but unselected records, emit an exclusion report containing only `not_selected` for each candidate, exit 0, and resolve every slot to a registered fallback token. Unknown files, unregistered providers, hash/dimension mismatch, `references/`, or `unverified` licenses exit nonzero.
+Build the pack projection exactly as `{ identity: { id, revision }, providers }` in authored order. Provider entries already contain the exact file digest, so any metadata, order, or byte change alters the automatic Asset Pack digest. Do not add source, model, prompt, service, review, license, or reverse-provenance fields and do not enumerate `art-source/aigc/**`.
 
 Migrate the Phase 2/4 fallback declarations rather than creating a second asset configuration: `src/assets/slots.ts` and `packs.ts` become the one authoring authority; existing `presentation/assets.ts` imports them and remains the only Story resolver/presentation-digest entry. `story.ts` and validation tests prove the `ResolvedAssetManifestV1` and presentation digest are generated from those same records. `@project-tavern/assets` exports shared fallback declarations through its public root; Story presentation may import them, while simulation facets may not.
 
-Extend the existing stable `scripts/verify-assets.mjs` wrapper so root `pnpm verify:assets` runs the original Sandbox asset checks first, then both new authoring/runtime validators for E2E and Demo. It must remain read-only; exclusion reports used for verification are returned/printed or written only under ignored `dist/`, never over source manifests.
+Extend the existing stable `scripts/verify-assets.mjs` wrapper so root `pnpm verify:assets` runs the original Sandbox asset checks first, then the runtime validator for E2E and Demo. It must remain read-only and never enumerate or read `art-source/aigc/**`.
 
 - [ ] **Step 4: Run asset, license, build, and bundle checks**
 
 Run: `pnpm verify:assets && pnpm verify:licensing && pnpm build:player && pnpm verify:bundle && pnpm verify`
 
-Expected: PASS; the NUL-safe tracked authoring inventory is closed and fully bound, Player contains zero runtime Image Gen bytes, no candidate source image, and every logical Asset ID resolves to a code fallback.
+Expected: PASS; runtime validation reads no AIGC source archive, Player contains zero promoted runtime images, and every logical Asset ID resolves to a code fallback.
 
 - [ ] **Step 5: Commit the governed fallback asset layer**
 
 ```bash
 git add -- scripts/assets scripts/verify-assets.mjs packages/assets/src/fallbacks packages/assets/src/index.ts packages/assets/package.json stories/demo/src/assets stories/demo/src/presentation/assets.ts stories/demo/src/story.ts stories/demo/src/test/story-validation.test.ts stories/e2e/src/assets stories/e2e/src/presentation/assets.ts stories/e2e/src/story.ts stories/e2e/src/test/story-contract.test.ts stories/demo/src/presentation/ui-contributions.tsx stories/e2e/src/presentation/ui-contributions.tsx
 git diff --cached --check
-git commit -m "feat(assets): add governed fallback visual pack"
+git commit -m "feat(assets): add deterministic fallback visual pack"
 ```
 
 ### Task 9: Establish the three-root browser harness and primary flows
@@ -1070,8 +1042,8 @@ Acceptance criteria:
 - Player can start, complete the initial VN, choose policy, perform the first-day loop, use Quick/Manual Save, and recover from a valid previous Auto slot with keyboard, mouse, and touch.
 - The Player-safe `导出诊断包` control remains keyboard/touch reachable during ordinary play, blocking VN, and fault pause; it exports through the read-only diagnostics port without exposing DevTools.
 - VN/Overlay focus, blocked input, every 44×44 target, equivalent 200% reflow, reduced motion, WCAG A/AA automation, text spacing, 1024×768, 1600×1000, 768×1024 portrait/touch, and 2560×1080 capped/centered framing pass in Chromium and WebKit; VoiceOver remains separately recorded human evidence.
-- The Player graph and emitted artifact contain no Developer entry, fixture, note, preview route, mutating debug implementation, `references/` path, source image candidate, or unapproved runtime asset.
-- All current Phase A candidates are reported as valid-but-excluded; the mandatory code-native fallback artifact is complete, fully functional, and captured for later human visual review without claiming subjective approval.
+- The Player graph and emitted artifact contain no Developer entry, fixture, note, preview route, mutating debug implementation, `references/` path, `art-source/aigc/` path, or unregistered runtime asset.
+- The mandatory code-native fallback artifact is complete and fully functional; current OpenAI illustrations remain archive-only and outside runtime validation.
 - No UI component imports Snapshot/EngineSession/owner capability, reimplements a rule/guard/formula, or reads raw TextCatalog/Asset Pack/runtimePath.
 - Every recursive Phase 5 `scripts/**/*.test.ts` and inherited `scripts/**/*.test.mjs` file is discovered and executed exactly once by `pnpm test:scripts`.
 - Worktree is clean after verification and the phase checkpoint records base/head SHA, commands, results, and remaining nonblocking asset-review status.

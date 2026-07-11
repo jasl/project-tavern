@@ -20,7 +20,7 @@
   - [`Phase 4 — Demo Story & Golden Week`](superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md)
   - [`Phase 5 — UI, Assets & Accessibility`](superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md)
   - [`Phase 6 — Reproducible Release & Pages`](superpowers/plans/2026-07-11-project-tavern-06-release-pages.md)
-- [`art/first-web-visual-pack.md`](art/first-web-visual-pack.md)：首批 Image Gen 视觉语言、场景/人物锚点、Asset ID、安全区、来源记录与验收。
+- [`art/first-web-visual-pack.md`](art/first-web-visual-pack.md)：首批 Image Gen 视觉语言、场景/人物锚点、Asset ID、安全区、来源归档与运行时提升边界。
 - [`poc/poc-charter.md`](poc/poc-charter.md)：为什么做、做多少、怎样判断通过。
 - [`poc/simulation-rules.md`](poc/simulation-rules.md)：状态模型、命令、时间推进、事件与结算顺序。
 - [`poc/balance-v0.md`](poc/balance-v0.md)：首轮可执行数值，不代表正式平衡。
@@ -36,7 +36,7 @@
 
 ## 决策状态
 
-- **已确认并执行**：首个可玩物是七日网页 Demo Story；Base/UI 按生产级维护；Story 组合 Modules、素材和全部 Scene；无后端；固定种子；IndexedDB 本地存档；启动期 Hotfix 只覆盖公开符号；E2E Story 作为真实模块集成夹具；六阶段工程 Goal 已获授权并进行中，当前执行 Phase 1，完成全部 Phase 1 任务和阶段验收后暂停，不进入 Phase 2。Phase A 四张候选的服务条款仓库准入已批准，但主观选择仍待独立确认；首个 Player 仍必须依靠 code-native fallback 完整运行。
+- **已确认并执行**：首个可玩物是七日网页 Demo Story；Base/UI 按生产级维护；Story 组合 Modules、素材和全部 Scene；无后端；固定种子；IndexedDB 本地存档；启动期 Hotfix 只覆盖公开符号；E2E Story 作为真实模块集成夹具；六阶段工程 Goal 已获授权并进行中，当前执行 Phase 1，完成全部 Phase 1 任务和阶段验收后暂停，不进入 Phase 2。四张 OpenAI 概念图按来源归档但尚未复制到运行时 Asset Pack；首个 Player 仍必须依靠 code-native fallback 完整运行。
 - **尚未通过**：前端脚手架、远端发布、主观素材选择与主观试玩；这些不会仅因工程 Goal 已启动或计划完成而自动开始或视为通过。
 - **本轮可调**：所有经济数值、行动/体力强度、需求与委托效率。
 - **等待试玩**：行动点与体力是否重复、经营步骤是否疲劳、预测信息量、三种营业模式是否都有用途。

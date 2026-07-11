@@ -11,14 +11,15 @@ Read these before changing behavior:
 1. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — authoritative package, Base/UI, Module/Story, Loader/Host, Hotfix, save/debug, build, test, and asset boundaries.
 2. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete Demo Module/Story ABI; tavern-specific types in this file do not belong in Base.
 3. `docs/superpowers/specs/2026-07-11-repository-licensing-design.md` — authoritative MIT/PolyForm/CC scope, third-party material, trademark, and contribution boundaries.
-4. `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` — mandatory first-Goal phase order, checkpoints, stop lines, verification surface, and Definition of Done; follow its linked phase plans during execution.
-5. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
-6. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
-7. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
-8. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
-9. `docs/poc/reference-strategies.md` — deterministic reference inputs.
-10. `docs/design/game-design-baseline.md` — long-term product direction.
-11. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Image Gen asset IDs, safe zones, provenance, and acceptance.
+4. `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md` — authoritative AIGC source directory, optional prompt/model archive, manual runtime promotion, and technical Asset Pack digest boundaries.
+5. `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` — mandatory first-Goal phase order, checkpoints, stop lines, verification surface, and Definition of Done; follow its linked phase plans during execution.
+6. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
+7. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
+8. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
+9. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
+10. `docs/poc/reference-strategies.md` — deterministic reference inputs.
+11. `docs/design/game-design-baseline.md` — long-term product direction.
+12. `docs/art/first-web-visual-pack.md` — provisional Web visual language, stable runtime Asset IDs, safe zones, source illustrations, and acceptance.
 
 Authority is domain-specific: the Harness design governs technical architecture; the Contract Catalog freezes its field-level ABI; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and asset contracts. The roadmap governs execution order and evidence but cannot override those specifications. Record intentional changes in the relevant authoritative document in the same change as the code.
 
@@ -54,7 +55,7 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - `GameSnapshot` is authoritative; bounded `CommandLog` and emitted `DomainFact` values are diagnostic/non-authoritative and must never be reapplied as state.
 - One EngineSession FIFO serializes every authoritative operation: Game dispatch, validated Save load/import (including explicit resolved-PatchSet adoption), lifecycle create/restart, replayable DebugCommand, and fixture anchor. Entry marks the Session busy synchronously; no Runtime service or UI may receive a direct Snapshot setter. Every successful replacement atomically establishes a new replay base and clears the old CommandLog.
 - Replayable gameplay DebugCommand semantics and validation live with the selected Modules/Profile and enter `simulationDigest`; admitted committed and faulted attempts both enter CommandLog, while validation failures never do. `debug.fixture.load` resolves only active-Story fixtures and establishes an anchor rather than a replayable log entry.
-- Asset provenance is strict-schema data. Only project-owned archived candidates are eligible for reviewed image-input reuse; non-empty `inputAssets` require an approved `inputUseReview`. Commercial material and `references/` remain categorically forbidden as generation inputs.
+- AIGC source archives live under `art-source/aigc/<source>/**`; organization below the source is free, prompt/model naming is optional, and no verifier scans archive metadata or pairing. Selected images are manually copied into `packages/assets/**` or a Story asset directory; only the promoted runtime manifest and exact bytes enter the technical Asset Pack digest. `art-source/aigc/**` and `references/` never enter Player/Pages artifacts.
 
 ## Licensing constraints
 
@@ -66,7 +67,7 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - `references/` is outside every project license and must remain ignored, untracked, unread by production/test/generation code, and absent from every artifact.
 - Package `license` metadata must match `LICENSE.md`: single-license packages use the exact SPDX ID; mixed packages use `SEE LICENSE IN LICENSE.md`.
 - Restricted PolyForm/CC areas do not accept external contributions before the approved CLA or copyright-assignment gate. MIT Engine contributions are inbound=outbound MIT.
-- Run `node scripts/verify-licensing.mjs` after changes to project legal files, project package metadata, project-owned assets/provenance, build manifests, or release contents. Dependency and `vendor/**` licensing is deliberately outside this verifier.
+- Run `node scripts/verify-licensing.mjs` after changes to project legal files, project package metadata, build manifests, or release contents. AIGC archives, dependency licensing, and `vendor/**` licensing are deliberately outside this verifier.
 
 ## Quality and workflow
 

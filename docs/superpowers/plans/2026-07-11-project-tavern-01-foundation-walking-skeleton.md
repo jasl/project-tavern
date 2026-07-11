@@ -683,9 +683,11 @@ it("keeps presentation-only replacement out of the simulation identity", () => {
   expect(patched.patchSet.appliedHotfixes).toHaveLength(1);
 });
 
-it("keeps unapproved candidate providers outside the compiled manifest", () => {
-  expect(() => compileSyntheticAssetProviderV1(unapprovedCandidateSourceV1))
-    .toThrow();
+it("keeps archive-only sources outside the compiled manifest", () => {
+  expect(() => compileSyntheticAssetProviderV1({
+    ...syntheticProviderV1,
+    runtimePath: "../../art-source/aigc/openai/illustrations/example.png",
+  })).toThrow();
   expect(resolveFallbackOnlyManifestV1().assets.every(
     (asset) => asset.delivery === "code_fallback",
   )).toBe(true);
@@ -699,8 +701,6 @@ it("computes Asset Pack identity from the exact nonrecursive authored projection
       id: syntheticAssetPackV1.identity.id,
       revision: syntheticAssetPackV1.identity.revision,
     },
-    sources: syntheticAssetPackV1.sources,
-    licenses: syntheticAssetPackV1.licenses,
     providers: syntheticAssetPackV1.providers,
   };
 
@@ -714,26 +714,18 @@ it("computes Asset Pack identity from the exact nonrecursive authored projection
   );
 });
 
-it("treats every Asset Pack authored array order as semantic", () => {
+it("treats Asset Pack provider order as semantic", () => {
   const base = resolveSyntheticStoryV1({ assetPacks: [syntheticAssetPackV1] });
-  for (const field of ["sources", "licenses", "providers"] as const) {
-    const reordered = withSyntheticAssetPackOrderReversedV1(
-      syntheticAssetPackV1,
-      field,
-    );
-    const changed = resolveSyntheticStoryV1({ assetPacks: [reordered] });
-    expect(changed.assets.packs[0]?.digest).not.toBe(
-      base.assets.packs[0]?.digest,
-    );
-  }
+  const reordered = withSyntheticProviderOrderReversedV1(syntheticAssetPackV1);
+  const changed = resolveSyntheticStoryV1({ assetPacks: [reordered] });
+  expect(changed.assets.packs[0]?.digest).not.toBe(
+    base.assets.packs[0]?.digest,
+  );
 });
 
-it("rejects duplicate or dangling Asset Pack references before identity", () => {
+it("rejects duplicate Asset Pack providers before identity", () => {
   expect(() => resolveSyntheticStoryV1({
-    assetPacks: [syntheticAssetPackWithDuplicateSourceIdV1],
-  })).toThrow();
-  expect(() => resolveSyntheticStoryV1({
-    assetPacks: [syntheticAssetPackWithUnknownLicenseRefV1],
+    assetPacks: [syntheticAssetPackWithDuplicateProviderV1],
   })).toThrow();
 });
 
@@ -763,7 +755,7 @@ Expected: FAIL because resolver exports are absent.
 
 Install Hotfixes in supplied order only, reject duplicate IDs and invalid earlier-only `requires`, apply all candidates atomically, revoke write proxies, and deep-freeze results. Provider/PatchSet digests use the Catalog domains and canonical projections, never `Function#toString()`.
 
-Asset resolution freezes slots first, applies packs in authored order, then asset Hotfixes to replaceable slots only. Before identity, each pack rejects duplicate source/license/provider IDs and every provider must reference a source and license in that same pack. Its resolved digest is exactly `digestCanonical("project-tavern:asset-pack:v1", { identity: { id, revision }, sources, licenses, providers })`, built by explicit field selection: no spread, no recursive resolved digest, no sorting or normalization of the three authored arrays. This resolved identity is the provider identity carried by manifests/presentation roots; provider file hashes remain exact `digestBytes` values. `runtimePath` rejects absolute/backslash/empty/dot/dot-dot/query/fragment forms. Every slot resolves to either validated runtime image or code fallback. Phase 1 supplies fallback-only entries. A nonempty provider is accepted only from a governance validator's compiled output proving source provenance, user selection, terms approval, and approved `inputUseReview` for every nonempty generation input; `AssetSourceRecordV1` alone is never treated as authoring approval, and Phase 1 compiles no candidate provider.
+Asset resolution freezes slots first, applies packs in authored order, then asset Hotfixes to replaceable slots only. Before identity, each pack rejects duplicate provider Asset IDs. Its resolved digest is exactly `digestCanonical("project-tavern:asset-pack:v1", { identity: { id, revision }, providers })`, built by explicit field selection: no spread, no recursive resolved digest, and no sorting or normalization of the authored provider array. This resolved identity is carried by manifests/presentation roots; provider file hashes remain exact `digestBytes` values and therefore bind shipped bytes through the pack projection. `runtimePath` rejects absolute/backslash/empty/dot/dot-dot/query/fragment forms and cannot reach `art-source/aigc/**` or `references/**`. Every slot resolves to either a technically validated runtime image or code fallback. Phase 1 supplies fallback-only entries and does not inspect the AIGC source archive.
 
 Build identity consumes workspace-relative POSIX import-closure records `{ path, sha256, facet }` produced by the repository collector in Task 12, rejects dynamic/unowned/reference/symlink inputs, sorts by path, and excludes mtime/absolute path/chunk name/environment traversal order.
 
@@ -785,7 +777,7 @@ git diff --cached --check
 git commit -m "feat(base): resolve stories hotfixes and assets"
 ```
 
-Expected: every deterministic, conflict, facet, asset-path, approval, and identity test passes; a consumer can import only `resolveGamePackageV1` for full resolution and cannot deep-import the lower-level resolvers; type/boundary checks exit 0; only declared Base resolver files are committed.
+Expected: every deterministic, conflict, facet, asset-path, byte-identity, and resolved-identity test passes; a consumer can import only `resolveGamePackageV1` for full resolution and cannot deep-import the lower-level resolvers; type/boundary checks exit 0; only declared Base resolver files are committed.
 
 ### Task 7: Freeze Application, Host, Presentation, and UI contribution contracts
 
@@ -1859,7 +1851,6 @@ Expected: every classifier/verifier/type/core command exits 0; all current and s
 - Create: `vite.config.ts`
 - Create: `apps/web/e2e/walking-skeleton.spec.ts`
 - Create: `apps/web/e2e/__screenshots__/sandbox-shell.png`
-- Create: `apps/web/e2e/__screenshots__/sandbox-shell.png.license.json`
 - Create: `scripts/verify-bundle.mjs`
 - Create: `scripts/verify-bundle.test.mjs`
 - Create: `scripts/verify-artifact.mjs`
@@ -1876,13 +1867,13 @@ Expected: every classifier/verifier/type/core command exits 0; all current and s
 **Interfaces:**
 
 - Consumes: Task 12's green core gate, repository import-closure module, exact public exports, Story-owned Sandbox Player/Developer HTML roots, Web closed Developer subpath, and legal/build policy.
-- Produces: `build:player` and `build:developer` from separate Story-owned roots, Chromium smoke, Chromium/WebKit full, Player/Developer bundle isolation, artifact/base-path/local-serving checks, clean double-build reproduction, carried legal evidence, and the final tracked-file-immutable Phase 1 `pnpm verify`.
+- Produces: `build:player` and `build:developer` from separate Story-owned roots, Chromium smoke, Chromium/WebKit full, Player/Developer bundle isolation, artifact/base-path/local-serving checks, clean double-build reproduction, project legal-file carriage, and the final tracked-file-immutable Phase 1 `pnpm verify`.
 
 - [ ] **Step 1: Write verifier and browser red tests**
 
 Browser smoke loads `#/play`, sees the localized counter, dispatches increment, and observes count 1. Full adds keyboard activation, reload bootstrap, Developer `#/playground`, Player route rejection for playground, and the stable shell screenshot in Chromium and WebKit.
 
-Bundle tests feed synthetic manifests containing `apps/web/src/developer/development-panel.tsx`, `@project-tavern/base/testkit`, `/references/`, a source map, and an absolute path, then assert Player verification rejects each. Artifact tests reject a non-relative base, an unsorted manifest, a wrong raw-file `digestBytes`, a missing legal file, and a nested-route local-serving failure. Release tests compare two fixture manifests with reordered paths and one changed byte. Licensing tests reject a built Player missing NOTICE/license scope even when source licensing is otherwise green, and reject any tracked binary without an exact same-name sidecar or approved aggregate manifest.
+Bundle tests feed synthetic manifests containing `apps/web/src/developer/development-panel.tsx`, `@project-tavern/base/testkit`, `/references/`, `/art-source/aigc/`, a source map, and an absolute path, then assert Player verification rejects each. Artifact tests reject a non-relative base, an unsorted manifest, a wrong raw-file `digestBytes`, a missing project legal file, and a nested-route local-serving failure. Release tests compare two fixture manifests with reordered paths and one changed byte. Licensing tests remain repository-scoped: they verify project legal hashes/notices, workspace package license metadata, and the tracked `references/` boundary without scanning images, dependencies, `vendor/**`, or built Player bytes.
 
 ```js
 test("rejects every Developer-only path from a Player manifest", async () => {
@@ -1946,7 +1937,7 @@ Extend the Task 12 scripts with exactly these additions:
 }
 ```
 
-`verify:bundle` calls the Task 12 collector for both roots and checks Player excludes Developer/development/testkit/references/source maps/absolute paths while Developer contains explicit Story/Web Developer markers. `verify:artifact` builds Player in a temporary root, verifies `base:"./"`, a path-sorted manifest whose file hashes are exactly `digestBytes(fileBytes)`, required project legal files, and nested-path local serving. `verify:release` runs collector plus Player build twice from clean temporary roots and compares Canonical root manifests and sorted emitted-file hashes. `verify:licensing` now additionally builds Player into a temporary directory, validates carried project NOTICE/license scope, and deletes that directory; it never assumes a prior build or scan dependency/vendor licensing. No verifier writes a tracked baseline.
+`verify:bundle` calls the Task 12 collector for both roots and checks Player excludes Developer/development/testkit/references/AIGC-source paths/source maps/absolute paths while Developer contains explicit Story/Web Developer markers. `verify:artifact` builds Player in a temporary root, verifies `base:"./"`, a path-sorted manifest whose file hashes are exactly `digestBytes(fileBytes)`, required project legal files, and nested-path local serving. `verify:release` runs collector plus Player build twice from clean temporary roots and compares Canonical root manifests and sorted emitted-file hashes. `verify:licensing` remains repository-scoped and does not build or inspect Player. No verifier writes a tracked baseline.
 
 - [ ] **Step 5: Extend the tracked-file-immutable orchestrator**
 

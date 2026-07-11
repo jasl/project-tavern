@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown and plain-text legal documents, Node.js built-ins, `node:test`, Git, SHA-256.
 
-> **Current-policy amendment:** This is a historical record of the initial legal-file implementation. Its completed third-party admission, exhaustive notice, and dependency-scanning steps are superseded by the current authoritative licensing design: package-manager dependencies are not inventoried or license-gated, intentionally copied third-party material belongs under `vendor/**`, and repository automation does not adjudicate `vendor/**` licensing.
+> **Current-policy amendment:** This is a historical record of the initial legal-file implementation. Its completed third-party admission, exhaustive notice, dependency-scanning, and strict AIGC provenance assumptions are superseded by the current authoritative licensing and AIGC archive designs: package-manager dependencies are not inventoried or license-gated, intentionally copied third-party material belongs under `vendor/**`, repository automation does not adjudicate `vendor/**` licensing, and `art-source/aigc/**` is a human-maintained archive outside license scanning.
 
 ## Global Constraints
 
@@ -18,7 +18,7 @@
 - Original narrative, localization, art, audio, and project design documents are `CC-BY-NC-SA-4.0` except where a third-party notice says otherwise.
 - Third-party material always retains its original terms; repository licenses grant no rights in third-party files.
 - A missing per-file copyright line is acceptable only when an authoritative upstream license clearly covers the exact file/version.
-- Material without a verifiable license, written permission, or public-domain declaration is `unverified/all-rights-reserved` and cannot enter Git, builds, releases, fixtures, screenshots, or AIGC inputs.
+- Historical default-denial rules for third-party material do not apply to the human-maintained AIGC archive; current rules are defined by `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md`.
 - `references/` stays ignored, untracked, unavailable to builds/tests/generation, and outside every project license.
 - Standard MIT, PolyForm, and CC legal wording must not be customized.
 - The project name, logos, character marks, and other brand identifiers receive no trademark license.
@@ -381,7 +381,7 @@ It must also direct readers to `LICENSE.md` and `THIRD_PARTY_NOTICES.md` without
 
 - [x] **Step 4: Add third-party, trademark, and contribution policies**
 
-`THIRD_PARTY_NOTICES.md` must state that no third-party production/runtime material is currently shipped, exclude ignored `references/`, define the exact provenance fields from the approved spec, and state that unknown-license material is rejected rather than listed as approved.
+Historical implementation required an exhaustive third-party/provenance notice. That requirement is superseded: current `THIRD_PARTY_NOTICES.md` is a non-exhaustive boundary statement and does not define AIGC provenance fields.
 
 `TRADEMARKS.md` must reserve project names, logos, character marks, and brand identifiers while allowing legally permitted nominative reference without implied endorsement.
 
@@ -451,7 +451,7 @@ Link `LICENSE.md`, all three local legal texts, `THIRD_PARTY_NOTICES.md`, `TRADE
 Add the licensing spec to Sources of Truth and freeze these implementation constraints:
 
 - MIT packages may not import game-specific PolyForm/CC implementation;
-- every new shipped third-party item needs provenance and original-license review;
+- intentionally copied third-party files belong under `vendor/**` and retain their own terms without automated adjudication;
 - no-license material and `references/` cannot enter source, build, tests, screenshots, or generation;
 - package `license` metadata must match the path map;
 - run `node scripts/verify-licensing.mjs` after legal, package, dependency, asset, or build-manifest changes;

@@ -116,7 +116,7 @@ MIT 区域不得包含：
 以下项目自有内容默认适用 `CC-BY-NC-SA-4.0`：
 
 - `docs/**` 中的游戏设计、玩法、剧情、美术和研究文档；
-- `art-source/**` 中经权属和服务条款审批的原创素材；
+- `art-source/**` 中的项目创作与 AIGC 来源档案；
 - Story 的原创剧情正文、本地化文本、角色/世界设定；
 - 原创图片、动画、模型、音乐、语音、音效和宣传素材；
 - `packages/assets/**`、`stories/*/assets/**` 与 `stories/*/content/**` 中明确标记为项目原创内容的文件。
@@ -131,7 +131,7 @@ MIT 区域不得包含：
 
 - 代码按 MIT 或 PolyForm；
 - 原创媒体、正文和设计数据按 CC；
-- 二进制文件使用同名 sidecar 或聚合 manifest 记录许可证；
+- 项目运行时二进制素材继承其所在项目 package/Story 的许可范围；runtime manifest 只记录技术加载与 digest 字段，不要求逐图片版权 sidecar；
 - `vendor/**` 中的第三方文件保留并遵守各自的版权、许可、合同或 public-domain 状态，不因目录位置获得项目许可；
 - package metadata 遇到混合许可时使用 `SEE LICENSE IN LICENSE.md`，不能错误写成单一 SPDX ID。
 
@@ -189,36 +189,17 @@ CI 还应断言不存在已跟踪的 `references/` 文件，并检查生产 impo
 - 购买素材如果只允许随成品发布、禁止公开源文件，保留在私有素材源；公开仓库只保存占位符、Asset ID、获取说明和不泄露受保护内容的 metadata；
 - npm 依赖通过精确 manifest 和 frozen lockfile 管理可重现性；无论直接、传递、开发或生产依赖，均不做逐包许可取证、`THIRD_PARTY_NOTICES.md` 登记或构建阻断；
 - Lucide、字体等若作为依赖安装则遵守各自原始条款；若将其文件有意复制进仓库，则放入 `vendor/**`；
-- AI 素材记录服务、surface、模型、日期、提示词、按顺序排列的输入 Asset ID 与当时 source hash、输出 hash 和生成时有效条款；只有确认有仓库公开、修改、再分发、运行时分发与项目再许可权时，才可在实际存在版权或其他可许可权利的范围内标为项目 CC 内容；
-- 权属、服务条款、账号/Customer 权利受益人或再许可授权不确定的 AI 输出只能留在本地候选区，不进入 Git、仓库代码 preview、Player、截图、Pages 或后续 AIGC 输入；
+- AIGC 素材按生成来源归档在 `art-source/aigc/<source>/**`；来源目录之下自由组织，模型名和 prompt 文件均可选，不维护逐输出审计 JSON、digest、时间戳、输入链或许可判断；
+- AIGC 来源档案可以进入 Git，但不进入构建、Player、Pages 或自动许可扫描。采用的图片由作者人工复制到 `packages/assets/**` 或 Story asset 目录，之后作为普通运行时资产处理；
 - 商业素材和 `references/` 永不作为生成输入，除非未来取得针对该操作的明确授权并修改本规格。
 
-### 9.1 AI 输出的三个独立闸门
+### 9.1 AIGC 来源归档与运行时提升
 
-AI 输出必须依次区分，且不得互相推导：
+具体目录、命名和迁移规则以 `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md` 为准。仓库只固定第一层来源目录；OpenAI、Google Gemini、xAI Grok 与本地 ComfyUI 使用同一种人工归档和提升流程，不建立服务特定的自动准入机制。
 
-1. **仓库准入**：精确输出先通过生成服务条款与权利受益人授权评审，再通过逐输出的有限内容观察，才可提交 source/prompt/provenance；
-2. **运行时选定**：仓库准入不表示主观选图。只有 `review.status="selected"`、存在受预算约束的 runtime export 且 Asset validator 通过时，才可进入 Asset Pack、`ResolvedAssetManifest`、presentation digest、截图、Player 或 Pages；
-3. **生成输入复用**：服务条款评审绝不授予 AIGC 输入权。每个非空输入必须在生成前由独立 `inputUseReview` 按原顺序绑定 Asset ID 与当前归档 source SHA-256，并明确允许 `generation_input` 或 `image_edit_input`。每个 Asset ID 必须解析到精确、已跟踪且已准入的先前输出，实际 source bytes 仍匹配评审 digest；输入生成时间必须严格早于消费者生成时间，输入的 service-terms review、rights attestation 与 content-admission review 都不得晚于消费者的 `inputUseReview.reviewedAt`，且整个 prior-input graph 禁止 self-edge 和有向循环。
+prompt 是为了方便重新生成和调整而保留的人工作业档案，不是自动化必需项；模型未知或不想维护时直接省略模型名，不写 `unknown-model`。归档图片可以被覆盖或重组，不记录源 digest。
 
-`termsReview.status` 为 `pending` 或 `rejected` 的输出是 local-only：不得跟踪、由仓库代码或 Developer preview 读取、打包、部署、截图或作为生成输入。Git 中的 AI provenance 必须精确位于五段 POSIX 路径 `art-source/imagegen/<pack>/<asset>/provenance.json`，引用同 pack 内严格、versioned service-terms review，并以 `reviewId` 与 review semantic digest 防止静默替换。评审还必须绑定精确的 service/surface、Asset ID、`generator.generatedAt` 与 `sourceSha256`，记录每份官方协议的名称、适用 scope、effective/updated date、证据检索日期与 HTTPS 来源。日历日期和 RFC3339 分量必须真实存在，不能接受解析器规范化后的不可能日期。
-
-若生成 surface 无法证明使用的是个人账号还是 business/developer Customer，评审必须覆盖两个实际可能的 account agreement：个人侧 OpenAI Terms of Use 与 business/developer 侧 OpenAI Services Agreement；同时记录冲突时优先适用的 OpenAI Service Terms、生成时有效的 Usage Policies 和 Sharing & Publication Policy。静态 OpenAI profile 固定协议/版本身份但不固定一次 `retrievedAt`；每个实际 evidence record 仍携带检索日期，并对每个 covered output 满足 `agreement date <= generation UTC calendar date <= retrievedAt <= review UTC calendar date`。公共条款中的共同结论只能表述为：在用户/Customer 与 OpenAI 之间，适用用户/Customer 拥有 Output，OpenAI 转让其可能拥有的 Output 权利。仓库批准还必须由 `Jun Jiang (jasl)` 作为实际 rights beneficiary 记录 project-controlled generation account 与 repository-owner authorization，并明确授权以下 closed uses：
-
-```text
-repository_archival
-repository_publication
-modification
-redistribution
-runtime_distribution
-project_relicensing
-```
-
-`project_relicensing` 只授权在版权或其他可许可项目权利确实存在的范围内采用项目 CC 许可；不得声称输出必然可版权、具有独占性或不存在第三方权利问题。评审用 closed token 分别保留 `manual_review_before_sharing`、`attribution_to_rights_beneficiary_required`、`conspicuous_ai_origin_disclosure_required`、`input_rights_required`、`output_may_not_be_unique` 与 `no_non_infringement_warranty`。实际发布必须把候选署名给 `Jun Jiang (jasl)`，并显著说明其由 OpenAI Image Gen 通过 Codex 内置 `image_gen` 生成；人工复核、受益人署名和 AI 来源披露是三个独立义务。
-
-逐输出 `contentAdmissionReview` 只记录有限视觉观察：未观察到可见 Logo/水印、具名公众人物或明显第三方角色/品牌，并绑定同一 Asset ID、生成时间与 source SHA-256。它不是侵权检索、商标检索、肖像权审查或 non-infringement clearance，也不能替代主观选图。
-
-当前 `art-source/imagegen/first-web-pack/` 四个输出已完成上述仓库准入，仍全部保持 `review.status="candidate"` 与 `runtime: null`，因此继续排除在 Asset Pack、`ResolvedAssetManifest`、presentation digest、Player、截图、Pages 与 AIGC 输入之外。
+运行时选择与来源归档完全解耦。被采用的图片复制到 runtime asset package 或 Story 后，只接受稳定 Asset ID、相对路径、媒体类型、尺寸、字节数和精确文件摘要等技术验证。Asset Pack digest 由 runtime manifest 的 canonical projection 自动计算并间接绑定精确资源 bytes，只用于确定性、缓存、存档身份和诊断，不是版权、来源或服务条款记录。
 
 ## 10. 名称、Logo 与商标
 
@@ -268,7 +249,7 @@ CONTRIBUTING.md
 - `TRADEMARKS.md` 记录未授予的品牌权利；
 - `CONTRIBUTING.md` 冻结 inbound 许可和 CLA 闸门。
 
-每个 npm package 的 `package.json.license` 必须与目录范围一致：单一 MIT 或 PolyForm 包写标准 SPDX ID；混合包写 `SEE LICENSE IN LICENSE.md`。二进制素材通过 sidecar/manifest 映射，不能塞源码注释。
+每个 npm package 的 `package.json.license` 必须与目录范围一致：单一 MIT 或 PolyForm 包写标准 SPDX ID；混合包写 `SEE LICENSE IN LICENSE.md`。项目自有二进制素材继承 package/Story 范围，技术 manifest 不承担逐图片版权登记。
 
 ## 13. 自动化与发布闸门
 
@@ -278,7 +259,7 @@ CONTRIBUTING.md
 - 项目自有发布文件能解析到 MIT、PolyForm 或 CC 范围；
 - 验证器不扫描 npm 依赖或 `vendor/**` 许可，不以第三方 metadata、copyright 行、LICENSE 文件或 public-domain 判定阻断构建；
 - `references/` 没有被跟踪、导入、打包或作为 AIGC 输入；
-- 每个已跟踪 AI provenance、prompt、source 与同 pack service-terms review 都是非 symlink 的已跟踪文件；JSON closed schema、输出/source/review hash 绑定、官方条款证据、rights-beneficiary 授权、有限内容观察和独立 input-use review 均有效；
+- 自动化不扫描 `art-source/aigc/**` 的许可、prompt 配对、模型名、digest 或来源元数据，也不从该目录构建运行时素材；
 - MIT import graph 不依赖 PolyForm/CC 的游戏专用实现；
 - Player artifact 携带项目 License scope、NOTICE 和项目标准法律文本；
 - CI 不生成或维护 npm/vendor 版权清单，也不对其做自动法律结论。
@@ -304,7 +285,7 @@ CONTRIBUTING.md
 2. MIT 区域是否足够中性，且没有想保留非商业限制的游戏表达；
 3. PolyForm 与 CC 的目录默认值是否覆盖全部 Story/Module/内容资产；
 4. 混合目录是否必须依赖文件级/manifest 映射；
-5. 无许可、商业素材、AI 素材和 `references/` 是否都默认拒绝进入生产；
+5. 商业素材和 `references/` 是否仍排除在生产与生成输入之外，AIGC 来源档案是否保持不进入构建；
 6. Player bundle 是否清楚说明多许可证交集；
 7. 商标保留和贡献/CLA 闸门是否符合未来可能商业发行的需要；
 8. 是否还有任何文件会因为“位于公开仓库”而被误认为自动获得许可。

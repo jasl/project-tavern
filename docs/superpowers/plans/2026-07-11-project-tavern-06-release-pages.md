@@ -22,7 +22,7 @@
 - Release `.mts` tools are type-erasable and run directly under pinned Node 24 native TypeScript stripping; they use no transform-required TypeScript feature or second TS runtime.
 - `pnpm test:scripts` recursively discovers and executes every `scripts/**/*.test.mjs` and `scripts/**/*.test.ts` exactly once through the Phase 1 runner; Phase 6 release/docs subdirectories may not depend on shallow globs or hand-maintained test lists.
 - Release bundles include `LICENSE.md`, `NOTICE`, the three project legal texts, and the repository's non-exhaustive `THIRD_PARTY_NOTICES.md` boundary statement. They do not generate dependency/vendor license inventories or gate release on third-party license scanning.
-- `references/`, Phase A source candidates, terms-pending assets, secrets, `.env`, Developer modules, Story `./development`, fixtures, local paths, and source maps are forbidden from Player.
+- `references/`, all of `art-source/aigc/**`, secrets, `.env`, Developer modules, Story `./development`, fixtures, local paths, and source maps are forbidden from Player.
 - Rollback is forward-only: revert/fix source, run the current workflow, and deploy the new current-run artifact. Never redeploy an older cross-run artifact or lower the IndexedDB database revision.
 - Pushing, enabling Pages, approving an environment, or deploying requires explicit user authority. Local completion produces a deploy-ready handoff without claiming a remote deployment. The deploy job never checks out or builds; the read-only smoke job may check out the exact workflow SHA solely to obtain its test code, but may not build or alter the deployed artifact.
 - Every task uses a focused failing test, confirms the expected failure, implements the minimum behavior, runs the focused suite plus current `pnpm verify`, reviews staged scope, and commits.
@@ -128,7 +128,7 @@ export interface ArtifactBuildRequestV1 {
 }
 ```
 
-Map `(demo,player)` to `stories/demo/player.html`, `(demo,developer)` to `stories/demo/developer.html`, and `(e2e,player)` to `stories/e2e/player.html`; reject `(e2e,developer)`, Player+sourcemap, non-dist output, unknown Story/flavor, and every caller-supplied/dynamic root path. Invoke Vite 8 programmatically with repository root, the allowlisted HTML as `build.rolldownOptions.input`, `base: "./"`, `emptyOutDir: true`, `build.license.fileName: "third-party-licenses.json"`, the reviewed source-graph evidence plugin, and no alias from MIT Web code into a Story. Cross-check Vite's native license JSON with the lockfile/source graph rather than treating it as the sole legal authority. Write `dist/<name>/build-input.json` containing the closed application ID, Story/flavor, selected workspace-relative application HTML, source-graph digest, source commit, engine/story/resolved/app identities, exact tool versions, and no timestamp/absolute path; normalized source graph stays outside the shipped Player under ignored `dist/build-evidence/<application-id>-source-graph.json`.
+Map `(demo,player)` to `stories/demo/player.html`, `(demo,developer)` to `stories/demo/developer.html`, and `(e2e,player)` to `stories/e2e/player.html`; reject `(e2e,developer)`, Player+sourcemap, non-dist output, unknown Story/flavor, and every caller-supplied/dynamic root path. Invoke Vite 8 programmatically with repository root, the allowlisted HTML as `build.rolldownOptions.input`, `base: "./"`, `emptyOutDir: true`, the reviewed source-graph evidence plugin, and no alias from MIT Web code into a Story. Do not generate, inspect, or cross-check dependency-license inventories. Write `dist/<name>/build-input.json` containing the closed application ID, Story/flavor, selected workspace-relative application HTML, source-graph digest, source commit, engine/story/resolved/app identities, exact tool versions, and no timestamp/absolute path; normalized source graph stays outside the shipped Player under ignored `dist/build-evidence/<application-id>-source-graph.json`.
 
 Replace the Phase 1 build-script implementations, without renaming the public commands:
 
@@ -173,7 +173,7 @@ git commit -m "build: freeze all browser artifacts"
 
 **Interfaces:**
 
-- Consumes: built Player directory, application-bound normalized Vite/Rolldown source graph, project file-scope resolver, and project-owned asset provenance.
+- Consumes: built Player directory, application-bound normalized Vite/Rolldown source graph, and resolved runtime asset manifests.
 - Produces: sorted `artifact-manifest.json` and `verifyPlayerArtifact(dir)`.
 
 - [ ] **Step 1: Write failing deterministic-manifest and forbidden-content tests**
@@ -187,7 +187,7 @@ it("sorts paths and excludes the manifest from its own digest input", async () =
   expect(manifest.files.every((entry) => /^sha256:[0-9a-f]{64}$/.test(entry.digest))).toBe(true);
 });
 
-it.each(["./development", "DeveloperApplicationPort", "references/", "sourceMappingURL=", "/Users/"])(
+it.each(["./development", "DeveloperApplicationPort", "references/", "art-source/aigc/", "sourceMappingURL=", "/Users/"])(
   "rejects forbidden Player marker %s", async (marker) => {
     const dir = await playerFixtureContaining(marker);
     await expect(verifyPlayerArtifact(dir)).rejects.toThrow();
@@ -206,9 +206,9 @@ node --test scripts/verify-licensing.test.mjs
 
 Expected: FAIL on missing manifest/artifact verifiers.
 
-- [ ] **Step 3: Implement deterministic inspection and extend licensing verification**
+- [ ] **Step 3: Implement deterministic artifact inspection**
 
-Scan relative POSIX paths in sorted order, reject symlinks and path escape, and hash raw bytes with `digestBytes`. Inspect the exact application-bound source/chunk graph and emitted UTF-8 text for forbidden modules/markers; do not infer safety only from filename. Verify the project-owned source closure still obeys MIT/PolyForm/CC package and asset boundaries, but do not inspect Vite license JSON, the lockfile, dependency chunks, GitHub Actions, or `vendor/**` for third-party license classification. Copy the project legal files and the non-exhaustive third-party boundary statement into Player, then verify their canonical project-controlled hashes after copy. `artifact-manifest.json` excludes only its own bytes to avoid a recursive hash; every other payload file has an entry. CI/checkpoint evidence separately records `digestBytes(artifact-manifest.json)`.
+Scan relative POSIX paths in sorted order, reject symlinks and path escape, and hash raw bytes with `digestBytes`. Inspect the exact application-bound source/chunk graph and emitted UTF-8 text for forbidden project modules/markers; do not infer safety only from filename and do not inspect Vite license JSON, the lockfile, dependency chunks, GitHub Actions, or `vendor/**` for third-party license classification. Copy the project legal files and the non-exhaustive third-party boundary statement into Player, then verify their canonical project-controlled hashes after copy. `artifact-manifest.json` excludes only its own bytes to avoid a recursive hash; every other payload file has an entry. CI/checkpoint evidence separately records `digestBytes(artifact-manifest.json)`.
 
 Keep the Phase 1 public names and make their final behavior explicit:
 
@@ -624,10 +624,10 @@ git status --short --branch
 Acceptance criteria:
 
 - All commands exit 0 twice where the reproducibility plan requires it; no tracked file changes and no unexplained skip/quarantine.
-- Demo Player, Demo Developer, and E2E Player all build through the single artifact wrapper; only Demo Player is release-eligible. Both Player outputs have no source map, Developer/development graph, fixtures, local paths, `references/`, candidate source media, terms-pending asset, secret, or remote runtime asset URL.
+- Demo Player, Demo Developer, and E2E Player all build through the single artifact wrapper; only Demo Player is release-eligible. Both Player outputs have no source map, Developer/development graph, fixtures, local paths, `references/`, `art-source/aigc/**`, secret, or remote runtime asset URL.
 - `pnpm test:scripts` and the final ordered `scripts` verification step recursively discover and execute every `scripts/**/*.test.ts` and `scripts/**/*.test.mjs` exactly once, including later workflow, Pages, post-deploy, and docs tests; omission/duplication fixtures fail deterministically.
-- Every artifact payload file except the self-excluding manifest has a sorted SHA-256 entry and one-or-more license scopes; checkpoint/CI evidence records the manifest file's own SHA-256, and required legal/notices retain canonical hashes.
-- Two fresh clean builds have identical path/size/digest/license tuples and identical Story/Engine/resolved/app identities.
+- Every artifact payload file except the self-excluding manifest has a sorted SHA-256 entry; checkpoint/CI evidence records the manifest file's own SHA-256, and required project legal/notices retain canonical hashes.
+- Two fresh clean builds have identical path/size/digest tuples and identical Story/Engine/resolved/app identities.
 - Prebuilt Player works at a nested base path through new game, initial VN, policy selection, first action, save, refresh, and continue.
 - CI uses only the reviewed full action SHAs, frozen install, explicit browser install, 30-day artifact retention, and the repository's own verification commands.
 - Pages workflow deploys only the artifact from its own successful verify job; deploy does not checkout/build, smoke checks out only the exact workflow SHA and never builds, and the protected `github-pages` environment gates deployment.

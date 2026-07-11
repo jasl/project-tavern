@@ -128,7 +128,7 @@ apps/
   electron/   @project-tavern/electron       # 未来
 
 scripts/      构建、digest、Story/素材校验
-art-source/   可提交的自有母版、来源与处理记录
+art-source/   按生成来源组织、仅供人工维护且不参与构建的 AIGC 源档案
 ```
 
 第一版所有 workspace 包都标记为 private，不发布公共 npm。包仍使用规范的 `exports`、peer dependency、project reference 和 `workspace:*`，防止内部源码路径耦合，为未来单独发布保留真实边界。
@@ -211,7 +211,7 @@ Story-owned Web/Electron application root
   → Loader 按显式顺序执行已选择 Hotfix
   → 从 resolved patch values 物化并冻结 Simulation/Presentation Programs
   → 从冻结的 SimulationProgram 创建最终 GameProfile
-  → 计算 provenance 与 digests
+  → 计算 resolved identities 与 digests
   → 校验并冻结完整 ResolvedStory
   → 创建 EngineSession
   → 进入 Story-owned SceneGraph
@@ -498,12 +498,12 @@ AssetRegistry 按 `bootstrap → scene → overlay` 及 manifest 稳定顺序预
 
 素材分层：
 
-- 正式运行时成品可以提交仓库；
-- 自有、带 prompt/provenance/hash 的候选和获选母版可放 `art-source/`；
-- 未批准候选、商业素材原包和本地参考图不进入 runtime manifest；
+- AIGC 源档案按 `art-source/aigc/<source>/**` 组织；来源目录之下自由分组，模型名和 prompt 都是可选的人工作业信息；
+- `art-source/aigc/**` 不进入构建、测试扫描、Player、Pages 或 Asset Pack digest；
+- 被采用的图片由作者人工复制到 `packages/assets/**` 或 Story asset 目录，运行时不保留回指 AIGC 档案的版权/provenance 字段；
 - `references/` 永不参与构建、测试、生成或 AIGC 输入。
 
-每项正式素材记录来源、作者/服务、模型与日期、提示词、输入素材、许可证、允许用途、修改记录、源摘要和运行时摘要。Image Gen 候选只有同时满足用户明确选中与条款批准两个人工闸门后才可进入 Player；否则使用完整 fallback 完成交付。
+正式运行时素材只记录加载所需的稳定 Asset ID、相对路径、媒体类型、尺寸、字节数和精确文件摘要。Asset Pack digest 由 runtime manifest 的 canonical projection 自动生成，并与精确资源 bytes 一起服务于确定性、缓存、存档身份和诊断；它不是版权或来源审计记录。首版仍可使用完整 code-native fallback 交付。
 
 首批视觉范围继续采用：同一酒馆日/夜母版、女主 identity anchor 及工作/生气变体、损坏/修复招牌，以及 UI 视觉基准图。HUD、面板、文字、焦点态和系统图标保持代码原生。
 

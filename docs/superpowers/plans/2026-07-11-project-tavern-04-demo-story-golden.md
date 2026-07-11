@@ -1606,7 +1606,7 @@ Modify the Task 3 `stories/demo/LICENSE.md` rather than recreating it: preserve 
 
 Run: `pnpm --filter @project-tavern/story-demo test -- src/test/story-validation.test.ts && pnpm verify:stories && pnpm verify:licensing && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all stable references/reachability/catalogs/rules/slots/fallbacks validate; Demo retains its Task 3 mixed-license activation and adds only the text-catalog CC scope; no candidate image, development module, app module, or forbidden path is reachable.
+Expected: PASS; all stable references/reachability/catalogs/rules/slots/fallbacks validate; Demo retains its Task 3 mixed-license activation and adds only the text-catalog CC scope; no runtime image, AIGC archive path, development module, app module, or forbidden path is reachable.
 
 - [ ] **Step 7: Commit complete Demo composition**
 

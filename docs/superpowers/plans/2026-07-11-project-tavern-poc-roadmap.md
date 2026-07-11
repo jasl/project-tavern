@@ -17,7 +17,7 @@
 - Simulation is snapshot-authoritative and command-driven. One coordinator owns candidate commit/sequence/RNG; a Module cannot write state owned by another Module; UI and Hotfix never write State.
 - `stories/e2e` is the first real consumer of all public Modules and owns independent minimal content. It must not import Demo Story content, private helpers, fixtures, text, or IDs.
 - Browser E2E proves integration and player-visible outcomes. Formula ordering, rejection details, invariants, and balance distributions stay in fast Vitest/fast-check suites.
-- Code-native asset fallbacks are a complete mandatory deliverable. The four current Phase A candidates are terms-approved but remain unselected and therefore excluded; future terms-pending art remains excluded until terms approval, and no candidate enters runtime without explicit user selection.
+- Code-native asset fallbacks are a complete mandatory deliverable. The four current OpenAI illustrations remain under `art-source/aigc/**` and are excluded from runtime until an author manually copies a selected image into a runtime asset directory and adds a technically valid Asset Pack provider.
 - The existing MIT / PolyForm Noncommercial / CC BY-NC-SA boundaries remain authoritative. Run licensing verification after every new package, dependency, asset, manifest, or artifact change.
 - Every behavior task uses TDD: focused red test for the target behavior, confirmed expected failure, minimal implementation, focused green, phase gate, current `pnpm verify`, staged-diff review, commit.
 - The first red test must fail on the missing target behavior, not on a broken toolchain, missing browser binary, invalid fixture, unrelated type error, or test syntax error.
@@ -62,7 +62,7 @@ pnpm verify:stories          Demo/E2E/Sandbox Story validation
 pnpm verify:fixtures         read-only persistence/debug fixture validation
 pnpm verify:golden           read-only strategy golden validation
 pnpm verify:balance          fixed 1..1000 seed thresholds
-pnpm verify:assets           provenance, compiled manifests, runtime budgets
+pnpm verify:assets           runtime manifests, exact bytes, pack digests, budgets
 pnpm verify:ui               RTL, UI flavor, responsive and accessibility checks
 pnpm verify:bundle           Player/Developer graph and emitted-byte checks
 pnpm verify:artifact         production manifest, base path and smoke
@@ -241,7 +241,7 @@ Expected: generic UI tests use synthetic ports; tavern UI arrives only through c
 
 - [ ] **Step 2: Run Phase 5 acceptance with no asset approval assumptions**
 
-Expected: Player is complete with code-native fallbacks; current Phase A candidates are valid-but-excluded; Chromium/WebKit and accessibility gates pass.
+Expected: Player is complete with code-native fallbacks; the AIGC source archive is absent from the build; Chromium/WebKit and accessibility gates pass.
 
 - [ ] **Step 3: Record checkpoint evidence**
 
@@ -328,8 +328,8 @@ Stop the current task and return to the relevant specification instead of improv
 - Formula/balance failures can be “fixed” only by silently accepting regenerated golden outputs.
 - TypeScript 7 must be replaced as the authoritative typecheck; third-party tool compatibility must stay isolated.
 - A new ABI field/kind/code/hook or relaxed JSON escape hatch is required but not first added to the Catalog, Schema, contract tests, and revision policy.
-- Project-owned asset provenance, AIGC input review, or generated-output redistribution rights are unclear. Package-manager dependencies and `vendor/**` licensing are outside the automated stop line.
-- Candidate/terms-pending/unselected art is about to enter a manifest, digest, screenshot baseline, artifact, or Pages deployment.
+- `art-source/aigc/**` or `references/**` is about to enter a runtime manifest, screenshot baseline, artifact, or Pages deployment. Package-manager dependencies and `vendor/**` licensing remain outside the automated stop line.
+- A runtime asset cannot preserve the stable Asset ID/path/media/dimension/byte/hash contract or the deterministic Asset Pack digest without coupling the runtime back to the source archive.
 - A task grows beyond one independently testable/reviewable outcome; split it before continuing.
 - A gameplay problem prompts a new system outside PoC instead of first changing information, numbers, automation, or deleting a rule.
 

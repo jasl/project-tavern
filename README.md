@@ -10,9 +10,9 @@
 - 七日 PoC 的范围、规则、首轮数值与测试场景已经落盘；
 - Base/UI 包、由 Story 组合的 Modules、Story 自有 Scenes、Loader/Host、Hotfix 与 E2E 集成 Story 的架构规格和字段 ABI 已冻结为第一轮 Goal 的实施基线；
 - 旧五阶段计划已因架构重组被清理；新的六阶段工程 Goal 已获授权并进行中，当前执行 Phase 1；完成全部 Phase 1 任务和阶段验收后暂停，不进入 Phase 2；
-- Phase A 的四张 Image Gen 校准候选的精确输出绑定服务条款仓库准入已批准；它们仍是 `candidate` 且 `runtime: null`，主观素材选择仍待用户独立确认；
+- 四张 OpenAI 概念图及其 prompt 已按来源归档在 `art-source/aigc/openai/illustrations/`，仅供人工浏览、调整和重新生成；当前仍未复制进运行时 Asset Pack；
 - 尚未创建前端脚手架；
-- 大规模正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围；PoC 必须先以 code-native fallback 完整交付。仓库条款准入不等于运行时选定或发布批准；任何原创 Image Gen 候选仍需人工选定、runtime export 验收和独立发布授权才能进入对应制品。
+- 大规模正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围；PoC 必须先以 code-native fallback 完整交付。AIGC 来源归档不进入构建；采用的图片需人工复制到资产包或 Story，由运行时清单、文件字节和自动 Asset Pack digest 进行技术验证。
 
 ## 文档入口
 
@@ -20,6 +20,7 @@
 - [游戏设计基线](docs/design/game-design-baseline.md)
 - [Project Tavern Web 运行时与 Story 架构](docs/superpowers/specs/2026-07-10-react-game-harness-design.md)
 - [Base Envelope 与 Demo Module Contract Catalog v1](docs/superpowers/specs/2026-07-10-engine-contract-catalog.md)
+- [AIGC 素材来源归档设计](docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md)
 - [第一版 PoC 六阶段实施路线](docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md)
 - [首批 Web 视觉包与 Image Gen 基线](docs/art/first-web-visual-pack.md)
 - [PoC 游戏合同](docs/poc/poc-charter.md)
@@ -48,4 +49,4 @@ Copyright © 2026 Jun Jiang (jasl).
 
 ## 下一道闸门
 
-当前工程边界是完成全部 Phase 1 任务和阶段验收后暂停，不进入 Phase 2。Phase A 的仓库服务条款准入已经批准，但主观素材选择、运行时选定与发布授权仍是彼此独立且尚未通过的闸门；工程 Goal 也不会自行宣告主观试玩通过或执行远端发布。
+当前工程边界是完成全部 Phase 1 任务和阶段验收后暂停，不进入 Phase 2。四张 OpenAI 概念图仍是 archive-only，没有进入运行时 Asset Pack；工程 Goal 也不会自行宣告主观试玩通过或执行远端发布。

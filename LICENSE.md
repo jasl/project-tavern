@@ -17,10 +17,10 @@ This is a multi-license repository. The engine components are open source under 
 | `packages/modules/**` | Game-specific modules, rules, state, commands, and tests | [PolyForm Noncommercial 1.0.0](LICENSES/PolyForm-Noncommercial-1.0.0.txt) |
 | `stories/**` software | Story logic, rules, values, Scene glue, Hotfixes, fixtures, and integration tests | [PolyForm Noncommercial 1.0.0](LICENSES/PolyForm-Noncommercial-1.0.0.txt) |
 | Other project-owned software not expressly marked MIT | Project-specific scripts, configuration, and software | [PolyForm Noncommercial 1.0.0](LICENSES/PolyForm-Noncommercial-1.0.0.txt) |
-| Project-owned narrative, localization, art, audio, and design content | Original expressive game content, including approved material in `art-source/**`, `packages/assets/**`, and Story content/asset directories | [CC BY-NC-SA 4.0](LICENSES/CC-BY-NC-SA-4.0.txt) |
+| Project-owned narrative, localization, art, audio, and design content | Original expressive game content in `art-source/**`, `packages/assets/**`, and Story content/asset directories | [CC BY-NC-SA 4.0](LICENSES/CC-BY-NC-SA-4.0.txt) |
 | Project documentation | Original documentation, except substantial code copied from a software package and third-party material identified separately | [CC BY-NC-SA 4.0](LICENSES/CC-BY-NC-SA-4.0.txt) |
 
-Package-local metadata, SPDX headers, asset sidecars, and provenance manifests may make a more specific designation. A specific designation controls only when the relevant copyright holder has authority to grant it. Mixed packages use `SEE LICENSE IN LICENSE.md` rather than pretending that one SPDX identifier covers both code and content.
+Package-local metadata and SPDX headers may make a more specific designation. A specific designation controls only when the relevant copyright holder has authority to grant it. Mixed packages use `SEE LICENSE IN LICENSE.md` rather than pretending that one SPDX identifier covers both code and content; runtime asset manifests carry technical identity only.
 
 The standard legal texts under `LICENSES/` are reproduced for compliance and are not modified or relicensed by this scope notice. The MIT template contains only the project copyright holder substitution expected by that template.
 

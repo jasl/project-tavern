@@ -20,4 +20,4 @@ The ignored `references/` directory is local research input, is not tracked, and
 
 ## Project-generated material
 
-Project-owned and AI-assisted source is not third-party vendored material. It follows the project scope and provenance rules in `LICENSE.md`, the repository licensing design, and the applicable asset specifications. In particular, repository admission, runtime selection, and AIGC input reuse remain separate decisions.
+Project-owned and AI-assisted source is not third-party vendored material. AIGC source is organized for human maintenance under `art-source/aigc/<source>/**` and is outside automated license scanning. Images selected for the game are manually copied into a runtime asset package or Story and then follow the ordinary technical manifest and Asset Pack digest rules.
