@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/base" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/assets" },
+    { "path": "./packages/modules" },
+    { "path": "./apps/web" },
+    { "path": "./stories/sandbox" },
+    { "path": "./stories/e2e" },
+    { "path": "./stories/demo" }
+  ]
+}

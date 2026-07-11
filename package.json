@@ -10,7 +10,13 @@
     "pnpm": "11.11.0"
   },
   "scripts": {
-    "verify:licensing": "node scripts/verify-licensing.mjs"
+    "build": "tsc -b --pretty false",
+    "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
+    "verify:toolchain": "node scripts/verify-toolchain.mjs",
+    "verify:licensing": "node scripts/verify-licensing.mjs",
+    "verify:boundaries": "node scripts/verify-boundaries.mjs",
+    "verify:cycles": "node scripts/verify-cycles.mjs",
+    "verify": "pnpm verify:toolchain && pnpm verify:licensing && pnpm verify:boundaries && pnpm verify:cycles && pnpm typecheck && pnpm build"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
