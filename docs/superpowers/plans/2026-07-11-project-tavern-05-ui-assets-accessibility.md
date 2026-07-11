@@ -63,7 +63,6 @@ scripts/ui/                             # flavor and renderer-boundary validator
 - Modify: `apps/web/package.json`
 - Modify: root `package.json`
 - Modify: `pnpm-lock.yaml`
-- Modify: `THIRD_PARTY_NOTICES.md`
 - Test: `packages/ui/src/assets/*.test.ts`
 
 **Interfaces:**
@@ -82,7 +81,7 @@ pnpm --filter @project-tavern/web add --save-dev --save-exact @axe-core/playwrig
 pnpm add --workspace-root --save-dev --save-exact stylelint@17.14.0 stylelint-config-standard@40.0.0
 ```
 
-Phase 1 already supplies the exact React peer/development pair. The first command adds the exact ReactDOM peer plus pnpm's matching development entry before Radix/Motion are installed; with strict peer checking UI may not rely on the sibling Web package's ReactDOM. Update `THIRD_PARTY_NOTICES.md` and the lockfile-derived dependency inventory with exact sources, versions, integrity, upstream licenses/copyright, paths, modification status, shipped-vs-development scope, and notice obligations. Run `pnpm verify:licensing`; expected: all dependencies are admitted and the command prints `licensing verification passed`.
+Phase 1 already supplies the exact React peer/development pair. The first command adds the exact ReactDOM peer plus pnpm's matching development entry before Radix/Motion are installed; with strict peer checking UI may not rely on the sibling Web package's ReactDOM. Regenerate the frozen lockfile and run `pnpm verify:licensing`; expected: exact dependency pins are present and project licensing verification prints `licensing verification passed` without producing a dependency notice inventory.
 
 - [ ] **Step 2: Write failing registry, fallback, and localization tests**
 
@@ -154,7 +153,7 @@ Expected: PASS; tracked files remain unchanged after the commands.
 - [ ] **Step 6: Commit the AssetRegistry slice**
 
 ```bash
-git add -- packages/ui/src/assets packages/ui/type-tests/assets-public.test-d.ts packages/ui/package.json apps/web/package.json package.json pnpm-lock.yaml THIRD_PARTY_NOTICES.md
+git add -- packages/ui/src/assets packages/ui/type-tests/assets-public.test-d.ts packages/ui/package.json apps/web/package.json package.json pnpm-lock.yaml
 git diff --cached --check
 git commit -m "feat(ui): add resolved asset presentation port"
 ```
@@ -491,7 +490,6 @@ git commit -m "feat(ui): add overlay save and recovery surfaces"
 - Modify: `stories/demo/package.json`
 - Modify: `stories/e2e/package.json`
 - Modify: `pnpm-lock.yaml`
-- Modify: `THIRD_PARTY_NOTICES.md`
 - Create: `stories/demo/src/presentation/scene-renderers.tsx`
 - Modify: `stories/demo/src/presentation/scene-graph.tsx`
 - Create: `stories/demo/src/presentation/ui-contributions.tsx`
@@ -592,7 +590,7 @@ Expected: PASS; selecting the Demo- or E2E-owned Web application root requires n
 - [ ] **Step 6: Commit Story/module UI contributions**
 
 ```bash
-git add -- packages/modules/src/ui packages/modules/package.json stories/demo/package.json stories/demo/src/presentation stories/demo/player.html stories/demo/src/application stories/demo/tsconfig.application.json stories/e2e/package.json stories/e2e/src/presentation stories/e2e/player.html stories/e2e/src/application stories/e2e/tsconfig.application.json vite.config.ts package.json pnpm-lock.yaml THIRD_PARTY_NOTICES.md
+git add -- packages/modules/src/ui packages/modules/package.json stories/demo/package.json stories/demo/src/presentation stories/demo/player.html stories/demo/src/application stories/demo/tsconfig.application.json stories/e2e/package.json stories/e2e/src/presentation stories/e2e/player.html stories/e2e/src/application stories/e2e/tsconfig.application.json vite.config.ts package.json pnpm-lock.yaml
 git diff --cached --check
 git commit -m "feat(game): add tavern player interface"
 ```
@@ -767,7 +765,6 @@ git commit -m "feat(ui): add isolated developer docks"
 - Modify: `stories/e2e/src/test/story-contract.test.ts`
 - Modify: `stories/demo/src/presentation/ui-contributions.tsx`
 - Modify: `stories/e2e/src/presentation/ui-contributions.tsx`
-- Modify: `THIRD_PARTY_NOTICES.md`
 
 **Interfaces:**
 
@@ -867,7 +864,7 @@ Expected: PASS; the NUL-safe tracked authoring inventory is closed and fully bou
 - [ ] **Step 5: Commit the governed fallback asset layer**
 
 ```bash
-git add -- scripts/assets scripts/verify-assets.mjs packages/assets/src/fallbacks packages/assets/src/index.ts packages/assets/package.json stories/demo/src/assets stories/demo/src/presentation/assets.ts stories/demo/src/story.ts stories/demo/src/test/story-validation.test.ts stories/e2e/src/assets stories/e2e/src/presentation/assets.ts stories/e2e/src/story.ts stories/e2e/src/test/story-contract.test.ts stories/demo/src/presentation/ui-contributions.tsx stories/e2e/src/presentation/ui-contributions.tsx THIRD_PARTY_NOTICES.md
+git add -- scripts/assets scripts/verify-assets.mjs packages/assets/src/fallbacks packages/assets/src/index.ts packages/assets/package.json stories/demo/src/assets stories/demo/src/presentation/assets.ts stories/demo/src/story.ts stories/demo/src/test/story-validation.test.ts stories/e2e/src/assets stories/e2e/src/presentation/assets.ts stories/e2e/src/story.ts stories/e2e/src/test/story-contract.test.ts stories/demo/src/presentation/ui-contributions.tsx stories/e2e/src/presentation/ui-contributions.tsx
 git diff --cached --check
 git commit -m "feat(assets): add governed fallback visual pack"
 ```

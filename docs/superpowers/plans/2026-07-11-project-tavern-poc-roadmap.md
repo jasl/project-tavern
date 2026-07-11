@@ -55,7 +55,7 @@ pnpm format:check            read-only Prettier conformance
 pnpm lint                    type-aware Oxlint policy; never replaces TS7 tsc
 pnpm typecheck               authoritative whole-workspace TypeScript 7 check
 pnpm verify:toolchain        exact Node/pnpm/TS7 and tool isolation
-pnpm verify:licensing        legal files, package metadata, import/artifact licensing
+pnpm verify:licensing        project legal files, project package metadata, owned-source/artifact scope
 pnpm verify:boundaries       package/facet/import rules and references exclusion
 pnpm verify:cycles           production import graph cycles
 pnpm verify:stories          Demo/E2E/Sandbox Story validation
@@ -328,7 +328,7 @@ Stop the current task and return to the relevant specification instead of improv
 - Formula/balance failures can be “fixed” only by silently accepting regenerated golden outputs.
 - TypeScript 7 must be replaced as the authoritative typecheck; third-party tool compatibility must stay isolated.
 - A new ABI field/kind/code/hook or relaxed JSON escape hatch is required but not first added to the Catalog, Schema, contract tests, and revision policy.
-- Third-party terms, dependency notices, asset provenance, AIGC input review, or output redistribution rights are unclear.
+- Project-owned asset provenance, AIGC input review, or generated-output redistribution rights are unclear. Package-manager dependencies and `vendor/**` licensing are outside the automated stop line.
 - Candidate/terms-pending/unselected art is about to enter a manifest, digest, screenshot baseline, artifact, or Pages deployment.
 - A task grows beyond one independently testable/reviewable outcome; split it before continuing.
 - A gameplay problem prompts a new system outside PoC instead of first changing information, numbers, automation, or deleting a rule.

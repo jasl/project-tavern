@@ -40,9 +40,7 @@ Copyright © 2026 Jun Jiang (jasl).
 - 游戏 Modules、Stories、规则、Hotfix 和专用测试使用 [PolyForm Noncommercial 1.0.0](LICENSES/PolyForm-Noncommercial-1.0.0.txt)；
 - 项目原创剧情、本地化、美术、音频和设计文档使用 [CC BY-NC-SA 4.0](LICENSES/CC-BY-NC-SA-4.0.txt)。
 
-完整路径范围、复合网页制品和无许可材料规则见 [LICENSE.md](LICENSE.md)。第三方代码、素材和工具始终遵守其原始条款，不被项目许可证重新授权；实际进入源码或发布物的项目登记在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。项目名称和品牌权利见 [TRADEMARKS.md](TRADEMARKS.md)，贡献边界见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-没有可验证许可证、书面授权或公共领域声明的第三方材料不会进入仓库、构建、发布包或 AIGC 输入。
+完整路径范围和复合网页制品规则见 [LICENSE.md](LICENSE.md)。npm 依赖和 `vendor/**` 中的第三方内容始终遵守各自的原始许可、合同、声明或 public-domain 状态，不被项目许可证重新授权；详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。项目不对 npm 依赖或 `vendor/**` 做自动许可扫描和构建准入判定。项目名称和品牌权利见 [TRADEMARKS.md](TRADEMARKS.md)，贡献边界见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## Reference 目录
 

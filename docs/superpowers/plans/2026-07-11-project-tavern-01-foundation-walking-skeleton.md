@@ -91,7 +91,6 @@
 - Create: `stories/e2e/package.json`
 - Create: `stories/sandbox/package.json`
 - Create: `apps/web/package.json`
-- Modify: `THIRD_PARTY_NOTICES.md`
 - Modify: `scripts/verify-licensing.mjs`
 - Modify: `scripts/verify-licensing.test.mjs`
 
@@ -179,7 +178,7 @@ Use this exact manifest matrix:
 
 Every workspace manifest is `private: true`, `version: "0.0.0"`, `type: "module"`, and initially exports only `.` from `src/index.ts`; the private root has no `exports`. Base later adds `./runtime` and `./testkit`, Story later adds `./development`, UI later adds `./developer`, and Web later adds a closed `./developer` entry that the Player root never re-exports. Add `package.json: "SEE LICENSE IN LICENSE.md"` to `DEFAULT_POLICY.packageLicenses` alongside the eight workspace paths.
 
-Pin UI/Web third-party edges exactly: React and React DOM `19.2.7`, React Router DOM `7.18.1`, and Zod `4.4.3`; UI declares the exact React peer and a matching development dependency, while Web declares the three browser runtime dependencies. Base, Modules, and each Story that imports Zod declares exact `4.4.3` directly rather than relying on the root dev dependency or transitive resolution. Add one `THIRD_PARTY_NOTICES.md` record per direct dependency and a verified transitive inventory from `pnpm-lock.yaml`, including exact version, npm authoritative source, lockfile integrity, upstream copyright/license, local paths/artifacts, modification status, and notice obligations. Unknown, missing, or incompatible license data fails licensing verification rather than being guessed.
+Pin UI/Web third-party edges exactly: React and React DOM `19.2.7`, React Router DOM `7.18.1`, and Zod `4.4.3`; UI declares the exact React peer and a matching development dependency, while Web declares the three browser runtime dependencies. Base, Modules, and each Story that imports Zod declares exact `4.4.3` directly rather than relying on the root dev dependency or transitive resolution. The frozen lockfile is the reproducibility boundary; Task 1 does not enumerate, scan, classify, or gate direct/transitive dependency licensing and does not modify `THIRD_PARTY_NOTICES.md` for package-manager dependencies.
 
 - [ ] **Step 4: Make missing metadata an error and generate the reviewed lockfile**
 
@@ -208,7 +207,7 @@ Expected: versions print `v24.18.0` and `11.11.0`; lockfile generation runs no l
 - [ ] **Step 5: Review and commit the workspace metadata**
 
 ```bash
-git add -- .node-version .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml packages/base/package.json packages/ui/package.json packages/modules/package.json packages/assets/package.json stories/demo/package.json stories/e2e/package.json stories/sandbox/package.json apps/web/package.json THIRD_PARTY_NOTICES.md scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
+git add -- .node-version .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml packages/base/package.json packages/ui/package.json packages/modules/package.json packages/assets/package.json stories/demo/package.json stories/e2e/package.json stories/sandbox/package.json apps/web/package.json scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs
 git diff --cached --check
 git diff --cached --stat
 git commit -m "chore: scaffold pinned project workspace"
@@ -1798,7 +1797,7 @@ Add these exact scripts now:
 
 The collector resolves package exports and static ESM production dependencies from explicit Engine, Story simulation, Story presentation, and Application roots; records workspace-relative POSIX path, `digestBytes` SHA-256, and facet; sorts by path; and rejects dynamic arbitrary imports, workspace-external symlinks, `references/`, missing ownership, and forbidden cross-facet edges. Its CLI writes only ignored `dist/manifests/`; test consumers import its named module exports directly from `scripts/collect-import-closure.mjs`.
 
-`verify:licensing` now validates legal hashes/notices, every workspace manifest, exact lockfile license inventory, MIT source closure, and Sandbox asset licenses. Task 13 adds built-artifact legal carriage. The four colocated wrapper tests prove `verify:stories` validates Sandbox while Demo/E2E remain intentionally non-startable, and prove fixture/golden/asset checks delegate to real read-only Sandbox validators, propagate nonzero exits, and never invoke a writer.
+`verify:licensing` now validates project legal hashes/notices, every workspace manifest, MIT source closure, and project-owned Sandbox asset licenses. It deliberately does not inventory or scan package-manager dependencies or `vendor/**`. Task 13 adds built-artifact carriage for project legal files. The four colocated wrapper tests prove `verify:stories` validates Sandbox while Demo/E2E remain intentionally non-startable, and prove fixture/golden/asset checks delegate to real read-only Sandbox validators, propagate nonzero exits, and never invoke a writer.
 
 `verify.mjs` snapshots `git ls-files -z` plus SHA-256 for every current tracked file, then runs format, lint, all core verification commands, recursive script tests, typecheck, unit/contract/property, and TypeScript build. It compares the same path/hash map in `finally`, reports changed tracked paths, and fails even after another command fails. It never invokes a baseline writer.
 
@@ -1947,7 +1946,7 @@ Extend the Task 12 scripts with exactly these additions:
 }
 ```
 
-`verify:bundle` calls the Task 12 collector for both roots and checks Player excludes Developer/development/testkit/references/source maps/absolute paths while Developer contains explicit Story/Web Developer markers. `verify:artifact` builds Player in a temporary root, verifies `base:"./"`, a path-sorted manifest whose file hashes are exactly `digestBytes(fileBytes)`, required legal files, and nested-path local serving. `verify:release` runs collector plus Player build twice from clean temporary roots and compares Canonical root manifests and sorted emitted-file hashes. `verify:licensing` now additionally builds Player into a temporary directory, validates carried NOTICE/license scope, and deletes that directory; it never assumes a prior build. No verifier writes a tracked baseline.
+`verify:bundle` calls the Task 12 collector for both roots and checks Player excludes Developer/development/testkit/references/source maps/absolute paths while Developer contains explicit Story/Web Developer markers. `verify:artifact` builds Player in a temporary root, verifies `base:"./"`, a path-sorted manifest whose file hashes are exactly `digestBytes(fileBytes)`, required project legal files, and nested-path local serving. `verify:release` runs collector plus Player build twice from clean temporary roots and compares Canonical root manifests and sorted emitted-file hashes. `verify:licensing` now additionally builds Player into a temporary directory, validates carried project NOTICE/license scope, and deletes that directory; it never assumes a prior build or scan dependency/vendor licensing. No verifier writes a tracked baseline.
 
 - [ ] **Step 5: Extend the tracked-file-immutable orchestrator**
 

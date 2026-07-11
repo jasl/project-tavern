@@ -18,9 +18,9 @@ Opening a pull request, issue, or discussion does not create that agreement. Do 
 
 ## Third-party and AI-assisted material
 
-Do not submit third-party code, text, data, images, fonts, models, audio, translations, or purchased assets without complete provenance and an original license that permits the proposed repository and distribution use.
+Place third-party code, text, data, images, fonts, models, audio, translations, purchased assets, and other intentionally copied third-party material under `vendor/**`. Such material retains its own license, contract, notice, or public-domain status and is not covered by the repository's MIT, PolyForm, or CC grants.
 
-Materials with missing, unclear, or version-ambiguous terms are not accepted. Public availability, downloadability, purchase, or a missing copyright line is not permission.
+The project does not run automated license or copyright classification over `vendor/**`. Contributors remain responsible for material they submit and should preserve any notices already supplied with it.
 
 AI-assisted contributions must disclose the service, model, generation date, prompt, all inputs, output hash, and terms in effect. Commercial material and local `references/` content may not be used as generation inputs. An output with uncertain redistribution or relicensing rights is not accepted.
 
@@ -33,4 +33,4 @@ node --test scripts/verify-licensing.test.mjs
 node scripts/verify-licensing.mjs
 ```
 
-If a new dependency or asset is included, update `THIRD_PARTY_NOTICES.md` and preserve every notice required by its original terms.
+New npm dependencies do not require a `THIRD_PARTY_NOTICES.md` entry. Third-party files copied into Git belong under `vendor/**`; project-owned assets continue to follow their project scope and provenance rules.

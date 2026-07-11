@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce one reproducibly built, fully verified, license-complete Player artifact and immutable-SHA GitHub workflows that can deploy those exact bytes to protected GitHub Pages without rebuilding.
+**Goal:** Produce one reproducibly built, fully verified Player artifact with the project legal scope, plus immutable-SHA GitHub workflows that can deploy those exact bytes to protected GitHub Pages without rebuilding.
 
 **Architecture:** A single nonpublishing `pnpm verify` expands all deterministic code/test/build/browser gates. One closed artifact wrapper builds Demo Player, Demo Developer, and E2E Player, leaving the release-eligible ignored `dist/player` from the current checkout; release preparation verifies and manifests those exact bytes and CI uploads them. An authorized Pages job downloads the artifact produced by its own successful verification job, wraps it for Pages, deploys it without checkout/build, and runs read-only remote smoke.
 
@@ -21,7 +21,7 @@
 - Registry audit is a separate scheduled/manual workflow. A transient registry failure does not make local deterministic verification flaky.
 - Release `.mts` tools are type-erasable and run directly under pinned Node 24 native TypeScript stripping; they use no transform-required TypeScript feature or second TS runtime.
 - `pnpm test:scripts` recursively discovers and executes every `scripts/**/*.test.mjs` and `scripts/**/*.test.ts` exactly once through the Phase 1 runner; Phase 6 release/docs subdirectories may not depend on shallow globs or hand-maintained test lists.
-- Release bundles include `LICENSE.md`, `NOTICE`, the three project legal texts, `THIRD_PARTY_NOTICES.md`, and an artifact-specific license inventory.
+- Release bundles include `LICENSE.md`, `NOTICE`, the three project legal texts, and the repository's non-exhaustive `THIRD_PARTY_NOTICES.md` boundary statement. They do not generate dependency/vendor license inventories or gate release on third-party license scanning.
 - `references/`, Phase A source candidates, terms-pending assets, secrets, `.env`, Developer modules, Story `./development`, fixtures, local paths, and source maps are forbidden from Player.
 - Rollback is forward-only: revert/fix source, run the current workflow, and deploy the new current-run artifact. Never redeploy an older cross-run artifact or lower the IndexedDB database revision.
 - Pushing, enabling Pages, approving an environment, or deploying requires explicit user authority. Local completion produces a deploy-ready handoff without claiming a remote deployment. The deploy job never checks out or builds; the read-only smoke job may check out the exact workflow SHA solely to obtain its test code, but may not build or alter the deployed artifact.
@@ -46,7 +46,7 @@ Create `scripts/release/actions-lock.json` from this exact mapping. A later acti
 }
 ```
 
-The SHA/tag pairs above are exact. Task 5 augments every record with authoritative repository and exact-SHA MIT license evidence; it does not change these identities while doing so.
+The SHA/tag pairs above are exact. Task 5 validates these identities and workflow behavior without adding per-action license evidence.
 
 ## File Map
 
@@ -154,7 +154,7 @@ git diff --cached --check
 git commit -m "build: freeze all browser artifacts"
 ```
 
-### Task 2: Create artifact manifests and verify Player contents/licenses
+### Task 2: Create artifact manifests and verify Player contents/project legal files
 
 **Files:**
 
@@ -162,8 +162,6 @@ git commit -m "build: freeze all browser artifacts"
 - Create: `scripts/release/create-artifact-manifest.test.ts`
 - Create: `scripts/release/verify-player-artifact.mts`
 - Create: `scripts/release/verify-player-artifact.test.ts`
-- Create: `scripts/release/license-inventory.mts`
-- Create: `scripts/release/license-inventory.test.ts`
 - Modify: `scripts/release/build-artifact.mts`
 - Modify: `scripts/verify-artifact.mjs`
 - Modify: `scripts/verify-bundle.mjs`
@@ -171,13 +169,12 @@ git commit -m "build: freeze all browser artifacts"
 - Modify: `scripts/prepare-artifact.mjs`
 - Modify: `scripts/verify-licensing.mjs`
 - Modify: `scripts/verify-licensing.test.mjs`
-- Modify: `THIRD_PARTY_NOTICES.md`
 - Modify: `package.json`
 
 **Interfaces:**
 
-- Consumes: built Player directory, application-bound normalized Vite/Rolldown source graph, Vite license JSON, verified file-scope license resolver, exact third-party records, and asset provenance.
-- Produces: sorted `artifact-manifest.json`, `artifact-license-inventory.json`, and `verifyPlayerArtifact(dir)`.
+- Consumes: built Player directory, application-bound normalized Vite/Rolldown source graph, project file-scope resolver, and project-owned asset provenance.
+- Produces: sorted `artifact-manifest.json` and `verifyPlayerArtifact(dir)`.
 
 - [ ] **Step 1: Write failing deterministic-manifest and forbidden-content tests**
 
@@ -203,7 +200,7 @@ it.each(["./development", "DeveloperApplicationPort", "references/", "sourceMapp
 Run:
 
 ```bash
-pnpm exec vitest run scripts/release/create-artifact-manifest.test.ts scripts/release/verify-player-artifact.test.ts scripts/release/license-inventory.test.ts
+pnpm exec vitest run scripts/release/create-artifact-manifest.test.ts scripts/release/verify-player-artifact.test.ts
 node --test scripts/verify-licensing.test.mjs
 ```
 
@@ -211,22 +208,7 @@ Expected: FAIL on missing manifest/artifact verifiers.
 
 - [ ] **Step 3: Implement deterministic inspection and extend licensing verification**
 
-```ts
-type ArtifactLicenseScopeV1 =
-  | "MIT"
-  | "PolyForm-Noncommercial-1.0.0"
-  | "CC-BY-NC-SA-4.0"
-  | "third-party";
-
-interface ArtifactFileV1 {
-  readonly path: string;
-  readonly bytes: NonNegativeSafeInteger;
-  readonly digest: Digest;
-  readonly licenseScopes: readonly [ArtifactLicenseScopeV1, ...ArtifactLicenseScopeV1[]];
-}
-```
-
-Scan relative POSIX paths in sorted order, reject symlinks and path escape, and hash raw bytes with `digestBytes`. Inspect the exact application-bound source/chunk graph, Vite native license JSON, frozen lockfile inventory, and emitted UTF-8 text for forbidden modules/markers; do not infer safety only from filename. For every workspace contributor, reuse the licensing verifier's file-scope resolver: SPDX header/path policy for software, file-level CC/PolyForm rules inside mixed Story packages, and asset provenance/sidecars for media. A `SEE LICENSE IN LICENSE.md` package value alone never classifies a source file; missing or ambiguous scope fails. Third-party contributors resolve through exact package/version/integrity/notice records. A mixed Vite chunk carries the sorted unique set of all contributing MIT/PolyForm/CC/third-party scopes, not one guessed scope. Require every payload file to map to at least one exact scope/record. Copy legal files into Player and verify canonical legal-text hashes after copy. `artifact-manifest.json` excludes only its own bytes to avoid a recursive hash; every other payload file, including license inventory and Vite license JSON, has an entry. CI/checkpoint evidence separately records `digestBytes(artifact-manifest.json)`.
+Scan relative POSIX paths in sorted order, reject symlinks and path escape, and hash raw bytes with `digestBytes`. Inspect the exact application-bound source/chunk graph and emitted UTF-8 text for forbidden modules/markers; do not infer safety only from filename. Verify the project-owned source closure still obeys MIT/PolyForm/CC package and asset boundaries, but do not inspect Vite license JSON, the lockfile, dependency chunks, GitHub Actions, or `vendor/**` for third-party license classification. Copy the project legal files and the non-exhaustive third-party boundary statement into Player, then verify their canonical project-controlled hashes after copy. `artifact-manifest.json` excludes only its own bytes to avoid a recursive hash; every other payload file has an entry. CI/checkpoint evidence separately records `digestBytes(artifact-manifest.json)`.
 
 Keep the Phase 1 public names and make their final behavior explicit:
 
@@ -238,18 +220,18 @@ Keep the Phase 1 public names and make their final behavior explicit:
 }
 ```
 
-After Vite returns, the Player branch of `build-artifact.mts` calls `prepare-artifact.mjs`: it copies/verifies legal files, writes the license inventory, writes the self-excluding sorted manifest last, and invokes the Player verifier. Thus `build:player` always produces one complete release-eligible artifact; Developer/E2E builds do not receive Player legal postprocessing. Refactor the Phase 1 `verify-artifact.mjs` and `verify-bundle.mjs` into inspect-only commands over the caller-built outputs/source graphs; their tests fail when output is missing rather than silently rebuilding. Also remove the Phase 1 temporary Player build from `verify-licensing.mjs`: its final pre-build role is source/legal/package/lock/notice validation, while post-build license completeness is owned by `verify:artifact`. Add a process-spy regression proving the final ordinary `pnpm verify` invokes the main Demo Player builder exactly once (isolated `verify:release` reproducibility builds are counted separately). `release:prepare` remains an explicit operator alias for the same one build, not a second mutation pass.
+After Vite returns, the Player branch of `build-artifact.mts` calls `prepare-artifact.mjs`: it copies/verifies project legal files, writes the self-excluding sorted manifest last, and invokes the Player verifier. Thus `build:player` always produces one complete release-eligible artifact; Developer/E2E builds do not receive Player legal postprocessing. Refactor the Phase 1 `verify-artifact.mjs` and `verify-bundle.mjs` into inspect-only commands over the caller-built outputs/source graphs; their tests fail when output is missing rather than silently rebuilding. Also remove the Phase 1 temporary Player build from `verify-licensing.mjs`: its final pre-build role is project source/legal/package/asset validation, while post-build project legal-file completeness is owned by `verify:artifact`. Add a process-spy regression proving the final ordinary `pnpm verify` invokes the main Demo Player builder exactly once (isolated `verify:release` reproducibility builds are counted separately). `release:prepare` remains an explicit operator alias for the same one build, not a second mutation pass.
 
 - [ ] **Step 4: Build, manifest, inspect, and run licensing gates**
 
 Run: `pnpm release:prepare && pnpm verify:artifact && pnpm verify:licensing && pnpm verify:bundle && pnpm verify`
 
-Expected: PASS; artifact manifests are stable and every payload file has a nonempty license-scope mapping; the manifest's detached digest is reported separately.
+Expected: PASS; artifact manifests are stable, project legal files are present and valid, and the manifest's detached digest is reported separately.
 
 - [ ] **Step 5: Commit release inspection**
 
 ```bash
-git add -- scripts/release/create-artifact-manifest.mts scripts/release/create-artifact-manifest.test.ts scripts/release/verify-player-artifact.mts scripts/release/verify-player-artifact.test.ts scripts/release/license-inventory.mts scripts/release/license-inventory.test.ts scripts/release/build-artifact.mts scripts/verify-artifact.mjs scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/prepare-artifact.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs THIRD_PARTY_NOTICES.md package.json
+git add -- scripts/release/create-artifact-manifest.mts scripts/release/create-artifact-manifest.test.ts scripts/release/verify-player-artifact.mts scripts/release/verify-player-artifact.test.ts scripts/release/build-artifact.mts scripts/verify-artifact.mjs scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/prepare-artifact.mjs scripts/verify-licensing.mjs scripts/verify-licensing.test.mjs package.json
 git diff --cached --check
 git commit -m "build: verify player artifact contents"
 ```
@@ -301,7 +283,7 @@ export async function compareArtifactDirectories(
 ): Promise<{ readonly equal: boolean; readonly differences: readonly string[] }>;
 ```
 
-Freeze the outer repository's 40-character lowercase hexadecimal `HEAD` value before creating two fresh temporary workspace copies with `git archive <that HEAD>`. Archive workspaces have no `.git`, so the reproducibility driver passes that exact value through a dedicated `PROJECT_TAVERN_SOURCE_COMMIT` input; the build wrapper accepts it only in this archive mode, validates its form and equality to the archive source chosen by the outer driver, and otherwise resolves/validates live `git rev-parse HEAD`. Install from the same pnpm store with frozen lockfile, build/prepare/verify each Player artifact, assert both `build-input.sourceCommit` values equal the frozen outer HEAD, then compare sorted file path/digest/size/license-scope tuples plus detached manifest digests. The Playwright web server serves an existing root `dist/player` under `/nested/tavern/`; test configuration must not call Vite build.
+Freeze the outer repository's 40-character lowercase hexadecimal `HEAD` value before creating two fresh temporary workspace copies with `git archive <that HEAD>`. Archive workspaces have no `.git`, so the reproducibility driver passes that exact value through a dedicated `PROJECT_TAVERN_SOURCE_COMMIT` input; the build wrapper accepts it only in this archive mode, validates its form and equality to the archive source chosen by the outer driver, and otherwise resolves/validates live `git rev-parse HEAD`. Install from the same pnpm store with frozen lockfile, build/prepare/verify each Player artifact, assert both `build-input.sourceCommit` values equal the frozen outer HEAD, then compare sorted file path/digest/size tuples plus detached manifest digests. The Playwright web server serves an existing root `dist/player` under `/nested/tavern/`; test configuration must not call Vite build.
 
 Add the exact scripts:
 
@@ -421,7 +403,6 @@ git commit -m "build: unify project verification"
 - Modify: `scripts/verify.test.mjs`
 - Modify: `package.json`
 - Modify: `pnpm-lock.yaml`
-- Modify: `THIRD_PARTY_NOTICES.md`
 
 **Interfaces:**
 
@@ -432,7 +413,7 @@ git commit -m "build: unify project verification"
 
 Run: `pnpm add --workspace-root --save-dev --save-exact yaml@2.9.0`
 
-Update `THIRD_PARTY_NOTICES.md` and the dependency inventory, then run `pnpm verify:licensing`. Expected: the exact parser version/integrity/license is recorded and licensing verification passes.
+Regenerate the frozen lockfile and run `pnpm verify:licensing`. Expected: the exact parser version enters the manifest/lockfile and project licensing verification remains green without creating a dependency notice record.
 
 - [ ] **Step 2: Write failing workflow pin/retention/no-rebuild tests**
 
@@ -474,7 +455,7 @@ jobs:
 
 Every `actions/upload-artifact` use sets both `retention-days: 30` and `if-no-files-found: error`; failure evidence uploads only Playwright reports/traces, scrubbed diagnostics, and DebugBundles. The dependency audit workflow runs `pnpm audit --prod` on schedule/manual and uploads a report; it is not called by `pnpm verify`.
 
-Expand each `actions-lock.json` entry with its authoritative GitHub repository URL, MIT license identifier, exact-SHA license-file path/digest, and notice requirement; update `THIRD_PARTY_NOTICES.md` for the workflow actions actually executed. The validator refuses a SHA whose recorded license evidence is absent or does not match the reviewed file. Add `verify:workflows="node scripts/release/validate-workflows.mts"`; it parses every tracked workflow, validates the action lock, permissions, artifact retention, job dependencies, no-build rules, and action license evidence, and performs no GitHub API call during ordinary verification.
+Add `verify:workflows="node scripts/release/validate-workflows.mts"`; it parses every tracked workflow and validates the action lock identities, permissions, artifact retention, job dependencies, and no-build rules. It does not collect or validate per-action license evidence and performs no GitHub API call during ordinary verification.
 
 Only now append `verify:workflows` to `verify:release` and its exact-order test. Before this task the release gate intentionally has no workflow step; after this task the validator covers CI and dependency-audit, and Task 6 extends the same closed set with Pages.
 
@@ -487,7 +468,7 @@ Expected: PASS; every `uses:` line is allowlisted and CI has no publish/deploy p
 - [ ] **Step 6: Commit CI**
 
 ```bash
-git add -- scripts/release/actions-lock.json scripts/release/validate-workflows.mts scripts/release/validate-workflows.test.ts scripts/verify-release.mjs scripts/verify.test.mjs .github/workflows/ci.yml .github/workflows/dependency-audit.yml package.json pnpm-lock.yaml THIRD_PARTY_NOTICES.md
+git add -- scripts/release/actions-lock.json scripts/release/validate-workflows.mts scripts/release/validate-workflows.test.ts scripts/verify-release.mjs scripts/verify.test.mjs .github/workflows/ci.yml .github/workflows/dependency-audit.yml package.json pnpm-lock.yaml
 git diff --cached --check
 git commit -m "ci: verify reproducible player artifact"
 ```
@@ -608,7 +589,7 @@ Expected: FAIL because the runbooks and/or linked command records do not exist.
 
 - [ ] **Step 3: Write exact operational procedures**
 
-Each runbook contains prerequisites, exact command, expected success output, failure evidence location, stop condition, and authority boundary. `pages-activation.md` covers repository Pages source=GitHub Actions and protected environment approval but does not perform it. `forward-rollback.md` permits only a new revert/fix commit through current verification; it explicitly forbids cross-run historical artifact redeploy. The additional runbooks cover: Story/Hotfix authoring and validation failure/safe mode; list/export/import/recovery/delete Save operations without promising migration; reviewed dependency/lock/notice upgrades; landscape tablet plus portrait/text-spacing/VoiceOver human smoke; DebugBundle privacy review and consent before sharing; and a friend-playtest script/feedback form that records subjective results without marking the engineering Goal or PoC fun gate passed.
+Each runbook contains prerequisites, exact command, expected success output, failure evidence location, stop condition, and authority boundary. `pages-activation.md` covers repository Pages source=GitHub Actions and protected environment approval but does not perform it. `forward-rollback.md` permits only a new revert/fix commit through current verification; it explicitly forbids cross-run historical artifact redeploy. The additional runbooks cover: Story/Hotfix authoring and validation failure/safe mode; list/export/import/recovery/delete Save operations without promising migration; pinned dependency/lock upgrades; landscape tablet plus portrait/text-spacing/VoiceOver human smoke; DebugBundle privacy review and consent before sharing; and a friend-playtest script/feedback form that records subjective results without marking the engineering Goal or PoC fun gate passed.
 
 - [ ] **Step 4: Run docs, release, and clean-tree verification**
 

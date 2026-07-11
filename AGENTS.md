@@ -61,12 +61,12 @@ Authority is domain-specific: the Harness design governs technical architecture;
 - Copyright holder is `Jun Jiang (jasl)`. The whole repository must not be described as MIT or as an open-source game: only the generic Engine areas are MIT; game-specific software and original content are source-available for noncommercial use.
 - `packages/base`, `packages/ui`, and game-neutral `apps/web` code are MIT and must not import or embed PolyForm/CC game-specific implementations, IDs, rules, narrative, branding, or assets.
 - `packages/modules`, Story software, Hotfixes, fixtures, and game-specific tests use `PolyForm-Noncommercial-1.0.0`. Original narrative, localization, art, audio, and project design documents use `CC-BY-NC-SA-4.0` except where a third-party record says otherwise.
-- Every shipped third-party dependency or asset retains its original terms and needs an exact version/hash, authoritative source, license review, provenance, and required notice in `THIRD_PARTY_NOTICES.md` or the asset manifest.
-- A missing per-file copyright line is acceptable only when an authoritative upstream license clearly covers that exact file/version. Otherwise treat the material as `unverified/all-rights-reserved`; do not copy, adapt, translate, commit, test with, screenshot, distribute, or use it as AIGC input.
+- npm dependencies retain their own terms but are governed operationally by exact manifests and the frozen lockfile, not by per-package copyright extraction, license-file scanning, `THIRD_PARTY_NOTICES.md` inventory, or build admission gates.
+- Third-party source, binary, font, media, data, or other material intentionally copied into Git belongs under `vendor/**`. That directory remains under each item's own license, contract, notice, or public-domain status and is outside the project MIT/PolyForm/CC grants. Repository automation does not scan or adjudicate `vendor/**` licensing.
 - `references/` is outside every project license and must remain ignored, untracked, unread by production/test/generation code, and absent from every artifact.
 - Package `license` metadata must match `LICENSE.md`: single-license packages use the exact SPDX ID; mixed packages use `SEE LICENSE IN LICENSE.md`.
 - Restricted PolyForm/CC areas do not accept external contributions before the approved CLA or copyright-assignment gate. MIT Engine contributions are inbound=outbound MIT.
-- Run `node scripts/verify-licensing.mjs` after changes to legal files, package metadata, dependencies, assets, provenance, build manifests, or release contents.
+- Run `node scripts/verify-licensing.mjs` after changes to project legal files, project package metadata, project-owned assets/provenance, build manifests, or release contents. Dependency and `vendor/**` licensing is deliberately outside this verifier.
 
 ## Quality and workflow
 

@@ -8,6 +8,8 @@
 
 **Tech Stack:** Markdown and plain-text legal documents, Node.js built-ins, `node:test`, Git, SHA-256.
 
+> **Current-policy amendment:** This is a historical record of the initial legal-file implementation. Its completed third-party admission, exhaustive notice, and dependency-scanning steps are superseded by the current authoritative licensing design: package-manager dependencies are not inventoried or license-gated, intentionally copied third-party material belongs under `vendor/**`, and repository automation does not adjudicate `vendor/**` licensing.
+
 ## Global Constraints
 
 - Copyright holder is exactly `Jun Jiang (jasl)`.

@@ -39,15 +39,17 @@ Commercial use of the game-specific software or original content requires separa
 
 Third-party code, fonts, icons, images, models, audio, data, translations, purchased assets, plugins, and service outputs retain their original licenses, contracts, and terms. This repository's MIT, PolyForm, and CC grants do not apply to third-party rights.
 
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for material actually included in source or release artifacts. A third-party item may be used only after its exact version and scope have been reviewed for the intended source, modification, build, and distribution use.
+Third-party material intentionally copied into this repository belongs under `vendor/**`. That directory is outside the project MIT, PolyForm, and CC grants; each item keeps whatever original license, contract, notice, or public-domain status actually applies to it. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for this boundary statement.
+
+npm and other ecosystem dependencies likewise retain their own terms. This repository does not maintain an exhaustive dependency copyright inventory and does not make dependency or `vendor/**` license scanning a test, build, Player, Pages, or release gate.
 
 The ignored `references/` directory is local research input. It is not part of this repository, build, release, generation pipeline, or license grant.
 
-Public availability, downloadability, purchase, or the absence of a per-file copyright line does not itself grant permission. When an authoritative upstream license clearly covers the exact file and version, that upstream license controls. Otherwise, material without a verifiable license, written permission, or public-domain declaration is treated as `unverified/all-rights-reserved` and is excluded from source, builds, releases, fixtures, screenshots, and AIGC inputs.
+The project does not automatically classify third-party material from the presence or absence of a copyright line or LICENSE file. Public-domain and no-copyright material remains possible; any applicable original terms or status control without being converted into a project license.
 
 ## Required notices and attribution
 
-PolyForm-covered distributions must preserve [NOTICE](NOTICE), including every line beginning with `Required Notice:`. CC-covered distributions must provide attribution, identify modifications, and preserve the applicable CC BY-NC-SA terms. Third-party notices must be carried as required by their original terms.
+PolyForm-covered distributions must preserve [NOTICE](NOTICE), including every line beginning with `Required Notice:`. CC-covered distributions must provide attribution, identify modifications, and preserve the applicable CC BY-NC-SA terms. Third-party material remains subject to whatever original notice obligations actually apply to it; this repository does not automatically enumerate or adjudicate them.
 
 ## Trademarks and contributions
 

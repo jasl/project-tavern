@@ -127,7 +127,6 @@ packages/base/public-exports.v1.json # cumulative exact Base entrypoint/symbol i
 apps/web/package.json                # root/developer exports and exact idb dependencies
 stories/e2e/package.json             # E2E test:runtime script
 pnpm-lock.yaml                       # frozen dependency graph
-THIRD_PARTY_NOTICES.md               # reviewed idb/fake-indexeddb records
 ```
 
 ### Task 1: Freeze the Phase 3 Player composition on the single EngineSession FIFO
@@ -506,7 +505,6 @@ git commit -m "feat(base): validate save compatibility and adoption"
 - Create: `apps/web/src/host/indexeddb-record-store.test.ts`
 - Modify: `apps/web/package.json`
 - Modify: `pnpm-lock.yaml`
-- Modify: `THIRD_PARTY_NOTICES.md`
 
 **Interfaces:**
 
@@ -524,9 +522,9 @@ pnpm view idb@8.0.3 name version license repository dist.integrity --json
 pnpm view fake-indexeddb@6.2.5 name version license repository dist.integrity --json
 ```
 
-Record the returned exact version, integrity, repository, license, shipped scope, and local legal-text location in `THIRD_PARTY_NOTICES.md`; compare each installed package license file to the authoritative upstream tag rather than trusting metadata alone.
+Use the returned version and integrity only to confirm that the exact requested packages entered the frozen graph. Dependency licensing remains under the package's own terms and is not copied into `THIRD_PARTY_NOTICES.md` or used as a build gate.
 
-Expected: `apps/web/package.json` records exact versions, `pnpm-lock.yaml` changes only for those packages, and `THIRD_PARTY_NOTICES.md` gains reviewed authoritative source/license records for `idb` and `fake-indexeddb`.
+Expected: `apps/web/package.json` records exact versions and `pnpm-lock.yaml` changes only for those packages.
 
 - [ ] **Step 2: Write failing atomicity and CAS tests**
 
@@ -593,7 +591,7 @@ Expected: all commands exit 0; Base has no `idb`, DOM, or IndexedDB import; lice
 - [ ] **Step 6: Commit the IndexedDB Host adapter**
 
 ```bash
-git add -- apps/web/src/host/indexeddb-record-store.ts apps/web/src/host/indexeddb-record-store.test.ts apps/web/package.json pnpm-lock.yaml THIRD_PARTY_NOTICES.md
+git add -- apps/web/src/host/indexeddb-record-store.ts apps/web/src/host/indexeddb-record-store.test.ts apps/web/package.json pnpm-lock.yaml
 git commit -m "feat(web): add the atomic indexeddb record store"
 ```
 
