@@ -29,9 +29,8 @@ export interface CommandLogEntryBaseV1 {
   readonly committedRngAfter: RngStateV1;
 }
 
-export type CommandLogEntryEnvelopeV1<TLoggedCommand, TOutcome> =
-  CommandLogEntryBaseV1 &
-    TLoggedCommand & { readonly outcome: TOutcome };
+export type CommandLogEntryEnvelopeV1<TLoggedCommand, TOutcome> = CommandLogEntryBaseV1 &
+  TLoggedCommand & { readonly outcome: TOutcome };
 
 export interface RuntimeFaultBaseV1 {
   readonly occurredAt: IsoUtcInstant;
@@ -49,14 +48,10 @@ export type PersistenceFaultCodeV1 =
   | "persistence.connection_closed"
   | "persistence.stale_writer";
 export type AssetLoadFaultCodeV1 =
-  | "asset.fetch_failed"
-  | "asset.decode_failed"
-  | "asset.integrity_mismatch";
+  "asset.fetch_failed" | "asset.decode_failed" | "asset.integrity_mismatch";
 export type UiFaultCodeV1 = "ui.render_failed" | "ui.event_handler_failed";
 export type RuntimeFaultCodeV1 =
-  | "runtime.async_operation_failed"
-  | "runtime.dispatch_failed"
-  | "runtime.hmr_invalidated";
+  "runtime.async_operation_failed" | "runtime.dispatch_failed" | "runtime.hmr_invalidated";
 
 export type RuntimeOperationFaultV1 =
   | (RuntimeFaultBaseV1 & {
@@ -106,12 +101,11 @@ export interface ExportedDebugBundleV1 {
   readonly bytes: Uint8Array;
 }
 
-export const exportedDebugBundleSchemaV1: RuntimeSchemaV1<ExportedDebugBundleV1> =
-  Object.freeze({
-    parse(value: unknown) {
-      return parseByteExportV1<ExportedDebugBundleV1>(value, "ExportedDebugBundleV1");
-    },
-  });
+export const exportedDebugBundleSchemaV1: RuntimeSchemaV1<ExportedDebugBundleV1> = Object.freeze({
+  parse(value: unknown) {
+    return parseByteExportV1<ExportedDebugBundleV1>(value, "ExportedDebugBundleV1");
+  },
+});
 
 const codes = {
   persistence: new Set<PersistenceFaultCodeV1>([
@@ -160,7 +154,12 @@ export const runtimeOperationFaultSchemaV1: RuntimeSchemaV1<RuntimeOperationFaul
         "RuntimeOperationFaultV1",
       );
       const category: unknown = fields.category?.value;
-      if (category !== "persistence" && category !== "asset_load" && category !== "ui" && category !== "runtime") {
+      if (
+        category !== "persistence" &&
+        category !== "asset_load" &&
+        category !== "ui" &&
+        category !== "runtime"
+      ) {
         throw new TypeError("invalid runtime fault category");
       }
       const code: unknown = fields.code?.value;
@@ -169,7 +168,11 @@ export const runtimeOperationFaultSchemaV1: RuntimeSchemaV1<RuntimeOperationFaul
       }
       let cause: { readonly name: string; readonly message: string } | undefined;
       if (hasCause) {
-        const causeFields = exactEnvelopeDescriptorsV1(fields.cause?.value, ["name", "message"], "RuntimeFault cause");
+        const causeFields = exactEnvelopeDescriptorsV1(
+          fields.cause?.value,
+          ["name", "message"],
+          "RuntimeFault cause",
+        );
         cause = Object.freeze({
           name: text(causeFields.name?.value, "cause name"),
           message: text(causeFields.message?.value, "cause message"),

@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-import {
-  commitAttemptV1,
-  faultAttemptV1,
-  rejectAttemptV1,
-} from "../contracts/execution.js";
+import { commitAttemptV1, faultAttemptV1, rejectAttemptV1 } from "../contracts/execution.js";
 import type {
   GamePackageV1,
   PatchSurfaceValueMapWitnessV1,
@@ -37,10 +33,7 @@ export type SyntheticCounterCommandV1 =
   | { readonly kind: "synthetic.reject" }
   | { readonly kind: "synthetic.fault" };
 
-type SyntheticSnapshotV1 = GameSnapshotEnvelopeV1<
-  SyntheticCounterStateV1,
-  RngStateV1
->;
+type SyntheticSnapshotV1 = GameSnapshotEnvelopeV1<SyntheticCounterStateV1, RngStateV1>;
 
 export const syntheticCounterStateSchemaV1: RuntimeSchemaV1<SyntheticCounterStateV1> =
   Object.freeze({
@@ -56,9 +49,7 @@ export const syntheticCounterStateSchemaV1: RuntimeSchemaV1<SyntheticCounterStat
         throw new TypeError("invalid synthetic counter State");
       }
       return Object.freeze({
-        count: parseNonNegativeSafeInteger(
-          (value as { readonly count: number }).count,
-        ),
+        count: parseNonNegativeSafeInteger((value as { readonly count: number }).count),
       });
     },
   });
@@ -151,23 +142,15 @@ function createProfile(): GameProfileV1 {
         const command = commandSchema.parse(commandValue);
         const rng = createTransactionalRngV1(snapshot.rng);
         if (command.kind === "synthetic.reject") {
-          return rejectAttemptV1(snapshot, rng, [
-            Object.freeze({ code: "synthetic.reject" }),
-          ]);
+          return rejectAttemptV1(snapshot, rng, [Object.freeze({ code: "synthetic.reject" })]);
         }
         if (command.kind === "synthetic.fault") {
-          return faultAttemptV1(
-            snapshot,
-            rng,
-            Object.freeze({ code: "synthetic.fault" }),
-          );
+          return faultAttemptV1(snapshot, rng, Object.freeze({ code: "synthetic.fault" }));
         }
         const next = Object.freeze({
           state: Object.freeze({ count: snapshot.state.count + 1 }),
           rng: rng.candidateState(),
-          commandSequence: parseNonNegativeSafeInteger(
-            snapshot.commandSequence + 1,
-          ),
+          commandSequence: parseNonNegativeSafeInteger(snapshot.commandSequence + 1),
         });
         return commitAttemptV1(snapshot, next, rng, [
           Object.freeze({ kind: "synthetic.incremented", count: next.state.count }),
@@ -191,8 +174,7 @@ function createProfile(): GameProfileV1 {
   });
 }
 
-interface EmptyPatchSurfaceV1
-  extends PatchSurfaceValueMapWitnessV1<Record<never, never>> {}
+interface EmptyPatchSurfaceV1 extends PatchSurfaceValueMapWitnessV1<Record<never, never>> {}
 
 interface SyntheticSimulationProgramV1 {
   readonly kind: "synthetic-counter";
@@ -205,9 +187,7 @@ type SyntheticDefinitionV1 = StoryDefinitionV1<
     readonly rules: Readonly<Record<never, never>>;
     readonly narrativeProgram: null;
     readonly patchSurface: EmptyPatchSurfaceV1;
-    materializeProgram(
-      values: Readonly<Record<never, never>>,
-    ): SyntheticSimulationProgramV1;
+    materializeProgram(values: Readonly<Record<never, never>>): SyntheticSimulationProgramV1;
     createProfile(program: SyntheticSimulationProgramV1): GameProfileV1;
   },
   {
@@ -243,8 +223,7 @@ export function createSyntheticCounterGamePackageV1(): GamePackageV1<
       assetSlots: Object.freeze([]) as readonly [],
       assetPacks: Object.freeze([]) as readonly [],
       patchSurface: emptySurface,
-      materializePresentation: () =>
-        Object.freeze({ kind: "synthetic-presentation" }),
+      materializePresentation: () => Object.freeze({ kind: "synthetic-presentation" }),
     }),
   });
   return defineGamePackage({

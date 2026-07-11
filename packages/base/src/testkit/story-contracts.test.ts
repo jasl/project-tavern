@@ -6,9 +6,7 @@ import { resolveStoryForTestV1 } from "./story-contracts.js";
 
 describe("real resolver testkit", () => {
   it("resolves a synthetic Story through production validation", () => {
-    const resolved = resolveStoryForTestV1(
-      createSyntheticCounterGamePackageV1(),
-    );
+    const resolved = resolveStoryForTestV1(createSyntheticCounterGamePackageV1());
     expect(resolved.frozen).toBe(true);
   });
 });

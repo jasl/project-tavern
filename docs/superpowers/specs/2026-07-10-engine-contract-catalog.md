@@ -138,10 +138,7 @@ type IsoUtcInstant = Brand<string, "IsoUtcInstant">; // RFC 3339 UTC, ...Z
 type EngineVersion = Brand<string, "EngineVersion">; // 1..64 printable ASCII chars
 
 type StrictJsonPrimitiveV1 = null | boolean | string | number;
-type StrictJsonValueV1 =
-  | StrictJsonPrimitiveV1
-  | StrictJsonObjectV1
-  | readonly StrictJsonValueV1[];
+type StrictJsonValueV1 = StrictJsonPrimitiveV1 | StrictJsonObjectV1 | readonly StrictJsonValueV1[];
 interface StrictJsonObjectV1 {
   readonly [key: string]: StrictJsonValueV1;
 }
@@ -205,23 +202,12 @@ type ActorId = "actor.player" | "actor.heroine";
 type AttributeId = "body" | "social" | "intellect";
 type AttributeRank = "C" | "B" | "A" | "S" | "S+";
 type RelationshipStage =
-  | "stranger"
-  | "dislike"
-  | "cold"
-  | "friendly"
-  | "trust"
-  | "admiration"
-  | "lovers";
+  "stranger" | "dislike" | "cold" | "friendly" | "trust" | "admiration" | "lovers";
 type CalendarPhase = "morning" | "afternoon" | "evening";
 type ServiceMode = "manual" | "assisted" | "delegated" | "closed";
 type OpenServiceMode = "manual" | "assisted" | "delegated";
 type HelperTier = "apprentice" | "skilled" | "senior" | "master";
-type RunStatus =
-  | "setup"
-  | "active"
-  | "completed_stable"
-  | "completed_danger"
-  | "failed_arrears";
+type RunStatus = "setup" | "active" | "completed_stable" | "completed_danger" | "failed_arrears";
 ```
 
 `StoryToken` 也使用 stable ID 语法，但只能作为已由 `StoryStateDefinitionsV1` 声明的枚举值；它不是任意字符串逃生口。
@@ -481,8 +467,7 @@ interface FacilityStateV1 {
 }
 
 type FacilityDecisionV1 =
-  | { readonly kind: "built"; readonly facilityId: FacilityId }
-  | { readonly kind: "skipped" };
+  { readonly kind: "built"; readonly facilityId: FacilityId } | { readonly kind: "skipped" };
 
 interface FacilityDecisionRecordV1 {
   readonly opportunityId: ActionId;
@@ -628,8 +613,7 @@ interface OpeningBaselineV1 {
   readonly startEntryIds: readonly LedgerEntryId[];
 }
 
-type OpeningCheckpointV1 =
-  "started" | "middle" | "before_finalize" | "ready_to_finalize";
+type OpeningCheckpointV1 = "started" | "middle" | "before_finalize" | "ready_to_finalize";
 
 interface OpeningBlockingEventV1 {
   readonly eventId: EventId;
@@ -652,10 +636,7 @@ interface WorldActionChoiceV1 {
 }
 
 type WorldActionProgressV1 =
-  | "begin_scene"
-  | "awaiting_completion_phase"
-  | "completion_scene"
-  | "ready_to_complete";
+  "begin_scene" | "awaiting_completion_phase" | "completion_scene" | "ready_to_complete";
 
 interface WorldActionSessionV1 {
   readonly kind: "world_action";
@@ -773,8 +754,7 @@ interface PurchaseLineV1 {
 }
 
 type FacilityChoiceV1 =
-  | { readonly kind: "build"; readonly facilityId: FacilityId }
-  | { readonly kind: "skip" };
+  { readonly kind: "build"; readonly facilityId: FacilityId } | { readonly kind: "skip" };
 
 type GameCommandV1 =
   | { readonly kind: "run.start" }
@@ -1203,11 +1183,7 @@ type RejectionReasonV1 =
       readonly code: "calendar.phase_blocked";
       readonly details: {
         readonly blocker:
-          | "narrative"
-          | "opening"
-          | "world_action"
-          | "evening_unresolved"
-          | "levy_due";
+          "narrative" | "opening" | "world_action" | "evening_unresolved" | "levy_due";
       };
     }
   | {
@@ -1355,8 +1331,7 @@ type RejectionReasonV1 =
   | {
       readonly code: "tavern.opening_missing";
       readonly details: {
-        readonly commandKind:
-          "tavern.opening.continue" | "tavern.opening.finalize";
+        readonly commandKind: "tavern.opening.continue" | "tavern.opening.finalize";
       };
     }
   | {
@@ -1987,10 +1962,7 @@ interface WorldActionDefinitionV1 {
   readonly playerStaminaCost: NonNegativeSafeInteger;
   readonly beginEffects: readonly EffectIntentV1[];
   readonly options: readonly WorldActionOptionDefinitionV1[];
-  readonly steps: readonly [
-    WorldActionStepDefinitionV1,
-    WorldActionStepDefinitionV1,
-  ];
+  readonly steps: readonly [WorldActionStepDefinitionV1, WorldActionStepDefinitionV1];
   readonly checkId: CheckId | null;
 }
 
@@ -2135,10 +2107,7 @@ interface StoryInitialStateV1 {
 // defaultValue，Quest 使用 QuestDefinitionV1.initial。StoryInitialStateV1 不得再声明或覆盖这三组值。
 
 type FixedActionCostKeyV1 =
-  | "inventory.buy"
-  | "actor.prepare_food"
-  | "actor.rest"
-  | "facility.choose.build";
+  "inventory.buy" | "actor.prepare_food" | "actor.rest" | "facility.choose.build";
 
 interface ActionCostDefinitionV1 {
   readonly action: FixedActionCostKeyV1;
@@ -2186,8 +2155,7 @@ interface EmergencyClosureDefinitionV1 {
   readonly reasonId: ReasonId;
 }
 
-type ObligationForecastKindV1 =
-  "current_gap" | "committed_plan_conservative" | "final";
+type ObligationForecastKindV1 = "current_gap" | "committed_plan_conservative" | "final";
 
 interface ObligationRecommendationDefinitionV1 {
   readonly textId: TextId;
@@ -2209,10 +2177,7 @@ interface ObligationForecastPolicyV1 {
 }
 
 interface StoryBalanceV1 {
-  readonly lifePolicies: readonly [
-    LifePolicyDefinitionV1,
-    ...LifePolicyDefinitionV1[],
-  ];
+  readonly lifePolicies: readonly [LifePolicyDefinitionV1, ...LifePolicyDefinitionV1[]];
   readonly actionCosts: readonly ActionCostDefinitionV1[];
   readonly serviceModes: readonly ServiceModeDefinitionV1[];
   readonly serviceDays: readonly DayIndex[];
@@ -2307,8 +2272,7 @@ interface StoryManifestV1 {
   readonly playableDays: PositiveSafeInteger;
 }
 
-type AssetUsageV1 =
-  "scene_background" | "character_pose" | "story_prop" | "ui_decoration";
+type AssetUsageV1 = "scene_background" | "character_pose" | "story_prop" | "ui_decoration";
 
 interface AssetSafeAreaV1 {
   readonly x: NonNegativeSafeInteger;
@@ -2544,18 +2508,10 @@ interface ModuleOwnerCapabilityV1<
     operation: DeepReadonly<TOwnerOperation>,
     dependencies: TDependencyPorts,
   ): ModuleProposalResultV1<TOwnerProposal, TRejection>;
-  apply(
-    state: DeepReadonly<TStateSlice>,
-    proposal: DeepReadonly<TOwnerProposal>,
-  ): TStateSlice;
+  apply(state: DeepReadonly<TStateSlice>, proposal: DeepReadonly<TOwnerProposal>): TStateSlice;
 }
 
-interface ModuleQueryCapabilityV1<
-  TStateSlice,
-  TModuleQuery,
-  TModuleQueryResult,
-  TDependencyPorts,
-> {
+interface ModuleQueryCapabilityV1<TStateSlice, TModuleQuery, TModuleQueryResult, TDependencyPorts> {
   execute(
     state: DeepReadonly<TStateSlice>,
     query: DeepReadonly<TModuleQuery>,
@@ -2585,20 +2541,12 @@ interface StatefulGameModuleBindingV1<
   TOwnerProposal extends ModuleOwnerProposalEnvelopeV1<unknown, TTypes["fact"]>,
   TReadPort,
   TDependencyPorts,
-> extends GameModuleSurfaceV1<
-    TTypes,
-    TModuleCommand,
-    TModuleQuery,
-    TModuleQueryResult
-  > {
+> extends GameModuleSurfaceV1<TTypes, TModuleCommand, TModuleQuery, TModuleQueryResult> {
   readonly bindingKind: "stateful";
   readonly stateSchema: RuntimeSchemaV1<TStateSlice>;
   readonly ownerOperationSchema: RuntimeSchemaV1<TOwnerOperation>;
   readonly ownerProposalSchema: RuntimeSchemaV1<TOwnerProposal>;
-  readonly localInvariants: readonly ModuleLocalInvariantV1<
-    TStateSlice,
-    TReadPort
-  >[];
+  readonly localInvariants: readonly ModuleLocalInvariantV1<TStateSlice, TReadPort>[];
   readonly owner: ModuleOwnerCapabilityV1<
     TStateSlice,
     TOwnerOperation,
@@ -2612,9 +2560,7 @@ interface StatefulGameModuleBindingV1<
     TModuleQueryResult,
     TDependencyPorts
   > | null;
-  createInitialState(
-    bootstrap: DeepReadonly<TTypes["bootstrapInput"]>,
-  ): TStateSlice;
+  createInitialState(bootstrap: DeepReadonly<TTypes["bootstrapInput"]>): TStateSlice;
   createReadPort(state: DeepReadonly<TStateSlice>): TReadPort;
 }
 
@@ -2624,12 +2570,7 @@ interface StatelessGameModuleBindingV1<
   TModuleQuery,
   TModuleQueryResult,
   TServicePort,
-> extends GameModuleSurfaceV1<
-    TTypes,
-    TModuleCommand,
-    TModuleQuery,
-    TModuleQueryResult
-  > {
+> extends GameModuleSurfaceV1<TTypes, TModuleCommand, TModuleQuery, TModuleQueryResult> {
   readonly bindingKind: "stateless";
   readonly ownerOperationSchema: null;
   readonly ownerProposalSchema: null;
@@ -2686,8 +2627,9 @@ type GameModuleTupleForProfileV1<
     : never;
 };
 
-interface CommandCoordinatorV1<TTypes extends GameProfileTypeMapV1>
-  extends GameProfileTypeWitnessV1<TTypes> {
+interface CommandCoordinatorV1<
+  TTypes extends GameProfileTypeMapV1,
+> extends GameProfileTypeWitnessV1<TTypes> {
   executeAttempt(
     snapshot: DeepReadonly<TTypes["snapshot"]>,
     command: DeepReadonly<TTypes["command"]>,
@@ -2717,9 +2659,7 @@ interface GameProfileV1<
   readonly debugCommandSchema: RuntimeSchemaV1<TTypes["debugCommand"]>;
   readonly coordinator: TCoordinator;
   createBootstrapInput(entropy: BootstrapEntropyV1): TTypes["bootstrapInput"];
-  createInitialState(
-    bootstrap: DeepReadonly<TTypes["bootstrapInput"]>,
-  ): TTypes["state"];
+  createInitialState(bootstrap: DeepReadonly<TTypes["bootstrapInput"]>): TTypes["state"];
   projectView(snapshot: DeepReadonly<TTypes["snapshot"]>): TTypes["viewModel"];
 }
 
@@ -2743,9 +2683,7 @@ interface TextCatalogSetV1 {
 type PatchSurfaceKindV1 = "simulation" | "presentation";
 type SimulationPatchSymbolKindV1 = "rule" | "value";
 type PresentationPatchSymbolKindV1 = "value" | "text" | "asset";
-type PatchSymbolKindV1 =
-  | SimulationPatchSymbolKindV1
-  | PresentationPatchSymbolKindV1;
+type PatchSymbolKindV1 = SimulationPatchSymbolKindV1 | PresentationPatchSymbolKindV1;
 
 interface PatchSlotDescriptorV1<TKind extends PatchSymbolKindV1> {
   readonly symbolId: PatchSymbolId;
@@ -2878,9 +2816,7 @@ interface PatchSurfaceValueMapWitnessV1<TValues> {
 }
 
 type ResolvedPatchValuesV1<TSurface> =
-  TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues>
-    ? TValues
-    : never;
+  TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues> ? TValues : never;
 
 interface StorySimulationFacetV1<
   TProfile,
@@ -2936,10 +2872,7 @@ interface StoryDevelopmentEntryV1<TDevelopmentSupport> {
   defineDevelopmentSupport(): TDevelopmentSupport;
 }
 
-interface HotfixInstallContextV1<
-  TSimulationPatchSurface,
-  TPresentationPatchSurface,
-> {
+interface HotfixInstallContextV1<TSimulationPatchSurface, TPresentationPatchSurface> {
   readonly simulation: TSimulationPatchSurface;
   readonly presentation: TPresentationPatchSurface;
 }
@@ -2947,10 +2880,7 @@ interface HotfixInstallContextV1<
 interface HotfixEntryV1<TSimulationPatchSurface, TPresentationPatchSurface> {
   readonly manifest: HotfixManifestV1;
   install(
-    surfaces: HotfixInstallContextV1<
-      TSimulationPatchSurface,
-      TPresentationPatchSurface
-    >,
+    surfaces: HotfixInstallContextV1<TSimulationPatchSurface, TPresentationPatchSurface>,
   ): void;
 }
 
@@ -3024,9 +2954,7 @@ type LeaseHandoffRequestId = Brand<string, "LeaseHandoffRequestId">;
 interface SessionLeasePortV1<TLeaseStatus, TLeaseOperationResult> {
   getStatus(): Promise<TLeaseStatus>;
   requestHandoff(): Promise<TLeaseOperationResult>;
-  approveHandoff(
-    requestId: LeaseHandoffRequestId,
-  ): Promise<TLeaseOperationResult>;
+  approveHandoff(requestId: LeaseHandoffRequestId): Promise<TLeaseOperationResult>;
   takeOver(): Promise<TLeaseOperationResult>;
   release(): Promise<TLeaseOperationResult>;
 }
@@ -3084,15 +3012,9 @@ interface DeveloperControlPortV1<
   anchorFixture(fixtureId: TFixtureId): Promise<TAnchorResult>;
   inspectDebugBundle(bytes: Uint8Array): Promise<TDebugInspection>;
   anchorDebugBundle(bytes: Uint8Array): Promise<TAnchorResult>;
-  replayAuthoritatively(
-    bytes: Uint8Array,
-  ): Promise<TAuthoritativeReplayResult>;
-  inspectReplayBestEffort(
-    bytes: Uint8Array,
-  ): Promise<TBestEffortReplayInspection>;
-  queryDiagnostics(
-    query: DeepReadonly<TDiagnosticQuery>,
-  ): Promise<TDiagnosticQueryResult>;
+  replayAuthoritatively(bytes: Uint8Array): Promise<TAuthoritativeReplayResult>;
+  inspectReplayBestEffort(bytes: Uint8Array): Promise<TBestEffortReplayInspection>;
+  queryDiagnostics(query: DeepReadonly<TDiagnosticQuery>): Promise<TDiagnosticQueryResult>;
 }
 
 interface DeveloperApplicationPortV1<TPlayerPort, TDeveloperControlPort> {
@@ -3106,12 +3028,7 @@ interface UiRendererBindingV1<TId, TViewModel, TViewSlice, TRenderer> {
   readonly renderer: TRenderer;
 }
 
-interface UiContributionSetV1<
-  TSceneBinding,
-  TOverlayBinding,
-  THudBinding,
-  TGameSymbolProvider,
-> {
+interface UiContributionSetV1<TSceneBinding, TOverlayBinding, THudBinding, TGameSymbolProvider> {
   readonly scenes: readonly TSceneBinding[];
   readonly overlays: readonly TOverlayBinding[];
   readonly hud: readonly THudBinding[];
@@ -3173,10 +3090,7 @@ type HostAtomicCommitResultV1 =
     };
 
 interface HostAtomicRecordStoreV1 {
-  read(
-    namespace: HostRecordNamespaceV1,
-    key: HostRecordKeyV1,
-  ): Promise<HostStoredRecordV1 | null>;
+  read(namespace: HostRecordNamespaceV1, key: HostRecordKeyV1): Promise<HostStoredRecordV1 | null>;
   list(namespace: HostRecordNamespaceV1): Promise<readonly HostStoredRecordV1[]>;
   commit(
     mutations: readonly [HostRecordMutationV1, ...HostRecordMutationV1[]],
@@ -3219,21 +3133,14 @@ interface GameHostV1 {
   };
 }
 
-type RuntimeSessionStatusV1 =
-  | "ready"
-  | "busy"
-  | "fault_paused"
-  | "hmr_invalidated";
+type RuntimeSessionStatusV1 = "ready" | "busy" | "fault_paused" | "hmr_invalidated";
 
 type SessionDispatchOperationResultV1<TExecutionResult> =
   | { readonly kind: "executed"; readonly execution: TExecutionResult }
   | {
       readonly kind: "not_executed";
       readonly code:
-        | "session_unavailable"
-        | "fault_paused"
-        | "hmr_invalidated"
-        | "validation_failed";
+        "session_unavailable" | "fault_paused" | "hmr_invalidated" | "validation_failed";
     };
 
 type SessionAnchorResultV1 =
@@ -3247,12 +3154,7 @@ type SessionAnchorResultV1 =
     }
   | { readonly kind: "faulted"; readonly code: string };
 
-type SaveSlotHealthV1 =
-  | "empty"
-  | "valid"
-  | "invalid"
-  | "recovery_candidate"
-  | "unavailable";
+type SaveSlotHealthV1 = "empty" | "valid" | "invalid" | "recovery_candidate" | "unavailable";
 
 interface SaveSlotSummaryV1 {
   readonly slotId: SaveSlotIdV1;
@@ -3308,11 +3210,7 @@ type SaveExportOperationResultV1 =
     }
   | {
       readonly kind: "rejected";
-      readonly code:
-        | "unavailable"
-        | "empty_slot"
-        | "conflict"
-        | "invalid_record";
+      readonly code: "unavailable" | "empty_slot" | "conflict" | "invalid_record";
     }
   | { readonly kind: "faulted"; readonly code: string };
 
@@ -3381,13 +3279,7 @@ type ResolvedAssetPresentationV1<TAssetId, TAssetUsage, TFallbackToken> =
       readonly fallbackToken: TFallbackToken;
     };
 
-interface PresentationReadPortV1<
-  TTextId,
-  TAssetId,
-  TAssetUsage,
-  TLocaleId,
-  TFallbackToken,
-> {
+interface PresentationReadPortV1<TTextId, TAssetId, TAssetUsage, TLocaleId, TFallbackToken> {
   readonly locale: TLocaleId;
   text(textId: TTextId): ResolvedTextPresentationV1<TTextId, TLocaleId>;
   asset(
@@ -3617,17 +3509,11 @@ interface RunCompletionV1 {
 interface StoryRulesV1 {
   readonly demand: {
     preview(input: DeepReadonly<DemandProjectionInputV1>): DemandPreviewV1;
-    resolve(
-      input: DeepReadonly<DemandSeedInputV1>,
-      rng: RuleRngV1,
-    ): DemandSeedResultV1;
+    resolve(input: DeepReadonly<DemandSeedInputV1>, rng: RuleRngV1): DemandSeedResultV1;
   };
   readonly tavern: {
     preview(input: DeepReadonly<TavernPreviewInputV1>): TavernPreviewV1;
-    settle(
-      input: DeepReadonly<TavernSettlementInputV1>,
-      rng: RuleRngV1,
-    ): SettlementDraftV1;
+    settle(input: DeepReadonly<TavernSettlementInputV1>, rng: RuleRngV1): SettlementDraftV1;
   };
   readonly checks: {
     describe(input: DeepReadonly<CheckInputV1>): CheckPreviewV1;
@@ -3843,47 +3729,33 @@ interface LifePolicyOptionProjectionV1 {
   readonly nightRecoveryReasonId: ReasonId;
   readonly command: Extract<GameCommandV1, { readonly kind: "policy.choose" }>;
   readonly preview: Extract<
-    CommandPreviewV1<
-      Extract<GameCommandV1, { readonly kind: "policy.choose" }>
-    >,
+    CommandPreviewV1<Extract<GameCommandV1, { readonly kind: "policy.choose" }>>,
     { readonly allowed: true }
   >;
 }
 
 interface LifePolicySelectionProjectionV1 {
-  readonly options: readonly [
-    LifePolicyOptionProjectionV1,
-    ...LifePolicyOptionProjectionV1[],
-  ];
+  readonly options: readonly [LifePolicyOptionProjectionV1, ...LifePolicyOptionProjectionV1[]];
 }
 
 type TavernOpeningControlProjectionV1 =
   | {
       readonly kind: "start";
-      readonly command: Extract<
-        GameCommandV1,
-        { readonly kind: "tavern.opening.start" }
-      >;
+      readonly command: Extract<GameCommandV1, { readonly kind: "tavern.opening.start" }>;
       readonly preview: CommandPreviewV1<
         Extract<GameCommandV1, { readonly kind: "tavern.opening.start" }>
       >;
     }
   | {
       readonly kind: "continue";
-      readonly command: Extract<
-        GameCommandV1,
-        { readonly kind: "tavern.opening.continue" }
-      >;
+      readonly command: Extract<GameCommandV1, { readonly kind: "tavern.opening.continue" }>;
       readonly preview: CommandPreviewV1<
         Extract<GameCommandV1, { readonly kind: "tavern.opening.continue" }>
       >;
     }
   | {
       readonly kind: "finalize";
-      readonly command: Extract<
-        GameCommandV1,
-        { readonly kind: "tavern.opening.finalize" }
-      >;
+      readonly command: Extract<GameCommandV1, { readonly kind: "tavern.opening.finalize" }>;
       readonly preview: CommandPreviewV1<
         Extract<GameCommandV1, { readonly kind: "tavern.opening.finalize" }>
       >;
@@ -4003,12 +3875,7 @@ interface SimulationAdoptionV1 {
   readonly adoptedAtCommandSequence: NonNegativeSafeInteger;
 }
 
-interface SaveRecordEnvelopeV1<
-  TSnapshot,
-  TProvenance,
-  TSlotMetadata,
-  TSimulationLineage,
-> {
+interface SaveRecordEnvelopeV1<TSnapshot, TProvenance, TSlotMetadata, TSimulationLineage> {
   readonly formatRevision: 1;
   readonly recordRevision: PositiveSafeInteger;
   readonly provenance: TProvenance;
@@ -4029,12 +3896,7 @@ declare function createSaveRecordEnvelopeSchemaV1<
   provenanceSchema: RuntimeSchemaV1<TProvenance>,
   slotMetadataSchema: RuntimeSchemaV1<TSlotMetadata>,
   simulationLineageSchema: RuntimeSchemaV1<TSimulationLineage>,
-): RuntimeSchemaV1<SaveRecordEnvelopeV1<
-  TSnapshot,
-  TProvenance,
-  TSlotMetadata,
-  TSimulationLineage
->>;
+): RuntimeSchemaV1<SaveRecordEnvelopeV1<TSnapshot, TProvenance, TSlotMetadata, TSimulationLineage>>;
 
 type SaveRecordV1 = SaveRecordEnvelopeV1<
   GameSnapshotV1,
@@ -4061,10 +3923,7 @@ interface RngDrawTraceV1 {
 }
 
 type StoryRuleFaultCodeV1 =
-  | "rule.threw"
-  | "rule.returned_thenable"
-  | "rule.output_invalid"
-  | "effect.invalid";
+  "rule.threw" | "rule.returned_thenable" | "rule.output_invalid" | "effect.invalid";
 
 type CommandHandlerFaultCodeV1 =
   | "command.handler_threw"
@@ -4112,12 +3971,7 @@ type EngineFaultV1 =
       readonly ruleSlot: null;
     });
 
-type CommandExecutionResultEnvelopeV1<
-  TSnapshot,
-  TFact,
-  TRejection,
-  TFault,
-> =
+type CommandExecutionResultEnvelopeV1<TSnapshot, TFact, TRejection, TFault> =
   | {
       readonly kind: "committed";
       readonly snapshot: TSnapshot;
@@ -4156,16 +4010,8 @@ interface CommandExecutionAttemptEnvelopeV1<
   TRngState,
   TRngDrawTrace,
 > {
-  readonly result: CommandExecutionResultEnvelopeV1<
-    TSnapshot,
-    TFact,
-    TRejection,
-    TFault
-  >;
-  readonly diagnostics: CommandExecutionDiagnosticsEnvelopeV1<
-    TRngState,
-    TRngDrawTrace
-  >;
+  readonly result: CommandExecutionResultEnvelopeV1<TSnapshot, TFact, TRejection, TFault>;
+  readonly diagnostics: CommandExecutionDiagnosticsEnvelopeV1<TRngState, TRngDrawTrace>;
 }
 
 type CommandExecutionDiagnosticsV1 = CommandExecutionDiagnosticsEnvelopeV1<
@@ -4271,10 +4117,7 @@ type DebugCommandValidationErrorV1 =
   | {
       readonly code: "debug.unknown_reference";
       readonly commandKind: ReplayableDebugCommandV1["kind"];
-      readonly reference: Extract<
-        DebugReferenceV1,
-        { readonly kind: "reason" }
-      >;
+      readonly reference: Extract<DebugReferenceV1, { readonly kind: "reason" }>;
     }
   | {
       readonly code: "debug.unknown_reference";
@@ -4289,10 +4132,7 @@ type DebugCommandValidationErrorV1 =
   | {
       readonly code: "debug.unknown_reference";
       readonly commandKind: "debug.aura.clear";
-      readonly reference: Extract<
-        DebugReferenceV1,
-        { readonly kind: "aura_instance" }
-      >;
+      readonly reference: Extract<DebugReferenceV1, { readonly kind: "aura_instance" }>;
     }
   | {
       readonly code: "debug.unknown_reference";
@@ -4302,18 +4142,12 @@ type DebugCommandValidationErrorV1 =
   | {
       readonly code: "debug.unknown_reference";
       readonly commandKind: "debug.narrative.jump";
-      readonly reference: Extract<
-        DebugReferenceV1,
-        { readonly kind: "narrative_node" }
-      >;
+      readonly reference: Extract<DebugReferenceV1, { readonly kind: "narrative_node" }>;
     }
   | {
       readonly code: "debug.unknown_reference";
       readonly commandKind: "debug.fixture.load";
-      readonly reference: Extract<
-        DebugReferenceV1,
-        { readonly kind: "fixture" }
-      >;
+      readonly reference: Extract<DebugReferenceV1, { readonly kind: "fixture" }>;
     }
   | {
       readonly code: "debug.value_out_of_range";
@@ -4369,18 +4203,17 @@ type DebugCommandValidationErrorV1 =
       readonly conflict: "narrative_inactive";
     };
 
-type DebugCommandValidationErrorForV1<C extends DebugCommandV1> =
-  C extends DebugCommandV1
-    ? DebugCommandValidationErrorV1 extends infer E
-      ? E extends {
-          readonly commandKind: infer K extends DebugCommandV1["kind"];
-        }
-        ? C extends { readonly kind: K }
-          ? Omit<E, "commandKind"> & { readonly commandKind: C["kind"] }
-          : never
+type DebugCommandValidationErrorForV1<C extends DebugCommandV1> = C extends DebugCommandV1
+  ? DebugCommandValidationErrorV1 extends infer E
+    ? E extends {
+        readonly commandKind: infer K extends DebugCommandV1["kind"];
+      }
+      ? C extends { readonly kind: K }
+        ? Omit<E, "commandKind"> & { readonly commandKind: C["kind"] }
         : never
       : never
-    : never;
+    : never
+  : never;
 
 type ReplayableDebugExecutionResultV1 =
   | {
@@ -4418,8 +4251,7 @@ type DebugCommandOperationResultForV1<C extends DebugCommandV1> =
           | { readonly kind: "faulted"; readonly fault: EngineFaultV1 }
         : never);
 
-type DebugCommandOperationResultV1 =
-  DebugCommandOperationResultForV1<DebugCommandV1>;
+type DebugCommandOperationResultV1 = DebugCommandOperationResultForV1<DebugCommandV1>;
 
 // 具体条件类型由 @project-tavern/modules 公开；中性 Base control 只透传调用方提供的 TCommand/TResult。
 
@@ -4450,11 +4282,10 @@ interface CommandLogEntryBaseV1 {
   readonly committedRngAfter: RngStateV1;
 }
 
-type CommandLogEntryEnvelopeV1<TLoggedCommand, TOutcome> =
-  CommandLogEntryBaseV1 &
-    TLoggedCommand & {
-      readonly outcome: TOutcome;
-    };
+type CommandLogEntryEnvelopeV1<TLoggedCommand, TOutcome> = CommandLogEntryBaseV1 &
+  TLoggedCommand & {
+    readonly outcome: TOutcome;
+  };
 
 type CommandLogEntryV1 =
   | CommandLogEntryEnvelopeV1<
@@ -4495,9 +4326,7 @@ type AssetLoadFaultCodeV1 =
 type UiFaultCodeV1 = "ui.render_failed" | "ui.event_handler_failed";
 
 type RuntimeFaultCodeV1 =
-  | "runtime.async_operation_failed"
-  | "runtime.dispatch_failed"
-  | "runtime.hmr_invalidated";
+  "runtime.async_operation_failed" | "runtime.dispatch_failed" | "runtime.hmr_invalidated";
 
 interface RuntimeFaultBaseV1 {
   readonly occurredAt: IsoUtcInstant;
@@ -4631,9 +4460,7 @@ interface StrictJsonLimitsInputV1 {
   readonly maxStringBytes: number;
 }
 
-declare function parseStrictJsonLimitsV1(
-  input: StrictJsonLimitsInputV1,
-): StrictJsonLimitsV1;
+declare function parseStrictJsonLimitsV1(input: StrictJsonLimitsInputV1): StrictJsonLimitsV1;
 
 const saveJsonLimitsV1 = parseStrictJsonLimitsV1({
   maxBytes: 5_242_880,
@@ -4715,10 +4542,7 @@ type DigestDomainV1 =
   | "project-tavern:patch-set:v1"
   | "project-tavern:application:v1"
   | "project-tavern:state:v1";
-declare function digestCanonical(
-  domain: DigestDomainV1,
-  value: unknown,
-): Digest;
+declare function digestCanonical(domain: DigestDomainV1, value: unknown): Digest;
 declare function digestBytes(bytes: Uint8Array): Digest;
 ```
 
@@ -4828,10 +4652,7 @@ type ImportCompatibilityOutcomeV1 =
     }
   | {
       readonly kind: "inspect_only";
-      readonly mismatches: readonly [
-        SaveCompatibilityMismatchV1,
-        ...SaveCompatibilityMismatchV1[],
-      ];
+      readonly mismatches: readonly [SaveCompatibilityMismatchV1, ...SaveCompatibilityMismatchV1[]];
       readonly warnings: readonly ImportCompatibilityWarningV1[];
     }
   | { readonly kind: "rejected"; readonly code: ImportRejectionCodeV1 };

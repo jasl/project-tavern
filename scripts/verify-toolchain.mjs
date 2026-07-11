@@ -34,8 +34,7 @@ export async function verifyToolchain(root, options = {}) {
   const errors = [];
   const nodeVersion = options.nodeVersion ?? process.versions.node;
   const pnpmVersion =
-    options.pnpmVersion ??
-    execFileSync("pnpm", ["--version"], { encoding: "utf8" }).trim();
+    options.pnpmVersion ?? execFileSync("pnpm", ["--version"], { encoding: "utf8" }).trim();
 
   if (nodeVersion !== EXPECTED_NODE) {
     errors.push(`Node version must be ${EXPECTED_NODE}, got ${nodeVersion}`);
@@ -44,20 +43,12 @@ export async function verifyToolchain(root, options = {}) {
     errors.push(`pnpm version must be ${EXPECTED_PNPM}, got ${pnpmVersion}`);
   }
 
-  const nodeVersionFile = await readText(
-    join(root, ".node-version"),
-    errors,
-    ".node-version",
-  );
+  const nodeVersionFile = await readText(join(root, ".node-version"), errors, ".node-version");
   if (nodeVersionFile !== null && nodeVersionFile.trim() !== EXPECTED_NODE) {
     errors.push(`.node-version must be ${EXPECTED_NODE}`);
   }
 
-  const rootManifest = await readJson(
-    join(root, "package.json"),
-    errors,
-    "root package metadata",
-  );
+  const rootManifest = await readJson(join(root, "package.json"), errors, "root package metadata");
   if (rootManifest !== null) {
     if (rootManifest.packageManager !== `pnpm@${EXPECTED_PNPM}`) {
       errors.push(`packageManager must be pnpm@${EXPECTED_PNPM}`);
@@ -85,17 +76,15 @@ export async function verifyToolchain(root, options = {}) {
     const expected =
       'packages:\n  - "packages/*"\n  - "stories/*"\n  - "apps/*"\nonlyBuiltDependencies: []\n';
     if (workspaceFile !== expected) {
-      errors.push("pnpm-workspace.yaml must contain only the reviewed globs and empty lifecycle allowlist");
+      errors.push(
+        "pnpm-workspace.yaml must contain only the reviewed globs and empty lifecycle allowlist",
+      );
     }
   }
 
   for (const entry of workspacePackages) {
     const relativePath = `${entry.path}/package.json`;
-    const manifest = await readJson(
-      join(root, relativePath),
-      errors,
-      "workspace package metadata",
-    );
+    const manifest = await readJson(join(root, relativePath), errors, "workspace package metadata");
     if (manifest === null) continue;
     if (manifest.name !== entry.name) {
       errors.push(`${relativePath}: expected name ${entry.name}`);
@@ -122,8 +111,7 @@ export async function verifyToolchain(root, options = {}) {
   return errors;
 }
 
-const isMain =
-  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 
 if (isMain) {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));

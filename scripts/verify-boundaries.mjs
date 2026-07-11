@@ -3,10 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  workspacePackageByName,
-  workspacePackages,
-} from "./workspace-policy.mjs";
+import { workspacePackageByName, workspacePackages } from "./workspace-policy.mjs";
 
 const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/u;
 const IMPORT_PATTERN =
@@ -134,8 +131,7 @@ export async function verifyBoundaries(root) {
   return [...new Set(errors)].sort();
 }
 
-const isMain =
-  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 
 if (isMain) {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));

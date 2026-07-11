@@ -23,11 +23,7 @@ describe("transactional RNG properties", () => {
           const left = runDrawVector(seed, exclusiveMax);
           const right = runDrawVector(seed, exclusiveMax);
           expect(left).toEqual(right);
-          expect(
-            left.results.every(
-              (value) => value >= 0 && value < exclusiveMax,
-            ),
-          ).toBe(true);
+          expect(left.results.every((value) => value >= 0 && value < exclusiveMax)).toBe(true);
         },
       ),
     );

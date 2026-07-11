@@ -23,11 +23,16 @@ type Player = PlayerApplicationPortV1<{}, {}, {}, typeof persistence, {}>;
 declare const player: Player;
 declare const presentation: PresentationReadPortV1<string, string, string, string, string>;
 
-export const renderer: UiRendererBindingV1<"hud", {}, {}, (context: {
-  readonly viewSlice: {};
-  readonly playerPort: Player;
-  readonly presentation: typeof presentation;
-}) => unknown> = {
+export const renderer: UiRendererBindingV1<
+  "hud",
+  {},
+  {},
+  (context: {
+    readonly viewSlice: {};
+    readonly playerPort: Player;
+    readonly presentation: typeof presentation;
+  }) => unknown
+> = {
   id: "hud",
   select: () => ({}),
   renderer: () => null,

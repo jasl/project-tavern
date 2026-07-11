@@ -13,9 +13,7 @@ export interface PatchSurfaceValueMapWitnessV1<TValues> {
 }
 
 export type ResolvedPatchValuesV1<TSurface> =
-  TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues>
-    ? TValues
-    : never;
+  TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues> ? TValues : never;
 
 export interface StorySimulationFacetV1<
   TProfile,

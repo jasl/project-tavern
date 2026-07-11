@@ -4,18 +4,13 @@ import { describe, expect, it } from "vitest";
 import type { CommandExecutionAttemptEnvelopeV1 } from "../../contracts/execution.js";
 import type { GameProfileTypeMapV1 } from "../../contracts/module.js";
 import type { RuntimeSchemaV1 } from "../../contracts/values.js";
-import {
-  createEngineSessionInternalV1,
-  createEngineSessionV1,
-} from "./engine-session.js";
+import { createEngineSessionInternalV1, createEngineSessionV1 } from "./engine-session.js";
 
 interface Snapshot {
   readonly state: { readonly count: number };
 }
 type Command =
-  | { readonly kind: "increment" }
-  | { readonly kind: "fault" }
-  | { readonly kind: "throw" };
+  { readonly kind: "increment" } | { readonly kind: "fault" } | { readonly kind: "throw" };
 type Attempt = CommandExecutionAttemptEnvelopeV1<
   Snapshot,
   { readonly count: number },

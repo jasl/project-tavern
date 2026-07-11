@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type {
-  DeepReadonly,
-  NonNegativeSafeInteger,
-  PositiveSafeInteger,
-} from "./values.js";
+import type { DeepReadonly, NonNegativeSafeInteger, PositiveSafeInteger } from "./values.js";
 import { parsePositiveSafeInteger } from "./values.js";
 
 export interface StrictJsonLimitsV1 {
@@ -26,9 +22,7 @@ export interface StrictJsonLimitsInputV1 {
 
 export type StrictJsonPrimitiveV1 = null | boolean | string | number;
 export type StrictJsonValueV1 =
-  | StrictJsonPrimitiveV1
-  | StrictJsonObjectV1
-  | readonly StrictJsonValueV1[];
+  StrictJsonPrimitiveV1 | StrictJsonObjectV1 | readonly StrictJsonValueV1[];
 export interface StrictJsonObjectV1 {
   readonly [key: string]: StrictJsonValueV1;
 }
@@ -72,9 +66,7 @@ const limitKeys = [
 ] as const;
 const dangerousKeys = new Set(["__proto__", "prototype", "constructor"]);
 
-export function parseStrictJsonLimitsV1(
-  input: StrictJsonLimitsInputV1,
-): StrictJsonLimitsV1 {
+export function parseStrictJsonLimitsV1(input: StrictJsonLimitsInputV1): StrictJsonLimitsV1 {
   if (
     input === null ||
     typeof input !== "object" ||
@@ -133,24 +125,20 @@ function decodeUtf8(bytes: Uint8Array): string | null {
     }
     const second = bytes[index + 1];
     if (first >= 0xc2 && first <= 0xdf && continuation(second)) {
-      characters.push(
-        String.fromCodePoint(((first & 0x1f) << 6) | (second & 0x3f)),
-      );
+      characters.push(String.fromCodePoint(((first & 0x1f) << 6) | (second & 0x3f)));
       index += 1;
       continue;
     }
     const third = bytes[index + 2];
     const validThreeSecond =
       (first === 0xe0 && second !== undefined && second >= 0xa0 && second <= 0xbf) ||
-      ((first >= 0xe1 && first <= 0xec) && continuation(second)) ||
+      (first >= 0xe1 && first <= 0xec && continuation(second)) ||
       (first === 0xed && second !== undefined && second >= 0x80 && second <= 0x9f) ||
-      ((first >= 0xee && first <= 0xef) && continuation(second));
+      (first >= 0xee && first <= 0xef && continuation(second));
     if (validThreeSecond && continuation(third)) {
       characters.push(
         String.fromCodePoint(
-          ((first & 0x0f) << 12) |
-            (((second ?? 0) & 0x3f) << 6) |
-            (third & 0x3f),
+          ((first & 0x0f) << 12) | (((second ?? 0) & 0x3f) << 6) | (third & 0x3f),
         ),
       );
       index += 2;
@@ -159,7 +147,7 @@ function decodeUtf8(bytes: Uint8Array): string | null {
     const fourth = bytes[index + 3];
     const validFourSecond =
       (first === 0xf0 && second !== undefined && second >= 0x90 && second <= 0xbf) ||
-      ((first >= 0xf1 && first <= 0xf3) && continuation(second)) ||
+      (first >= 0xf1 && first <= 0xf3 && continuation(second)) ||
       (first === 0xf4 && second !== undefined && second >= 0x80 && second <= 0x8f);
     if (validFourSecond && continuation(third) && continuation(fourth)) {
       characters.push(
@@ -192,12 +180,7 @@ export function parseStrictJson(
   if (bytes.byteLength > limits.maxBytes) {
     return { ok: false, error: { code: "limit.bytes" } };
   }
-  if (
-    bytes.byteLength >= 3 &&
-    bytes[0] === 0xef &&
-    bytes[1] === 0xbb &&
-    bytes[2] === 0xbf
-  ) {
+  if (bytes.byteLength >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
     return { ok: false, error: { code: "encoding.bom_forbidden" } };
   }
 
@@ -212,7 +195,12 @@ export function parseStrictJson(
     throw new ParseFailure(code, offset);
   };
   const skipWhitespace = (): void => {
-    while (text[index] === " " || text[index] === "\n" || text[index] === "\r" || text[index] === "\t") {
+    while (
+      text[index] === " " ||
+      text[index] === "\n" ||
+      text[index] === "\r" ||
+      text[index] === "\t"
+    ) {
       index += 1;
     }
     if (text[index] === "/") fail("syntax.comment_forbidden");
@@ -264,9 +252,7 @@ export function parseStrictJson(
 
   const parseNumber = (): number => {
     const start = index;
-    const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/u.exec(
-      text.slice(index),
-    );
+    const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/u.exec(text.slice(index));
     if (match === null) return fail("syntax.invalid");
     index += match[0].length;
     const value = Number(match[0]);

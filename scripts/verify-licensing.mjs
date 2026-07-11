@@ -17,8 +17,7 @@ const DEFAULT_POLICY = Object.freeze({
     "CONTRIBUTING.md",
   ]),
   canonicalHashes: Object.freeze({
-    "LICENSES/MIT.txt":
-      "51a8b6aab0b3000d6ed05cd3327ff9b427b2c1163d22f51a3cc825e65e63a72f",
+    "LICENSES/MIT.txt": "51a8b6aab0b3000d6ed05cd3327ff9b427b2c1163d22f51a3cc825e65e63a72f",
     "LICENSES/PolyForm-Noncommercial-1.0.0.txt":
       "ffcca38841adb694b6f380647e15f17c446a4d1656fed51a1e2041d064c94cc8",
     "LICENSES/CC-BY-NC-SA-4.0.txt":
@@ -52,9 +51,7 @@ async function exists(path) {
 function normalizeTrackedPaths(value) {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string" || value === "") return [];
-  return value
-    .split(value.includes("\0") ? "\0" : /\r?\n/u)
-    .filter(Boolean);
+  return value.split(value.includes("\0") ? "\0" : /\r?\n/u).filter(Boolean);
 }
 
 export async function verifyLicensing(root, options = {}) {
@@ -67,9 +64,7 @@ export async function verifyLicensing(root, options = {}) {
     }
   }
 
-  for (const [relativePath, expected] of Object.entries(
-    policy.canonicalHashes,
-  )) {
+  for (const [relativePath, expected] of Object.entries(policy.canonicalHashes)) {
     const path = join(root, relativePath);
     if (!(await exists(path))) continue;
     const actual = sha256(await readFile(path));
@@ -104,14 +99,10 @@ export async function verifyLicensing(root, options = {}) {
     });
   const trackedReferenceFiles = normalizeTrackedPaths(trackedReferences);
   if (trackedReferenceFiles.length > 0) {
-    errors.push(
-      `tracked references are forbidden: ${trackedReferenceFiles.join(", ")}`,
-    );
+    errors.push(`tracked references are forbidden: ${trackedReferenceFiles.join(", ")}`);
   }
 
-  for (const [relativePath, expected] of Object.entries(
-    policy.packageLicenses,
-  )) {
+  for (const [relativePath, expected] of Object.entries(policy.packageLicenses)) {
     const path = join(root, relativePath);
     if (!(await exists(path))) {
       errors.push(`missing required package metadata: ${relativePath}`);
@@ -125,17 +116,14 @@ export async function verifyLicensing(root, options = {}) {
       continue;
     }
     if (parsed.license !== expected) {
-      errors.push(
-        `${relativePath}: expected license ${expected}, got ${String(parsed.license)}`,
-      );
+      errors.push(`${relativePath}: expected license ${expected}, got ${String(parsed.license)}`);
     }
   }
 
   return errors;
 }
 
-const isMain =
-  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 
 if (isMain) {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));

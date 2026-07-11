@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { GamePackageV1 } from "../contracts/game-package.js";
-import {
-  parseModuleId,
-  parsePositiveSafeInteger,
-} from "../contracts/values.js";
+import { parseModuleId, parsePositiveSafeInteger } from "../contracts/values.js";
 import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
 
 export function defineGamePackage<

@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { digestBytes } from "../contracts/digest.js";
 import { parsePositiveSafeInteger } from "../contracts/values.js";
-import {
-  definePatchSlot,
-  definePresentationPatchSurface,
-} from "./patch-surface.js";
+import { definePatchSlot, definePresentationPatchSurface } from "./patch-surface.js";
 import { resolveHotfixesV1 } from "./hotfix-resolver.js";
 
 describe("Hotfix resolution", () => {
@@ -53,12 +50,8 @@ describe("Hotfix resolution", () => {
       ],
       { id: "story.synthetic-counter", revision: parsePositiveSafeInteger(1) },
     );
-    expect(patched.patchSet.simulationDigest).toBe(
-      base.patchSet.simulationDigest,
-    );
-    expect(patched.patchSet.presentationDigest).not.toBe(
-      base.patchSet.presentationDigest,
-    );
+    expect(patched.patchSet.simulationDigest).toBe(base.patchSet.simulationDigest);
+    expect(patched.patchSet.presentationDigest).not.toBe(base.patchSet.presentationDigest);
     expect(patched.presentationValues.title).toBe("After");
   });
 });

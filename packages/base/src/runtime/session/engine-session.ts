@@ -50,15 +50,14 @@ export interface EngineSessionRuntimeControlV1<TSnapshot> {
   };
 }
 
-type AttemptFor<TTypes extends GameProfileTypeMapV1> =
-  CommandExecutionAttemptEnvelopeV1<
-    TTypes["snapshot"],
-    TTypes["fact"],
-    TTypes["rejection"],
-    TTypes["fault"],
-    TTypes["rngState"],
-    TTypes["rngDrawTrace"]
-  >;
+type AttemptFor<TTypes extends GameProfileTypeMapV1> = CommandExecutionAttemptEnvelopeV1<
+  TTypes["snapshot"],
+  TTypes["fact"],
+  TTypes["rejection"],
+  TTypes["fault"],
+  TTypes["rngState"],
+  TTypes["rngDrawTrace"]
+>;
 
 export interface EngineSessionInputV1<TTypes extends GameProfileTypeMapV1> {
   readonly initialSnapshot: TTypes["snapshot"];
@@ -81,15 +80,14 @@ interface EngineSessionPrivateControlV1 {
   invalidateForHmr(): Promise<void>;
 }
 
-export interface EngineSessionCompositionV1<
-  TTypes extends GameProfileTypeMapV1,
-> {
+export interface EngineSessionCompositionV1<TTypes extends GameProfileTypeMapV1> {
   readonly session: EngineSessionV1<TTypes>;
   readonly runtimeControl: EngineSessionRuntimeControlV1<TTypes["snapshot"]>;
 }
 
-interface InternalCompositionV1<TTypes extends GameProfileTypeMapV1>
-  extends EngineSessionCompositionV1<TTypes> {
+interface InternalCompositionV1<
+  TTypes extends GameProfileTypeMapV1,
+> extends EngineSessionCompositionV1<TTypes> {
   readonly privateControl: EngineSessionPrivateControlV1;
 }
 
@@ -123,37 +121,36 @@ function createInternal<TTypes extends GameProfileTypeMapV1>(
     });
   }
 
-  const runtimeControl: EngineSessionRuntimeControlV1<TTypes["snapshot"]> =
-    Object.freeze({
-      enqueueAuthoritative<TResult>(
-        operation: (
-          current: DeepReadonly<TTypes["snapshot"]>,
-        ) => Promise<AuthoritativeOutcomeV1<TTypes["snapshot"], TResult>>,
-        normalizeUnexpectedFault: (error: unknown) => TResult,
-      ): Promise<TResult> {
-        return enqueue(async () => {
-          try {
-            const outcome = await operation(snapshot as DeepReadonly<TTypes["snapshot"]>);
-            if (outcome.kind === "replace") {
-              snapshot = outcome.snapshot;
-              if (outcome.anchor === "replace_replay_base") stableStatus = "ready";
-              publish();
-            }
-            return outcome.result;
-          } catch (error) {
-            stableStatus = "fault_paused";
+  const runtimeControl: EngineSessionRuntimeControlV1<TTypes["snapshot"]> = Object.freeze({
+    enqueueAuthoritative<TResult>(
+      operation: (
+        current: DeepReadonly<TTypes["snapshot"]>,
+      ) => Promise<AuthoritativeOutcomeV1<TTypes["snapshot"], TResult>>,
+      normalizeUnexpectedFault: (error: unknown) => TResult,
+    ): Promise<TResult> {
+      return enqueue(async () => {
+        try {
+          const outcome = await operation(snapshot as DeepReadonly<TTypes["snapshot"]>);
+          if (outcome.kind === "replace") {
+            snapshot = outcome.snapshot;
+            if (outcome.anchor === "replace_replay_base") stableStatus = "ready";
             publish();
-            return normalizeUnexpectedFault(error);
           }
-        });
-      },
-      inspectForRuntime() {
-        return Object.freeze({
-          snapshot: snapshot as DeepReadonly<TTypes["snapshot"]>,
-          status: status(),
-        });
-      },
-    });
+          return outcome.result;
+        } catch (error) {
+          stableStatus = "fault_paused";
+          publish();
+          return normalizeUnexpectedFault(error);
+        }
+      });
+    },
+    inspectForRuntime() {
+      return Object.freeze({
+        snapshot: snapshot as DeepReadonly<TTypes["snapshot"]>,
+        status: status(),
+      });
+    },
+  });
 
   const session: EngineSessionV1<TTypes> = Object.freeze({
     getStatus: status,
@@ -169,17 +166,13 @@ function createInternal<TTypes extends GameProfileTypeMapV1>(
         );
       }
       if (stableStatus === "fault_paused" || stableStatus === "hmr_invalidated") {
-        return Promise.resolve(
-          Object.freeze({ kind: "not_executed", code: stableStatus }),
-        );
+        return Promise.resolve(Object.freeze({ kind: "not_executed", code: stableStatus }));
       }
       let parsed: TTypes["command"];
       try {
         parsed = input.commandSchema.parse(command);
       } catch {
-        return Promise.resolve(
-          Object.freeze({ kind: "not_executed", code: "validation_failed" }),
-        );
+        return Promise.resolve(Object.freeze({ kind: "not_executed", code: "validation_failed" }));
       }
       return enqueue(async () => {
         if (stableStatus === "fault_paused" || stableStatus === "hmr_invalidated") {
@@ -235,8 +228,8 @@ export function createEngineSessionV1<TTypes extends GameProfileTypeMapV1>(
 }
 
 /** @internal Base-owned test and Developer composition seam; not exported by the runtime barrel. */
-export function createEngineSessionInternalV1<
-  TTypes extends GameProfileTypeMapV1,
->(input: EngineSessionInputV1<TTypes>): InternalCompositionV1<TTypes> {
+export function createEngineSessionInternalV1<TTypes extends GameProfileTypeMapV1>(
+  input: EngineSessionInputV1<TTypes>,
+): InternalCompositionV1<TTypes> {
   return createInternal(input);
 }

@@ -170,7 +170,7 @@ it("serializes dispatch and anchor replacement on one tail", async () => {
       result: { kind: "anchored", commandSequence: 0 } as const,
       anchor: "replace_replay_base",
     }),
-    () => ({ kind: "faulted", code: "runtime.anchor_failed" } as const),
+    () => ({ kind: "faulted", code: "runtime.anchor_failed" }) as const,
   );
 
   gate.resolve();
@@ -372,8 +372,9 @@ it("allows presentation drift without changing exact simulation compatibility", 
 
 it("classifies incompatible identity before touching stable references", () => {
   const context = createSyntheticSaveValidationContext();
-  expect(validateSaveImportCandidateV1(incompatibleIdentityWithUnknownReferenceBytes, context))
-    .toMatchObject({ kind: "inspect_only" });
+  expect(
+    validateSaveImportCandidateV1(incompatibleIdentityWithUnknownReferenceBytes, context),
+  ).toMatchObject({ kind: "inspect_only" });
   expect(context.referenceChecks()).toBe(0);
   expect(context.invariantChecks()).toBe(0);
 });
@@ -403,9 +404,7 @@ export type DecodedSaveV1<TSaveRecord> =
 
 export interface SaveImportValidationContextV1<TSnapshot, TSaveRecord> {
   readonly codec: SaveCodecContextV1<TSnapshot, TSaveRecord>;
-  classifyCompatibility(
-    record: DeepReadonly<TSaveRecord>,
-  ): ImportCompatibilityOutcomeV1;
+  classifyCompatibility(record: DeepReadonly<TSaveRecord>): ImportCompatibilityOutcomeV1;
   validateReferences(snapshot: DeepReadonly<TSnapshot>): readonly string[];
   validateInvariants(record: DeepReadonly<TSaveRecord>): readonly string[];
 }
@@ -553,8 +552,9 @@ it("lists records by key, not IndexedDB traversal accident", async () => {
 
 it("opens only the reviewed database revision", async () => {
   const fixture = await createDatabaseAtRevision(2);
-  await expect(createIndexedDbRecordStoreV1({ indexedDB: fixture.indexedDB }))
-    .rejects.toMatchObject({ code: "persistence.blocked_upgrade" });
+  await expect(
+    createIndexedDbRecordStoreV1({ indexedDB: fixture.indexedDB }),
+  ).rejects.toMatchObject({ code: "persistence.blocked_upgrade" });
   expect(fixture.deletedDatabaseNames()).toEqual([]);
 });
 ```
@@ -970,10 +970,12 @@ git commit -m "feat(base): add bounded command replay"
 ```ts
 it("exports one self-contained bounded bundle", async () => {
   const fixture = createDiagnosticsFixture();
-  fixture.failures.append(runtimeFailure({
-    operation: "/Users/alice/project/src/save.ts",
-    message: "failed at C:\\Users\\alice\\save.ts",
-  }));
+  fixture.failures.append(
+    runtimeFailure({
+      operation: "/Users/alice/project/src/save.ts",
+      message: "failed at C:\\Users\\alice\\save.ts",
+    }),
+  );
   const exported = await fixture.service.exportDebugBundle();
   const decoded = decodeDebugBundleV1(exported.bytes, fixture.validation);
 
@@ -1053,9 +1055,7 @@ test("keeps both Developer subpaths behind the Story Developer root", async () =
     "stories/sandbox/src/development.ts",
   ];
 
-  assert(forbiddenToPlayer.every(
-    (prefix) => !player.some((path) => path.startsWith(prefix)),
-  ));
+  assert(forbiddenToPlayer.every((prefix) => !player.some((path) => path.startsWith(prefix))));
   assert(developer.includes("packages/base/src/runtime/developer/index.ts"));
   assert(developer.includes("apps/web/src/developer/index.ts"));
   assert(developer.includes("stories/sandbox/src/development.ts"));
@@ -1087,9 +1087,10 @@ Add exactly `RuntimeFailureBufferV1`, `createPlayerDiagnosticsServiceV1`, `creat
 
 ```ts
 export interface ActiveStoryDevelopmentResolverV1<TFixtureId, TSnapshot> {
-  resolveFixture(fixtureId: TFixtureId, seed: NonZeroUint32):
-    | { readonly kind: "resolved"; readonly snapshot: TSnapshot }
-    | { readonly kind: "unknown" };
+  resolveFixture(
+    fixtureId: TFixtureId,
+    seed: NonZeroUint32,
+  ): { readonly kind: "resolved"; readonly snapshot: TSnapshot } | { readonly kind: "unknown" };
 }
 
 export function createDeveloperApplicationPortV1<TPlayerPort, TControl>(
@@ -1200,10 +1201,13 @@ it("invalidates digest-changing HMR without mixing session identities", async ()
   fixture.invalidate({ kind: "resolved_digest_changed" });
 
   expect(fixture.session.getStatus()).toBe("hmr_invalidated");
-  await expect(fixture.player.commands.dispatch({ kind: "counter.increment", amount: 1 }))
-    .resolves.toEqual({ kind: "not_executed", code: "hmr_invalidated" });
-  await expect(fixture.player.persistence.save("quick"))
-    .resolves.toEqual({ kind: "rejected", code: "busy" });
+  await expect(
+    fixture.player.commands.dispatch({ kind: "counter.increment", amount: 1 }),
+  ).resolves.toEqual({ kind: "not_executed", code: "hmr_invalidated" });
+  await expect(fixture.player.persistence.save("quick")).resolves.toEqual({
+    kind: "rejected",
+    code: "busy",
+  });
   await expect(fixture.player.diagnostics.exportDebugBundle()).resolves.toMatchObject({
     mediaType: "application/json",
     bytes: expect.any(Uint8Array),
@@ -1495,18 +1499,18 @@ const expectedPhase3CommandsV1 = [
 ];
 
 test("owns an exact read-only Phase 3 command list", async () => {
-  const { phase3VerificationCommandsV1 } = await import(
-    "./verify-persistence-diagnostics.mts"
-  );
+  const { phase3VerificationCommandsV1 } = await import("./verify-persistence-diagnostics.mts");
   assert.deepEqual(phase3VerificationCommandsV1, expectedPhase3CommandsV1);
   assert(Object.isFrozen(phase3VerificationCommandsV1));
   for (const command of phase3VerificationCommandsV1) {
     assert(Object.isFrozen(command));
     assert(Object.isFrozen(command[1]));
   }
-  assert(!phase3VerificationCommandsV1.some(([, args]) =>
-    args.some((arg) => /regenerate|update:|release:prepare/u.test(arg))
-  ));
+  assert(
+    !phase3VerificationCommandsV1.some(([, args]) =>
+      args.some((arg) => /regenerate|update:|release:prepare/u.test(arg)),
+    ),
+  );
 });
 ```
 
@@ -1523,10 +1527,8 @@ Expected: FAIL because the Phase 3 verifier module and package-owned aliases do 
 `scripts/verify-persistence-diagnostics.mts` runs these existing commands sequentially and exits on the first nonzero result:
 
 ```ts
-const phase3CommandV1 = <TArgs extends readonly string[]>(
-  executable: "pnpm",
-  args: TArgs,
-) => Object.freeze([executable, Object.freeze(args)] as const);
+const phase3CommandV1 = <TArgs extends readonly string[]>(executable: "pnpm", args: TArgs) =>
+  Object.freeze([executable, Object.freeze(args)] as const);
 
 export const phase3VerificationCommandsV1 = Object.freeze([
   phase3CommandV1("pnpm", ["--filter", "@project-tavern/base", "run", "test:runtime"]),

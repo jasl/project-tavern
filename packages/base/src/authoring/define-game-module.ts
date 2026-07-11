@@ -1,18 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { GameModuleBindingV1 } from "../contracts/module.js";
-import {
-  parseModuleId,
-  parsePositiveSafeInteger,
-  parseStateSlotId,
-} from "../contracts/values.js";
+import { parseModuleId, parsePositiveSafeInteger, parseStateSlotId } from "../contracts/values.js";
 
 export function deepFreezeAuthoringValueV1<T>(value: T): T {
   const seen = new WeakSet<object>();
   function freeze(current: unknown): void {
-    if (
-      (typeof current !== "object" && typeof current !== "function") ||
-      current === null
-    ) {
+    if ((typeof current !== "object" && typeof current !== "function") || current === null) {
       return;
     }
     if (seen.has(current)) return;

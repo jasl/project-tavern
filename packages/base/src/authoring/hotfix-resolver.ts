@@ -34,7 +34,10 @@ function normalizeSurface(value: unknown): NormalizedSurface {
 
 function valuesAndProviders(surface: NormalizedSurface) {
   const values: Record<string, unknown> = {};
-  const providers = new Map<string, { digest: ReturnType<typeof digestCanonical>; hotfixId: string | null; key: string; slot: Slot }>();
+  const providers = new Map<
+    string,
+    { digest: ReturnType<typeof digestCanonical>; hotfixId: string | null; key: string; slot: Slot }
+  >();
   for (const [key, slot] of Object.entries(surface.slots)) {
     values[key] = slot.defaultValue;
     providers.set(slot.symbolId, {
@@ -92,17 +95,13 @@ export function resolveHotfixesV1(
               : presentation.providers.get(symbolId);
           if (!state) throw new TypeError(`hotfix unknown symbol: ${symbolId}`);
           const target = hotfix.manifest.targets.find(
-            (candidate) =>
-              candidate.surface === surface && candidate.symbolId === symbolId,
+            (candidate) => candidate.surface === surface && candidate.symbolId === symbolId,
           );
           if (!target) throw new TypeError(`hotfix undeclared target: ${symbolId}`);
           if (target.expectedProviderDigest !== state.digest) {
             throw new TypeError(`hotfix provider mismatch: ${symbolId}`);
           }
-          if (
-            state.hotfixId !== null &&
-            !hotfix.manifest.supersedes.includes(state.hotfixId)
-          ) {
+          if (state.hotfixId !== null && !hotfix.manifest.supersedes.includes(state.hotfixId)) {
             throw new TypeError(`hotfix collision: ${symbolId}`);
           }
           const replacementOrdinal = traces.length + 1;
@@ -170,18 +169,13 @@ export function resolveHotfixesV1(
       .map((hotfix) => ({
         identity: hotfix.identity,
         ordinal: hotfix.ordinal,
-        replacements: hotfix.replacements.filter(
-          (replacement) => replacement.surface === surface,
-        ),
+        replacements: hotfix.replacements.filter((replacement) => replacement.surface === surface),
       }))
       .filter((hotfix) => hotfix.replacements.length > 0);
   const frozenApplied = Object.freeze([...applied]);
   const patchSet = Object.freeze({
     digest: digestCanonical("project-tavern:patch-set:v1", frozenApplied),
-    simulationDigest: digestCanonical(
-      "project-tavern:patch-set:v1",
-      facetProjection("simulation"),
-    ),
+    simulationDigest: digestCanonical("project-tavern:patch-set:v1", facetProjection("simulation")),
     presentationDigest: digestCanonical(
       "project-tavern:patch-set:v1",
       facetProjection("presentation"),

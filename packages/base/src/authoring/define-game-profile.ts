@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type {
-  GameModuleBindingV1,
-  GameProfileV1,
-} from "../contracts/module.js";
+import type { GameModuleBindingV1, GameProfileV1 } from "../contracts/module.js";
 import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
 
 function assertDependencyDag(modules: readonly GameModuleBindingV1[]): void {
@@ -10,18 +7,14 @@ function assertDependencyDag(modules: readonly GameModuleBindingV1[]): void {
   for (const module of modules) {
     for (const dependency of module.descriptor.dependencies) {
       if (!moduleIds.has(dependency)) {
-        throw new TypeError(
-          `missing dependency ${dependency} for ${module.descriptor.id}`,
-        );
+        throw new TypeError(`missing dependency ${dependency} for ${module.descriptor.id}`);
       }
     }
   }
 
   const active = new Set<string>();
   const complete = new Set<string>();
-  const byId = new Map(
-    modules.map((module) => [module.descriptor.id as string, module]),
-  );
+  const byId = new Map(modules.map((module) => [module.descriptor.id as string, module]));
   function visit(id: string): void {
     if (active.has(id)) throw new TypeError(`dependency cycle at ${id}`);
     if (complete.has(id)) return;
@@ -35,9 +28,7 @@ function assertDependencyDag(modules: readonly GameModuleBindingV1[]): void {
   for (const id of [...byId.keys()].sort()) visit(id);
 }
 
-export function defineGameProfile<TProfile extends GameProfileV1>(
-  profile: TProfile,
-): TProfile {
+export function defineGameProfile<TProfile extends GameProfileV1>(profile: TProfile): TProfile {
   if (profile.contractRevision !== 1) {
     throw new TypeError("GameProfile contractRevision must be 1");
   }
@@ -45,9 +36,7 @@ export function defineGameProfile<TProfile extends GameProfileV1>(
   if (new Set(ids).size !== ids.length) {
     throw new TypeError("duplicate Module ID");
   }
-  const slots = profile.modules.flatMap((module) => [
-    ...module.descriptor.stateSlots,
-  ]);
+  const slots = profile.modules.flatMap((module) => [...module.descriptor.stateSlots]);
   if (new Set(slots).size !== slots.length) {
     throw new TypeError("duplicate State slot");
   }

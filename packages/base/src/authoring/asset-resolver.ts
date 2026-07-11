@@ -9,10 +9,7 @@ import type {
   ResolvedAssetManifestV1,
 } from "../contracts/assets.js";
 import { digestCanonical } from "../contracts/digest.js";
-import {
-  parseDigest,
-  parsePositiveSafeInteger,
-} from "../contracts/values.js";
+import { parseDigest, parsePositiveSafeInteger } from "../contracts/values.js";
 import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
 
 function validateRuntimePath(path: string): void {
@@ -53,9 +50,7 @@ export function resolveAssetManifestV1(
     throw new TypeError("duplicate asset slot");
   }
   const slotsById = new Map(slots.map((slot) => [slot.assetId, slot]));
-  const resolvedById = new Map(
-    slots.map((slot) => [slot.assetId, fallback(slot)]),
-  );
+  const resolvedById = new Map(slots.map((slot) => [slot.assetId, fallback(slot)]));
   const packs: AssetPackResolvedIdentityV1[] = [];
 
   for (const pack of authoredPacks) {
@@ -64,8 +59,7 @@ export function resolveAssetManifestV1(
       throw new TypeError("invalid Asset Pack ID");
     }
     if (
-      new Set(pack.providers.map((provider) => provider.assetId)).size !==
-      pack.providers.length
+      new Set(pack.providers.map((provider) => provider.assetId)).size !== pack.providers.length
     ) {
       throw new TypeError("duplicate Asset Pack provider");
     }
@@ -101,10 +95,7 @@ export function resolveAssetManifestV1(
       }
       const current = resolvedById.get(provider.assetId);
       if (!current) throw new TypeError(`asset slot unknown: ${provider.assetId}`);
-      if (
-        current.delivery === "runtime_image" &&
-        slot.overridePolicy === "sealed"
-      ) {
+      if (current.delivery === "runtime_image" && slot.overridePolicy === "sealed") {
         throw new TypeError(`asset slot sealed: ${provider.assetId}`);
       }
       const chain =

@@ -1,21 +1,14 @@
 // SPDX-License-Identifier: MIT
 import type { DeepReadonly, NonNegativeSafeInteger, PositiveSafeInteger } from "./values.js";
 
-export type RuntimeSessionStatusV1 =
-  | "ready"
-  | "busy"
-  | "fault_paused"
-  | "hmr_invalidated";
+export type RuntimeSessionStatusV1 = "ready" | "busy" | "fault_paused" | "hmr_invalidated";
 
 export type SessionDispatchOperationResultV1<TExecutionResult> =
   | { readonly kind: "executed"; readonly execution: TExecutionResult }
   | {
       readonly kind: "not_executed";
       readonly code:
-        | "session_unavailable"
-        | "fault_paused"
-        | "hmr_invalidated"
-        | "validation_failed";
+        "session_unavailable" | "fault_paused" | "hmr_invalidated" | "validation_failed";
     };
 
 export type SessionAnchorResultV1 =
@@ -33,11 +26,7 @@ export interface ResolvedTextPresentationV1<TTextId, TLocaleId> {
   readonly text: string;
 }
 
-export type ResolvedAssetPresentationV1<
-  TAssetId,
-  TAssetUsage,
-  TFallbackToken,
-> =
+export type ResolvedAssetPresentationV1<TAssetId, TAssetUsage, TFallbackToken> =
   | {
       readonly delivery: "code_fallback";
       readonly assetId: TAssetId;
@@ -54,13 +43,7 @@ export type ResolvedAssetPresentationV1<
       readonly fallbackToken: TFallbackToken;
     };
 
-export interface PresentationReadPortV1<
-  TTextId,
-  TAssetId,
-  TAssetUsage,
-  TLocaleId,
-  TFallbackToken,
-> {
+export interface PresentationReadPortV1<TTextId, TAssetId, TAssetUsage, TLocaleId, TFallbackToken> {
   readonly locale: TLocaleId;
   text(textId: TTextId): ResolvedTextPresentationV1<TTextId, TLocaleId>;
   asset(

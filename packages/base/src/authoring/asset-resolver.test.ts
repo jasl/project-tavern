@@ -55,9 +55,10 @@ describe("Asset resolver", () => {
 
   it("rejects unsafe runtime paths", () => {
     expect(() =>
-      resolveAssetManifestV1([slot], [
-        { ...pack, providers: [{ ...provider, runtimePath: "../escape.png" }] },
-      ]),
+      resolveAssetManifestV1(
+        [slot],
+        [{ ...pack, providers: [{ ...provider, runtimePath: "../escape.png" }] }],
+      ),
     ).toThrow("asset path invalid");
   });
 });

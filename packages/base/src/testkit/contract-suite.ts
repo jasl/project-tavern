@@ -4,10 +4,7 @@ import type {
   StoryDevelopmentEntryV1,
   StoryDevelopmentSupportV1,
 } from "../contracts/game-package.js";
-import {
-  parseStrictJson,
-  parseStrictJsonLimitsV1,
-} from "../contracts/strict-json.js";
+import { parseStrictJson, parseStrictJsonLimitsV1 } from "../contracts/strict-json.js";
 import type { DeepReadonly, RuntimeSchemaV1 } from "../contracts/values.js";
 import { parseNonZeroUint32 } from "../contracts/values.js";
 
@@ -20,10 +17,7 @@ const testkitJsonLimitsV1 = parseStrictJsonLimitsV1({
   maxStringBytes: 65_536,
 });
 
-export function strictJsonRoundTripV1<T>(
-  value: DeepReadonly<T>,
-  schema: RuntimeSchemaV1<T>,
-): T {
+export function strictJsonRoundTripV1<T>(value: DeepReadonly<T>, schema: RuntimeSchemaV1<T>): T {
   const parsed = parseStrictJson(canonicalJsonBytes(value), testkitJsonLimitsV1);
   if (!parsed.ok) throw new TypeError(`Strict JSON failed: ${parsed.error.code}`);
   return schema.parse(parsed.value);
@@ -38,9 +32,7 @@ function isThenable(value: unknown): boolean {
 }
 
 export function validateDevelopmentFixturesV1<TFixtureId, TCommand>(
-  entry: StoryDevelopmentEntryV1<
-    StoryDevelopmentSupportV1<TFixtureId, TCommand>
-  >,
+  entry: StoryDevelopmentEntryV1<StoryDevelopmentSupportV1<TFixtureId, TCommand>>,
   schemas: {
     readonly fixtureIdSchema: RuntimeSchemaV1<TFixtureId>;
     readonly commandSchema: RuntimeSchemaV1<TCommand>;
@@ -62,11 +54,7 @@ export function validateDevelopmentFixturesV1<TFixtureId, TCommand>(
   ) {
     throw new TypeError("nondeterministic development support");
   }
-  if (
-    first === null ||
-    typeof first !== "object" ||
-    !Array.isArray(first.fixtures)
-  ) {
+  if (first === null || typeof first !== "object" || !Array.isArray(first.fixtures)) {
     throw new TypeError("invalid development support");
   }
   const fixtureIds = new Set<unknown>();

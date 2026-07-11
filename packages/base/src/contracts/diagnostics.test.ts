@@ -18,9 +18,7 @@ describe("diagnostic contracts", () => {
       bytes,
     };
     expect(exportedDebugBundleSchemaV1.parse(valid)).toEqual(valid);
-    expect(() =>
-      exportedDebugBundleSchemaV1.parse({ ...valid, summary: {} }),
-    ).toThrow();
+    expect(() => exportedDebugBundleSchemaV1.parse({ ...valid, summary: {} })).toThrow();
   });
 
   it("parses only exact runtime fault branches", () => {

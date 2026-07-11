@@ -20,9 +20,9 @@ describe("neutral synthetic counter", () => {
     });
     const bootstrap = profile.createBootstrapInput(entropy);
     expect(bootstrap.rngSeed).toBe(143433);
-    expect(
-      strictJsonRoundTripV1({ count: 0 }, syntheticCounterStateSchemaV1),
-    ).toEqual({ count: 0 });
+    expect(strictJsonRoundTripV1({ count: 0 }, syntheticCounterStateSchemaV1)).toEqual({
+      count: 0,
+    });
     expect(entry.define()).toEqual(definition);
   });
 });

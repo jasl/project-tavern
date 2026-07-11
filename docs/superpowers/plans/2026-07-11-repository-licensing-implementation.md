@@ -75,8 +75,7 @@ import test from "node:test";
 
 import { verifyLicensing } from "./verify-licensing.mjs";
 
-const sha256 = (value) =>
-  createHash("sha256").update(value, "utf8").digest("hex");
+const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "project-tavern-license-"));
@@ -97,10 +96,7 @@ const policy = {
 test("accepts a complete repository fixture", async (t) => {
   const root = await fixture();
   t.after(() => rm(root, { recursive: true, force: true }));
-  assert.deepEqual(
-    await verifyLicensing(root, { policy, trackedReferences: "" }),
-    [],
-  );
+  assert.deepEqual(await verifyLicensing(root, { policy, trackedReferences: "" }), []);
 });
 
 test("reports missing and modified legal files", async (t) => {
@@ -169,8 +165,7 @@ const DEFAULT_POLICY = Object.freeze({
     "CONTRIBUTING.md",
   ]),
   canonicalHashes: Object.freeze({
-    "LICENSES/MIT.txt":
-      "51a8b6aab0b3000d6ed05cd3327ff9b427b2c1163d22f51a3cc825e65e63a72f",
+    "LICENSES/MIT.txt": "51a8b6aab0b3000d6ed05cd3327ff9b427b2c1163d22f51a3cc825e65e63a72f",
     "LICENSES/PolyForm-Noncommercial-1.0.0.txt":
       "ffcca38841adb694b6f380647e15f17c446a4d1656fed51a1e2041d064c94cc8",
     "LICENSES/CC-BY-NC-SA-4.0.txt":
@@ -258,17 +253,14 @@ export async function verifyLicensing(root, options = {}) {
       continue;
     }
     if (parsed.license !== expected) {
-      errors.push(
-        `${relativePath}: expected license ${expected}, got ${String(parsed.license)}`,
-      );
+      errors.push(`${relativePath}: expected license ${expected}, got ${String(parsed.license)}`);
     }
   }
 
   return errors;
 }
 
-const isMain =
-  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 
 if (isMain) {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));

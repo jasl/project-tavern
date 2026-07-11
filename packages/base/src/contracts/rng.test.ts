@@ -24,8 +24,7 @@ describe("xorshift32-v1", () => {
     expect(
       Array.from(
         { length: 12 },
-        () =>
-          rng.nextInt({ exclusiveMax: 3, purpose: "demand:offset" }) - 1,
+        () => rng.nextInt({ exclusiveMax: 3, purpose: "demand:offset" }) - 1,
       ),
     ).toEqual(Array(12).fill(0));
     expect([
@@ -38,20 +37,16 @@ describe("xorshift32-v1", () => {
       rawDrawCount: 14,
     });
     expect(rng.attemptedDraws()).toHaveLength(14);
-    expect(Object.keys(rng).sort()).toEqual([
-      "attemptedDraws",
-      "candidateState",
-      "nextInt",
-    ]);
+    expect(Object.keys(rng).sort()).toEqual(["attemptedDraws", "candidateState", "nextInt"]);
     expect(Object.isFrozen(rng)).toBe(true);
 
     const committedState = rng.candidateState();
     const resumed = createTransactionalRngV1(committedState);
     expect(resumed.candidateState()).toEqual(committedState);
     expect(resumed.attemptedDraws()).toEqual([]);
-    expect(
-      resumed.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }),
-    ).toBe(rng.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }));
+    expect(resumed.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" })).toBe(
+      rng.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }),
+    );
     expect(resumed.candidateState()).toEqual(rng.candidateState());
   });
 });

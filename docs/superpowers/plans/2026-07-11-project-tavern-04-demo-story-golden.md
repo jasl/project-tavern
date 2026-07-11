@@ -125,6 +125,7 @@
 ## Task 1: Freeze Package Identity and the Closed Content-ID Catalog
 
 **Files:**
+
 - Modify: `stories/demo/package.json`
 - Modify: `stories/demo/tsconfig.json`
 - Create: `stories/demo/src/simulation/identity.ts`
@@ -132,6 +133,7 @@
 - Create: `stories/demo/src/test/story-validation.test.ts`
 
 **Interfaces:**
+
 - Consumes: Base generic identity/safe-integer parsers, public Modules game-specific stable-ID parsers, the Story identity contract, and the exact ID table in `docs/poc/content-and-playtest.md`.
 - Produces: fixed package metadata, Story identity/revision, reference seed/run IDs, and readonly closed ID arrays used by all later Demo files.
 
@@ -141,7 +143,12 @@
 // stories/demo/src/test/story-validation.test.ts
 import { describe, expect, it } from "vitest";
 import { demoStoryIdentityV1, referenceRunIdsV1, referenceSeedV1 } from "../simulation/identity.js";
-import { actionIdsV1, eventIdsV1, ingredientIdsV1, recipeIdsV1 } from "../simulation/content/ids.js";
+import {
+  actionIdsV1,
+  eventIdsV1,
+  ingredientIdsV1,
+  recipeIdsV1,
+} from "../simulation/content/ids.js";
 
 describe("week.poc_001 identity catalog", () => {
   it("freezes Story identity and deterministic reference inputs", () => {
@@ -152,13 +159,17 @@ describe("week.poc_001 identity catalog", () => {
 
   it("keeps Event and player Action namespaces distinct", () => {
     expect(eventIdsV1).toEqual([
-      "event.tutorial_first_service", "event.supplier_invoice", "event.helper_available",
-      "event.facility_window", "event.levy_due",
+      "event.tutorial_first_service",
+      "event.supplier_invoice",
+      "event.helper_available",
+      "event.facility_window",
+      "event.levy_due",
     ]);
     expect(actionIdsV1).toContain("action.facility_window");
     expect(actionIdsV1).not.toContain("event.facility_window");
-    expect(new Set([...eventIdsV1, ...actionIdsV1, ...ingredientIdsV1, ...recipeIdsV1]).size)
-      .toBe(eventIdsV1.length + actionIdsV1.length + ingredientIdsV1.length + recipeIdsV1.length);
+    expect(new Set([...eventIdsV1, ...actionIdsV1, ...ingredientIdsV1, ...recipeIdsV1]).size).toBe(
+      eventIdsV1.length + actionIdsV1.length + ingredientIdsV1.length + recipeIdsV1.length,
+    );
   });
 });
 ```
@@ -182,14 +193,14 @@ Expected: FAIL with missing `identity.js`/`ids.js`.
   "exports": {},
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
   },
   "dependencies": {
     "@project-tavern/base": "workspace:*",
     "@project-tavern/modules": "workspace:*",
     "@project-tavern/ui": "workspace:*",
-    "@project-tavern/assets": "workspace:*"
-  }
+    "@project-tavern/assets": "workspace:*",
+  },
 }
 ```
 
@@ -250,29 +261,40 @@ import {
 } from "@project-tavern/modules";
 
 export const eventIdsV1 = [
-  parseEventId("event.tutorial_first_service"), parseEventId("event.supplier_invoice"),
-  parseEventId("event.helper_available"), parseEventId("event.facility_window"),
+  parseEventId("event.tutorial_first_service"),
+  parseEventId("event.supplier_invoice"),
+  parseEventId("event.helper_available"),
+  parseEventId("event.facility_window"),
   parseEventId("event.levy_due"),
 ] as const;
 
 export const actionIdsV1 = [
-  parseActionId("action.choose_life_policy"), parseActionId("action.purchase"),
-  parseActionId("action.prepare_food"), parseActionId("action.rest"),
-  parseActionId("action.service_plan"), parseActionId("action.advance_phase"),
-  parseActionId("action.pay_levy"), parseActionId("action.facility_window"),
-  parseActionId("action.repair_sign_with_heroine"), parseActionId("action.old_trade_road"),
+  parseActionId("action.choose_life_policy"),
+  parseActionId("action.purchase"),
+  parseActionId("action.prepare_food"),
+  parseActionId("action.rest"),
+  parseActionId("action.service_plan"),
+  parseActionId("action.advance_phase"),
+  parseActionId("action.pay_levy"),
+  parseActionId("action.facility_window"),
+  parseActionId("action.repair_sign_with_heroine"),
+  parseActionId("action.old_trade_road"),
   parseActionId("action.apologize_to_heroine"),
 ] as const;
 
 export const ingredientIdsV1 = [
-  parseIngredientId("ingredient.coarse_grain"), parseIngredientId("ingredient.root_vegetable"),
-  parseIngredientId("ingredient.ale"), parseIngredientId("ingredient.fresh_meat"),
+  parseIngredientId("ingredient.coarse_grain"),
+  parseIngredientId("ingredient.root_vegetable"),
+  parseIngredientId("ingredient.ale"),
+  parseIngredientId("ingredient.fresh_meat"),
   parseIngredientId("ingredient.herb"),
 ] as const;
 
 export const recipeIdsV1 = [
-  parseRecipeId("recipe.grain_root_porridge"), parseRecipeId("recipe.ale_bread"),
-  parseRecipeId("recipe.hunter_stew"), parseRecipeId("recipe.traveler_roast"),
+  parseRecipeId("recipe.grain_root_porridge"),
+  parseRecipeId("recipe.ale_bread"),
+  parseRecipeId("recipe.hunter_stew"),
+  parseRecipeId("recipe.traveler_roast"),
 ] as const;
 
 export const demoIdsV1 = Object.freeze({
@@ -351,8 +373,12 @@ export const demoIdsV1 = Object.freeze({
   reasonEventInvoiceChecked: parseReasonId("reason.event.invoice_checked"),
   reasonEventHelperUnlocked: parseReasonId("reason.event.helper_unlocked"),
   reasonModifierColdStorageShelfLife: parseReasonId("reason.modifier.cold_storage_shelf_life"),
-  reasonModifierComfortableBedPlayerRecovery: parseReasonId("reason.modifier.comfortable_bed_player_recovery"),
-  reasonModifierComfortableBedHeroineRecovery: parseReasonId("reason.modifier.comfortable_bed_heroine_recovery"),
+  reasonModifierComfortableBedPlayerRecovery: parseReasonId(
+    "reason.modifier.comfortable_bed_player_recovery",
+  ),
+  reasonModifierComfortableBedHeroineRecovery: parseReasonId(
+    "reason.modifier.comfortable_bed_heroine_recovery",
+  ),
   reasonUnavailableServiceModeLocked: parseReasonId("reason.unavailable.service_mode_locked"),
   reasonUnavailableHelperLocked: parseReasonId("reason.unavailable.helper_locked"),
   reasonRelationshipRepair: parseReasonId("reason.relationship.repair_sign"),
@@ -443,6 +469,7 @@ git commit -m "feat(story-demo): freeze identity and content ids"
 ## Task 2: Encode Initial State, Ingredients, Recipes, and Balance
 
 **Files:**
+
 - Create: `stories/demo/src/simulation/state-definitions.ts`
 - Create: `stories/demo/src/simulation/initial-state.ts`
 - Create: `stories/demo/src/simulation/balance.ts`
@@ -450,6 +477,7 @@ git commit -m "feat(story-demo): freeze identity and content ids"
 - Create: `stories/demo/src/test/balance-contract.test.ts`
 
 **Interfaces:**
+
 - Consumes: Demo Module contracts, Task 1 `demoIdsV1`, exact exported parsers, and the numeric tables in `balance-v0.md`.
 - Produces: closed Fact/Outcome definitions, initial actors/resources, five ingredients, four recipes, policies, action costs, service modes, demand, levy/forecast policy, and numeric limits.
 
@@ -469,9 +497,20 @@ describe("Demo balance v0 contract", () => {
     expect(demoInitialStateV1).toMatchObject({
       cash: demoValuesV1.moneySeventy,
       reputation: demoValuesV1.nonNegativeFifty,
-      player: { stamina: { current: demoValuesV1.nonNegativeTen, maximum: demoValuesV1.positiveTen }, mood: demoValuesV1.moodZero, attributes: { body: "C", social: "C", intellect: "B" } },
-      heroine: { stamina: { current: demoValuesV1.nonNegativeTen, maximum: demoValuesV1.positiveTen }, mood: demoValuesV1.moodZero },
-      relationship: { affection: demoValuesV1.safeZero, teamwork: demoValuesV1.nonNegativeZero, stage: "cold" },
+      player: {
+        stamina: { current: demoValuesV1.nonNegativeTen, maximum: demoValuesV1.positiveTen },
+        mood: demoValuesV1.moodZero,
+        attributes: { body: "C", social: "C", intellect: "B" },
+      },
+      heroine: {
+        stamina: { current: demoValuesV1.nonNegativeTen, maximum: demoValuesV1.positiveTen },
+        mood: demoValuesV1.moodZero,
+      },
+      relationship: {
+        affection: demoValuesV1.safeZero,
+        teamwork: demoValuesV1.nonNegativeZero,
+        stage: "cold",
+      },
     });
     expect(demoBalanceV1).toMatchObject({
       purchaseLineLimit: demoValuesV1.positiveFive,
@@ -485,18 +524,62 @@ describe("Demo balance v0 contract", () => {
   });
 
   it("freezes five ingredients and four recipes", () => {
-    expect(ingredientsV1.map(({ ingredientId, unitPrice, shelfLifeDays }) => ({ ingredientId, unitPrice, shelfLifeDays }))).toEqual([
-      { ingredientId: demoIdsV1.ingredientCoarseGrain, unitPrice: demoValuesV1.moneyOne, shelfLifeDays: demoValuesV1.positiveSeven },
-      { ingredientId: demoIdsV1.ingredientRootVegetable, unitPrice: demoValuesV1.moneyOne, shelfLifeDays: demoValuesV1.positiveThree },
-      { ingredientId: demoIdsV1.ingredientAle, unitPrice: demoValuesV1.moneyTwo, shelfLifeDays: demoValuesV1.positiveSeven },
-      { ingredientId: demoIdsV1.ingredientFreshMeat, unitPrice: demoValuesV1.moneyThree, shelfLifeDays: demoValuesV1.positiveTwo },
-      { ingredientId: demoIdsV1.ingredientHerb, unitPrice: demoValuesV1.moneyTwo, shelfLifeDays: demoValuesV1.positiveThree },
+    expect(
+      ingredientsV1.map(({ ingredientId, unitPrice, shelfLifeDays }) => ({
+        ingredientId,
+        unitPrice,
+        shelfLifeDays,
+      })),
+    ).toEqual([
+      {
+        ingredientId: demoIdsV1.ingredientCoarseGrain,
+        unitPrice: demoValuesV1.moneyOne,
+        shelfLifeDays: demoValuesV1.positiveSeven,
+      },
+      {
+        ingredientId: demoIdsV1.ingredientRootVegetable,
+        unitPrice: demoValuesV1.moneyOne,
+        shelfLifeDays: demoValuesV1.positiveThree,
+      },
+      {
+        ingredientId: demoIdsV1.ingredientAle,
+        unitPrice: demoValuesV1.moneyTwo,
+        shelfLifeDays: demoValuesV1.positiveSeven,
+      },
+      {
+        ingredientId: demoIdsV1.ingredientFreshMeat,
+        unitPrice: demoValuesV1.moneyThree,
+        shelfLifeDays: demoValuesV1.positiveTwo,
+      },
+      {
+        ingredientId: demoIdsV1.ingredientHerb,
+        unitPrice: demoValuesV1.moneyTwo,
+        shelfLifeDays: demoValuesV1.positiveThree,
+      },
     ]);
-    expect(recipesV1.map(({ recipeId, salePrice, prepPoints }) => ({ recipeId, salePrice, prepPoints }))).toEqual([
-      { recipeId: demoIdsV1.recipeGrainRootPorridge, salePrice: demoValuesV1.moneyFive, prepPoints: demoValuesV1.positiveOne },
-      { recipeId: demoIdsV1.recipeAleBread, salePrice: demoValuesV1.moneySix, prepPoints: demoValuesV1.positiveOne },
-      { recipeId: demoIdsV1.recipeHunterStew, salePrice: demoValuesV1.moneyTwelve, prepPoints: demoValuesV1.positiveTwo },
-      { recipeId: demoIdsV1.recipeTravelerRoast, salePrice: demoValuesV1.moneyThirteen, prepPoints: demoValuesV1.positiveTwo },
+    expect(
+      recipesV1.map(({ recipeId, salePrice, prepPoints }) => ({ recipeId, salePrice, prepPoints })),
+    ).toEqual([
+      {
+        recipeId: demoIdsV1.recipeGrainRootPorridge,
+        salePrice: demoValuesV1.moneyFive,
+        prepPoints: demoValuesV1.positiveOne,
+      },
+      {
+        recipeId: demoIdsV1.recipeAleBread,
+        salePrice: demoValuesV1.moneySix,
+        prepPoints: demoValuesV1.positiveOne,
+      },
+      {
+        recipeId: demoIdsV1.recipeHunterStew,
+        salePrice: demoValuesV1.moneyTwelve,
+        prepPoints: demoValuesV1.positiveTwo,
+      },
+      {
+        recipeId: demoIdsV1.recipeTravelerRoast,
+        salePrice: demoValuesV1.moneyThirteen,
+        prepPoints: demoValuesV1.positiveTwo,
+      },
     ]);
   });
 });
@@ -518,13 +601,46 @@ import { demoIdsV1 } from "./content/ids.js";
 export const demoStateDefinitionsV1: StoryStateDefinitionsV1 = Object.freeze({
   facts: [
     { factId: demoIdsV1.factWarClue, value: { kind: "boolean", defaultValue: false } },
-    { factId: demoIdsV1.factTutorialFirstServiceCompleted, value: { kind: "boolean", defaultValue: false } },
-    { factId: demoIdsV1.factInvoiceCheckedThisWeek, value: { kind: "boolean", defaultValue: false } },
+    {
+      factId: demoIdsV1.factTutorialFirstServiceCompleted,
+      value: { kind: "boolean", defaultValue: false },
+    },
+    {
+      factId: demoIdsV1.factInvoiceCheckedThisWeek,
+      value: { kind: "boolean", defaultValue: false },
+    },
   ],
   quests: [],
   outcomes: [
-    { outcomeId: demoIdsV1.outcomeRelationship, value: { kind: "token", defaultValue: demoIdsV1.tokenRelationshipPending, allowedValues: [demoIdsV1.tokenRelationshipPending, demoIdsV1.tokenRelationshipCompleted, demoIdsV1.tokenRelationshipAbandoned, demoIdsV1.tokenRelationshipReconciled, demoIdsV1.tokenRelationshipUnresolved] } },
-    { outcomeId: demoIdsV1.outcomeInvestigation, value: { kind: "token", defaultValue: demoIdsV1.tokenInvestigationNotAttempted, allowedValues: [demoIdsV1.tokenInvestigationNotAttempted, demoIdsV1.tokenInvestigationMissed, demoIdsV1.tokenInvestigationSetback, demoIdsV1.tokenInvestigationSuccessWithCost, demoIdsV1.tokenInvestigationComplete, demoIdsV1.tokenInvestigationExceptional] } },
+    {
+      outcomeId: demoIdsV1.outcomeRelationship,
+      value: {
+        kind: "token",
+        defaultValue: demoIdsV1.tokenRelationshipPending,
+        allowedValues: [
+          demoIdsV1.tokenRelationshipPending,
+          demoIdsV1.tokenRelationshipCompleted,
+          demoIdsV1.tokenRelationshipAbandoned,
+          demoIdsV1.tokenRelationshipReconciled,
+          demoIdsV1.tokenRelationshipUnresolved,
+        ],
+      },
+    },
+    {
+      outcomeId: demoIdsV1.outcomeInvestigation,
+      value: {
+        kind: "token",
+        defaultValue: demoIdsV1.tokenInvestigationNotAttempted,
+        allowedValues: [
+          demoIdsV1.tokenInvestigationNotAttempted,
+          demoIdsV1.tokenInvestigationMissed,
+          demoIdsV1.tokenInvestigationSetback,
+          demoIdsV1.tokenInvestigationSuccessWithCost,
+          demoIdsV1.tokenInvestigationComplete,
+          demoIdsV1.tokenInvestigationExceptional,
+        ],
+      },
+    },
   ],
 });
 ```
@@ -537,8 +653,16 @@ export const demoStateDefinitionsV1: StoryStateDefinitionsV1 = Object.freeze({
 // stories/demo/src/simulation/content/ingredients-recipes.ts
 import type { PositiveSafeInteger } from "@project-tavern/base";
 import type {
-  CustomerSegmentId, IngredientDefinitionV1, IngredientId, Money, Quantity,
-  RecipeDefinitionV1, RecipeId, RecipeIngredientV1, SegmentPreferenceV1, TextId,
+  CustomerSegmentId,
+  IngredientDefinitionV1,
+  IngredientId,
+  Money,
+  Quantity,
+  RecipeDefinitionV1,
+  RecipeId,
+  RecipeIngredientV1,
+  SegmentPreferenceV1,
+  TextId,
 } from "@project-tavern/modules";
 import { demoValuesV1 } from "../balance.js";
 import { demoIdsV1 } from "./ids.js";
@@ -549,10 +673,17 @@ const ingredient = (
   unitPrice: Money,
   shelfLifeDays: PositiveSafeInteger,
   refrigeratable: boolean,
-): IngredientDefinitionV1 => Object.freeze({ ingredientId, nameTextId, unitPrice, shelfLifeDays, refrigeratable });
+): IngredientDefinitionV1 =>
+  Object.freeze({ ingredientId, nameTextId, unitPrice, shelfLifeDays, refrigeratable });
 
-const recipeIngredient = (ingredientId: IngredientId, quantity: Quantity): RecipeIngredientV1 => ({ ingredientId, quantity });
-const preference = (segmentId: CustomerSegmentId, value: 0 | 1 | 2 | 3): SegmentPreferenceV1 => ({ segmentId, value });
+const recipeIngredient = (ingredientId: IngredientId, quantity: Quantity): RecipeIngredientV1 => ({
+  ingredientId,
+  quantity,
+});
+const preference = (segmentId: CustomerSegmentId, value: 0 | 1 | 2 | 3): SegmentPreferenceV1 => ({
+  segmentId,
+  value,
+});
 const recipe = (
   recipeId: RecipeId,
   nameTextId: TextId,
@@ -560,21 +691,94 @@ const recipe = (
   salePrice: Money,
   prepPoints: PositiveSafeInteger,
   preferences: readonly SegmentPreferenceV1[],
-): RecipeDefinitionV1 => Object.freeze({ recipeId, nameTextId, ingredients, salePrice, prepPoints, preferences });
+): RecipeDefinitionV1 =>
+  Object.freeze({ recipeId, nameTextId, ingredients, salePrice, prepPoints, preferences });
 
 export const ingredientsV1: readonly IngredientDefinitionV1[] = Object.freeze([
-  ingredient(demoIdsV1.ingredientCoarseGrain, demoIdsV1.textIngredientCoarseGrain, demoValuesV1.moneyOne, demoValuesV1.positiveSeven, false),
-  ingredient(demoIdsV1.ingredientRootVegetable, demoIdsV1.textIngredientRootVegetable, demoValuesV1.moneyOne, demoValuesV1.positiveThree, true),
-  ingredient(demoIdsV1.ingredientAle, demoIdsV1.textIngredientAle, demoValuesV1.moneyTwo, demoValuesV1.positiveSeven, false),
-  ingredient(demoIdsV1.ingredientFreshMeat, demoIdsV1.textIngredientFreshMeat, demoValuesV1.moneyThree, demoValuesV1.positiveTwo, true),
-  ingredient(demoIdsV1.ingredientHerb, demoIdsV1.textIngredientHerb, demoValuesV1.moneyTwo, demoValuesV1.positiveThree, true),
+  ingredient(
+    demoIdsV1.ingredientCoarseGrain,
+    demoIdsV1.textIngredientCoarseGrain,
+    demoValuesV1.moneyOne,
+    demoValuesV1.positiveSeven,
+    false,
+  ),
+  ingredient(
+    demoIdsV1.ingredientRootVegetable,
+    demoIdsV1.textIngredientRootVegetable,
+    demoValuesV1.moneyOne,
+    demoValuesV1.positiveThree,
+    true,
+  ),
+  ingredient(
+    demoIdsV1.ingredientAle,
+    demoIdsV1.textIngredientAle,
+    demoValuesV1.moneyTwo,
+    demoValuesV1.positiveSeven,
+    false,
+  ),
+  ingredient(
+    demoIdsV1.ingredientFreshMeat,
+    demoIdsV1.textIngredientFreshMeat,
+    demoValuesV1.moneyThree,
+    demoValuesV1.positiveTwo,
+    true,
+  ),
+  ingredient(
+    demoIdsV1.ingredientHerb,
+    demoIdsV1.textIngredientHerb,
+    demoValuesV1.moneyTwo,
+    demoValuesV1.positiveThree,
+    true,
+  ),
 ]);
 
 export const recipesV1: readonly RecipeDefinitionV1[] = Object.freeze([
-  recipe(demoIdsV1.recipeGrainRootPorridge, demoIdsV1.textRecipeGrainRootPorridge, [recipeIngredient(demoIdsV1.ingredientCoarseGrain, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientRootVegetable, demoValuesV1.quantityOne)], demoValuesV1.moneyFive, demoValuesV1.positiveOne, [preference(demoIdsV1.segmentLocals, 3), preference(demoIdsV1.segmentTravelers, 1)]),
-  recipe(demoIdsV1.recipeAleBread, demoIdsV1.textRecipeAleBread, [recipeIngredient(demoIdsV1.ingredientCoarseGrain, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientAle, demoValuesV1.quantityOne)], demoValuesV1.moneySix, demoValuesV1.positiveOne, [preference(demoIdsV1.segmentLocals, 2), preference(demoIdsV1.segmentTravelers, 3)]),
-  recipe(demoIdsV1.recipeHunterStew, demoIdsV1.textRecipeHunterStew, [recipeIngredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientRootVegetable, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne)], demoValuesV1.moneyTwelve, demoValuesV1.positiveTwo, [preference(demoIdsV1.segmentLocals, 3), preference(demoIdsV1.segmentTravelers, 2)]),
-  recipe(demoIdsV1.recipeTravelerRoast, demoIdsV1.textRecipeTravelerRoast, [recipeIngredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientAle, demoValuesV1.quantityOne), recipeIngredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne)], demoValuesV1.moneyThirteen, demoValuesV1.positiveTwo, [preference(demoIdsV1.segmentLocals, 1), preference(demoIdsV1.segmentTravelers, 3)]),
+  recipe(
+    demoIdsV1.recipeGrainRootPorridge,
+    demoIdsV1.textRecipeGrainRootPorridge,
+    [
+      recipeIngredient(demoIdsV1.ingredientCoarseGrain, demoValuesV1.quantityOne),
+      recipeIngredient(demoIdsV1.ingredientRootVegetable, demoValuesV1.quantityOne),
+    ],
+    demoValuesV1.moneyFive,
+    demoValuesV1.positiveOne,
+    [preference(demoIdsV1.segmentLocals, 3), preference(demoIdsV1.segmentTravelers, 1)],
+  ),
+  recipe(
+    demoIdsV1.recipeAleBread,
+    demoIdsV1.textRecipeAleBread,
+    [
+      recipeIngredient(demoIdsV1.ingredientCoarseGrain, demoValuesV1.quantityOne),
+      recipeIngredient(demoIdsV1.ingredientAle, demoValuesV1.quantityOne),
+    ],
+    demoValuesV1.moneySix,
+    demoValuesV1.positiveOne,
+    [preference(demoIdsV1.segmentLocals, 2), preference(demoIdsV1.segmentTravelers, 3)],
+  ),
+  recipe(
+    demoIdsV1.recipeHunterStew,
+    demoIdsV1.textRecipeHunterStew,
+    [
+      recipeIngredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne),
+      recipeIngredient(demoIdsV1.ingredientRootVegetable, demoValuesV1.quantityOne),
+      recipeIngredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne),
+    ],
+    demoValuesV1.moneyTwelve,
+    demoValuesV1.positiveTwo,
+    [preference(demoIdsV1.segmentLocals, 3), preference(demoIdsV1.segmentTravelers, 2)],
+  ),
+  recipe(
+    demoIdsV1.recipeTravelerRoast,
+    demoIdsV1.textRecipeTravelerRoast,
+    [
+      recipeIngredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne),
+      recipeIngredient(demoIdsV1.ingredientAle, demoValuesV1.quantityOne),
+      recipeIngredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne),
+    ],
+    demoValuesV1.moneyThirteen,
+    demoValuesV1.positiveTwo,
+    [preference(demoIdsV1.segmentLocals, 1), preference(demoIdsV1.segmentTravelers, 3)],
+  ),
 ]);
 ```
 
@@ -583,10 +787,7 @@ export const recipesV1: readonly RecipeDefinitionV1[] = Object.freeze([
 `balance.ts` first exports the one parsed numeric registry used by every Task 2–6 DTO and helper:
 
 ```ts
-import {
-  parseNonNegativeSafeInteger,
-  parsePositiveSafeInteger,
-} from "@project-tavern/base";
+import { parseNonNegativeSafeInteger, parsePositiveSafeInteger } from "@project-tavern/base";
 import {
   parseDayIndex,
   parseMoney,
@@ -669,8 +870,13 @@ export const demoValuesV1 = Object.freeze({
 ```ts
 import type { NonNegativeSafeInteger } from "@project-tavern/base";
 import type {
-  AvailabilityGateV1, ConfirmationMetadataV1, LifePolicyDefinitionV1, Money,
-  ReasonId, ServiceMode, ServiceModeDefinitionV1,
+  AvailabilityGateV1,
+  ConfirmationMetadataV1,
+  LifePolicyDefinitionV1,
+  Money,
+  ReasonId,
+  ServiceMode,
+  ServiceModeDefinitionV1,
 } from "@project-tavern/modules";
 import { demoIdsV1 } from "./content/ids.js";
 
@@ -678,30 +884,56 @@ const lifePolicies = [
   {
     policyId: demoIdsV1.policyBalanced,
     nameTextId: demoIdsV1.textPolicyBalanced,
-    apByPhase: { morning: demoValuesV1.nonNegativeTwo, afternoon: demoValuesV1.nonNegativeTwo, evening: demoValuesV1.nonNegativeTwo },
+    apByPhase: {
+      morning: demoValuesV1.nonNegativeTwo,
+      afternoon: demoValuesV1.nonNegativeTwo,
+      evening: demoValuesV1.nonNegativeTwo,
+    },
     playerNightRecovery: demoValuesV1.nonNegativeThree,
     nightRecoveryReasonId: demoIdsV1.reasonBalancedNightRecovery,
   },
   {
     policyId: demoIdsV1.policyNightOwl,
     nameTextId: demoIdsV1.textPolicyNightOwl,
-    apByPhase: { morning: demoValuesV1.nonNegativeOne, afternoon: demoValuesV1.nonNegativeTwo, evening: demoValuesV1.nonNegativeThree },
+    apByPhase: {
+      morning: demoValuesV1.nonNegativeOne,
+      afternoon: demoValuesV1.nonNegativeTwo,
+      evening: demoValuesV1.nonNegativeThree,
+    },
     playerNightRecovery: demoValuesV1.nonNegativeTwo,
     nightRecoveryReasonId: demoIdsV1.reasonNightOwlNightRecovery,
   },
 ] as const satisfies readonly [LifePolicyDefinitionV1, ...LifePolicyDefinitionV1[]];
 
 const emptyServiceConfirmationV1: ConfirmationMetadataV1 = Object.freeze({
-  benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [],
+  benefitTextIds: [],
+  mutuallyExcludedActionIds: [],
+  majorRiskTextIds: [],
 });
 const serviceAvailabilityByModeV1 = Object.freeze({
   manual: [],
   assisted: [
-    { conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day2 }], reasonId: demoIdsV1.reasonUnavailableServiceModeLocked },
-    { conditions: [{ kind: "tavern.helper_tier_at_least", tier: "apprentice" }], reasonId: demoIdsV1.reasonUnavailableHelperLocked },
+    {
+      conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day2 }],
+      reasonId: demoIdsV1.reasonUnavailableServiceModeLocked,
+    },
+    {
+      conditions: [{ kind: "tavern.helper_tier_at_least", tier: "apprentice" }],
+      reasonId: demoIdsV1.reasonUnavailableHelperLocked,
+    },
   ],
-  delegated: [{ conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day3 }], reasonId: demoIdsV1.reasonUnavailableServiceModeLocked }],
-  closed: [{ conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day3 }], reasonId: demoIdsV1.reasonUnavailableServiceModeLocked }],
+  delegated: [
+    {
+      conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day3 }],
+      reasonId: demoIdsV1.reasonUnavailableServiceModeLocked,
+    },
+  ],
+  closed: [
+    {
+      conditions: [{ kind: "calendar.day_at_least", day: demoValuesV1.day3 }],
+      reasonId: demoIdsV1.reasonUnavailableServiceModeLocked,
+    },
+  ],
 } as const satisfies Record<ServiceMode, readonly AvailabilityGateV1[]>);
 const serviceConfirmationByModeV1 = Object.freeze({
   manual: emptyServiceConfirmationV1,
@@ -721,19 +953,71 @@ const serviceMode = (
   basePreparationPoints: NonNegativeSafeInteger,
   teamworkGain: NonNegativeSafeInteger,
   preparationPointsPerAction: NonNegativeSafeInteger,
-): ServiceModeDefinitionV1 => Object.freeze({
-  mode,
-  availability: serviceAvailabilityByModeV1[mode],
-  confirmation: serviceConfirmationByModeV1[mode],
-  reasonId, apCost, playerStaminaCost, heroineStaminaCost, wage,
-  baseReceptionCapacity, basePreparationPoints, teamworkGain, preparationPointsPerAction,
-});
+): ServiceModeDefinitionV1 =>
+  Object.freeze({
+    mode,
+    availability: serviceAvailabilityByModeV1[mode],
+    confirmation: serviceConfirmationByModeV1[mode],
+    reasonId,
+    apCost,
+    playerStaminaCost,
+    heroineStaminaCost,
+    wage,
+    baseReceptionCapacity,
+    basePreparationPoints,
+    teamworkGain,
+    preparationPointsPerAction,
+  });
 
 const serviceModes = [
-  serviceMode("manual", demoIdsV1.reasonServiceManual, demoValuesV1.nonNegativeTwo, demoValuesV1.nonNegativeThree, demoValuesV1.nonNegativeThree, demoValuesV1.moneyZero, demoValuesV1.nonNegativeTen, demoValuesV1.nonNegativeSix, demoValuesV1.nonNegativeTwo, demoValuesV1.nonNegativeFour),
-  serviceMode("assisted", demoIdsV1.reasonServiceAssisted, demoValuesV1.nonNegativeOne, demoValuesV1.nonNegativeOne, demoValuesV1.nonNegativeTwo, demoValuesV1.moneyFive, demoValuesV1.nonNegativeEight, demoValuesV1.nonNegativeSix, demoValuesV1.nonNegativeOne, demoValuesV1.nonNegativeFour),
-  serviceMode("delegated", demoIdsV1.reasonServiceDelegated, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.moneySeven, demoValuesV1.nonNegativeSeven, demoValuesV1.nonNegativeSeven, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeTwo),
-  serviceMode("closed", demoIdsV1.reasonServiceClosed, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.moneyZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero, demoValuesV1.nonNegativeZero),
+  serviceMode(
+    "manual",
+    demoIdsV1.reasonServiceManual,
+    demoValuesV1.nonNegativeTwo,
+    demoValuesV1.nonNegativeThree,
+    demoValuesV1.nonNegativeThree,
+    demoValuesV1.moneyZero,
+    demoValuesV1.nonNegativeTen,
+    demoValuesV1.nonNegativeSix,
+    demoValuesV1.nonNegativeTwo,
+    demoValuesV1.nonNegativeFour,
+  ),
+  serviceMode(
+    "assisted",
+    demoIdsV1.reasonServiceAssisted,
+    demoValuesV1.nonNegativeOne,
+    demoValuesV1.nonNegativeOne,
+    demoValuesV1.nonNegativeTwo,
+    demoValuesV1.moneyFive,
+    demoValuesV1.nonNegativeEight,
+    demoValuesV1.nonNegativeSix,
+    demoValuesV1.nonNegativeOne,
+    demoValuesV1.nonNegativeFour,
+  ),
+  serviceMode(
+    "delegated",
+    demoIdsV1.reasonServiceDelegated,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.moneySeven,
+    demoValuesV1.nonNegativeSeven,
+    demoValuesV1.nonNegativeSeven,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeTwo,
+  ),
+  serviceMode(
+    "closed",
+    demoIdsV1.reasonServiceClosed,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.moneyZero,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeZero,
+    demoValuesV1.nonNegativeZero,
+  ),
 ] as const;
 ```
 
@@ -755,6 +1039,7 @@ git commit -m "feat(story-demo): encode initial balance contract"
 ## Task 3: Encode D1–D4 Actions, Gates, Facilities, Auras, and Scheduler Events
 
 **Files:**
+
 - Create: `stories/demo/src/simulation/content/actions.ts`
 - Create: `stories/demo/src/simulation/content/facilities-auras.ts`
 - Create: `stories/demo/src/simulation/content/events.ts`
@@ -767,6 +1052,7 @@ git commit -m "feat(story-demo): encode initial balance contract"
 - Modify: `scripts/verify-licensing.test.mjs`
 
 **Interfaces:**
+
 - Consumes: balance/state definitions, Task 1 `demoIdsV1`, Task 2 `demoValuesV1`, Module Action/Condition/Event contracts, Narrative IR, and the repository licensing policy.
 - Produces: every common Action presentation, four service mode gates, D2 invoice threshold Scene, D4 facility notification/choice, three exact Aura definitions, five Scheduler Events, and the atomically activated Demo mixed-license package scope required by the first narrative file.
 
@@ -801,7 +1087,11 @@ describe("D1-D4 authored gates", () => {
   it("freezes five Scheduler Events and their priorities", () => {
     expect(eventsV1.map(({ eventId, priority, sceneId }) => [eventId, priority, sceneId])).toEqual([
       [demoIdsV1.eventTutorialFirstService, demoValuesV1.safeFourHundred, null],
-      [demoIdsV1.eventSupplierInvoice, demoValuesV1.safeFourHundred, demoIdsV1.sceneSupplierInvoice],
+      [
+        demoIdsV1.eventSupplierInvoice,
+        demoValuesV1.safeFourHundred,
+        demoIdsV1.sceneSupplierInvoice,
+      ],
       [demoIdsV1.eventHelperAvailable, demoValuesV1.safeThreeHundred, null],
       [demoIdsV1.eventFacilityWindow, demoValuesV1.safeThreeHundred, demoIdsV1.sceneFacilityWindow],
       [demoIdsV1.eventLevyDue, demoValuesV1.safeFourHundred, demoIdsV1.sceneLevyDue],
@@ -810,12 +1100,37 @@ describe("D1-D4 authored gates", () => {
 
   it("freezes two facilities and three narrow Auras", () => {
     expect(facilitiesV1.map((entry) => [entry.facilityId, entry.cashCost])).toEqual([
-      [demoIdsV1.facilityColdStorage, demoValuesV1.moneyTwelve], [demoIdsV1.facilityComfortableBed, demoValuesV1.moneyTwelve],
+      [demoIdsV1.facilityColdStorage, demoValuesV1.moneyTwelve],
+      [demoIdsV1.facilityComfortableBed, demoValuesV1.moneyTwelve],
     ]);
     expect(aurasV1.map((entry) => [entry.auraId, entry.durationPolicy])).toEqual([
-      [demoIdsV1.auraHeroineAngry, { kind: "countdown", unit: "day_end", defaultRemaining: demoValuesV1.positiveTwo, maximumRemaining: demoValuesV1.positiveTwo }],
-      [demoIdsV1.auraSignRepaired, { kind: "countdown", unit: "opening", defaultRemaining: demoValuesV1.positiveOne, maximumRemaining: demoValuesV1.positiveOne }],
-      [demoIdsV1.auraAdventureStrain, { kind: "countdown", unit: "night_recovery", defaultRemaining: demoValuesV1.positiveOne, maximumRemaining: demoValuesV1.positiveOne }],
+      [
+        demoIdsV1.auraHeroineAngry,
+        {
+          kind: "countdown",
+          unit: "day_end",
+          defaultRemaining: demoValuesV1.positiveTwo,
+          maximumRemaining: demoValuesV1.positiveTwo,
+        },
+      ],
+      [
+        demoIdsV1.auraSignRepaired,
+        {
+          kind: "countdown",
+          unit: "opening",
+          defaultRemaining: demoValuesV1.positiveOne,
+          maximumRemaining: demoValuesV1.positiveOne,
+        },
+      ],
+      [
+        demoIdsV1.auraAdventureStrain,
+        {
+          kind: "countdown",
+          unit: "night_recovery",
+          defaultRemaining: demoValuesV1.positiveOne,
+          maximumRemaining: demoValuesV1.positiveOne,
+        },
+      ],
     ]);
   });
 });
@@ -832,8 +1147,12 @@ Expected: FAIL with missing actions/events/facilities files.
 ```ts
 // complete ordered entries in stories/demo/src/simulation/content/actions.ts
 import type {
-  ActionId, ActionOccupationDefinitionV1, ActionPresentationDefinitionV1,
-  AvailabilityGateV1, CalendarPhase, GameCommandV1,
+  ActionId,
+  ActionOccupationDefinitionV1,
+  ActionPresentationDefinitionV1,
+  AvailabilityGateV1,
+  CalendarPhase,
+  GameCommandV1,
 } from "@project-tavern/modules";
 import { demoIdsV1 } from "./ids.js";
 
@@ -843,17 +1162,58 @@ const action = (
   availablePhases: readonly CalendarPhase[],
   occupation: ActionOccupationDefinitionV1,
   visibility: readonly AvailabilityGateV1[],
-): ActionPresentationDefinitionV1 => buildActionPresentationV1({
-  actionId, commandKind, availablePhases, occupation, visibility,
-});
+): ActionPresentationDefinitionV1 =>
+  buildActionPresentationV1({
+    actionId,
+    commandKind,
+    availablePhases,
+    occupation,
+    visibility,
+  });
 
 export const actionsV1: readonly ActionPresentationDefinitionV1[] = Object.freeze([
-  action(demoIdsV1.actionChooseLifePolicy, "policy.choose", ["morning"], { kind: "none" }, policyVisibilityV1),
-  action(demoIdsV1.actionPurchase, "inventory.buy", ["morning", "afternoon"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
-  action(demoIdsV1.actionPrepareFood, "actor.prepare_food", ["morning", "afternoon"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
-  action(demoIdsV1.actionRest, "actor.rest", ["morning", "afternoon", "evening"], { kind: "current_phase" }, activeServiceDayVisibilityV1),
-  action(demoIdsV1.actionServicePlan, "tavern.plan.set", ["morning", "afternoon"], { kind: "fixed", phases: ["evening"] }, activeServiceDayVisibilityV1),
-  action(demoIdsV1.actionAdvancePhase, "calendar.advance_phase", ["morning", "afternoon", "evening"], { kind: "none" }, activeRunVisibilityV1),
+  action(
+    demoIdsV1.actionChooseLifePolicy,
+    "policy.choose",
+    ["morning"],
+    { kind: "none" },
+    policyVisibilityV1,
+  ),
+  action(
+    demoIdsV1.actionPurchase,
+    "inventory.buy",
+    ["morning", "afternoon"],
+    { kind: "current_phase" },
+    activeServiceDayVisibilityV1,
+  ),
+  action(
+    demoIdsV1.actionPrepareFood,
+    "actor.prepare_food",
+    ["morning", "afternoon"],
+    { kind: "current_phase" },
+    activeServiceDayVisibilityV1,
+  ),
+  action(
+    demoIdsV1.actionRest,
+    "actor.rest",
+    ["morning", "afternoon", "evening"],
+    { kind: "current_phase" },
+    activeServiceDayVisibilityV1,
+  ),
+  action(
+    demoIdsV1.actionServicePlan,
+    "tavern.plan.set",
+    ["morning", "afternoon"],
+    { kind: "fixed", phases: ["evening"] },
+    activeServiceDayVisibilityV1,
+  ),
+  action(
+    demoIdsV1.actionAdvancePhase,
+    "calendar.advance_phase",
+    ["morning", "afternoon", "evening"],
+    { kind: "none" },
+    activeRunVisibilityV1,
+  ),
   action(demoIdsV1.actionPayLevy, "levy.pay", ["afternoon"], { kind: "none" }, levyVisibilityV1),
   facilityActionV1,
   repairSignActionV1,
@@ -877,8 +1237,14 @@ Cold storage adds `shelf_life.add_days amount=demoValuesV1.safeTwo` to the three
 ```ts
 // stories/demo/src/simulation/content/events.ts
 import type {
-  CheckpointId, ConditionV1, EffectIntentV1, EventId, EventTriggerV1,
-  SafeInteger, SceneId, StoryEventDefinitionV1,
+  CheckpointId,
+  ConditionV1,
+  EffectIntentV1,
+  EventId,
+  EventTriggerV1,
+  SafeInteger,
+  SceneId,
+  StoryEventDefinitionV1,
 } from "@project-tavern/modules";
 import { demoValuesV1 } from "../balance.js";
 import { demoIdsV1 } from "./ids.js";
@@ -891,18 +1257,65 @@ const event = (
   sceneId: SceneId | null,
   when: readonly ConditionV1[],
   effects: readonly EffectIntentV1[],
-): StoryEventDefinitionV1 => Object.freeze({
-  eventId, checkpointId, trigger, priority,
-  weightedGroupId: null, weight: demoValuesV1.nonNegativeZero,
-  when, sceneId, effects,
-});
+): StoryEventDefinitionV1 =>
+  Object.freeze({
+    eventId,
+    checkpointId,
+    trigger,
+    priority,
+    weightedGroupId: null,
+    weight: demoValuesV1.nonNegativeZero,
+    when,
+    sceneId,
+    effects,
+  });
 
 export const eventsV1: readonly StoryEventDefinitionV1[] = Object.freeze([
-  event(demoIdsV1.eventTutorialFirstService, demoIdsV1.checkpointTutorialFirstService, { kind: "command.succeeded", commandKinds: ["tavern.opening.finalize"] }, demoValuesV1.safeFourHundred, null, tutorialConditionsV1, tutorialEffectsV1),
-  event(demoIdsV1.eventSupplierInvoice, demoIdsV1.checkpointSupplierInvoice, { kind: "phase.entered", days: [demoValuesV1.day2], phases: ["morning"] }, demoValuesV1.safeFourHundred, demoIdsV1.sceneSupplierInvoice, invoiceConditionsV1, []),
-  event(demoIdsV1.eventHelperAvailable, demoIdsV1.checkpointHelperAvailable, { kind: "day.ended", days: [demoValuesV1.day1] }, demoValuesV1.safeThreeHundred, null, [], helperEffectsV1),
-  event(demoIdsV1.eventFacilityWindow, demoIdsV1.checkpointFacilityWindow, { kind: "phase.entered", days: [demoValuesV1.day4], phases: ["morning"] }, demoValuesV1.safeThreeHundred, demoIdsV1.sceneFacilityWindow, facilityUndecidedConditionsV1, []),
-  event(demoIdsV1.eventLevyDue, demoIdsV1.checkpointLevyDue, { kind: "phase.entered", days: [demoValuesV1.day7], phases: ["morning"] }, demoValuesV1.safeFourHundred, demoIdsV1.sceneLevyDue, activeRunConditionsV1, []),
+  event(
+    demoIdsV1.eventTutorialFirstService,
+    demoIdsV1.checkpointTutorialFirstService,
+    { kind: "command.succeeded", commandKinds: ["tavern.opening.finalize"] },
+    demoValuesV1.safeFourHundred,
+    null,
+    tutorialConditionsV1,
+    tutorialEffectsV1,
+  ),
+  event(
+    demoIdsV1.eventSupplierInvoice,
+    demoIdsV1.checkpointSupplierInvoice,
+    { kind: "phase.entered", days: [demoValuesV1.day2], phases: ["morning"] },
+    demoValuesV1.safeFourHundred,
+    demoIdsV1.sceneSupplierInvoice,
+    invoiceConditionsV1,
+    [],
+  ),
+  event(
+    demoIdsV1.eventHelperAvailable,
+    demoIdsV1.checkpointHelperAvailable,
+    { kind: "day.ended", days: [demoValuesV1.day1] },
+    demoValuesV1.safeThreeHundred,
+    null,
+    [],
+    helperEffectsV1,
+  ),
+  event(
+    demoIdsV1.eventFacilityWindow,
+    demoIdsV1.checkpointFacilityWindow,
+    { kind: "phase.entered", days: [demoValuesV1.day4], phases: ["morning"] },
+    demoValuesV1.safeThreeHundred,
+    demoIdsV1.sceneFacilityWindow,
+    facilityUndecidedConditionsV1,
+    [],
+  ),
+  event(
+    demoIdsV1.eventLevyDue,
+    demoIdsV1.checkpointLevyDue,
+    { kind: "phase.entered", days: [demoValuesV1.day7], phases: ["morning"] },
+    demoValuesV1.safeFourHundred,
+    demoIdsV1.sceneLevyDue,
+    activeRunConditionsV1,
+    [],
+  ),
 ]);
 ```
 
@@ -928,11 +1341,13 @@ git commit -m "feat(story-demo): add d1 through d4 content"
 ## Task 4: Implement the D5 Relationship Branch and D6 Apology
 
 **Files:**
+
 - Create: `stories/demo/src/simulation/narrative/relationship.ts`
 - Create: `stories/demo/src/test/relationship-content.contract.test.ts`
 - Modify: `stories/demo/src/simulation/content/actions.ts`
 
 **Interfaces:**
+
 - Consumes: StoryAction/Narrative/Effect Schemas, D5/D6 gates, and branded content IDs.
 - Produces: schema-valid repair-sign/apology definitions with cooperate/decline/conflict choices and exact mutual exclusion. Runtime outcomes are deferred to Task 7A.
 
@@ -955,11 +1370,34 @@ import { demoValuesV1 } from "../balance.js";
 import { demoIdsV1 } from "../content/ids.js";
 
 const cooperateEffectsV1: readonly EffectIntentV1[] = [
-  { kind: "calendar.ap.adjust", delta: demoValuesV1.safeMinusTwo, reasonId: demoIdsV1.reasonRelationshipRepair },
-  { kind: "actor.stamina.adjust", actorId: demoIdsV1.actorPlayer, delta: demoValuesV1.safeMinusOne, reasonId: demoIdsV1.reasonRelationshipRepair },
-  { kind: "actor.stamina.adjust", actorId: demoIdsV1.actorHeroine, delta: demoValuesV1.safeMinusOne, reasonId: demoIdsV1.reasonRelationshipRepair },
-  { kind: "relationship.affection.adjust", delta: demoValuesV1.safeThree, reasonId: demoIdsV1.reasonRelationshipRepair },
-  { kind: "actor.mood.adjust", actorId: demoIdsV1.actorHeroine, delta: demoValuesV1.safeOne, reasonId: demoIdsV1.reasonRelationshipRepair },
+  {
+    kind: "calendar.ap.adjust",
+    delta: demoValuesV1.safeMinusTwo,
+    reasonId: demoIdsV1.reasonRelationshipRepair,
+  },
+  {
+    kind: "actor.stamina.adjust",
+    actorId: demoIdsV1.actorPlayer,
+    delta: demoValuesV1.safeMinusOne,
+    reasonId: demoIdsV1.reasonRelationshipRepair,
+  },
+  {
+    kind: "actor.stamina.adjust",
+    actorId: demoIdsV1.actorHeroine,
+    delta: demoValuesV1.safeMinusOne,
+    reasonId: demoIdsV1.reasonRelationshipRepair,
+  },
+  {
+    kind: "relationship.affection.adjust",
+    delta: demoValuesV1.safeThree,
+    reasonId: demoIdsV1.reasonRelationshipRepair,
+  },
+  {
+    kind: "actor.mood.adjust",
+    actorId: demoIdsV1.actorHeroine,
+    delta: demoValuesV1.safeOne,
+    reasonId: demoIdsV1.reasonRelationshipRepair,
+  },
   {
     kind: "aura.apply",
     auraId: demoIdsV1.auraSignRepaired,
@@ -968,17 +1406,41 @@ const cooperateEffectsV1: readonly EffectIntentV1[] = [
     duration: { kind: "countdown", unit: "opening", remaining: demoValuesV1.positiveOne },
     reasonId: demoIdsV1.reasonAuraSignRepaired,
   },
-  { kind: "outcome.set", outcomeId: demoIdsV1.outcomeRelationship, value: { kind: "token", value: demoIdsV1.tokenRelationshipCompleted }, reasonId: demoIdsV1.reasonRelationshipRepair },
-  { kind: "outcome.set", outcomeId: demoIdsV1.outcomeInvestigation, value: { kind: "token", value: demoIdsV1.tokenInvestigationMissed }, reasonId: demoIdsV1.reasonRelationshipRepair },
+  {
+    kind: "outcome.set",
+    outcomeId: demoIdsV1.outcomeRelationship,
+    value: { kind: "token", value: demoIdsV1.tokenRelationshipCompleted },
+    reasonId: demoIdsV1.reasonRelationshipRepair,
+  },
+  {
+    kind: "outcome.set",
+    outcomeId: demoIdsV1.outcomeInvestigation,
+    value: { kind: "token", value: demoIdsV1.tokenInvestigationMissed },
+    reasonId: demoIdsV1.reasonRelationshipRepair,
+  },
 ];
 
 const declineEffectsV1: readonly EffectIntentV1[] = [
-  { kind: "outcome.set", outcomeId: demoIdsV1.outcomeRelationship, value: { kind: "token", value: demoIdsV1.tokenRelationshipAbandoned }, reasonId: demoIdsV1.reasonRelationshipDeclined },
-  { kind: "outcome.set", outcomeId: demoIdsV1.outcomeInvestigation, value: { kind: "token", value: demoIdsV1.tokenInvestigationMissed }, reasonId: demoIdsV1.reasonRelationshipDeclined },
+  {
+    kind: "outcome.set",
+    outcomeId: demoIdsV1.outcomeRelationship,
+    value: { kind: "token", value: demoIdsV1.tokenRelationshipAbandoned },
+    reasonId: demoIdsV1.reasonRelationshipDeclined,
+  },
+  {
+    kind: "outcome.set",
+    outcomeId: demoIdsV1.outcomeInvestigation,
+    value: { kind: "token", value: demoIdsV1.tokenInvestigationMissed },
+    reasonId: demoIdsV1.reasonRelationshipDeclined,
+  },
 ];
 
 const conflictEffectsV1: readonly EffectIntentV1[] = [
-  { kind: "relationship.affection.adjust", delta: demoValuesV1.safeMinusOne, reasonId: demoIdsV1.reasonRelationshipConflict },
+  {
+    kind: "relationship.affection.adjust",
+    delta: demoValuesV1.safeMinusOne,
+    reasonId: demoIdsV1.reasonRelationshipConflict,
+  },
   {
     kind: "aura.apply",
     auraId: demoIdsV1.auraHeroineAngry,
@@ -987,8 +1449,18 @@ const conflictEffectsV1: readonly EffectIntentV1[] = [
     duration: { kind: "countdown", unit: "day_end", remaining: demoValuesV1.positiveTwo },
     reasonId: demoIdsV1.reasonAuraHeroineAngry,
   },
-  { kind: "outcome.set", outcomeId: demoIdsV1.outcomeRelationship, value: { kind: "token", value: demoIdsV1.tokenRelationshipUnresolved }, reasonId: demoIdsV1.reasonRelationshipConflict },
-  { kind: "outcome.set", outcomeId: demoIdsV1.outcomeInvestigation, value: { kind: "token", value: demoIdsV1.tokenInvestigationMissed }, reasonId: demoIdsV1.reasonRelationshipConflict },
+  {
+    kind: "outcome.set",
+    outcomeId: demoIdsV1.outcomeRelationship,
+    value: { kind: "token", value: demoIdsV1.tokenRelationshipUnresolved },
+    reasonId: demoIdsV1.reasonRelationshipConflict,
+  },
+  {
+    kind: "outcome.set",
+    outcomeId: demoIdsV1.outcomeInvestigation,
+    value: { kind: "token", value: demoIdsV1.tokenInvestigationMissed },
+    reasonId: demoIdsV1.reasonRelationshipConflict,
+  },
 ];
 ```
 
@@ -998,10 +1470,28 @@ Repair is visible D5 afternoon while relationship is pending, then available onl
 
 ```ts
 const apologyEffectsV1: readonly EffectIntentV1[] = [
-  { kind: "calendar.ap.adjust", delta: demoValuesV1.safeMinusOne, reasonId: demoIdsV1.reasonRelationshipApology },
-  { kind: "aura.clear", auraId: demoIdsV1.auraHeroineAngry, target: { kind: "actor", actorId: demoIdsV1.actorHeroine }, reasonId: demoIdsV1.reasonRelationshipApology },
-  { kind: "relationship.affection.adjust", delta: demoValuesV1.safeOne, reasonId: demoIdsV1.reasonRelationshipApology },
-  { kind: "outcome.set", outcomeId: demoIdsV1.outcomeRelationship, value: { kind: "token", value: demoIdsV1.tokenRelationshipReconciled }, reasonId: demoIdsV1.reasonRelationshipApology },
+  {
+    kind: "calendar.ap.adjust",
+    delta: demoValuesV1.safeMinusOne,
+    reasonId: demoIdsV1.reasonRelationshipApology,
+  },
+  {
+    kind: "aura.clear",
+    auraId: demoIdsV1.auraHeroineAngry,
+    target: { kind: "actor", actorId: demoIdsV1.actorHeroine },
+    reasonId: demoIdsV1.reasonRelationshipApology,
+  },
+  {
+    kind: "relationship.affection.adjust",
+    delta: demoValuesV1.safeOne,
+    reasonId: demoIdsV1.reasonRelationshipApology,
+  },
+  {
+    kind: "outcome.set",
+    outcomeId: demoIdsV1.outcomeRelationship,
+    value: { kind: "token", value: demoIdsV1.tokenRelationshipReconciled },
+    reasonId: demoIdsV1.reasonRelationshipApology,
+  },
 ];
 ```
 
@@ -1023,6 +1513,7 @@ git commit -m "feat(story-demo): add relationship choice route"
 ## Task 5: Implement the Two-Stage Investigation and D6 Consequences
 
 **Files:**
+
 - Create: `stories/demo/src/simulation/narrative/investigation.ts`
 - Create: `stories/demo/src/simulation/content/checks-endings.ts`
 - Create: `stories/demo/src/simulation/rules/checks.ts`
@@ -1030,6 +1521,7 @@ git commit -m "feat(story-demo): add relationship choice route"
 - Modify: `stories/demo/src/simulation/content/actions.ts`
 
 **Interfaces:**
+
 - Consumes: WorldAction/check/Narrative contracts, fixed rule-RNG vector, branded IDs/values, and D5 mutual exclusion.
 - Produces: schema-valid basic/prepared WorldAction options, two Scene steps, one four-band check definition, Inventory reward intents, war-clue demand modifier, relationship exclusion, and adventure strain. Command-through persistence is deferred to Task 7A.
 
@@ -1058,19 +1550,47 @@ export const oldTradeRoadV1: WorldActionDefinitionV1 = Object.freeze({
   reasonId: demoIdsV1.reasonInvestigationBegin,
   baseCashCost: demoValuesV1.moneyFour,
   playerStaminaCost: demoValuesV1.nonNegativeThree,
-  beginEffects: [{
-    kind: "outcome.set",
-    outcomeId: demoIdsV1.outcomeRelationship,
-    value: { kind: "token", value: demoIdsV1.tokenRelationshipAbandoned },
-    reasonId: demoIdsV1.reasonInvestigationBegin,
-  }],
+  beginEffects: [
+    {
+      kind: "outcome.set",
+      outcomeId: demoIdsV1.outcomeRelationship,
+      value: { kind: "token", value: demoIdsV1.tokenRelationshipAbandoned },
+      reasonId: demoIdsV1.reasonInvestigationBegin,
+    },
+  ],
   options: [
-    { optionId: demoIdsV1.choiceOldTradeRoadBasic, labelTextId: demoIdsV1.textChoiceOldTradeRoadBasic, availability: [], additionalCashCost: demoValuesV1.moneyZero, preparationBonus: demoValuesV1.safeZero, beginEffects: [], confirmation: oldTradeRoadConfirmationV1 },
-    { optionId: demoIdsV1.choiceOldTradeRoadPrepared, labelTextId: demoIdsV1.textChoiceOldTradeRoadPrepared, availability: [], additionalCashCost: demoValuesV1.moneyFour, preparationBonus: demoValuesV1.safeOne, beginEffects: [], confirmation: oldTradeRoadPreparedConfirmationV1 },
+    {
+      optionId: demoIdsV1.choiceOldTradeRoadBasic,
+      labelTextId: demoIdsV1.textChoiceOldTradeRoadBasic,
+      availability: [],
+      additionalCashCost: demoValuesV1.moneyZero,
+      preparationBonus: demoValuesV1.safeZero,
+      beginEffects: [],
+      confirmation: oldTradeRoadConfirmationV1,
+    },
+    {
+      optionId: demoIdsV1.choiceOldTradeRoadPrepared,
+      labelTextId: demoIdsV1.textChoiceOldTradeRoadPrepared,
+      availability: [],
+      additionalCashCost: demoValuesV1.moneyFour,
+      preparationBonus: demoValuesV1.safeOne,
+      beginEffects: [],
+      confirmation: oldTradeRoadPreparedConfirmationV1,
+    },
   ],
   steps: [
-    { stepId: demoIdsV1.stepOldTradeRoadDeparture, phase: "morning", apCost: demoValuesV1.nonNegativeOne, sceneId: demoIdsV1.sceneOldTradeRoadDeparture },
-    { stepId: demoIdsV1.stepOldTradeRoadInvestigation, phase: "afternoon", apCost: demoValuesV1.nonNegativeTwo, sceneId: demoIdsV1.sceneOldTradeRoadInvestigation },
+    {
+      stepId: demoIdsV1.stepOldTradeRoadDeparture,
+      phase: "morning",
+      apCost: demoValuesV1.nonNegativeOne,
+      sceneId: demoIdsV1.sceneOldTradeRoadDeparture,
+    },
+    {
+      stepId: demoIdsV1.stepOldTradeRoadInvestigation,
+      phase: "afternoon",
+      apCost: demoValuesV1.nonNegativeTwo,
+      sceneId: demoIdsV1.sceneOldTradeRoadInvestigation,
+    },
   ],
   checkId: demoIdsV1.checkOldTradeRoad,
 });
@@ -1100,10 +1620,7 @@ const ingredient = (ingredientId: IngredientId, quantity: Quantity): IngredientQ
   quantity,
 });
 
-const grant = (
-  lines: readonly IngredientQuantityV1[],
-  reasonId: ReasonId,
-): EffectIntentV1 => ({
+const grant = (lines: readonly IngredientQuantityV1[], reasonId: ReasonId): EffectIntentV1 => ({
   kind: "inventory.grant",
   lines,
   source: { kind: "world_action", actionId: demoIdsV1.actionOldTradeRoad },
@@ -1146,33 +1663,61 @@ export const oldTradeRoadCheckV1: CheckDefinitionV1 = Object.freeze({
   dice: "2d6",
   bands: [
     band(demoIdsV1.bandInvestigationSetback, demoValuesV1.safeMin, demoValuesV1.safeFive, [
-      grant([ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne)], demoIdsV1.reasonInvestigationSetback),
+      grant(
+        [ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityOne)],
+        demoIdsV1.reasonInvestigationSetback,
+      ),
       applyStrainV1,
-      investigationOutcome(demoIdsV1.tokenInvestigationSetback, demoIdsV1.reasonInvestigationSetback),
+      investigationOutcome(
+        demoIdsV1.tokenInvestigationSetback,
+        demoIdsV1.reasonInvestigationSetback,
+      ),
     ]),
     band(demoIdsV1.bandInvestigationSuccessWithCost, demoValuesV1.safeSix, demoValuesV1.safeEight, [
-      grant([
-        ingredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne),
-        ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityTwo),
-      ], demoIdsV1.reasonInvestigationSuccessWithCost),
-      investigationOutcome(demoIdsV1.tokenInvestigationSuccessWithCost, demoIdsV1.reasonInvestigationSuccessWithCost),
+      grant(
+        [
+          ingredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityOne),
+          ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityTwo),
+        ],
+        demoIdsV1.reasonInvestigationSuccessWithCost,
+      ),
+      investigationOutcome(
+        demoIdsV1.tokenInvestigationSuccessWithCost,
+        demoIdsV1.reasonInvestigationSuccessWithCost,
+      ),
     ]),
     band(demoIdsV1.bandInvestigationComplete, demoValuesV1.safeNine, demoValuesV1.safeEleven, [
-      grant([
-        ingredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityTwo),
-        ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityThree),
-      ], demoIdsV1.reasonInvestigationComplete),
+      grant(
+        [
+          ingredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityTwo),
+          ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityThree),
+        ],
+        demoIdsV1.reasonInvestigationComplete,
+      ),
       setWarClueV1,
-      investigationOutcome(demoIdsV1.tokenInvestigationComplete, demoIdsV1.reasonInvestigationComplete),
+      investigationOutcome(
+        demoIdsV1.tokenInvestigationComplete,
+        demoIdsV1.reasonInvestigationComplete,
+      ),
     ]),
     band(demoIdsV1.bandInvestigationExceptional, demoValuesV1.safeTwelve, null, [
-      grant([
-        ingredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityThree),
-        ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityFour),
-      ], demoIdsV1.reasonInvestigationExceptional),
+      grant(
+        [
+          ingredient(demoIdsV1.ingredientFreshMeat, demoValuesV1.quantityThree),
+          ingredient(demoIdsV1.ingredientHerb, demoValuesV1.quantityFour),
+        ],
+        demoIdsV1.reasonInvestigationExceptional,
+      ),
       setWarClueV1,
-      { kind: "reputation.adjust", delta: demoValuesV1.safeOne, reasonId: demoIdsV1.reasonInvestigationExceptional },
-      investigationOutcome(demoIdsV1.tokenInvestigationExceptional, demoIdsV1.reasonInvestigationExceptional),
+      {
+        kind: "reputation.adjust",
+        delta: demoValuesV1.safeOne,
+        reasonId: demoIdsV1.reasonInvestigationExceptional,
+      },
+      investigationOutcome(
+        demoIdsV1.tokenInvestigationExceptional,
+        demoIdsV1.reasonInvestigationExceptional,
+      ),
     ]),
   ],
 });
@@ -1205,16 +1750,43 @@ function collectCheckModifiersV1(
 
 export function resolveCheckV1(input: DeepReadonly<CheckInputV1>, rng: RuleRngV1): CheckResultV1 {
   const dice = [
-    parseDieFace(rng.nextInt({ exclusiveMax: demoValuesV1.positiveSix, purpose: `check:${input.checkId}:die-1` }) + demoValuesV1.positiveOne),
-    parseDieFace(rng.nextInt({ exclusiveMax: demoValuesV1.positiveSix, purpose: `check:${input.checkId}:die-2` }) + demoValuesV1.positiveOne),
+    parseDieFace(
+      rng.nextInt({
+        exclusiveMax: demoValuesV1.positiveSix,
+        purpose: `check:${input.checkId}:die-1`,
+      }) + demoValuesV1.positiveOne,
+    ),
+    parseDieFace(
+      rng.nextInt({
+        exclusiveMax: demoValuesV1.positiveSix,
+        purpose: `check:${input.checkId}:die-2`,
+      }) + demoValuesV1.positiveOne,
+    ),
   ] as const;
   const applied = collectCheckModifiersV1(input.modifiers, input.checkId);
   const totalBonus = parseSafeInteger(
-    input.attributeBonus + input.preparationBonus + applied.reduce((sum, modifier) => sum + modifier.contribution, 0),
+    input.attributeBonus +
+      input.preparationBonus +
+      applied.reduce((sum, modifier) => sum + modifier.contribution, 0),
   );
   const total = parseSafeInteger(dice[0] + dice[1] + totalBonus);
-  const band = input.bands.find((candidate) => total >= candidate.minInclusive && (candidate.maxInclusive === null || total <= candidate.maxInclusive))!;
-  return { checkId: input.checkId, actorId: input.actorId, dice, attributeBonus: input.attributeBonus, preparationBonus: input.preparationBonus, modifiers: applied, totalBonus, total, bandId: band.bandId, effects: band.effects };
+  const band = input.bands.find(
+    (candidate) =>
+      total >= candidate.minInclusive &&
+      (candidate.maxInclusive === null || total <= candidate.maxInclusive),
+  )!;
+  return {
+    checkId: input.checkId,
+    actorId: input.actorId,
+    dice,
+    attributeBonus: input.attributeBonus,
+    preparationBonus: input.preparationBonus,
+    modifiers: applied,
+    totalBonus,
+    total,
+    bandId: band.bandId,
+    effects: band.effects,
+  };
 }
 ```
 
@@ -1238,6 +1810,7 @@ git commit -m "feat(story-demo): add two-stage investigation"
 ## Task 6: Implement Demand, Tavern Settlement, Forecast, and Endings
 
 **Files:**
+
 - Create: `stories/demo/src/simulation/rules/demand.ts`
 - Create: `stories/demo/src/simulation/rules/tavern.ts`
 - Create: `stories/demo/src/simulation/rules/endings.ts`
@@ -1247,6 +1820,7 @@ git commit -m "feat(story-demo): add two-stage investigation"
 - Modify: `stories/demo/src/simulation/content/checks-endings.ts`
 
 **Interfaces:**
+
 - Consumes: exact Balance/content, pure Story rule contracts, deterministic RNG, Module modifier ordering, OpeningBaseline, ledger drafts, and Ending input.
 - Produces: all seven `StoryRulesV1` slots, explained demand/opening results, obligation projections through shared queries, and three persisted ending outcomes.
 
@@ -1269,10 +1843,12 @@ import {
 describe("Demo rules", () => {
   it("materializes the reference D1 demand and keeps actual inside preview", () => {
     const preview = demandRulesV1.preview(buildD1DemandProjectionInputV1());
-    expect(preview.lines.map((line) => [line.segmentId, line.range, line.actualCustomers])).toEqual([
-      ["segment.locals", { min: 6, max: 6 }, 6],
-      ["segment.travelers", { min: 2, max: 2 }, 2],
-    ]);
+    expect(preview.lines.map((line) => [line.segmentId, line.range, line.actualCustomers])).toEqual(
+      [
+        ["segment.locals", { min: 6, max: 6 }, 6],
+        ["segment.travelers", { min: 2, max: 2 }, 2],
+      ],
+    );
   });
 
   it("uses stable order allocation and balances settlement ledger value", () => {
@@ -1282,12 +1858,30 @@ describe("Demo rules", () => {
       ["segment.locals", "recipe.hunter_stew", 4],
       ["segment.travelers", "recipe.hunter_stew", 0],
     ]);
-    expect(draft.entries.reduce((sum, entry) => sum + entry.valuationDelta, 0)).toBeLessThanOrEqual(0);
+    expect(draft.entries.reduce((sum, entry) => sum + entry.valuationDelta, 0)).toBeLessThanOrEqual(
+      0,
+    );
   });
 
   it.each([
-    [buildEndingInputV1({ cashAfterLevy: demoValuesV1.moneyTwenty, reputation: demoValuesV1.nonNegativeFifty, facilityIds: [demoIdsV1.facilityComfortableBed] }), "completed_stable", demoIdsV1.endingStable],
-    [buildEndingInputV1({ cashAfterLevy: demoValuesV1.moneyOne, reputation: demoValuesV1.nonNegativeFortyNine, facilityIds: [] }), "completed_danger", demoIdsV1.endingDanger],
+    [
+      buildEndingInputV1({
+        cashAfterLevy: demoValuesV1.moneyTwenty,
+        reputation: demoValuesV1.nonNegativeFifty,
+        facilityIds: [demoIdsV1.facilityComfortableBed],
+      }),
+      "completed_stable",
+      demoIdsV1.endingStable,
+    ],
+    [
+      buildEndingInputV1({
+        cashAfterLevy: demoValuesV1.moneyOne,
+        reputation: demoValuesV1.nonNegativeFortyNine,
+        facilityIds: [],
+      }),
+      "completed_danger",
+      demoIdsV1.endingDanger,
+    ],
     [buildArrearsEndingInputV1(), "failed_arrears", demoIdsV1.endingFailedArrears],
   ] as const)("evaluates %s", (input, status, endingId) => {
     expect(endingRulesV1.evaluate(input)).toMatchObject({ status, endingId });
@@ -1322,7 +1916,10 @@ export const demandRulesV1 = Object.freeze({
   resolve(input: DeepReadonly<DemandSeedInputV1>, rng: RuleRngV1): DemandSeedResultV1 {
     return {
       lines: input.segments.map((line) => {
-        const draw = rng.nextInt({ exclusiveMax: demoValuesV1.positiveThree, purpose: `demand:${line.day}:${line.segmentId}` });
+        const draw = rng.nextInt({
+          exclusiveMax: demoValuesV1.positiveThree,
+          purpose: `demand:${line.day}:${line.segmentId}`,
+        });
         const randomOffset: DemandRandomOffset = draw === 0 ? -1 : draw === 1 ? 0 : 1;
         return { day: line.day, segmentId: line.segmentId, randomOffset };
       }),
@@ -1341,7 +1938,10 @@ export const demandRulesV1 = Object.freeze({
 `preview` and `settle` share recipe preference, largest-remainder, capacity, preparation-point, cost, and modifier calculators. Stable tie order is segment ID then recipe ID. Settlement emits sale/revenue/discard drafts, reputation coverage result, teamwork only at coverage ≥50%, heroine mood change when post-cost stamina <2, and exact applied modifier explanations. Start costs are absent from Finalize drafts because they were already committed.
 
 ```ts
-export function coverageReputationDeltaV1(actualSales: number, potentialCustomers: number): -1 | 0 | 1 {
+export function coverageReputationDeltaV1(
+  actualSales: number,
+  potentialCustomers: number,
+): -1 | 0 | 1 {
   if (potentialCustomers === 0) return 0;
   const basisPoints = Math.floor((actualSales * 10_000) / potentialCustomers);
   return basisPoints >= 8_000 ? 1 : basisPoints >= 5_000 ? 0 : -1;
@@ -1353,7 +1953,12 @@ export function coverageReputationDeltaV1(actualSales: number, potentialCustomer
 ```ts
 // stories/demo/src/simulation/rules/endings.ts
 import type { DeepReadonly } from "@project-tavern/base";
-import type { EndingInputV1, EndingResultV1, OutcomeEntryV1, OutcomeId } from "@project-tavern/modules";
+import type {
+  EndingInputV1,
+  EndingResultV1,
+  OutcomeEntryV1,
+  OutcomeId,
+} from "@project-tavern/modules";
 import { demoValuesV1 } from "../balance.js";
 import { demoIdsV1 } from "../content/ids.js";
 
@@ -1370,9 +1975,18 @@ export function evaluateEndingV1(input: DeepReadonly<EndingInputV1>): EndingResu
   const relationship = requiredOutcomeV1(input.outcomes, demoIdsV1.outcomeRelationship);
   const investigation = requiredOutcomeV1(input.outcomes, demoIdsV1.outcomeInvestigation);
   if (input.levy.kind === "arrears") {
-    return { endingId: demoIdsV1.endingFailedArrears, status: "failed_arrears", reasonIds: [demoIdsV1.reasonEndingArrears], effects: [], summary: { relationship, investigation } };
+    return {
+      endingId: demoIdsV1.endingFailedArrears,
+      status: "failed_arrears",
+      reasonIds: [demoIdsV1.reasonEndingArrears],
+      effects: [],
+      summary: { relationship, investigation },
+    };
   }
-  const stable = input.cash >= demoValuesV1.moneyTwenty && input.reputation >= demoValuesV1.nonNegativeFifty && input.facilityIds.length === 1;
+  const stable =
+    input.cash >= demoValuesV1.moneyTwenty &&
+    input.reputation >= demoValuesV1.nonNegativeFifty &&
+    input.facilityIds.length === 1;
   const reasonIds = stable
     ? [demoIdsV1.reasonEndingStable]
     : input.reputation < demoValuesV1.nonNegativeFortyFive
@@ -1406,6 +2020,7 @@ git commit -m "feat(story-demo): implement deterministic story rules"
 ## Task 7: Compose the Complete Demo Story with Text, Fallback Assets, Scenes, and Patch Surfaces
 
 **Files:**
+
 - Create: `stories/demo/src/presentation/text-catalogs/zh-CN.ts`
 - Create: `stories/demo/src/presentation/text-catalogs/index.ts`
 - Create: `stories/demo/src/presentation/assets.ts`
@@ -1425,6 +2040,7 @@ git commit -m "feat(story-demo): implement deterministic story rules"
 - Modify: `scripts/verify-licensing.test.mjs`
 
 **Interfaces:**
+
 - Consumes: complete data/rules/Narrative, individual public bindings/Schemas/coordinator/query builders, generic UI/Presentation contracts, and Story/asset validators.
 - Produces: Story-owned twelve-binding tuple/coordinator/Profile factory, post-Hotfix Simulation/Presentation materializers, complete default Demo GamePackage, Chinese catalog, fallback-only assets, typed Patch Surfaces, mixed-license scope, and stable Story verification.
 
@@ -1432,10 +2048,7 @@ git commit -m "feat(story-demo): implement deterministic story rules"
 
 ```ts
 // append to stories/demo/src/test/story-validation.test.ts
-import {
-  resolveStoryForTestV1,
-  validateStoryV1,
-} from "@project-tavern/base/testkit";
+import { resolveStoryForTestV1, validateStoryV1 } from "@project-tavern/base/testkit";
 import { demoStoryEntryV1 } from "../index.js";
 import { demoStateContractRevisionV1 } from "../simulation/identity.js";
 
@@ -1444,10 +2057,11 @@ it("validates the complete week.poc_001 Story", () => {
   const resolved = resolveStoryForTestV1(demoStoryEntryV1);
   const definition = demoStoryEntryV1.define();
   expect(resolved.profile.modules).toHaveLength(12);
-  expect(resolved.provenance.resolved.stateContractRevision)
-    .toBe(demoStateContractRevisionV1);
+  expect(resolved.provenance.resolved.stateContractRevision).toBe(demoStateContractRevisionV1);
   expect(definition.presentation.assetPacks).toEqual([]);
-  expect(definition.presentation.assetSlots.every((slot) => slot.fallbackToken.startsWith("fallback."))).toBe(true);
+  expect(
+    definition.presentation.assetSlots.every((slot) => slot.fallbackToken.startsWith("fallback.")),
+  ).toBe(true);
 });
 ```
 
@@ -1487,9 +2101,18 @@ export function createDemoGameProfileV1(program: DeepReadonly<DemoSimulationProg
   return defineGameProfile<DemoProfileTypesV1>()({
     contractRevision: 1,
     modules: [
-      runModuleV1, calendarModuleV1, actorsModuleV1, statusModuleV1,
-      inventoryModuleV1, facilitiesModuleV1, tavernModuleV1, workflowModuleV1,
-      worldModuleV1, progressionModuleV1, narrativeModuleV1, schedulingModuleV1,
+      runModuleV1,
+      calendarModuleV1,
+      actorsModuleV1,
+      statusModuleV1,
+      inventoryModuleV1,
+      facilitiesModuleV1,
+      tavernModuleV1,
+      workflowModuleV1,
+      worldModuleV1,
+      progressionModuleV1,
+      narrativeModuleV1,
+      schedulingModuleV1,
     ] as const,
     stateSchema: gameStateV1Schema,
     commandSchema: gameCommandV1Schema,
@@ -1497,15 +2120,14 @@ export function createDemoGameProfileV1(program: DeepReadonly<DemoSimulationProg
     rejectionSchema: rejectionReasonV1Schema,
     debugCommandSchema: debugCommandV1Schema,
     coordinator,
-    createBootstrapInput: (entropy) => Object.freeze({
-      rngSeed: entropy.nextNonZeroUint32(),
-      runId: parseRunId(entropy.nextUuidV4()),
-    }),
+    createBootstrapInput: (entropy) =>
+      Object.freeze({
+        rngSeed: entropy.nextNonZeroUint32(),
+        runId: parseRunId(entropy.nextUuidV4()),
+      }),
     createInitialState: (bootstrap) => createDemoInitialStateV1(bootstrap, program.data),
-    projectView: (snapshot) => projectDemoGameViewV1(
-      snapshot.state,
-      coordinator.createQueries(snapshot),
-    ),
+    projectView: (snapshot) =>
+      projectDemoGameViewV1(snapshot.state, coordinator.createQueries(snapshot)),
   });
 }
 ```
@@ -1514,12 +2136,8 @@ export function createDemoGameProfileV1(program: DeepReadonly<DemoSimulationProg
 
 ```ts
 // stories/demo/src/story.ts
-type DemoSimulationPatchValuesV1 = ResolvedPatchValuesV1<
-  typeof demoSimulationPatchSurfaceV1
->;
-type DemoPresentationPatchValuesV1 = ResolvedPatchValuesV1<
-  typeof demoPresentationPatchSurfaceV1
->;
+type DemoSimulationPatchValuesV1 = ResolvedPatchValuesV1<typeof demoSimulationPatchSurfaceV1>;
+type DemoPresentationPatchValuesV1 = ResolvedPatchValuesV1<typeof demoPresentationPatchSurfaceV1>;
 
 function materializeDemoSimulationProgramV1(
   values: DeepReadonly<DemoSimulationPatchValuesV1>,
@@ -1549,9 +2167,7 @@ function materializeDemoSimulationProgramV1(
   });
 }
 
-function materializeDemoPresentationV1(
-  values: DeepReadonly<DemoPresentationPatchValuesV1>,
-) {
+function materializeDemoPresentationV1(values: DeepReadonly<DemoPresentationPatchValuesV1>) {
   return Object.freeze({
     uiSceneGraph: demoUiSceneGraphV1,
     textCatalogs: values["text.catalogs"],
@@ -1618,6 +2234,7 @@ git commit -m "feat(story-demo): compose seven-day story package"
 ## Task 7A: Prove the Complete Story Through One Uniform Runtime Harness
 
 **Files:**
+
 - Create: `stories/demo/src/testing/demo-harness.ts`
 - Create: `stories/demo/src/test/daily-flow.integration.test.ts`
 - Create: `stories/demo/src/test/relationship-route.integration.test.ts`
@@ -1625,6 +2242,7 @@ git commit -m "feat(story-demo): compose seven-day story package"
 - Create: `stories/demo/src/test/terminal-route.integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: the complete Task 7 GamePackage/resolved Profile, `resolveStoryForTestV1`, `createEngineSessionV1`, explicit bootstrap input, public `GameCommandV1`, Player dispatch result, the runtime-owned bounded CommandLog, and immutable queries.
 - Produces: one test-only `createDemoStoryHarnessV1(input)` API, a readonly same-attempt execution/CommandLog observation surface, and all real command-through D1–D7 route tests. No content/rule test before this task dispatches a command, and no harness symbol enters a public or Player export.
 
@@ -1645,13 +2263,13 @@ export interface DemoStoryHarnessInputV1 {
 export interface DemoHarnessExecutedGameAttemptV1 {
   readonly command: DeepReadonly<GameCommandV1>;
   readonly execution: DeepReadonly<DemoCommandExecutionResultV1>;
-  readonly logEntry: DeepReadonly<
-    Extract<CommandLogEntryV1, { readonly source: "game" }>
-  >;
+  readonly logEntry: DeepReadonly<Extract<CommandLogEntryV1, { readonly source: "game" }>>;
 }
 
 export interface DemoStoryHarnessV1 {
-  dispatch(command: DeepReadonly<GameCommandV1>): Promise<SessionDispatchOperationResultV1<DemoCommandExecutionResultV1>>;
+  dispatch(
+    command: DeepReadonly<GameCommandV1>,
+  ): Promise<SessionDispatchOperationResultV1<DemoCommandExecutionResultV1>>;
   commit(command: DeepReadonly<GameCommandV1>): Promise<DeepReadonly<GameSnapshotV1>>;
   snapshot(): DeepReadonly<GameSnapshotV1>;
   queries(): EngineQueriesV1;
@@ -1693,6 +2311,7 @@ git commit -m "test(story-demo): prove command-through week routes"
 ## Task 8: Compile the Six Reference Strategies into Literal Command Fixtures
 
 **Files:**
+
 - Modify: `stories/demo/package.json` — add command update/verify scripts only with their target files.
 - Modify: `scripts/verify-fixtures.mjs` — retain Sandbox/E2E and add Demo command fixtures.
 - Modify: `scripts/verify-fixtures.test.mjs`
@@ -1709,6 +2328,7 @@ git commit -m "test(story-demo): prove command-through week routes"
 - Create: `stories/demo/src/test/fixtures/commands/strategy.explicit_failure.json`
 
 **Interfaces:**
+
 - Consumes: fixed strategy schedules in `reference-strategies.md`, Story queries/commands, fixed seed/run IDs, and current committed inventory for deterministic purchase expansion.
 - Produces: an async compiler with explicitly captured committed Session results, an ordered async all-fixtures builder, six unique literal `GameCommandV1[]` JSON fixtures, and a runner that fails immediately on any rejection/fault. Runtime tests read the JSON; they do not reinterpret strategy prose.
 
@@ -1834,14 +2454,12 @@ export async function compileReferenceStrategyV1(
   return { commands, results, finalSnapshot: harness.snapshot() };
 }
 
-export async function buildAllCommandFixturesV1(): Promise<Readonly<
-  Record<ReferenceStrategyIdV1, readonly GameCommandV1[]>
->> {
+export async function buildAllCommandFixturesV1(): Promise<
+  Readonly<Record<ReferenceStrategyIdV1, readonly GameCommandV1[]>>
+> {
   const entries: Array<readonly [ReferenceStrategyIdV1, readonly GameCommandV1[]]> = [];
   for (const strategyId of referenceStrategyIdsV1) {
-    const compiled = await compileReferenceStrategyV1(
-      referenceStrategyDefinitionsV1[strategyId],
-    );
+    const compiled = await compileReferenceStrategyV1(referenceStrategyDefinitionsV1[strategyId]);
     entries.push([strategyId, compiled.commands]);
   }
   return Object.freeze(
@@ -1864,7 +2482,11 @@ const directory = resolve(import.meta.dirname, "../src/test/fixtures/commands");
 await mkdir(directory, { recursive: true });
 const fixtures = await buildAllCommandFixturesV1();
 for (const [strategyId, commands] of Object.entries(fixtures)) {
-  await writeFile(resolve(directory, `${strategyId}.json`), `${JSON.stringify(commands, null, 2)}\n`, "utf8");
+  await writeFile(
+    resolve(directory, `${strategyId}.json`),
+    `${JSON.stringify(commands, null, 2)}\n`,
+    "utf8",
+  );
 }
 ```
 
@@ -1892,6 +2514,7 @@ git commit -m "test(story-demo): freeze reference strategy commands"
 ## Task 9: Generate and Verify Fixed-Seed Golden Week Artifacts
 
 **Files:**
+
 - Modify: `stories/demo/package.json` — add golden update/verify scripts only with their target files.
 - Modify: `scripts/verify-golden.mjs` — retain Sandbox/E2E and add Demo golden files.
 - Modify: `scripts/verify-golden.test.mjs`
@@ -1906,6 +2529,7 @@ git commit -m "test(story-demo): freeze reference strategy commands"
 - Create: `stories/demo/src/test/fixtures/golden/strategy.explicit_failure.json`
 
 **Interfaces:**
+
 - Consumes: reviewed command fixtures, fixed seed/run IDs, EngineSession, the Task 7A readonly same-attempt execution/CommandLog records, state digest, DomainFacts, ledger, service history, and Run completion.
 - Produces: async single/all golden builders and six canonical golden artifacts containing every command/state digest, nightly ledger/history, PRNG trace summary, and final three-dimensional outcome.
 
@@ -1924,7 +2548,9 @@ describe("reference seed golden weeks", () => {
   for (const strategyId of referenceStrategyIdsV1) {
     it(`${strategyId} matches the reviewed artifact`, async () => {
       const actual = await buildGoldenArtifactV1(strategyId, loadCommandFixtureV1(strategyId));
-      const stored = JSON.parse(await readFile(new URL(`./fixtures/golden/${strategyId}.json`, import.meta.url), "utf8"));
+      const stored = JSON.parse(
+        await readFile(new URL(`./fixtures/golden/${strategyId}.json`, import.meta.url), "utf8"),
+      );
       expect(canonicalJsonBytes(actual)).toEqual(canonicalJsonBytes(stored));
       expect(actual.transitions).toHaveLength(actual.commands.length);
       expect(actual.final.runStatus).not.toBe("active");
@@ -1976,9 +2602,9 @@ export interface DemoGoldenArtifactV1 {
   };
 }
 
-export async function buildAllGoldenArtifactsV1(): Promise<Readonly<
-  Record<ReferenceStrategyIdV1, DemoGoldenArtifactV1>
->> {
+export async function buildAllGoldenArtifactsV1(): Promise<
+  Readonly<Record<ReferenceStrategyIdV1, DemoGoldenArtifactV1>>
+> {
   const entries: Array<readonly [ReferenceStrategyIdV1, DemoGoldenArtifactV1]> = [];
   for (const strategyId of referenceStrategyIdsV1) {
     entries.push([
@@ -2006,7 +2632,11 @@ const records = await buildAllGoldenArtifactsV1();
 const directory = resolve(import.meta.dirname, "../src/test/fixtures/golden");
 await mkdir(directory, { recursive: true });
 for (const [strategyId, value] of Object.entries(records)) {
-  await writeFile(resolve(directory, `${strategyId}.json`), `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await writeFile(
+    resolve(directory, `${strategyId}.json`),
+    `${JSON.stringify(value, null, 2)}\n`,
+    "utf8",
+  );
 }
 ```
 
@@ -2038,6 +2668,7 @@ git commit -m "test(story-demo): add reviewed golden weeks"
 ## Task 10: Enforce 1–1000 Seed Balance and Property Thresholds
 
 **Files:**
+
 - Modify: root `package.json` — point stable `verify:balance` at the repository wrapper.
 - Modify: `stories/demo/package.json` — add Demo `verify:balance` with its test.
 - Create: `scripts/verify-balance.mjs` — compose the existing Sandbox check with the Demo corpus.
@@ -2046,6 +2677,7 @@ git commit -m "test(story-demo): add reviewed golden weeks"
 - Modify: `stories/demo/src/testing/run-reference-strategy.ts`
 
 **Interfaces:**
+
 - Consumes: six reviewed command schedules, seeds `1..1000`, already-committed clue-only D6 branch, final completion/ledger/AP/stamina/inventory metrics, and fast-check.
 - Produces: an asynchronously materialized corpus, exact pass-count/median/dominance assertions, and awaited deterministic, non-negative, ledger, bed, and cold-storage replay/counterfactual checks.
 
@@ -2054,10 +2686,7 @@ git commit -m "test(story-demo): add reviewed golden weeks"
 ```ts
 // stories/demo/src/test/balance-1000-seeds.test.ts
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  runStrategyCorpusV1,
-  type StrategyCorpusV1,
-} from "../testing/run-reference-strategy.js";
+import { runStrategyCorpusV1, type StrategyCorpusV1 } from "../testing/run-reference-strategy.js";
 import { referenceStrategyIdsV1 } from "../testing/reference-strategy-definitions.js";
 
 const corpusBuildTimeoutMs = 300_000;
@@ -2089,7 +2718,11 @@ describe("1..1000 seed balance contract", () => {
   });
 
   it("survives the D4 investment pressure and avoids one strict dominator", () => {
-    for (const strategyId of ["strategy.cash_first", "strategy.relationship_first", "strategy.investigation_first"] as const) {
+    for (const strategyId of [
+      "strategy.cash_first",
+      "strategy.relationship_first",
+      "strategy.investigation_first",
+    ] as const) {
       expect(corpus.paidCountWithD4CashDelta(strategyId, -12)).toBeGreaterThanOrEqual(750);
     }
     expect(corpus.maximumStrictDominanceCount()).toBeLessThanOrEqual(800);
@@ -2108,19 +2741,23 @@ Expected: PASS against the current `balance-v0.md` contract. If any exact thresh
 - [ ] **Step 3: Add deterministic and resource invariants**
 
 ```ts
-it.each(referenceStrategyIdsV1)("replays every %s seed identically and preserves resource invariants", async (strategyId) => {
-  for (const run of corpus.runs()) {
-    if (run.strategyId !== strategyId) continue;
-    const replay = await corpus.replay(run.strategyId, run.seed);
-    expect(replay.finalStateDigest).toBe(run.finalStateDigest);
-    expect(replay.finalRng).toEqual(run.finalRng);
-    expect(run.minimumAp).toBeGreaterThanOrEqual(0);
-    expect(run.minimumPlayerStamina).toBeGreaterThanOrEqual(0);
-    expect(run.minimumHeroineStamina).toBeGreaterThanOrEqual(0);
-    expect(run.minimumIngredientQuantity).toBeGreaterThanOrEqual(0);
-    expect(run.finalCash).toBe(run.startingCash + run.ledgerCashDelta);
-  }
-}, perStrategyReplayTimeoutMs);
+it.each(referenceStrategyIdsV1)(
+  "replays every %s seed identically and preserves resource invariants",
+  async (strategyId) => {
+    for (const run of corpus.runs()) {
+      if (run.strategyId !== strategyId) continue;
+      const replay = await corpus.replay(run.strategyId, run.seed);
+      expect(replay.finalStateDigest).toBe(run.finalStateDigest);
+      expect(replay.finalRng).toEqual(run.finalRng);
+      expect(run.minimumAp).toBeGreaterThanOrEqual(0);
+      expect(run.minimumPlayerStamina).toBeGreaterThanOrEqual(0);
+      expect(run.minimumHeroineStamina).toBeGreaterThanOrEqual(0);
+      expect(run.minimumIngredientQuantity).toBeGreaterThanOrEqual(0);
+      expect(run.finalCash).toBe(run.startingCash + run.ledgerCashDelta);
+    }
+  },
+  perStrategyReplayTimeoutMs,
+);
 ```
 
 Replay verification is split into six deterministic 1,000-run test chunks, each with a bounded three-minute timeout. A timeout is a real failure with the strategy ID in the test name; the plan does not hide it by using an unbounded timeout or one monolithic 6,000-replay test.
@@ -2129,18 +2766,32 @@ Replay verification is split into six deterministic 1,000-run test chunks, each 
 
 ```ts
 it("requires the comfortable bed for cash_first D6 manual service", async () => {
-  const withBed = await corpus.counterfactual("strategy.cash_first", referenceSeedV1, { facilities: "authored" });
-  const withoutBed = await corpus.counterfactual("strategy.cash_first", referenceSeedV1, { facilities: "none" });
+  const withBed = await corpus.counterfactual("strategy.cash_first", referenceSeedV1, {
+    facilities: "authored",
+  });
+  const withoutBed = await corpus.counterfactual("strategy.cash_first", referenceSeedV1, {
+    facilities: "none",
+  });
   expect(withBed.d6OpeningResult.kind).toBe("committed");
-  expect(withoutBed.d6OpeningResult).toMatchObject({ kind: "rejected", reasons: [{ code: "actor.insufficient_stamina" }] });
+  expect(withoutBed.d6OpeningResult).toMatchObject({
+    kind: "rejected",
+    reasons: [{ code: "actor.insufficient_stamina" }],
+  });
 });
 
-it.each(["strategy.investigation_first", "strategy.full_delegation"] as const)("requires cold storage for %s D4 meat", async (strategyId) => {
-  const withStorage = await corpus.counterfactual(strategyId, referenceSeedV1, { facilities: "authored" });
-  const withoutStorage = await corpus.counterfactual(strategyId, referenceSeedV1, { facilities: "none" });
-  expect(withStorage.d6ConsumedD4FreshMeat).toBeGreaterThanOrEqual(1);
-  expect(withoutStorage.d5SpoiledD4FreshMeat).toBeGreaterThanOrEqual(1);
-});
+it.each(["strategy.investigation_first", "strategy.full_delegation"] as const)(
+  "requires cold storage for %s D4 meat",
+  async (strategyId) => {
+    const withStorage = await corpus.counterfactual(strategyId, referenceSeedV1, {
+      facilities: "authored",
+    });
+    const withoutStorage = await corpus.counterfactual(strategyId, referenceSeedV1, {
+      facilities: "none",
+    });
+    expect(withStorage.d6ConsumedD4FreshMeat).toBeGreaterThanOrEqual(1);
+    expect(withoutStorage.d5SpoiledD4FreshMeat).toBeGreaterThanOrEqual(1);
+  },
+);
 ```
 
 - [ ] **Step 5: Add fast-check command-sequence invariants**
@@ -2175,6 +2826,7 @@ git commit -m "test(story-demo): enforce multiseed balance gates"
 ## Task 11: Add Demo Development Anchors and Persistence Fixtures
 
 **Files:**
+
 - Modify: `stories/demo/package.json` — atomically add `./development`, update, and verify targets.
 - Modify: `scripts/verify-fixtures.mjs` — retain Sandbox/E2E/Demo commands and add Demo saves.
 - Modify: `scripts/verify-fixtures.test.mjs`
@@ -2193,6 +2845,7 @@ git commit -m "test(story-demo): enforce multiseed balance gates"
 - Create: `stories/demo/src/test/fixtures/saves/save.digest-mismatch.json`
 
 **Interfaces:**
+
 - Consumes: Phase 3 persistence/import APIs, the deterministic test-only resolved Demo identity from Task 7A, fixed command fixtures, SaveRecord schemas, and Story development entry contract.
 - Produces: four command-derived preview anchors, three valid SaveRecords covering Opening/WorldAction/terminal states, five invalid/recovery fixtures, read-only verification, and a separate explicit Save regeneration command.
 
@@ -2207,7 +2860,9 @@ import { resolveBaseDemoStoryV1 } from "../testing/demo-harness.js";
 import { createDemoSaveValidationContextV1 } from "../testing/save-fixture-builder.js";
 
 const readFixture = async (name: string): Promise<Uint8Array> =>
-  new TextEncoder().encode(await readFile(new URL(`./fixtures/saves/${name}.json`, import.meta.url), "utf8"));
+  new TextEncoder().encode(
+    await readFile(new URL(`./fixtures/saves/${name}.json`, import.meta.url), "utf8"),
+  );
 
 describe("Demo Save fixtures", () => {
   const context = createDemoSaveValidationContextV1(resolveBaseDemoStoryV1());
@@ -2230,7 +2885,10 @@ describe("Demo Save fixtures", () => {
   });
 
   it("keeps a Story revision mismatch inspect-only", async () => {
-    const result = validateSaveImportCandidateV1(await readFixture("save.revision-mismatch"), context);
+    const result = validateSaveImportCandidateV1(
+      await readFixture("save.revision-mismatch"),
+      context,
+    );
     expect(result).toMatchObject({
       kind: "inspect_only",
       mismatches: [{ field: "story_revision", code: "identity.story_revision_mismatch" }],
@@ -2251,7 +2909,11 @@ Expected: FAIL with `ENOENT` for `save.auto-opening.json`.
 // stories/demo/src/development/fixtures.ts
 export const demoDevelopmentFixturesV1: StoryDevelopmentSupportV1["fixtures"] = Object.freeze([
   { fixtureId: "fixture.demo_d1_start", seed: referenceSeedV1, commands: commandsToD1StartV1 },
-  { fixtureId: "fixture.demo_d5_relationship", seed: referenceSeedV1, commands: commandsToD5RelationshipV1 },
+  {
+    fixtureId: "fixture.demo_d5_relationship",
+    seed: referenceSeedV1,
+    commands: commandsToD5RelationshipV1,
+  },
   { fixtureId: "fixture.demo_d5_world", seed: referenceSeedV1, commands: commandsToD5WorldV1 },
   { fixtureId: "fixture.demo_d7_summary", seed: referenceSeedV1, commands: commandsToD7SummaryV1 },
 ]);
@@ -2272,27 +2934,36 @@ export const demoDevelopmentEntryV1 = defineStoryDevelopmentEntry({
 
 ```ts
 // stories/demo/src/testing/save-fixture-builder.ts
-export async function buildDemoSaveFixtureMatrixV1(): Promise<Readonly<
-  Record<DemoSaveFixtureNameV1, Uint8Array>
->> {
-  const autoOpening = await saveRecordFromCommandsV1(
-    "auto.current", "auto", commandsToOpeningV1,
-  );
+export async function buildDemoSaveFixtureMatrixV1(): Promise<
+  Readonly<Record<DemoSaveFixtureNameV1, Uint8Array>>
+> {
+  const autoOpening = await saveRecordFromCommandsV1("auto.current", "auto", commandsToOpeningV1);
   const quickWorld = await saveRecordFromCommandsV1(
-    "quick", "quick", commandsToAwaitingWorldCompletionV1,
+    "quick",
+    "quick",
+    commandsToAwaitingWorldCompletionV1,
   );
-  const manualCompleted = await saveRecordFromCommandsV1(
-    "manual", "manual", commandsToD7SummaryV1,
-  );
+  const manualCompleted = await saveRecordFromCommandsV1("manual", "manual", commandsToD7SummaryV1);
   return Object.freeze({
     "save.auto-opening": encodeSaveRecordV1(autoOpening, demoSaveCodecV1),
     "save.quick-world-action": encodeSaveRecordV1(quickWorld, demoSaveCodecV1),
     "save.manual-completed": encodeSaveRecordV1(manualCompleted, demoSaveCodecV1),
-    "save.auto-current-corrupt": encodeNegativeSaveMutationV1(autoOpening, (record) => withStateDigestV1(record, invalidDigestV1)),
-    "save.auto-previous-valid": encodeSaveRecordV1(withSlotV1(autoOpening, "auto.previous"), demoSaveCodecV1),
-    "save.future-format": encodeNegativeSaveMutationV1(manualCompleted, (record) => withFormatRevisionV1(record, 2)),
-    "save.revision-mismatch": encodeNegativeSaveMutationV1(manualCompleted, (record) => withStoryRevisionV1(record, 2)),
-    "save.digest-mismatch": encodeNegativeSaveMutationV1(manualCompleted, (record) => withStateDigestV1(record, invalidDigestV1)),
+    "save.auto-current-corrupt": encodeNegativeSaveMutationV1(autoOpening, (record) =>
+      withStateDigestV1(record, invalidDigestV1),
+    ),
+    "save.auto-previous-valid": encodeSaveRecordV1(
+      withSlotV1(autoOpening, "auto.previous"),
+      demoSaveCodecV1,
+    ),
+    "save.future-format": encodeNegativeSaveMutationV1(manualCompleted, (record) =>
+      withFormatRevisionV1(record, 2),
+    ),
+    "save.revision-mismatch": encodeNegativeSaveMutationV1(manualCompleted, (record) =>
+      withStoryRevisionV1(record, 2),
+    ),
+    "save.digest-mismatch": encodeNegativeSaveMutationV1(manualCompleted, (record) =>
+      withStateDigestV1(record, invalidDigestV1),
+    ),
   });
 }
 ```
@@ -2359,10 +3030,12 @@ git commit -m "test(story-demo): add persistence fixtures"
 ## Task 12: Add the Phase 4 Verification Gate
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `stories/demo/package.json`
 
 **Interfaces:**
+
 - Consumes: Phase 2 gate, Phase 3 runtime/Host suites, all Demo tests, read-only fixture/golden verifiers, build, boundary/cycle/type/licensing gates.
 - Produces: one non-interactive `pnpm verify:phase4` command that never updates a tracked baseline. Phase 5 later adds Story aliasing, browser flavors, Playwright smoke, and release hardening.
 
@@ -2371,7 +3044,7 @@ git commit -m "test(story-demo): add persistence fixtures"
 ```jsonc
 // package.json scripts addition
 {
-  "verify:phase4": "pnpm verify:phase2 && pnpm verify:persistence-diagnostics && pnpm verify:stories && pnpm verify:fixtures && pnpm verify:golden && pnpm verify:balance && pnpm --filter @project-tavern/story-demo test && pnpm build"
+  "verify:phase4": "pnpm verify:phase2 && pnpm verify:persistence-diagnostics && pnpm verify:stories && pnpm verify:fixtures && pnpm verify:golden && pnpm verify:balance && pnpm --filter @project-tavern/story-demo test && pnpm build",
 }
 ```
 

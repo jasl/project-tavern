@@ -32,11 +32,7 @@ async function collectFiles(root) {
       if (entry.name === "dist" || entry.name === "node_modules") continue;
       const path = join(directory, entry.name);
       if (entry.isDirectory()) await walk(path);
-      else if (
-        entry.isFile() &&
-        SOURCE_EXTENSION.test(entry.name) &&
-        !TEST_FILE.test(entry.name)
-      ) {
+      else if (entry.isFile() && SOURCE_EXTENSION.test(entry.name) && !TEST_FILE.test(entry.name)) {
         files.push(path);
       }
     }
@@ -105,9 +101,7 @@ export async function verifyCycles(root) {
         const relativeCycle = absoluteCycle.map((path) =>
           relative(root, path).split(sep).join("/"),
         );
-        errors.add(
-          `production import cycle: ${canonicalCycle(relativeCycle).join(" -> ")}`,
-        );
+        errors.add(`production import cycle: ${canonicalCycle(relativeCycle).join(" -> ")}`);
       } else {
         visit(target);
       }
@@ -121,8 +115,7 @@ export async function verifyCycles(root) {
   return [...errors].sort();
 }
 
-const isMain =
-  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 
 if (isMain) {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));

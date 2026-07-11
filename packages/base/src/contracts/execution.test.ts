@@ -22,9 +22,7 @@ describe("execution attempts", () => {
       rng.nextInt({ exclusiveMax: 3, purpose: `demand:attempt.${index}` });
     }
 
-    const rejected = rejectAttemptV1(snapshot, rng, [
-      { code: "synthetic.reject" },
-    ]);
+    const rejected = rejectAttemptV1(snapshot, rng, [{ code: "synthetic.reject" }]);
 
     expect(rejected.result.snapshot).toBe(snapshot);
     expect(rejected.diagnostics.committedRngAfter).toBe(snapshot.rng);

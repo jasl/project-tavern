@@ -5,10 +5,7 @@ import { parseDigest } from "../contracts/values.js";
 import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
 
 export type BuildIdentityFacetV1 =
-  | "engine"
-  | "story_simulation"
-  | "story_presentation"
-  | "application";
+  "engine" | "story_simulation" | "story_presentation" | "application";
 
 export interface ImportClosureRecordV1 {
   readonly path: string;
@@ -25,9 +22,18 @@ export interface BuildIdentityInputV1 {
 
 export interface ResolvedBuildIdentityV1 {
   readonly engine: { readonly digest: Digest; readonly records: readonly ImportClosureRecordV1[] };
-  readonly storySimulation: { readonly digest: Digest; readonly records: readonly ImportClosureRecordV1[] };
-  readonly storyPresentation: { readonly digest: Digest; readonly records: readonly ImportClosureRecordV1[] };
-  readonly application: { readonly digest: Digest; readonly records: readonly ImportClosureRecordV1[] };
+  readonly storySimulation: {
+    readonly digest: Digest;
+    readonly records: readonly ImportClosureRecordV1[];
+  };
+  readonly storyPresentation: {
+    readonly digest: Digest;
+    readonly records: readonly ImportClosureRecordV1[];
+  };
+  readonly application: {
+    readonly digest: Digest;
+    readonly records: readonly ImportClosureRecordV1[];
+  };
 }
 
 function validatePath(path: string): void {
@@ -66,9 +72,7 @@ function resolveRecords(
   return Object.freeze({ digest: digestCanonical(domain, frozen), records: frozen });
 }
 
-export function resolveBuildIdentityV1(
-  input: BuildIdentityInputV1,
-): ResolvedBuildIdentityV1 {
+export function resolveBuildIdentityV1(input: BuildIdentityInputV1): ResolvedBuildIdentityV1 {
   return deepFreezeAuthoringValueV1({
     engine: resolveRecords(input.engine, "engine", "project-tavern:engine:v1"),
     storySimulation: resolveRecords(
@@ -81,10 +85,6 @@ export function resolveBuildIdentityV1(
       "story_presentation",
       "project-tavern:presentation:v1",
     ),
-    application: resolveRecords(
-      input.application,
-      "application",
-      "project-tavern:application:v1",
-    ),
+    application: resolveRecords(input.application, "application", "project-tavern:application:v1"),
   });
 }

@@ -8,10 +8,7 @@ import {
   parseNonNegativeSafeInteger,
   parsePositiveSafeInteger,
 } from "@project-tavern/base";
-import type {
-  GamePackageV1,
-  ResolvedStoryV1,
-} from "@project-tavern/base";
+import type { GamePackageV1, ResolvedStoryV1 } from "@project-tavern/base";
 
 import { createSandboxProfileV1 } from "./profile.js";
 import type { SandboxProfileV1, SandboxSimulationProgramV1 } from "./profile.js";
@@ -76,7 +73,10 @@ export const sandboxStoryEntryV1: GamePackageV1<
   define: createDefinition,
 });
 
-export interface SandboxResolvedStoryV1 extends Omit<ResolvedStoryV1, "profile" | "simulationProgram" | "presentationProgram"> {
+export interface SandboxResolvedStoryV1 extends Omit<
+  ResolvedStoryV1,
+  "profile" | "simulationProgram" | "presentationProgram"
+> {
   readonly profile: SandboxProfileV1;
   readonly simulationProgram: SandboxSimulationProgramV1;
   readonly presentationProgram: SandboxPresentationProgramV1;
@@ -85,7 +85,10 @@ export interface SandboxResolvedStoryV1 extends Omit<ResolvedStoryV1, "profile" 
 export function specializeSandboxResolvedStoryV1(
   resolved: ResolvedStoryV1,
 ): SandboxResolvedStoryV1 {
-  if (typeof (resolved.profile as { createBootstrapInput?: unknown }).createBootstrapInput !== "function") {
+  if (
+    typeof (resolved.profile as { createBootstrapInput?: unknown }).createBootstrapInput !==
+    "function"
+  ) {
     throw new TypeError("Sandbox Profile did not resolve");
   }
   return resolved as SandboxResolvedStoryV1;

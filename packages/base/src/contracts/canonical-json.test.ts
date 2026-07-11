@@ -5,11 +5,9 @@ import { canonicalJsonBytes } from "./canonical-json.js";
 
 describe("Canonical JSON", () => {
   it("sorts keys and rejects accessors", () => {
-    expect(
-      new TextDecoder().decode(
-        canonicalJsonBytes({ z: 0, a: [true, null] }),
-      ),
-    ).toBe('{"a":[true,null],"z":0}');
+    expect(new TextDecoder().decode(canonicalJsonBytes({ z: 0, a: [true, null] }))).toBe(
+      '{"a":[true,null],"z":0}',
+    );
 
     let getterError: unknown;
     try {

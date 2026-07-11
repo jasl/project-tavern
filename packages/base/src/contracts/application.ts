@@ -6,8 +6,7 @@ export interface ReadonlyViewSourceV1<TViewModel> {
   subscribe(listener: () => void): () => void;
 }
 
-export interface MutableViewPublisherV1<TViewModel>
-  extends ReadonlyViewSourceV1<TViewModel> {
+export interface MutableViewPublisherV1<TViewModel> extends ReadonlyViewSourceV1<TViewModel> {
   publish(value: DeepReadonly<TViewModel>): void;
 }
 
@@ -38,11 +37,7 @@ export interface SessionLifecyclePortV1<TAnchorResult> {
   restartSession(): Promise<TAnchorResult>;
 }
 
-export type SaveSlotIdV1 =
-  | "auto.current"
-  | "auto.previous"
-  | "quick"
-  | "manual";
+export type SaveSlotIdV1 = "auto.current" | "auto.previous" | "quick" | "manual";
 export type PlayerWritableSaveSlotIdV1 = "quick" | "manual";
 export type SessionLeaseOwnerId = Brand<string, "SessionLeaseOwnerId">;
 export type LeaseHandoffRequestId = Brand<string, "LeaseHandoffRequestId">;
@@ -50,9 +45,7 @@ export type LeaseHandoffRequestId = Brand<string, "LeaseHandoffRequestId">;
 export interface SessionLeasePortV1<TLeaseStatus, TLeaseOperationResult> {
   getStatus(): Promise<TLeaseStatus>;
   requestHandoff(): Promise<TLeaseOperationResult>;
-  approveHandoff(
-    requestId: LeaseHandoffRequestId,
-  ): Promise<TLeaseOperationResult>;
+  approveHandoff(requestId: LeaseHandoffRequestId): Promise<TLeaseOperationResult>;
   takeOver(): Promise<TLeaseOperationResult>;
   release(): Promise<TLeaseOperationResult>;
 }
@@ -106,35 +99,21 @@ export interface DeveloperControlPortV1<
   TDiagnosticQuery,
   TDiagnosticQueryResult,
 > {
-  executeDebugCommand(
-    command: DeepReadonly<TDebugCommand>,
-  ): Promise<TDebugResult>;
+  executeDebugCommand(command: DeepReadonly<TDebugCommand>): Promise<TDebugResult>;
   anchorFixture(fixtureId: TFixtureId): Promise<TAnchorResult>;
   inspectDebugBundle(bytes: Uint8Array): Promise<TDebugInspection>;
   anchorDebugBundle(bytes: Uint8Array): Promise<TAnchorResult>;
   replayAuthoritatively(bytes: Uint8Array): Promise<TAuthoritativeReplayResult>;
-  inspectReplayBestEffort(
-    bytes: Uint8Array,
-  ): Promise<TBestEffortReplayInspection>;
-  queryDiagnostics(
-    query: DeepReadonly<TDiagnosticQuery>,
-  ): Promise<TDiagnosticQueryResult>;
+  inspectReplayBestEffort(bytes: Uint8Array): Promise<TBestEffortReplayInspection>;
+  queryDiagnostics(query: DeepReadonly<TDiagnosticQuery>): Promise<TDiagnosticQueryResult>;
 }
 
-export interface DeveloperApplicationPortV1<
-  TPlayerPort,
-  TDeveloperControlPort,
-> {
+export interface DeveloperApplicationPortV1<TPlayerPort, TDeveloperControlPort> {
   readonly player: TPlayerPort;
   readonly control: TDeveloperControlPort;
 }
 
-export interface UiRendererBindingV1<
-  TId,
-  TViewModel,
-  TViewSlice,
-  TRenderer,
-> {
+export interface UiRendererBindingV1<TId, TViewModel, TViewSlice, TRenderer> {
   readonly id: TId;
   select(view: DeepReadonly<TViewModel>): DeepReadonly<TViewSlice>;
   readonly renderer: TRenderer;

@@ -27,6 +27,7 @@
 ### Task 1: Migrate the OpenAI illustration archive
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md`
 - Create: `art-source/aigc/openai/illustrations/heroine-neutral.png`
 - Create: `art-source/aigc/openai/illustrations/heroine-neutral.txt`
@@ -39,6 +40,7 @@
 - Delete: `art-source/imagegen/first-web-pack/**`
 
 **Interfaces:**
+
 - Consumes: the four tracked source PNGs and prompts in `art-source/imagegen/first-web-pack/**`.
 - Produces: a human-browsable archive with no machine-readable admission metadata and byte-identical PNGs.
 
@@ -84,10 +86,12 @@ Expected: the staged diff contains only the AIGC design refinement and archive r
 ### Task 2: Remove AIGC and dependency-license auditing from the verifier
 
 **Files:**
+
 - Modify: `scripts/verify-licensing.test.mjs`
 - Modify: `scripts/verify-licensing.mjs`
 
 **Interfaces:**
+
 - Consumes: `verifyLicensing(root: string, options?: { policy?: LicensingPolicy; trackedReferences?: string | string[] }): Promise<string[]>`.
 - Produces: a verifier that enforces legal-file hashes, required notice text, package `license` metadata, `.gitignore`/tracked `references/`, and nothing about `art-source/aigc/**` or package-manager dependency licenses.
 
@@ -103,12 +107,11 @@ test("keeps human-maintained AIGC archives outside licensing verification", asyn
   const archive = join(root, "art-source", "aigc", "openai", "illustrations");
   await mkdir(archive, { recursive: true });
   await writeFile(join(archive, "heroine-neutral.png"), new Uint8Array());
-  execFileSync("git", ["add", "--", "art-source/aigc/openai/illustrations/heroine-neutral.png"], { cwd: root });
+  execFileSync("git", ["add", "--", "art-source/aigc/openai/illustrations/heroine-neutral.png"], {
+    cwd: root,
+  });
 
-  assert.deepEqual(
-    await verifyLicensing(root, { policy, trackedReferences: "" }),
-    [],
-  );
+  assert.deepEqual(await verifyLicensing(root, { policy, trackedReferences: "" }), []);
 });
 ```
 
@@ -163,6 +166,7 @@ Expected: only verifier code/tests are staged; the retained tests prove project-
 ### Task 3: Synchronize every authoritative asset and release contract
 
 **Files:**
+
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 - Modify: `LICENSE.md`
@@ -179,6 +183,7 @@ Expected: only verifier code/tests are staged; the retained tests prove project-
 - Modify: `docs/superpowers/plans/2026-07-11-repository-licensing-implementation.md`
 
 **Interfaces:**
+
 - Consumes: the approved AIGC archive design and the dependency/vendor boundary committed before this plan.
 - Produces: one consistent contract: archive metadata is human-maintained and unscanned; promoted runtime assets have only technical manifest/byte validation; Asset Pack identity remains deterministic; `vendor/**` and package-manager dependencies stay outside automated legal adjudication.
 
@@ -234,10 +239,12 @@ Expected: the staged diff contains only authority/status/plan text and this impl
 ### Task 4: Close the policy migration and resume Phase 1 Task 1
 
 **Files:**
+
 - Verify: all files changed by Tasks 1-3
 - Preserve uncommitted: `.node-version`, `.npmrc`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `apps/**/package.json`, `packages/**/package.json`, `stories/**/package.json`
 
 **Interfaces:**
+
 - Consumes: the migrated archive, simplified verifier, synchronized authority documents, and the existing Phase 1 Task 1 scaffold.
 - Produces: a clean policy baseline on top of which Phase 1 Task 1 can continue without reintroducing obsolete legal machinery.
 

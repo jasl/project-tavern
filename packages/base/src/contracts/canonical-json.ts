@@ -125,10 +125,7 @@ export function canonicalJsonBytes(value: unknown): Uint8Array {
         const values = [];
         for (let index = 0; index < object.length; index += 1) {
           if (!Object.hasOwn(object, index)) {
-            throw new CanonicalJsonError(
-              "value.sparse_array",
-              `${path}/${index}`,
-            );
+            throw new CanonicalJsonError("value.sparse_array", `${path}/${index}`);
           }
           values.push(encode(object[index], `${path}/${index}`));
         }
@@ -144,17 +141,11 @@ export function canonicalJsonBytes(value: unknown): Uint8Array {
       for (const key of keys) {
         const descriptor = descriptors[key];
         if (descriptor?.get !== undefined || descriptor?.set !== undefined) {
-          throw new CanonicalJsonError(
-            "value.getter",
-            `${path}/${pointerSegment(key)}`,
-          );
+          throw new CanonicalJsonError("value.getter", `${path}/${pointerSegment(key)}`);
         }
         assertValidString(key, path);
         members.push(
-          `${JSON.stringify(key)}:${encode(
-            descriptor?.value,
-            `${path}/${pointerSegment(key)}`,
-          )}`,
+          `${JSON.stringify(key)}:${encode(descriptor?.value, `${path}/${pointerSegment(key)}`)}`,
         );
       }
       return `{${members.join(",")}}`;

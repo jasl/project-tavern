@@ -46,9 +46,7 @@ export interface GameProfileTypeMapV1<
 
 export declare const gameProfileTypesV1: unique symbol;
 
-export interface GameProfileTypeWitnessV1<
-  TTypes extends GameProfileTypeMapV1,
-> {
+export interface GameProfileTypeWitnessV1<TTypes extends GameProfileTypeMapV1> {
   readonly [gameProfileTypesV1]?: (types: TTypes) => TTypes;
 }
 
@@ -109,9 +107,7 @@ export interface StatelessGameModuleBindingV1 extends GameModuleSurfaceV1 {
   readonly services: unknown;
 }
 
-export type GameModuleBindingV1 =
-  | StatefulGameModuleBindingV1
-  | StatelessGameModuleBindingV1;
+export type GameModuleBindingV1 = StatefulGameModuleBindingV1 | StatelessGameModuleBindingV1;
 
 export interface CommandCoordinatorV1 {
   executeAttempt(snapshot: unknown, command: unknown, context: unknown): unknown;

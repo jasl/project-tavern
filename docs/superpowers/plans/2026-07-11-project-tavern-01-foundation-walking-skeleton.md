@@ -164,17 +164,17 @@ Use this root shape and these exact package facts; do not add semver ranges:
 
 Use this exact manifest matrix:
 
-| Path | Name | License | Runtime internal dependencies |
-|---|---|---|---|
-| `package.json` | `project-tavern-workspace` | `SEE LICENSE IN LICENSE.md` | none; root entries are exact dev dependencies only |
-| `packages/base/package.json` | `@project-tavern/base` | `MIT` | Zod `4.4.3` |
-| `packages/ui/package.json` | `@project-tavern/ui` | `MIT` | `@project-tavern/base: workspace:*`, React peer |
-| `packages/modules/package.json` | `@project-tavern/modules` | `PolyForm-Noncommercial-1.0.0` | Base/UI via `workspace:*`, Zod `4.4.3` |
-| `packages/assets/package.json` | `@project-tavern/assets` | `SEE LICENSE IN LICENSE.md` | Base via `workspace:*` |
-| `stories/demo/package.json` | `@project-tavern/story-demo` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, Zod `4.4.3` |
-| `stories/e2e/package.json` | `@project-tavern/story-e2e` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, React `19.2.7`, Zod `4.4.3` |
-| `stories/sandbox/package.json` | `@project-tavern/story-sandbox` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Assets/Web via `workspace:*`, Zod `4.4.3` |
-| `apps/web/package.json` | `@project-tavern/web` | `MIT` | Base/UI via `workspace:*`, React/React DOM/Vite runtime |
+| Path                            | Name                            | License                        | Runtime internal dependencies                                         |
+| ------------------------------- | ------------------------------- | ------------------------------ | --------------------------------------------------------------------- |
+| `package.json`                  | `project-tavern-workspace`      | `SEE LICENSE IN LICENSE.md`    | none; root entries are exact dev dependencies only                    |
+| `packages/base/package.json`    | `@project-tavern/base`          | `MIT`                          | Zod `4.4.3`                                                           |
+| `packages/ui/package.json`      | `@project-tavern/ui`            | `MIT`                          | `@project-tavern/base: workspace:*`, React peer                       |
+| `packages/modules/package.json` | `@project-tavern/modules`       | `PolyForm-Noncommercial-1.0.0` | Base/UI via `workspace:*`, Zod `4.4.3`                                |
+| `packages/assets/package.json`  | `@project-tavern/assets`        | `SEE LICENSE IN LICENSE.md`    | Base via `workspace:*`                                                |
+| `stories/demo/package.json`     | `@project-tavern/story-demo`    | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, Zod `4.4.3`                 |
+| `stories/e2e/package.json`      | `@project-tavern/story-e2e`     | `PolyForm-Noncommercial-1.0.0` | Base/UI/Modules/Assets via `workspace:*`, React `19.2.7`, Zod `4.4.3` |
+| `stories/sandbox/package.json`  | `@project-tavern/story-sandbox` | `PolyForm-Noncommercial-1.0.0` | Base/UI/Assets/Web via `workspace:*`, Zod `4.4.3`                     |
+| `apps/web/package.json`         | `@project-tavern/web`           | `MIT`                          | Base/UI via `workspace:*`, React/React DOM/Vite runtime               |
 
 Every workspace manifest is `private: true`, `version: "0.0.0"`, `type: "module"`, and initially exports only `.` from `src/index.ts`; the private root has no `exports`. Base later adds `./runtime` and `./testkit`, Story later adds `./development`, UI later adds `./developer`, and Web later adds a closed `./developer` entry that the Player root never re-exports. Add `package.json: "SEE LICENSE IN LICENSE.md"` to `DEFAULT_POLICY.packageLicenses` alongside the eight workspace paths.
 
@@ -255,14 +255,26 @@ git commit -m "chore: scaffold pinned project workspace"
 Each verifier exports `verifyX(root, options?) -> Promise<readonly string[]>`. Tests create temporary package graphs and assert these exact cases:
 
 ```js
-assert((await verifyToolchain(validRoot, { nodeVersion: "24.18.1", pnpmVersion: "11.11.0" }))
-  .includes("Node version must be 24.18.0, got 24.18.1"));
-assert((await verifyBoundaries(baseImportsStoryRoot))
-  .includes("packages/base may not import @project-tavern/story-sandbox"));
-assert((await verifyBoundaries(referenceImportRoot))
-  .some((error) => error.includes("references/ is forbidden")));
-assert((await verifyCycles(twoFileCycleRoot))
-  .includes("production import cycle: packages/base/src/a.ts -> packages/base/src/b.ts -> packages/base/src/a.ts"));
+assert(
+  (await verifyToolchain(validRoot, { nodeVersion: "24.18.1", pnpmVersion: "11.11.0" })).includes(
+    "Node version must be 24.18.0, got 24.18.1",
+  ),
+);
+assert(
+  (await verifyBoundaries(baseImportsStoryRoot)).includes(
+    "packages/base may not import @project-tavern/story-sandbox",
+  ),
+);
+assert(
+  (await verifyBoundaries(referenceImportRoot)).some((error) =>
+    error.includes("references/ is forbidden"),
+  ),
+);
+assert(
+  (await verifyCycles(twoFileCycleRoot)).includes(
+    "production import cycle: packages/base/src/a.ts -> packages/base/src/b.ts -> packages/base/src/a.ts",
+  ),
+);
 ```
 
 Start each exported verifier with `return []`; the negative cases must fail on the missing policy behavior.
@@ -349,12 +361,17 @@ expect(parseModuleId("synthetic.parity")).toBe("synthetic.parity");
 expect(parseStateSlotId("simulation.counter")).toBe("simulation.counter");
 expect(() => parseModuleId(" Synthetic.parity")).toThrow();
 expect(() => parseStateSlotId("simulation.counter/../../escape")).toThrow();
-expect(parseStrictJson(new TextEncoder().encode('{"a":1,"a":2}'), limits))
-  .toMatchObject({ ok: false, error: { code: "object.duplicate_key" } });
-expect(parseStrictJson(Uint8Array.of(0xef, 0xbb, 0xbf, 0x7b, 0x7d), limits))
-  .toMatchObject({ ok: false, error: { code: "encoding.bom_forbidden" } });
-expect(new TextDecoder().decode(canonicalJsonBytes({ z: 0, a: [true, null] })))
-  .toBe('{"a":[true,null],"z":0}');
+expect(parseStrictJson(new TextEncoder().encode('{"a":1,"a":2}'), limits)).toMatchObject({
+  ok: false,
+  error: { code: "object.duplicate_key" },
+});
+expect(parseStrictJson(Uint8Array.of(0xef, 0xbb, 0xbf, 0x7b, 0x7d), limits)).toMatchObject({
+  ok: false,
+  error: { code: "encoding.bom_forbidden" },
+});
+expect(new TextDecoder().decode(canonicalJsonBytes({ z: 0, a: [true, null] }))).toBe(
+  '{"a":[true,null],"z":0}',
+);
 let getterError: unknown;
 try {
   canonicalJsonBytes(Object.defineProperty({}, "x", { get: () => 1 }));
@@ -362,21 +379,34 @@ try {
   getterError = error;
 }
 expect(getterError).toMatchObject({ name: "CanonicalJsonError", code: "value.getter" });
-expect(digestCanonical("project-tavern:state:v1", { a: 1 }))
-  .not.toBe(digestCanonical("project-tavern:engine:v1", { a: 1 }));
-expect(digestCanonical("project-tavern:asset-pack:v1", {
-  identity: { id: "assets.synthetic", revision: 1 },
-  providers: [],
-})).toBe("sha256:fa4639da8be532f6097a895b8769fee4f51fbe3bf7168a90b32fb2faeb807e4e");
-expect(digestBytes(new TextEncoder().encode("abc")))
-  .toBe("sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+expect(digestCanonical("project-tavern:state:v1", { a: 1 })).not.toBe(
+  digestCanonical("project-tavern:engine:v1", { a: 1 }),
+);
+expect(
+  digestCanonical("project-tavern:asset-pack:v1", {
+    identity: { id: "assets.synthetic", revision: 1 },
+    providers: [],
+  }),
+).toBe("sha256:fa4639da8be532f6097a895b8769fee4f51fbe3bf7168a90b32fb2faeb807e4e");
+expect(digestBytes(new TextEncoder().encode("abc"))).toBe(
+  "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+);
 
-const snapshotSchema = createGameSnapshotEnvelopeSchemaV1(counterStateSchema, syntheticRngStateSchema);
-expect(snapshotSchema.parse({ state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0 }))
-  .toEqual({ state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0 });
-expect(() => snapshotSchema.parse({
-  state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0, extra: true,
-})).toThrow();
+const snapshotSchema = createGameSnapshotEnvelopeSchemaV1(
+  counterStateSchema,
+  syntheticRngStateSchema,
+);
+expect(
+  snapshotSchema.parse({ state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0 }),
+).toEqual({ state: { count: 0 }, rng: { cursor: 1 }, commandSequence: 0 });
+expect(() =>
+  snapshotSchema.parse({
+    state: { count: 0 },
+    rng: { cursor: 1 },
+    commandSequence: 0,
+    extra: true,
+  }),
+).toThrow();
 
 // @ts-expect-error semantic digest domains are a closed Catalog union
 digestCanonical("project-tavern:ad-hoc:v1", { a: 1 });
@@ -467,18 +497,30 @@ git commit -m "feat(base): add strict deterministic data contracts"
 
 ```ts
 const rng = createTransactionalRngV1(parseNonZeroUint32(0x00023049));
-expect(rngStateV1Schema.parse({ algorithm: "xorshift32-v1", cursor: 0, rawDrawCount: 0 }))
-  .toEqual({ algorithm: "xorshift32-v1", cursor: 0, rawDrawCount: 0 });
-expect(() => rngStateV1Schema.parse({
-  algorithm: "xorshift32-v1", cursor: 0x1_0000_0000, rawDrawCount: 0,
-})).toThrow();
-expect(Array.from({ length: 12 }, () => rng.nextInt({ exclusiveMax: 3, purpose: "demand:offset" }) - 1))
-  .toEqual(Array(12).fill(0));
+expect(rngStateV1Schema.parse({ algorithm: "xorshift32-v1", cursor: 0, rawDrawCount: 0 })).toEqual({
+  algorithm: "xorshift32-v1",
+  cursor: 0,
+  rawDrawCount: 0,
+});
+expect(() =>
+  rngStateV1Schema.parse({
+    algorithm: "xorshift32-v1",
+    cursor: 0x1_0000_0000,
+    rawDrawCount: 0,
+  }),
+).toThrow();
+expect(
+  Array.from({ length: 12 }, () => rng.nextInt({ exclusiveMax: 3, purpose: "demand:offset" }) - 1),
+).toEqual(Array(12).fill(0));
 expect([
   rng.nextInt({ exclusiveMax: 6, purpose: "check:die.1" }) + 1,
   rng.nextInt({ exclusiveMax: 6, purpose: "check:die.2" }) + 1,
 ]).toEqual([4, 3]);
-expect(rng.candidateState()).toEqual({ algorithm: "xorshift32-v1", cursor: 0x4e7b7f2e, rawDrawCount: 14 });
+expect(rng.candidateState()).toEqual({
+  algorithm: "xorshift32-v1",
+  cursor: 0x4e7b7f2e,
+  rawDrawCount: 14,
+});
 expect(rng.attemptedDraws()).toHaveLength(14);
 expect(Object.keys(rng).sort()).toEqual(["attemptedDraws", "candidateState", "nextInt"]);
 expect(Object.isFrozen(rng)).toBe(true);
@@ -487,8 +529,9 @@ const committedState = rng.candidateState();
 const resumed = createTransactionalRngV1(committedState);
 expect(resumed.candidateState()).toEqual(committedState);
 expect(resumed.attemptedDraws()).toEqual([]);
-expect(resumed.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }))
-  .toBe(rng.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }));
+expect(resumed.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" })).toBe(
+  rng.nextInt({ exclusiveMax: 17, purpose: "check:resume.probe" }),
+);
 expect(resumed.candidateState()).toEqual(rng.candidateState());
 
 const rejected = rejectAttemptV1(snapshot, rng, [{ code: "synthetic.reject" }]);
@@ -496,12 +539,18 @@ expect(rejected.result.snapshot).toBe(snapshot);
 expect(rejected.diagnostics.committedRngAfter).toBe(snapshot.rng);
 expect(rejected.diagnostics.attemptedDraws).toHaveLength(14);
 
-fc.assert(fc.property(nonZeroUint32Arb, fc.integer({ min: 1, max: 0x1_0000_0000 }), (seed, exclusiveMax) => {
-  const left = runDrawVectorV1(seed, exclusiveMax, 64);
-  const right = runDrawVectorV1(seed, exclusiveMax, 64);
-  expect(left).toEqual(right);
-  expect(left.results.every((value) => value >= 0 && value < exclusiveMax)).toBe(true);
-}));
+fc.assert(
+  fc.property(
+    nonZeroUint32Arb,
+    fc.integer({ min: 1, max: 0x1_0000_0000 }),
+    (seed, exclusiveMax) => {
+      const left = runDrawVectorV1(seed, exclusiveMax, 64);
+      const right = runDrawVectorV1(seed, exclusiveMax, 64);
+      expect(left).toEqual(right);
+      expect(left.results.every((value) => value >= 0 && value < exclusiveMax)).toBe(true);
+    },
+  ),
+);
 ```
 
 - [ ] **Step 2: Run red**
@@ -515,10 +564,21 @@ Expected: FAIL because transactional RNG and attempt factories are absent.
 ```ts
 export type CommandExecutionResultEnvelopeV1<TSnapshot, TFact, TRejection, TFault> =
   | { readonly kind: "committed"; readonly snapshot: TSnapshot; readonly facts: readonly TFact[] }
-  | { readonly kind: "rejected"; readonly snapshot: TSnapshot; readonly reasons: readonly TRejection[] }
+  | {
+      readonly kind: "rejected";
+      readonly snapshot: TSnapshot;
+      readonly reasons: readonly TRejection[];
+    }
   | { readonly kind: "faulted"; readonly snapshot: TSnapshot; readonly fault: TFault };
 
-export interface CommandExecutionAttemptEnvelopeV1<TSnapshot, TFact, TRejection, TFault, TRngState, TRngDrawTrace> {
+export interface CommandExecutionAttemptEnvelopeV1<
+  TSnapshot,
+  TFact,
+  TRejection,
+  TFault,
+  TRngState,
+  TRngDrawTrace,
+> {
   readonly result: CommandExecutionResultEnvelopeV1<TSnapshot, TFact, TRejection, TFault>;
   readonly diagnostics: CommandExecutionDiagnosticsEnvelopeV1<TRngState, TRngDrawTrace>;
 }
@@ -606,7 +666,9 @@ const roundTripped = strictJsonRoundTripV1(
   syntheticCounterStateV1Schema,
 );
 expect(roundTripped).toEqual({ count: 2 });
-expect(() => strictJsonRoundTripV1({ count: 2, extra: true }, syntheticCounterStateV1Schema)).toThrow();
+expect(() =>
+  strictJsonRoundTripV1({ count: 2, extra: true }, syntheticCounterStateV1Schema),
+).toThrow();
 ```
 
 - [ ] **Step 2: Run red**
@@ -682,13 +744,15 @@ it("keeps presentation-only replacement out of the simulation identity", () => {
 });
 
 it("keeps archive-only sources outside the compiled manifest", () => {
-  expect(() => compileSyntheticAssetProviderV1({
-    ...syntheticProviderV1,
-    runtimePath: "../../art-source/aigc/openai/illustrations/example.png",
-  })).toThrow();
-  expect(resolveFallbackOnlyManifestV1().assets.every(
-    (asset) => asset.delivery === "code_fallback",
-  )).toBe(true);
+  expect(() =>
+    compileSyntheticAssetProviderV1({
+      ...syntheticProviderV1,
+      runtimePath: "../../art-source/aigc/openai/illustrations/example.png",
+    }),
+  ).toThrow();
+  expect(
+    resolveFallbackOnlyManifestV1().assets.every((asset) => asset.delivery === "code_fallback"),
+  ).toBe(true);
 });
 
 it("computes Asset Pack identity from the exact nonrecursive authored projection", () => {
@@ -702,29 +766,25 @@ it("computes Asset Pack identity from the exact nonrecursive authored projection
     providers: syntheticAssetPackV1.providers,
   };
 
-  expect(identity.digest).toBe(
-    digestCanonical("project-tavern:asset-pack:v1", projection),
-  );
+  expect(identity.digest).toBe(digestCanonical("project-tavern:asset-pack:v1", projection));
   expect(projection.identity).not.toHaveProperty("digest");
   expect(identity.digest).not.toBe(digestBytes(canonicalJsonBytes(projection)));
-  expect(syntheticAssetPackV1.providers[0]?.sha256).toBe(
-    digestBytes(syntheticProviderBytesV1),
-  );
+  expect(syntheticAssetPackV1.providers[0]?.sha256).toBe(digestBytes(syntheticProviderBytesV1));
 });
 
 it("treats Asset Pack provider order as semantic", () => {
   const base = resolveSyntheticStoryV1({ assetPacks: [syntheticAssetPackV1] });
   const reordered = withSyntheticProviderOrderReversedV1(syntheticAssetPackV1);
   const changed = resolveSyntheticStoryV1({ assetPacks: [reordered] });
-  expect(changed.assets.packs[0]?.digest).not.toBe(
-    base.assets.packs[0]?.digest,
-  );
+  expect(changed.assets.packs[0]?.digest).not.toBe(base.assets.packs[0]?.digest);
 });
 
 it("rejects duplicate Asset Pack providers before identity", () => {
-  expect(() => resolveSyntheticStoryV1({
-    assetPacks: [syntheticAssetPackWithDuplicateProviderV1],
-  })).toThrow();
+  expect(() =>
+    resolveSyntheticStoryV1({
+      assetPacks: [syntheticAssetPackWithDuplicateProviderV1],
+    }),
+  ).toThrow();
 });
 
 it("resolves an unpatched Story through the real resolver for test drivers", () => {
@@ -817,16 +877,31 @@ export interface GameHostV1 {
   readonly files: HostFilePortV1;
   readonly metadataClock: { now(): IsoUtcInstant };
   readonly navigation: { reloadApplication(): void; requestExit(): void };
-  readonly log: { write(level: "debug" | "info" | "warn" | "error", code: string, details: StrictJsonObjectV1): void };
+  readonly log: {
+    write(
+      level: "debug" | "info" | "warn" | "error",
+      code: string,
+      details: StrictJsonObjectV1,
+    ): void;
+  };
 }
 
 export interface PresentationReadPortV1<TTextId, TAssetId, TAssetUsage, TLocaleId, TFallbackToken> {
   readonly locale: TLocaleId;
   text(textId: TTextId): ResolvedTextPresentationV1<TTextId, TLocaleId>;
-  asset(assetId: TAssetId, usage: TAssetUsage): ResolvedAssetPresentationV1<TAssetId, TAssetUsage, TFallbackToken>;
+  asset(
+    assetId: TAssetId,
+    usage: TAssetUsage,
+  ): ResolvedAssetPresentationV1<TAssetId, TAssetUsage, TFallbackToken>;
 }
 
-export interface PlayerApplicationPortV1<TViewModel, TCommandPort, TLifecyclePort, TPersistencePort, TDiagnosticsPort> {
+export interface PlayerApplicationPortV1<
+  TViewModel,
+  TCommandPort,
+  TLifecyclePort,
+  TPersistencePort,
+  TDiagnosticsPort,
+> {
   readonly view: ReadonlyViewSourceV1<TViewModel>;
   readonly commands: TCommandPort;
   readonly lifecycle: TLifecyclePort;
@@ -899,30 +974,36 @@ Expected: runtime and compile-time contract suites pass with the seven-parameter
 
 ```ts
 it("keeps Save and Debug export results closed", () => {
-  expect(() => exportedSaveSchemaV1.parse({
-    filename: "slot.json",
-    mediaType: "application/json",
-    digest: digest("save"),
-    bytes: Uint8Array.of(1),
-    summary: {},
-  })).toThrow();
-  expect(() => exportedDebugBundleSchemaV1.parse({
-    filename: "run.debug-bundle.json",
-    mediaType: "application/json",
-    digest: digest("debug"),
-    bytes: Uint8Array.of(2),
-    summary: {},
-  })).toThrow();
+  expect(() =>
+    exportedSaveSchemaV1.parse({
+      filename: "slot.json",
+      mediaType: "application/json",
+      digest: digest("save"),
+      bytes: Uint8Array.of(1),
+      summary: {},
+    }),
+  ).toThrow();
+  expect(() =>
+    exportedDebugBundleSchemaV1.parse({
+      filename: "run.debug-bundle.json",
+      mediaType: "application/json",
+      digest: digest("debug"),
+      bytes: Uint8Array.of(2),
+      summary: {},
+    }),
+  ).toThrow();
 });
 
 it("carries owner and fencing state through every available lease branch", () => {
-  expect(sessionLeaseStatusSchemaV1.parse({
-    kind: "handoff_requested",
-    ownerId: leaseOwnerId("owner-a"),
-    fencingToken: 3,
-    requestId: handoffRequestId("request-1"),
-    requestedByOwnerId: leaseOwnerId("owner-b"),
-  })).toMatchObject({ ownerId: "owner-a", fencingToken: 3 });
+  expect(
+    sessionLeaseStatusSchemaV1.parse({
+      kind: "handoff_requested",
+      ownerId: leaseOwnerId("owner-a"),
+      fencingToken: 3,
+      requestId: handoffRequestId("request-1"),
+      requestedByOwnerId: leaseOwnerId("owner-b"),
+    }),
+  ).toMatchObject({ ownerId: "owner-a", fencingToken: 3 });
 });
 
 it("builds a strict Save record Schema from four specialization Schemas", () => {
@@ -955,12 +1036,7 @@ Expected: FAIL because the Save/lease/diagnostic envelope modules and public exp
 Keep persisted containers generic over Story/Profile specializations:
 
 ```ts
-export interface SaveRecordEnvelopeV1<
-  TSnapshot,
-  TProvenance,
-  TSlotMetadata,
-  TSimulationLineage,
-> {
+export interface SaveRecordEnvelopeV1<TSnapshot, TProvenance, TSlotMetadata, TSimulationLineage> {
   readonly formatRevision: 1;
   readonly recordRevision: PositiveSafeInteger;
   readonly provenance: TProvenance;
@@ -981,12 +1057,7 @@ export function createSaveRecordEnvelopeSchemaV1<
   provenanceSchema: RuntimeSchemaV1<TProvenance>,
   slotMetadataSchema: RuntimeSchemaV1<TSlotMetadata>,
   simulationLineageSchema: RuntimeSchemaV1<TSimulationLineage>,
-): RuntimeSchemaV1<SaveRecordEnvelopeV1<
-  TSnapshot,
-  TProvenance,
-  TSlotMetadata,
-  TSimulationLineage
->>;
+): RuntimeSchemaV1<SaveRecordEnvelopeV1<TSnapshot, TProvenance, TSlotMetadata, TSimulationLineage>>;
 
 export interface ExportedDebugBundleV1 {
   readonly filename: string;
@@ -1065,9 +1136,18 @@ export interface EngineSessionV1<TTypes extends GameProfileTypeMapV1> {
   getStatus(): RuntimeSessionStatusV1;
   getCurrentSnapshot(): DeepReadonly<TTypes["snapshot"]>;
   subscribe(listener: () => void): () => void;
-  dispatch(command: DeepReadonly<TTypes["command"]>): Promise<SessionDispatchOperationResultV1<
-    CommandExecutionResultEnvelopeV1<TTypes["snapshot"], TTypes["fact"], TTypes["rejection"], TTypes["fault"]>
-  >>;
+  dispatch(
+    command: DeepReadonly<TTypes["command"]>,
+  ): Promise<
+    SessionDispatchOperationResultV1<
+      CommandExecutionResultEnvelopeV1<
+        TTypes["snapshot"],
+        TTypes["fact"],
+        TTypes["rejection"],
+        TTypes["fault"]
+      >
+    >
+  >;
 }
 
 export type AuthoritativeOutcomeV1<TSnapshot, TResult> =
@@ -1081,7 +1161,9 @@ export type AuthoritativeOutcomeV1<TSnapshot, TResult> =
 
 export interface EngineSessionRuntimeControlV1<TSnapshot> {
   enqueueAuthoritative<TResult>(
-    operation: (current: DeepReadonly<TSnapshot>) => Promise<AuthoritativeOutcomeV1<TSnapshot, TResult>>,
+    operation: (
+      current: DeepReadonly<TSnapshot>,
+    ) => Promise<AuthoritativeOutcomeV1<TSnapshot, TResult>>,
     normalizeUnexpectedFault: (error: unknown) => TResult,
   ): Promise<TResult>;
   inspectForRuntime(): {
@@ -1296,9 +1378,7 @@ it("changes the rendered slice only through typed dispatch", async () => {
 
   expect(screen.getByText("计数：0")).toBeVisible();
   await userEvent.setup().click(screen.getByRole("button", { name: "增加计数" }));
-  expect(fixture.dispatchedCommands()).toEqual([
-    { kind: "sandbox.counter.increment" },
-  ]);
+  expect(fixture.dispatchedCommands()).toEqual([{ kind: "sandbox.counter.increment" }]);
   expect(await screen.findByText("计数：1")).toBeVisible();
 });
 ```
@@ -1400,7 +1480,10 @@ Expected: UI and Web tests pass; parameterless lifecycle consumes Host entropy o
 `classifyVitestProjectV1` accepts only POSIX workspace-source paths under `packages/**/src`, `stories/**/src`, or `apps/**/src`, plus exact `scripts/**/*.test.ts` paths. Workspace property naming wins first, then contract naming/path ownership, then ordinary unit; TypeScript script tests receive the separate `scripts` owner. Node/Playwright/type-declaration tests return `null`.
 
 ```js
-assert.equal(classifyVitestProjectV1("packages/base/src/contracts/rng.property.test.ts"), "property");
+assert.equal(
+  classifyVitestProjectV1("packages/base/src/contracts/rng.property.test.ts"),
+  "property",
+);
 assert.equal(classifyVitestProjectV1("stories/future/src/story-contract.test.ts"), "contract");
 assert.equal(classifyVitestProjectV1("packages/base/src/testkit/new-helper.test.ts"), "contract");
 assert.equal(classifyVitestProjectV1("apps/future/src/loader/new-loader.test.tsx"), "unit");
@@ -1452,8 +1535,11 @@ Keep the repository collector in `scripts/`; it is an importable CLI module, not
 test("rejects an arbitrary dynamic import in a managed closure", async (t) => {
   const root = await importClosureFixture('await import("./stories/" + id + ".js")');
   t.after(() => rm(root, { recursive: true, force: true }));
-  assert((await collectImportClosure(root, managedRoots))
-    .some((error) => error.includes("dynamic import path is not static")));
+  assert(
+    (await collectImportClosure(root, managedRoots)).some((error) =>
+      error.includes("dynamic import path is not static"),
+    ),
+  );
 });
 
 test("keeps the Web developer subpath out of the Player closure", async () => {

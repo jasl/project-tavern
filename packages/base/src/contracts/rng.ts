@@ -7,10 +7,7 @@ import type {
   PositiveSafeInteger,
   RuntimeSchemaV1,
 } from "./values.js";
-import {
-  parseNonNegativeSafeInteger,
-  parsePositiveSafeInteger,
-} from "./values.js";
+import { parseNonNegativeSafeInteger, parsePositiveSafeInteger } from "./values.js";
 
 type Uint32 = Brand<number, "Uint32">;
 
@@ -35,9 +32,7 @@ export interface RngDrawTraceV1 {
 }
 
 export interface RuleRngV1 {
-  nextInt(
-    request: DeepReadonly<RuleDrawRequestV1>,
-  ): NonNegativeSafeInteger;
+  nextInt(request: DeepReadonly<RuleDrawRequestV1>): NonNegativeSafeInteger;
   candidateState(): RngStateV1;
   attemptedDraws(): readonly RngDrawTraceV1[];
 }
@@ -67,10 +62,7 @@ export const rngStateV1Schema: RuntimeSchemaV1<RngStateV1> = Object.freeze({
       throw new TypeError("invalid RngStateV1");
     }
     const descriptors = Object.getOwnPropertyDescriptors(value);
-    if (
-      Object.keys(descriptors).sort().join("\0") !==
-      "algorithm\0cursor\0rawDrawCount"
-    ) {
+    if (Object.keys(descriptors).sort().join("\0") !== "algorithm\0cursor\0rawDrawCount") {
       throw new TypeError("invalid RngStateV1 fields");
     }
     for (const descriptor of Object.values(descriptors)) {
@@ -84,9 +76,7 @@ export const rngStateV1Schema: RuntimeSchemaV1<RngStateV1> = Object.freeze({
     return Object.freeze({
       algorithm: "xorshift32-v1",
       cursor: parseUint32(descriptors.cursor?.value),
-      rawDrawCount: parseNonNegativeSafeInteger(
-        descriptors.rawDrawCount?.value,
-      ),
+      rawDrawCount: parseNonNegativeSafeInteger(descriptors.rawDrawCount?.value),
     });
   },
 });
@@ -112,24 +102,16 @@ function state(cursor: number, rawDrawCount: number): RngStateV1 {
 }
 
 export function createTransactionalRngV1(input: NonZeroUint32): RuleRngV1;
-export function createTransactionalRngV1(
-  input: DeepReadonly<RngStateV1>,
-): RuleRngV1;
+export function createTransactionalRngV1(input: DeepReadonly<RngStateV1>): RuleRngV1;
 export function createTransactionalRngV1(
   input: NonZeroUint32 | DeepReadonly<RngStateV1>,
 ): RuleRngV1 {
-  const initial =
-    typeof input === "number"
-      ? state(input, 0)
-      : rngStateV1Schema.parse(input);
+  const initial = typeof input === "number" ? state(input, 0) : rngStateV1Schema.parse(input);
   let cursor = initial.cursor as number;
   let rawDrawCount = initial.rawDrawCount as number;
   const traces: RngDrawTraceV1[] = [];
 
-  const nextRaw = (
-    purpose: string,
-    exclusiveMax: PositiveSafeInteger,
-  ): number => {
+  const nextRaw = (purpose: string, exclusiveMax: PositiveSafeInteger): number => {
     const before = state(cursor, rawDrawCount);
     let next = cursor >>> 0;
     next = (next ^ ((next << 13) >>> 0)) >>> 0;
@@ -167,8 +149,7 @@ export function createTransactionalRngV1(
         throw new TypeError("exclusiveMax exceeds uint32 range");
       }
       const purpose = parsePurpose(request.purpose);
-      const limit =
-        Math.floor(0x1_0000_0000 / exclusiveMax) * exclusiveMax;
+      const limit = Math.floor(0x1_0000_0000 / exclusiveMax) * exclusiveMax;
       let raw;
       do {
         raw = nextRaw(purpose, exclusiveMax);

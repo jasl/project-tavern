@@ -36,9 +36,7 @@ export function createGameSnapshotEnvelopeSchemaV1<TState, TRngState>(
       return Object.freeze({
         state: stateSchema.parse(descriptors.state?.value),
         rng: rngStateSchema.parse(descriptors.rng?.value),
-        commandSequence: parseNonNegativeSafeInteger(
-          descriptors.commandSequence?.value,
-        ),
+        commandSequence: parseNonNegativeSafeInteger(descriptors.commandSequence?.value),
       });
     },
   });

@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { Digest, PositiveSafeInteger } from "./values.js";
 
-export type AssetUsageV1 =
-  | "scene_background"
-  | "character_pose"
-  | "story_prop"
-  | "ui_decoration";
+export type AssetUsageV1 = "scene_background" | "character_pose" | "story_prop" | "ui_decoration";
 
 export interface AssetSafeAreaV1 {
   readonly x: number;
@@ -24,8 +20,7 @@ export interface AssetPackSourceIdentityV1 {
   readonly revision: PositiveSafeInteger;
 }
 
-export interface AssetPackResolvedIdentityV1
-  extends AssetPackSourceIdentityV1 {
+export interface AssetPackResolvedIdentityV1 extends AssetPackSourceIdentityV1 {
   readonly digest: Digest;
 }
 
@@ -64,7 +59,14 @@ export interface AssetPackDigestProjectionV1 {
 
 export type AssetProviderRefV1 =
   | { readonly kind: "asset_pack"; readonly identity: AssetPackResolvedIdentityV1 }
-  | { readonly kind: "hotfix"; readonly identity: { readonly id: string; readonly revision: PositiveSafeInteger; readonly digest: Digest } };
+  | {
+      readonly kind: "hotfix";
+      readonly identity: {
+        readonly id: string;
+        readonly revision: PositiveSafeInteger;
+        readonly digest: Digest;
+      };
+    };
 
 export type ResolvedAssetEntryV1 =
   | (AssetSlotDefinitionV1 & {

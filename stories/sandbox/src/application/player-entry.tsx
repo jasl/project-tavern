@@ -24,7 +24,8 @@ const bootstrap = createGameBootstrapControllerV1({
   }),
 });
 const bootstrapped = await bootstrap(sandboxStoryEntryV1, []);
-if (bootstrapped.kind !== "ready") throw new TypeError(`Sandbox bootstrap failed: ${bootstrapped.code}`);
+if (bootstrapped.kind !== "ready")
+  throw new TypeError(`Sandbox bootstrap failed: ${bootstrapped.code}`);
 const resolved = bootstrapped.resolved as SandboxResolvedStoryV1;
 const player = createSandboxApplicationV1({ resolved, host });
 const presentation = Object.freeze({ label: "计数" });
@@ -33,9 +34,7 @@ const contributions = createUiContributionRegistryV1<
   SandboxPlayerApplicationV1,
   typeof presentation
 >({
-  scenes: [
-    { id: "scene.sandbox.counter", render: ({ view }) => <p>计数：{view.count}</p> },
-  ],
+  scenes: [{ id: "scene.sandbox.counter", render: ({ view }) => <p>计数：{view.count}</p> }],
   overlays: [],
   hud: [{ id: "hud.sandbox.counter", render: () => null }],
   gameSymbols: [],

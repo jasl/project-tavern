@@ -54,10 +54,7 @@ function isThenable(value: unknown): boolean {
 }
 
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
-  return (
-    left.length === right.length &&
-    left.every((byte, index) => byte === right[index])
-  );
+  return left.length === right.length && left.every((byte, index) => byte === right[index]);
 }
 
 function projection(definition: SourceDefinitionLike): unknown {
@@ -86,9 +83,9 @@ function failure(
     kind: "failed",
     failure: Object.freeze({
       code,
-      rejectedHotfixIds: Object.freeze(
-        [...new Set(hotfixes.map((hotfix) => hotfix.manifest.identity.id))],
-      ),
+      rejectedHotfixIds: Object.freeze([
+        ...new Set(hotfixes.map((hotfix) => hotfix.manifest.identity.id)),
+      ]),
       details: Object.freeze({ message }),
     }),
   });
@@ -119,9 +116,11 @@ export function resolveGamePackageV1(
   let second: SourceDefinitionLike;
   try {
     first = entry.define() as SourceDefinitionLike;
-    if (isThenable(first)) return failure("story.define_thenable", [], "Story define returned thenable");
+    if (isThenable(first))
+      return failure("story.define_thenable", [], "Story define returned thenable");
     second = entry.define() as SourceDefinitionLike;
-    if (isThenable(second)) return failure("story.define_thenable", [], "Story define returned thenable");
+    if (isThenable(second))
+      return failure("story.define_thenable", [], "Story define returned thenable");
   } catch (error) {
     return failure(
       "story.define_threw",
@@ -132,10 +131,7 @@ export function resolveGamePackageV1(
 
   try {
     if (
-      !equalBytes(
-        canonicalJsonBytes(projection(first)),
-        canonicalJsonBytes(projection(second)),
-      )
+      !equalBytes(canonicalJsonBytes(projection(first)), canonicalJsonBytes(projection(second)))
     ) {
       return failure("story.nondeterministic", [], "Story projections differ");
     }
@@ -146,9 +142,7 @@ export function resolveGamePackageV1(
       hotfixes,
       entry.identity,
     );
-    const simulationProgram = first.simulation.materializeProgram(
-      patches.simulationValues,
-    );
+    const simulationProgram = first.simulation.materializeProgram(patches.simulationValues);
     if (isThenable(simulationProgram)) {
       return failure(
         "story.materialization_thenable",
@@ -170,40 +164,30 @@ export function resolveGamePackageV1(
     if (isThenable(profile)) {
       return failure("story.profile_invalid", hotfixes, "Profile factory returned thenable");
     }
-    const slots = Array.isArray(first.presentation.assetSlots)
-      ? first.presentation.assetSlots
-      : [];
-    const packs = Array.isArray(first.presentation.assetPacks)
-      ? first.presentation.assetPacks
-      : [];
+    const slots = Array.isArray(first.presentation.assetSlots) ? first.presentation.assetSlots : [];
+    const packs = Array.isArray(first.presentation.assetPacks) ? first.presentation.assetPacks : [];
     const assets = resolveAssetManifestV1(slots, packs);
     const storyDigest = digestCanonical("project-tavern:story:v1", {
       identity: entry.identity,
       simulationSourceDigest: build.storySimulation.digest,
       presentationSourceDigest: build.storyPresentation.digest,
     });
-    const stateContractDigest = digestCanonical(
-      "project-tavern:state-contract:v1",
-      {
-        story: entry.identity,
-        revision: first.simulation.stateContractRevision,
-      },
-    );
+    const stateContractDigest = digestCanonical("project-tavern:state-contract:v1", {
+      story: entry.identity,
+      revision: first.simulation.stateContractRevision,
+    });
     const simulationDigest = digestCanonical("project-tavern:simulation:v1", {
       storyDigest,
       stateContractDigest,
       sourceDigest: build.storySimulation.digest,
       patchSetDigest: patches.patchSet.simulationDigest,
     });
-    const presentationDigest = digestCanonical(
-      "project-tavern:presentation:v1",
-      {
-        storyDigest,
-        sourceDigest: build.storyPresentation.digest,
-        patchSetDigest: patches.patchSet.presentationDigest,
-        assetPacks: assets.packs,
-      },
-    );
+    const presentationDigest = digestCanonical("project-tavern:presentation:v1", {
+      storyDigest,
+      sourceDigest: build.storyPresentation.digest,
+      patchSetDigest: patches.patchSet.presentationDigest,
+      assetPacks: assets.packs,
+    });
     const provenance: BuildProvenanceV1 = deepFreezeAuthoringValueV1({
       story: {
         id: entry.identity.id,
@@ -212,9 +196,7 @@ export function resolveGamePackageV1(
       },
       engine: { version: "0.0.0", digest: build.engine.digest },
       resolved: {
-        stateContractRevision: parsePositiveSafeInteger(
-          first.simulation.stateContractRevision,
-        ),
+        stateContractRevision: parsePositiveSafeInteger(first.simulation.stateContractRevision),
         stateContractDigest,
         simulationDigest,
         presentationDigest,

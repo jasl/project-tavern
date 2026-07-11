@@ -4,11 +4,7 @@ import { describe, expect, it } from "vitest";
 import { defineGameModule } from "./define-game-module.js";
 import { defineGameProfile } from "./define-game-profile.js";
 import type { GameModuleBindingV1 } from "../contracts/module.js";
-import {
-  parseModuleId,
-  parsePositiveSafeInteger,
-  parseStateSlotId,
-} from "../contracts/values.js";
+import { parseModuleId, parsePositiveSafeInteger, parseStateSlotId } from "../contracts/values.js";
 
 const passthroughSchema = Object.freeze({ parse: (value: unknown) => value });
 
@@ -105,9 +101,7 @@ describe("Profile invariants", () => {
       ),
     ).toThrow("duplicate State slot");
     expect(() =>
-      defineGameProfile(
-        profile([stateless("synthetic.parity", ["synthetic.missing"])]),
-      ),
+      defineGameProfile(profile([stateless("synthetic.parity", ["synthetic.missing"])])),
     ).toThrow("missing dependency");
     expect(() =>
       defineGameProfile(

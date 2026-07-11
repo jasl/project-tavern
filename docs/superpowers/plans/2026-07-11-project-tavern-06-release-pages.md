@@ -39,9 +39,15 @@ Create `scripts/release/actions-lock.json` from this exact mapping. A later acti
   "pnpm/action-setup": { "sha": "0ebf47130e4866e96fce0953f49152a61190b271", "tag": "v6.0.9" },
   "actions/setup-node": { "sha": "48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e", "tag": "v6.4.0" },
   "actions/upload-artifact": { "sha": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "tag": "v7.0.1" },
-  "actions/download-artifact": { "sha": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", "tag": "v8.0.1" },
+  "actions/download-artifact": {
+    "sha": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+    "tag": "v8.0.1"
+  },
   "actions/configure-pages": { "sha": "45bfe0192ca1faeb007ade9deae92b16b8254a0d", "tag": "v6.0.0" },
-  "actions/upload-pages-artifact": { "sha": "fc324d3547104276b827a68afc52ff2a11cc49c9", "tag": "v5.0.0" },
+  "actions/upload-pages-artifact": {
+    "sha": "fc324d3547104276b827a68afc52ff2a11cc49c9",
+    "tag": "v5.0.0"
+  },
   "actions/deploy-pages": { "sha": "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128", "tag": "v5.0.0" }
 }
 ```
@@ -106,8 +112,9 @@ it("pins the E2E Player to the same closed artifact wrapper", () => {
 });
 
 it("rejects an outDir outside the repository dist directory", async () => {
-  await expect(buildArtifact({ story: "demo", flavor: "player", outDir: "../player", sourcemap: false }))
-    .rejects.toThrow(/release\.invalid_output_path/);
+  await expect(
+    buildArtifact({ story: "demo", flavor: "player", outDir: "../player", sourcemap: false }),
+  ).rejects.toThrow(/release\.invalid_output_path/);
 });
 ```
 
@@ -182,17 +189,25 @@ git commit -m "build: freeze all browser artifacts"
 it("sorts paths and excludes the manifest from its own digest input", async () => {
   const manifest = await createArtifactManifest(fixtureDir);
   expect(manifest.files.map((entry) => entry.path)).toEqual([
-    "assets/app.js", "index.html", "LICENSE.md", "NOTICE",
+    "assets/app.js",
+    "index.html",
+    "LICENSE.md",
+    "NOTICE",
   ]);
   expect(manifest.files.every((entry) => /^sha256:[0-9a-f]{64}$/.test(entry.digest))).toBe(true);
 });
 
-it.each(["./development", "DeveloperApplicationPort", "references/", "art-source/aigc/", "sourceMappingURL=", "/Users/"])(
-  "rejects forbidden Player marker %s", async (marker) => {
-    const dir = await playerFixtureContaining(marker);
-    await expect(verifyPlayerArtifact(dir)).rejects.toThrow();
-  },
-);
+it.each([
+  "./development",
+  "DeveloperApplicationPort",
+  "references/",
+  "art-source/aigc/",
+  "sourceMappingURL=",
+  "/Users/",
+])("rejects forbidden Player marker %s", async (marker) => {
+  const dir = await playerFixtureContaining(marker);
+  await expect(verifyPlayerArtifact(dir)).rejects.toThrow();
+});
 ```
 
 - [ ] **Step 2: Run release-content tests and confirm failure**
@@ -264,7 +279,9 @@ it("compares file sets and digests rather than mtimes", async () => {
 
 it("rejects root-relative browser asset references", async () => {
   const dir = await artifactFixture({ indexHtml: '<script src="/assets/app.js"></script>' });
-  await expect(smokeStaticArtifact(dir, "/nested/tavern/")).rejects.toThrow(/artifact\.root_relative_url/);
+  await expect(smokeStaticArtifact(dir, "/nested/tavern/")).rejects.toThrow(
+    /artifact\.root_relative_url/,
+  );
 });
 ```
 
@@ -331,13 +348,38 @@ git commit -m "test(release): prove reproducible nested-base player"
 
 ```ts
 expect(verificationSteps.map((step) => step.id)).toEqual([
-  "toolchain", "format", "lint", "lint-styles", "licensing", "boundaries", "cycles",
-  "typecheck", "unit", "contract", "property", "scripts", "stories", "fixtures",
-  "golden", "balance", "assets", "build-player", "build-developer", "build-e2e-player",
-  "ui-flavors", "bundle", "e2e-smoke", "ui-chromium", "artifact", "docs-links",
+  "toolchain",
+  "format",
+  "lint",
+  "lint-styles",
+  "licensing",
+  "boundaries",
+  "cycles",
+  "typecheck",
+  "unit",
+  "contract",
+  "property",
+  "scripts",
+  "stories",
+  "fixtures",
+  "golden",
+  "balance",
+  "assets",
+  "build-player",
+  "build-developer",
+  "build-e2e-player",
+  "ui-flavors",
+  "bundle",
+  "e2e-smoke",
+  "ui-chromium",
+  "artifact",
+  "docs-links",
 ]);
-expect(verificationSteps.every((step) => !step.command.includes("update:") && !step.command.includes("regenerate:")))
-  .toBe(true);
+expect(
+  verificationSteps.every(
+    (step) => !step.command.includes("update:") && !step.command.includes("regenerate:"),
+  ),
+).toBe(true);
 ```
 
 Extend `run-script-tests.test.mjs` against the live Phase 6 checkout as well as synthetic fixtures. Recursively enumerate `scripts/` without `git ls-files` or shell globbing, compare it with `discoverScriptTestsV1`, and assert the union is exact:
@@ -420,11 +462,15 @@ Regenerate the frozen lockfile and run `pnpm verify:licensing`. Expected: the ex
 ```ts
 it("accepts only reviewed full action SHAs with matching tag comments", async () => {
   expect(await validateWorkflow(validCiWorkflow, actionsLock)).toEqual([]);
-  expect(await validateWorkflow(ciUsingFloatingTag, actionsLock)).toContain("workflow.floating_action_ref");
+  expect(await validateWorkflow(ciUsingFloatingTag, actionsLock)).toContain(
+    "workflow.floating_action_ref",
+  );
 });
 
 it("requires explicit 30-day retention for every uploaded artifact", async () => {
-  expect(await validateWorkflow(uploadWithoutRetention, actionsLock)).toContain("workflow.retention_missing");
+  expect(await validateWorkflow(uploadWithoutRetention, actionsLock)).toContain(
+    "workflow.retention_missing",
+  );
 });
 ```
 
@@ -497,9 +543,15 @@ git commit -m "ci: verify reproducible player artifact"
 it("deploy job downloads its verify dependency and never rebuilds", async () => {
   const model = await parseWorkflow(pagesWorkflow);
   expect(model.jobs.deploy.needs).toEqual("verify");
-  expect(model.jobs.deploy.steps.some((step) => step.uses?.startsWith("actions/download-artifact@"))).toBe(true);
-  expect(model.jobs.deploy.steps.some((step) => step.uses?.startsWith("actions/checkout@"))).toBe(false);
-  expect(model.jobs.deploy.steps.some((step) => /pnpm (build|verify)/.test(step.run ?? ""))).toBe(false);
+  expect(
+    model.jobs.deploy.steps.some((step) => step.uses?.startsWith("actions/download-artifact@")),
+  ).toBe(true);
+  expect(model.jobs.deploy.steps.some((step) => step.uses?.startsWith("actions/checkout@"))).toBe(
+    false,
+  );
+  expect(model.jobs.deploy.steps.some((step) => /pnpm (build|verify)/.test(step.run ?? ""))).toBe(
+    false,
+  );
   expect(model.jobs.deploy.environment).toMatchObject({ name: "github-pages" });
   expect(model.permissions).toEqual({ contents: "read" });
   expect(model.jobs.deploy.permissions).toMatchObject({ pages: "write", "id-token": "write" });

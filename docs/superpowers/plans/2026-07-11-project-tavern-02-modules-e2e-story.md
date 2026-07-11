@@ -129,6 +129,7 @@
 ## Task 1: Freeze the Module Ownership Catalog and Bootstrap Contract
 
 **Files:**
+
 - Modify: `packages/modules/package.json`
 - Create: `packages/modules/src/profile/types.ts`
 - Create: `packages/modules/src/profile/domain-values.ts`
@@ -152,6 +153,7 @@
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `Brand`, Base safe-integer brands/parsers, `GameProfileTypeMapV1`, `GameSnapshotEnvelopeV1`, `ModuleOwnerProposalEnvelopeV1`, `RngStateV1`, `RngDrawTraceV1`, and strict-schema primitives from `@project-tavern/base`.
 - Produces: the complete `DemoProfileTypesV1` witness, all owner/service type-only contracts, exact `DemoSimulationProgramV1`, concrete `DemoCommandExecutionResultV1`/`DemoCommandExecutionAttemptV1` aliases, `defineDemoGameModuleV1`, `DemoGameBootstrapInputV1`, every game-specific brand including `FixtureId`, exact `parseFixtureId`/`fixtureIdSchemaV1`, frozen `gameModuleDescriptorsV1`, `gameModuleKeysV1`, `gameModuleDependenciesV1`, `statefulOwnerKeysV1`, and `effectIntentOwnerByKindV1`. Every later binding can compile and typecheck independently against this exact spine; no Profile is composed here.
 
@@ -174,30 +176,70 @@ import type { DemoGameBootstrapInputV1, DemoProfileTypesV1 } from "./types.js";
 describe("Demo v1 profile catalog", () => {
   it("freezes twelve modules with no direct read edges", () => {
     expect(gameModuleKeysV1).toEqual([
-      "run", "calendar", "actors", "status", "inventory", "facilities",
-      "tavern", "workflow", "world", "progression", "narrative", "scheduling",
+      "run",
+      "calendar",
+      "actors",
+      "status",
+      "inventory",
+      "facilities",
+      "tavern",
+      "workflow",
+      "world",
+      "progression",
+      "narrative",
+      "scheduling",
     ]);
     expect(Object.values(gameModuleDependenciesV1).every((value) => value.length === 0)).toBe(true);
     expect(statefulOwnerKeysV1).toEqual([
-      "run", "calendar", "actors", "status", "inventory", "facilities",
-      "tavern", "workflow", "progression", "narrative",
+      "run",
+      "calendar",
+      "actors",
+      "status",
+      "inventory",
+      "facilities",
+      "tavern",
+      "workflow",
+      "progression",
+      "narrative",
     ]);
     expect(gameModuleKeysV1.map((key) => gameModuleDescriptorsV1[key].id)).toEqual([
-      "module.run", "module.calendar", "module.actors", "module.status",
-      "module.inventory", "module.facilities", "module.tavern", "module.workflow",
-      "module.world", "module.progression", "module.narrative", "module.scheduling",
+      "module.run",
+      "module.calendar",
+      "module.actors",
+      "module.status",
+      "module.inventory",
+      "module.facilities",
+      "module.tavern",
+      "module.workflow",
+      "module.world",
+      "module.progression",
+      "module.narrative",
+      "module.scheduling",
     ]);
     expect(gameModuleKeysV1.map((key) => gameModuleDescriptorsV1[key].stateSlots)).toEqual([
-      ["simulation.run"], ["simulation.calendar"], ["simulation.actors"], ["simulation.status"],
-      ["simulation.inventory"], ["simulation.facilities"], ["simulation.tavern"],
-      ["simulation.activeWorkflow"], [],
+      ["simulation.run"],
+      ["simulation.calendar"],
+      ["simulation.actors"],
+      ["simulation.status"],
+      ["simulation.inventory"],
+      ["simulation.facilities"],
+      ["simulation.tavern"],
+      ["simulation.activeWorkflow"],
+      [],
       ["story.facts", "story.quests", "story.outcomes", "story.resolvedChecks"],
-      ["story.narrative"], [],
+      ["story.narrative"],
+      [],
     ]);
     expect(Object.isFrozen(gameModuleDescriptorsV1)).toBe(true);
-    expect(gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key]))).toBe(true);
-    expect(gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key].stateSlots))).toBe(true);
-    expect(gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key].dependencies))).toBe(true);
+    expect(gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key]))).toBe(
+      true,
+    );
+    expect(
+      gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key].stateSlots)),
+    ).toBe(true);
+    expect(
+      gameModuleKeysV1.every((key) => Object.isFrozen(gameModuleDescriptorsV1[key].dependencies)),
+    ).toBe(true);
   });
 
   it("requires explicit deterministic bootstrap identity", () => {
@@ -206,12 +248,15 @@ describe("Demo v1 profile catalog", () => {
   });
 
   it("binds public state to Catalog brands", () => {
-    expectTypeOf<DemoProfileTypesV1["state"]["simulation"]["calendar"]["day"]>()
-      .toEqualTypeOf<DayIndex>();
-    expectTypeOf<DemoProfileTypesV1["state"]["simulation"]["calendar"]["apRemaining"]>()
-      .toEqualTypeOf<NonNegativeSafeInteger>();
-    expectTypeOf<DemoProfileTypesV1["state"]["simulation"]["inventory"]["cash"]>()
-      .toEqualTypeOf<Money>();
+    expectTypeOf<
+      DemoProfileTypesV1["state"]["simulation"]["calendar"]["day"]
+    >().toEqualTypeOf<DayIndex>();
+    expectTypeOf<
+      DemoProfileTypesV1["state"]["simulation"]["calendar"]["apRemaining"]
+    >().toEqualTypeOf<NonNegativeSafeInteger>();
+    expectTypeOf<
+      DemoProfileTypesV1["state"]["simulation"]["inventory"]["cash"]
+    >().toEqualTypeOf<Money>();
   });
 
   it("routes every effect kind to one owner", () => {
@@ -241,15 +286,21 @@ Expected: FAIL with `Cannot find module './constants.js'` or `Cannot find module
 
 ```ts
 // packages/modules/src/profile/constants.ts
-import {
-  parseModuleId,
-  parsePositiveSafeInteger,
-  parseStateSlotId,
-} from "@project-tavern/base";
+import { parseModuleId, parsePositiveSafeInteger, parseStateSlotId } from "@project-tavern/base";
 
 export const gameModuleKeysV1 = [
-  "run", "calendar", "actors", "status", "inventory", "facilities",
-  "tavern", "workflow", "world", "progression", "narrative", "scheduling",
+  "run",
+  "calendar",
+  "actors",
+  "status",
+  "inventory",
+  "facilities",
+  "tavern",
+  "workflow",
+  "world",
+  "progression",
+  "narrative",
+  "scheduling",
 ] as const;
 
 export type GameModuleKeyV1 = (typeof gameModuleKeysV1)[number];
@@ -285,7 +336,10 @@ export const gameModuleDescriptorsV1 = Object.freeze({
   workflow: descriptorV1("module.workflow", ["simulation.activeWorkflow"]),
   world: descriptorV1("module.world", []),
   progression: descriptorV1("module.progression", [
-    "story.facts", "story.quests", "story.outcomes", "story.resolvedChecks",
+    "story.facts",
+    "story.quests",
+    "story.outcomes",
+    "story.resolvedChecks",
   ]),
   narrative: descriptorV1("module.narrative", ["story.narrative"]),
   scheduling: descriptorV1("module.scheduling", []),
@@ -307,8 +361,16 @@ export const gameModuleDependenciesV1 = Object.freeze({
 } as const);
 
 export const statefulOwnerKeysV1 = [
-  "run", "calendar", "actors", "status", "inventory", "facilities",
-  "tavern", "workflow", "progression", "narrative",
+  "run",
+  "calendar",
+  "actors",
+  "status",
+  "inventory",
+  "facilities",
+  "tavern",
+  "workflow",
+  "progression",
+  "narrative",
 ] as const;
 
 export const effectIntentOwnerByKindV1 = Object.freeze({
@@ -592,6 +654,7 @@ git commit -m "feat(modules): freeze profile-bound contract spine"
 ## Task 2: Implement the Run Module
 
 **Files:**
+
 - Modify: `packages/modules/src/run/contract.ts`
 - Create: `packages/modules/src/run/run-module.ts`
 - Create: `packages/modules/src/run/run-module.test.ts`
@@ -600,6 +663,7 @@ git commit -m "feat(modules): freeze profile-bound contract spine"
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `DemoGameBootstrapInputV1`, Base `ModuleOwnerProposalEnvelopeV1`, strict schemas, and stable Run/Ending IDs from the Catalog.
 - Produces: `RunStateV1`, `RunCompletionV1`, `RunReadPortV1`, `RunOwnerOperationV1`, `RunOwnerProposalV1`, and `runModuleV1`. Later the coordinator uses it for `run.start` and terminal `levy.pay` only.
 
@@ -659,11 +723,7 @@ import type { EndingId, Money, ReasonId } from "../profile/domain-values.js";
 import type { OutcomeEntryV1 } from "../progression/contract.js";
 
 export type RunStatus =
-  | "setup"
-  | "active"
-  | "completed_stable"
-  | "completed_danger"
-  | "failed_arrears";
+  "setup" | "active" | "completed_stable" | "completed_danger" | "failed_arrears";
 
 export type LevyResolutionV1 =
   | {
@@ -743,14 +803,24 @@ export const runModuleV1 = defineDemoGameModuleV1({
   }),
   createReadPort: (state) => state,
   owner: {
-    propose(state, operation): { readonly kind: "proposed"; readonly proposal: RunOwnerProposalV1 } {
+    propose(
+      state,
+      operation,
+    ): { readonly kind: "proposed"; readonly proposal: RunOwnerProposalV1 } {
       if (operation.kind === "activate") {
-        return { kind: "proposed", proposal: { payload: { ...state, status: "active" }, facts: [] } };
+        return {
+          kind: "proposed",
+          proposal: { payload: { ...state, status: "active" }, facts: [] },
+        };
       }
       return {
         kind: "proposed",
         proposal: {
-          payload: { ...state, status: operation.completion.status, completion: operation.completion },
+          payload: {
+            ...state,
+            status: operation.completion.status,
+            completion: operation.completion,
+          },
           facts: [{ kind: "run.completed", completion: operation.completion }],
         },
       };
@@ -784,12 +854,14 @@ git commit -m "feat(modules): add run state owner"
 ## Task 3: Implement the Calendar Module
 
 **Files:**
+
 - Modify: `packages/modules/src/calendar/contract.ts`
 - Create: `packages/modules/src/calendar/calendar-module.ts`
 - Create: `packages/modules/src/calendar/calendar-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `DemoGameBootstrapInputV1`, Story-provided AP values, and coordinator-computed transitions. Calendar never reads Tavern, Narrative, or Workflow directly.
 - Produces: `CalendarStateV1`, `CalendarReadPortV1`, `CalendarOwnerOperationV1`, `CalendarFactV1`, `CalendarOwnerRejectionV1`, and `calendarModuleV1` for policy choice, AP spending/adjustment, and the sole day/phase mutation.
 
@@ -820,25 +892,45 @@ describe("calendarModuleV1", () => {
 
   it("rejects overspending without changing the source state", () => {
     const state = buildCalendarStateV1({ phase: "morning", apRemaining: contractValuesV1.one });
-    const result = calendarModuleV1.owner!.propose(state, {
-      kind: "spend_ap",
-      amount: contractValuesV1.twoPositive,
-      reason: { kind: "command", commandKind: "actor.rest", reasonId: e2eIdsV1.reasonRest },
-    }, {});
+    const result = calendarModuleV1.owner!.propose(
+      state,
+      {
+        kind: "spend_ap",
+        amount: contractValuesV1.twoPositive,
+        reason: { kind: "command", commandKind: "actor.rest", reasonId: e2eIdsV1.reasonRest },
+      },
+      {},
+    );
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "calendar.insufficient_ap", details: { required: contractValuesV1.twoPositive, available: contractValuesV1.one } },
+      rejection: {
+        code: "calendar.insufficient_ap",
+        details: { required: contractValuesV1.twoPositive, available: contractValuesV1.one },
+      },
     });
     expect(state.apRemaining).toBe(contractValuesV1.one);
   });
 
   it("advances only to the coordinator-provided adjacent phase", () => {
-    const state = buildCalendarStateV1({ phase: "evening", apRemaining: contractValuesV1.zero, eveningResolved: true });
-    const result = calendarModuleV1.owner!.propose(state, {
-      kind: "advance",
-      to: buildCalendarTransitionV1({ day: 2, phase: "morning", apRemaining: 2, eveningResolved: false }),
-      expiredAuraIds: [],
-    }, {});
+    const state = buildCalendarStateV1({
+      phase: "evening",
+      apRemaining: contractValuesV1.zero,
+      eveningResolved: true,
+    });
+    const result = calendarModuleV1.owner!.propose(
+      state,
+      {
+        kind: "advance",
+        to: buildCalendarTransitionV1({
+          day: 2,
+          phase: "morning",
+          apRemaining: 2,
+          eveningResolved: false,
+        }),
+        expiredAuraIds: [],
+      },
+      {},
+    );
     expect(result.kind).toBe("proposed");
   });
 });
@@ -854,10 +946,7 @@ Expected: FAIL with `Cannot find module './calendar-module.js'`.
 
 ```ts
 // packages/modules/src/calendar/contract.ts
-import type {
-  NonNegativeSafeInteger,
-  PositiveSafeInteger,
-} from "@project-tavern/base";
+import type { NonNegativeSafeInteger, PositiveSafeInteger } from "@project-tavern/base";
 import type {
   AuraId,
   CalendarPhase,
@@ -875,8 +964,16 @@ export interface CalendarStateV1 {
 }
 
 export type CalendarOwnerOperationV1 =
-  | { readonly kind: "choose_policy"; readonly policyId: PolicyId; readonly apRemaining: NonNegativeSafeInteger }
-  | { readonly kind: "spend_ap"; readonly amount: PositiveSafeInteger; readonly reason: ChangeReasonV1 }
+  | {
+      readonly kind: "choose_policy";
+      readonly policyId: PolicyId;
+      readonly apRemaining: NonNegativeSafeInteger;
+    }
+  | {
+      readonly kind: "spend_ap";
+      readonly amount: PositiveSafeInteger;
+      readonly reason: ChangeReasonV1;
+    }
   | { readonly kind: "adjust_ap"; readonly delta: SafeInteger; readonly reason: ChangeReasonV1 }
   | { readonly kind: "set_evening_resolved"; readonly value: boolean }
   | {
@@ -892,7 +989,10 @@ export type CalendarOwnerOperationV1 =
 
 export type CalendarOwnerRejectionV1 = {
   readonly code: "calendar.insufficient_ap";
-  readonly details: { readonly required: PositiveSafeInteger; readonly available: NonNegativeSafeInteger };
+  readonly details: {
+    readonly required: PositiveSafeInteger;
+    readonly available: NonNegativeSafeInteger;
+  };
 };
 ```
 
@@ -919,7 +1019,13 @@ function proposeCalendar(
       kind: "proposed",
       proposal: {
         payload: { ...state, apRemaining: after },
-        facts: [{ kind: "calendar.ap_changed", value: { before: state.apRemaining, after }, reason: operation.reason }],
+        facts: [
+          {
+            kind: "calendar.ap_changed",
+            value: { before: state.apRemaining, after },
+            reason: operation.reason,
+          },
+        ],
       },
     };
   }
@@ -928,7 +1034,13 @@ function proposeCalendar(
       kind: "proposed",
       proposal: {
         payload: { ...state, lifePolicyId: operation.policyId, apRemaining: operation.apRemaining },
-        facts: [{ kind: "policy.chosen", policyId: operation.policyId, apRemaining: operation.apRemaining }],
+        facts: [
+          {
+            kind: "policy.chosen",
+            policyId: operation.policyId,
+            apRemaining: operation.apRemaining,
+          },
+        ],
       },
     };
   }
@@ -938,19 +1050,22 @@ function proposeCalendar(
       kind: "proposed",
       proposal: {
         payload,
-        facts: [{
-          kind: "calendar.phase_advanced",
-          from: { day: state.day, phase: state.phase },
-          to: { day: payload.day, phase: payload.phase },
-          apRemaining: payload.apRemaining,
-          expiredAuraIds: operation.expiredAuraIds,
-        }],
+        facts: [
+          {
+            kind: "calendar.phase_advanced",
+            from: { day: state.day, phase: state.phase },
+            to: { day: payload.day, phase: payload.phase },
+            apRemaining: payload.apRemaining,
+            expiredAuraIds: operation.expiredAuraIds,
+          },
+        ],
       },
     };
   }
-  const payload = operation.kind === "adjust_ap"
-    ? { ...state, apRemaining: parseNonNegativeSafeInteger(state.apRemaining + operation.delta) }
-    : { ...state, eveningResolved: operation.value };
+  const payload =
+    operation.kind === "adjust_ap"
+      ? { ...state, apRemaining: parseNonNegativeSafeInteger(state.apRemaining + operation.delta) }
+      : { ...state, eveningResolved: operation.value };
   return { kind: "proposed", proposal: { payload, facts: [] } };
 }
 ```
@@ -973,12 +1088,14 @@ git commit -m "feat(modules): add calendar state owner"
 ## Task 4: Implement the Actors Module
 
 **Files:**
+
 - Modify: `packages/modules/src/actors/contract.ts`
 - Create: `packages/modules/src/actors/actors-module.ts`
 - Create: `packages/modules/src/actors/actors-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Story initial player/heroine/relationship data and coordinator-authored ordered stamina components.
 - Produces: actor/relationship state, read port, strict owner operations for stamina/mood/affection/teamwork/stage, and ordered before/after DomainFacts.
 
@@ -991,39 +1108,85 @@ import { contractValuesV1, e2eIdsV1 } from "../testing/builders.js";
 import { actorsModuleV1 } from "./actors-module.js";
 
 const state = {
-  player: { actorId: "actor.player", stamina: { current: contractValuesV1.two, maximum: contractValuesV1.tenPositive }, mood: contractValuesV1.neutralMood, attributes: { body: "C", social: "C", intellect: "B" } },
-  heroine: { actorId: "actor.heroine", stamina: { current: contractValuesV1.ten, maximum: contractValuesV1.tenPositive }, mood: contractValuesV1.neutralMood },
-  relationship: { affection: contractValuesV1.zeroSigned, teamwork: contractValuesV1.zero, stage: "cold" },
+  player: {
+    actorId: "actor.player",
+    stamina: { current: contractValuesV1.two, maximum: contractValuesV1.tenPositive },
+    mood: contractValuesV1.neutralMood,
+    attributes: { body: "C", social: "C", intellect: "B" },
+  },
+  heroine: {
+    actorId: "actor.heroine",
+    stamina: { current: contractValuesV1.ten, maximum: contractValuesV1.tenPositive },
+    mood: contractValuesV1.neutralMood,
+  },
+  relationship: {
+    affection: contractValuesV1.zeroSigned,
+    teamwork: contractValuesV1.zero,
+    stage: "cold",
+  },
 } as const;
 
 describe("actorsModuleV1", () => {
   it("rejects a stamina cost instead of clamping below zero", () => {
-    const result = actorsModuleV1.owner!.propose(state, {
-      kind: "adjust_stamina",
-      actorId: "actor.player",
-      mode: "cost",
-      components: [{ requestedDelta: contractValuesV1.negativeThree, reason: { kind: "command", commandKind: "actor.prepare_food", reasonId: e2eIdsV1.reasonPrepare } }],
-    }, {});
+    const result = actorsModuleV1.owner!.propose(
+      state,
+      {
+        kind: "adjust_stamina",
+        actorId: "actor.player",
+        mode: "cost",
+        components: [
+          {
+            requestedDelta: contractValuesV1.negativeThree,
+            reason: {
+              kind: "command",
+              commandKind: "actor.prepare_food",
+              reasonId: e2eIdsV1.reasonPrepare,
+            },
+          },
+        ],
+      },
+      {},
+    );
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "actor.insufficient_stamina", details: { actorId: "actor.player", required: contractValuesV1.three, available: contractValuesV1.two } },
+      rejection: {
+        code: "actor.insufficient_stamina",
+        details: {
+          actorId: "actor.player",
+          required: contractValuesV1.three,
+          available: contractValuesV1.two,
+        },
+      },
     });
   });
 
   it("sums recovery components once and clamps only at maximum", () => {
-    const result = actorsModuleV1.owner!.propose(state, {
-      kind: "adjust_stamina",
-      actorId: "actor.player",
-      mode: "recovery",
-      components: [
-        { requestedDelta: contractValuesV1.threeSigned, reason: { kind: "command", commandKind: "actor.rest", reasonId: e2eIdsV1.reasonRest } },
-        { requestedDelta: contractValuesV1.negativeTwo, reason: { kind: "aura", auraId: e2eIdsV1.auraStrain, reasonId: e2eIdsV1.reasonStrain } },
-      ],
-    }, {});
+    const result = actorsModuleV1.owner!.propose(
+      state,
+      {
+        kind: "adjust_stamina",
+        actorId: "actor.player",
+        mode: "recovery",
+        components: [
+          {
+            requestedDelta: contractValuesV1.threeSigned,
+            reason: { kind: "command", commandKind: "actor.rest", reasonId: e2eIdsV1.reasonRest },
+          },
+          {
+            requestedDelta: contractValuesV1.negativeTwo,
+            reason: { kind: "aura", auraId: e2eIdsV1.auraStrain, reasonId: e2eIdsV1.reasonStrain },
+          },
+        ],
+      },
+      {},
+    );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload.player.stamina.current).toBe(contractValuesV1.three);
-    expect(result.proposal.facts[0]).toMatchObject({ kind: "actor.stamina_changed", value: { before: contractValuesV1.two, after: contractValuesV1.three } });
+    expect(result.proposal.facts[0]).toMatchObject({
+      kind: "actor.stamina_changed",
+      value: { before: contractValuesV1.two, after: contractValuesV1.three },
+    });
   });
 });
 ```
@@ -1045,11 +1208,33 @@ export type ActorsOwnerOperationV1 =
       readonly mode: "cost" | "recovery" | "effect";
       readonly components: readonly [StaminaChangeComponentV1, ...StaminaChangeComponentV1[]];
     }
-  | { readonly kind: "set_mood"; readonly actorId: ActorId; readonly value: MoodPoint; readonly reason: ChangeReasonV1 }
-  | { readonly kind: "adjust_mood"; readonly actorId: ActorId; readonly delta: SafeInteger; readonly reason: ChangeReasonV1 }
-  | { readonly kind: "adjust_affection"; readonly delta: SafeInteger; readonly reason: ChangeReasonV1 }
-  | { readonly kind: "adjust_teamwork"; readonly delta: SafeInteger; readonly reason: ChangeReasonV1 }
-  | { readonly kind: "set_relationship_stage"; readonly stage: RelationshipStage; readonly reason: ChangeReasonV1 };
+  | {
+      readonly kind: "set_mood";
+      readonly actorId: ActorId;
+      readonly value: MoodPoint;
+      readonly reason: ChangeReasonV1;
+    }
+  | {
+      readonly kind: "adjust_mood";
+      readonly actorId: ActorId;
+      readonly delta: SafeInteger;
+      readonly reason: ChangeReasonV1;
+    }
+  | {
+      readonly kind: "adjust_affection";
+      readonly delta: SafeInteger;
+      readonly reason: ChangeReasonV1;
+    }
+  | {
+      readonly kind: "adjust_teamwork";
+      readonly delta: SafeInteger;
+      readonly reason: ChangeReasonV1;
+    }
+  | {
+      readonly kind: "set_relationship_stage";
+      readonly stage: RelationshipStage;
+      readonly reason: ChangeReasonV1;
+    };
 ```
 
 - [ ] **Step 4: Implement the single stamina resolution function**
@@ -1061,15 +1246,23 @@ export function resolveStaminaChangeV1(
   maximum: PositiveSafeInteger,
   mode: "cost" | "recovery" | "effect",
   components: readonly StaminaChangeComponentV1[],
-): { readonly kind: "applied"; readonly after: NonNegativeSafeInteger } | { readonly kind: "insufficient"; readonly required: NonNegativeSafeInteger } {
+):
+  | { readonly kind: "applied"; readonly after: NonNegativeSafeInteger }
+  | { readonly kind: "insufficient"; readonly required: NonNegativeSafeInteger } {
   const requested = components.reduce((sum, component) => sum + component.requestedDelta, 0);
   if (mode === "recovery") {
-    return { kind: "applied", after: parseNonNegativeSafeInteger(Math.min(maximum, before + Math.max(0, requested))) };
+    return {
+      kind: "applied",
+      after: parseNonNegativeSafeInteger(Math.min(maximum, before + Math.max(0, requested))),
+    };
   }
   if (before + requested < 0) {
     return { kind: "insufficient", required: parseNonNegativeSafeInteger(Math.abs(requested)) };
   }
-  return { kind: "applied", after: parseNonNegativeSafeInteger(Math.min(maximum, before + requested)) };
+  return {
+    kind: "applied",
+    after: parseNonNegativeSafeInteger(Math.min(maximum, before + requested)),
+  };
 }
 ```
 
@@ -1093,12 +1286,14 @@ git commit -m "feat(modules): add actors state owner"
 ## Task 5: Implement the Status Module and Aura Lifecycles
 
 **Files:**
+
 - Modify: `packages/modules/src/status/contract.ts`
 - Create: `packages/modules/src/status/status-module.ts`
 - Create: `packages/modules/src/status/status-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Story aura definitions, explicit source/target/duration values, coordinator-provided successful boundary kinds, and `commandSequence` for deterministic instance IDs.
 - Produces: `StatusStateV1`, Aura read port, apply/clear/tick owner operations, exact `aura.applied|cleared|expired` facts, and modifier collection ordered by applied sequence/instance/definition index.
 
@@ -1123,7 +1318,10 @@ describe("statusModuleV1", () => {
     const result = statusModuleV1.owner!.propose({ auras: [aura] }, { kind: "apply", aura }, {});
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "aura.already_present", details: { auraId: aura.auraId, target: aura.target } },
+      rejection: {
+        code: "aura.already_present",
+        details: { auraId: aura.auraId, target: aura.target },
+      },
     });
   });
 
@@ -1138,13 +1336,25 @@ describe("statusModuleV1", () => {
     } as const;
     const result = statusModuleV1.owner!.propose(
       { auras: [aura] },
-      { kind: "tick", unit: "opening", applicableInstanceIds: [aura.instanceId], reason: { kind: "aura", auraId: aura.auraId, reasonId: e2eIdsV1.reasonSign } },
+      {
+        kind: "tick",
+        unit: "opening",
+        applicableInstanceIds: [aura.instanceId],
+        reason: { kind: "aura", auraId: aura.auraId, reasonId: e2eIdsV1.reasonSign },
+      },
       {},
     );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload.auras).toEqual([]);
-    expect(result.proposal.facts).toEqual([{ kind: "aura.expired", instanceId: aura.instanceId, auraId: aura.auraId, reason: { kind: "aura", auraId: aura.auraId, reasonId: e2eIdsV1.reasonSign } }]);
+    expect(result.proposal.facts).toEqual([
+      {
+        kind: "aura.expired",
+        instanceId: aura.instanceId,
+        auraId: aura.auraId,
+        reason: { kind: "aura", auraId: aura.auraId, reasonId: e2eIdsV1.reasonSign },
+      },
+    ]);
   });
 });
 ```
@@ -1168,12 +1378,21 @@ function tickAurasV1(
   const auras: AuraInstanceV1[] = [];
   const facts: StatusFactV1[] = [];
   for (const aura of state.auras) {
-    if (aura.duration.kind !== "countdown" || aura.duration.unit !== unit || !applicableInstanceIds.has(aura.instanceId)) {
+    if (
+      aura.duration.kind !== "countdown" ||
+      aura.duration.unit !== unit ||
+      !applicableInstanceIds.has(aura.instanceId)
+    ) {
       auras.push(aura);
       continue;
     }
     if (aura.duration.remaining === 1) {
-      facts.push({ kind: "aura.expired", instanceId: aura.instanceId, auraId: aura.auraId, reason });
+      facts.push({
+        kind: "aura.expired",
+        instanceId: aura.instanceId,
+        auraId: aura.auraId,
+        reason,
+      });
       continue;
     }
     auras.push({ ...aura, duration: { ...aura.duration, remaining: aura.duration.remaining - 1 } });
@@ -1202,12 +1421,14 @@ git commit -m "feat(modules): add status aura owner"
 ## Task 6: Implement Inventory, FIFO Batches, and the Authoritative Ledger
 
 **Files:**
+
 - Modify: `packages/modules/src/inventory/contract.ts`
 - Create: `packages/modules/src/inventory/inventory-module.ts`
 - Create: `packages/modules/src/inventory/inventory-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Story ingredient/item definitions, command sequence, day, and owner operations assembled by the coordinator.
 - Produces: cash, ingredient batches, item stacks, ledger, deterministic batch/entry IDs, FIFO consume/spoil/grant/purchase operations, and the only legal application of `ledger.append`.
 
@@ -1225,38 +1446,95 @@ describe("inventoryModuleV1", () => {
       startingCash: contractValuesV1.tenMoney,
       cash: contractValuesV1.tenMoney,
       ingredientBatches: [
-        { batchId: e2eIdsV1.batchInitial1, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity, acquiredDay: contractValuesV1.day1, lastUsableDay: contractValuesV1.absoluteDay3, refrigerationExtended: false, source: { kind: "initial", reasonId: e2eIdsV1.reasonInitial } },
-        { batchId: e2eIdsV1.batchInitial0, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity, acquiredDay: contractValuesV1.day1, lastUsableDay: contractValuesV1.absoluteDay2, refrigerationExtended: false, source: { kind: "initial", reasonId: e2eIdsV1.reasonInitial } },
+        {
+          batchId: e2eIdsV1.batchInitial1,
+          ingredientId: e2eIdsV1.ingredientGrain,
+          quantity: contractValuesV1.twoQuantity,
+          acquiredDay: contractValuesV1.day1,
+          lastUsableDay: contractValuesV1.absoluteDay3,
+          refrigerationExtended: false,
+          source: { kind: "initial", reasonId: e2eIdsV1.reasonInitial },
+        },
+        {
+          batchId: e2eIdsV1.batchInitial0,
+          ingredientId: e2eIdsV1.ingredientGrain,
+          quantity: contractValuesV1.twoQuantity,
+          acquiredDay: contractValuesV1.day1,
+          lastUsableDay: contractValuesV1.absoluteDay2,
+          refrigerationExtended: false,
+          source: { kind: "initial", reasonId: e2eIdsV1.reasonInitial },
+        },
       ],
       itemStacks: [],
       ledger: [],
     } as const;
-    const result = inventoryModuleV1.owner!.propose(state, {
-      kind: "consume_ingredients",
-      lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.threeQuantity }],
-      reason: { kind: "command", commandKind: "tavern.opening.start", reasonId: e2eIdsV1.reasonOpening },
-    }, {});
+    const result = inventoryModuleV1.owner!.propose(
+      state,
+      {
+        kind: "consume_ingredients",
+        lines: [
+          { ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.threeQuantity },
+        ],
+        reason: {
+          kind: "command",
+          commandKind: "tavern.opening.start",
+          reasonId: e2eIdsV1.reasonOpening,
+        },
+      },
+      {},
+    );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.facts[0]).toMatchObject({
       kind: "inventory.consumed",
       lines: [
-        { batchId: e2eIdsV1.batchInitial0, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity },
-        { batchId: e2eIdsV1.batchInitial1, ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity },
+        {
+          batchId: e2eIdsV1.batchInitial0,
+          ingredientId: e2eIdsV1.ingredientGrain,
+          quantity: contractValuesV1.twoQuantity,
+        },
+        {
+          batchId: e2eIdsV1.batchInitial1,
+          ingredientId: e2eIdsV1.ingredientGrain,
+          quantity: contractValuesV1.oneQuantity,
+        },
       ],
     });
   });
 
   it("keeps cash equal to starting cash plus ledger deltas", () => {
     const result = inventoryModuleV1.owner!.propose(
-      { startingCash: contractValuesV1.tenMoney, cash: contractValuesV1.tenMoney, ingredientBatches: [], itemStacks: [], ledger: [] },
-      { kind: "append_ledger", commandSequence: contractValuesV1.one, entries: [{ category: "story_cost", reasonId: e2eIdsV1.reasonCost, cashDelta: contractValuesV1.negativeThree, valuationDelta: contractValuesV1.zeroSigned, subject: { kind: "action", actionId: e2eIdsV1.actionBranch } }] },
+      {
+        startingCash: contractValuesV1.tenMoney,
+        cash: contractValuesV1.tenMoney,
+        ingredientBatches: [],
+        itemStacks: [],
+        ledger: [],
+      },
+      {
+        kind: "append_ledger",
+        commandSequence: contractValuesV1.one,
+        entries: [
+          {
+            category: "story_cost",
+            reasonId: e2eIdsV1.reasonCost,
+            cashDelta: contractValuesV1.negativeThree,
+            valuationDelta: contractValuesV1.zeroSigned,
+            subject: { kind: "action", actionId: e2eIdsV1.actionBranch },
+          },
+        ],
+      },
       {},
     );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload.cash).toBe(contractValuesV1.sevenMoney);
-    expect(result.proposal.payload.ledger.reduce((sum, entry) => sum + entry.cashDelta, contractValuesV1.tenMoney)).toBe(contractValuesV1.sevenMoney);
+    expect(
+      result.proposal.payload.ledger.reduce(
+        (sum, entry) => sum + entry.cashDelta,
+        contractValuesV1.tenMoney,
+      ),
+    ).toBe(contractValuesV1.sevenMoney);
   });
 });
 ```
@@ -1275,7 +1553,10 @@ export function consumeFifoV1(
   batches: readonly InventoryBatchV1[],
   ingredientId: string,
   requested: number,
-): { readonly batches: readonly InventoryBatchV1[]; readonly consumed: readonly BatchConsumptionV1[] } | null {
+): {
+  readonly batches: readonly InventoryBatchV1[];
+  readonly consumed: readonly BatchConsumptionV1[];
+} | null {
   const available = batches
     .filter((batch) => batch.ingredientId === ingredientId)
     .reduce((sum, batch) => sum + batch.quantity, 0);
@@ -1285,10 +1566,11 @@ export function consumeFifoV1(
   const consumed: BatchConsumptionV1[] = [];
   const selected = [...batches]
     .filter((batch) => batch.ingredientId === ingredientId)
-    .sort((left, right) =>
-      left.lastUsableDay - right.lastUsableDay ||
-      left.acquiredDay - right.acquiredDay ||
-      left.batchId.localeCompare(right.batchId),
+    .sort(
+      (left, right) =>
+        left.lastUsableDay - right.lastUsableDay ||
+        left.acquiredDay - right.acquiredDay ||
+        left.batchId.localeCompare(right.batchId),
     );
   const usedById = new Map<string, number>();
   for (const batch of selected) {
@@ -1328,12 +1610,14 @@ git commit -m "feat(modules): add inventory and ledger owner"
 ## Task 7: Implement the Facilities Module
 
 **Files:**
+
 - Modify: `packages/modules/src/facilities/contract.ts`
 - Create: `packages/modules/src/facilities/facilities-module.ts`
 - Create: `packages/modules/src/facilities/facilities-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: a validated opportunity/choice and command sequence from the coordinator.
 - Produces: `FacilitiesStateV1`, one decision per opportunity, built facility records, read-port modifier lookup, and `facility.choice_committed` facts. It never deducts AP, stamina, or cash itself.
 
@@ -1354,15 +1638,26 @@ describe("facilitiesModuleV1", () => {
         opportunityId: e2eIdsV1.actionFacility,
         decision: { kind: "built", facilityId: e2eIdsV1.facilityStorage },
         builtAtSequence: contractValuesV1.fourPositive,
-        reason: { kind: "facility", facilityId: e2eIdsV1.facilityStorage, reasonId: e2eIdsV1.reasonFacility },
+        reason: {
+          kind: "facility",
+          facilityId: e2eIdsV1.facilityStorage,
+          reasonId: e2eIdsV1.reasonFacility,
+        },
       },
       {},
     );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload).toEqual({
-      built: [{ facilityId: e2eIdsV1.facilityStorage, builtAtSequence: contractValuesV1.fourPositive }],
-      decisions: [{ opportunityId: e2eIdsV1.actionFacility, decision: { kind: "built", facilityId: e2eIdsV1.facilityStorage } }],
+      built: [
+        { facilityId: e2eIdsV1.facilityStorage, builtAtSequence: contractValuesV1.fourPositive },
+      ],
+      decisions: [
+        {
+          opportunityId: e2eIdsV1.actionFacility,
+          decision: { kind: "built", facilityId: e2eIdsV1.facilityStorage },
+        },
+      ],
     });
   });
 
@@ -1371,16 +1666,27 @@ describe("facilitiesModuleV1", () => {
       built: [],
       decisions: [{ opportunityId: e2eIdsV1.actionFacility, decision: { kind: "skipped" } }],
     } as const;
-    const result = facilitiesModuleV1.owner!.propose(state, {
-      kind: "choose",
-      opportunityId: e2eIdsV1.actionFacility,
-      decision: { kind: "skipped" },
-      builtAtSequence: contractValuesV1.fivePositive,
-      reason: { kind: "command", commandKind: "facility.choose", reasonId: e2eIdsV1.reasonFacilitySkip },
-    }, {});
+    const result = facilitiesModuleV1.owner!.propose(
+      state,
+      {
+        kind: "choose",
+        opportunityId: e2eIdsV1.actionFacility,
+        decision: { kind: "skipped" },
+        builtAtSequence: contractValuesV1.fivePositive,
+        reason: {
+          kind: "command",
+          commandKind: "facility.choose",
+          reasonId: e2eIdsV1.reasonFacilitySkip,
+        },
+      },
+      {},
+    );
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "facility.choice_committed", details: { opportunityId: e2eIdsV1.actionFacility, choice: { kind: "skipped" } } },
+      rejection: {
+        code: "facility.choice_committed",
+        details: { opportunityId: e2eIdsV1.actionFacility, choice: { kind: "skipped" } },
+      },
     });
   });
 });
@@ -1397,8 +1703,7 @@ Expected: FAIL with `Cannot find module './facilities-module.js'`.
 ```ts
 // packages/modules/src/facilities/contract.ts
 export type FacilityDecisionV1 =
-  | { readonly kind: "built"; readonly facilityId: FacilityId }
-  | { readonly kind: "skipped" };
+  { readonly kind: "built"; readonly facilityId: FacilityId } | { readonly kind: "skipped" };
 
 export interface FacilitiesOwnerOperationV1 {
   readonly kind: "choose";
@@ -1419,21 +1724,38 @@ function proposeFacilityChoiceV1(
   if (existing) {
     return {
       kind: "rejected",
-      rejection: { code: "facility.choice_committed", details: { opportunityId: operation.opportunityId, choice: existing.decision } },
+      rejection: {
+        code: "facility.choice_committed",
+        details: { opportunityId: operation.opportunityId, choice: existing.decision },
+      },
     };
   }
-  const built = operation.decision.kind === "built"
-    ? [...state.built, { facilityId: operation.decision.facilityId, builtAtSequence: operation.builtAtSequence }]
-    : state.built;
+  const built =
+    operation.decision.kind === "built"
+      ? [
+          ...state.built,
+          { facilityId: operation.decision.facilityId, builtAtSequence: operation.builtAtSequence },
+        ]
+      : state.built;
   const payload = {
     built,
-    decisions: [...state.decisions, { opportunityId: operation.opportunityId, decision: operation.decision }],
+    decisions: [
+      ...state.decisions,
+      { opportunityId: operation.opportunityId, decision: operation.decision },
+    ],
   };
   return {
     kind: "proposed",
     proposal: {
       payload,
-      facts: [{ kind: "facility.choice_committed", opportunityId: operation.opportunityId, choice: operation.decision, reason: operation.reason }],
+      facts: [
+        {
+          kind: "facility.choice_committed",
+          opportunityId: operation.opportunityId,
+          choice: operation.decision,
+          reason: operation.reason,
+        },
+      ],
     },
   };
 }
@@ -1457,12 +1779,14 @@ git commit -m "feat(modules): add facilities state owner"
 ## Task 8: Implement Tavern Planning, Demand, Preparation, and History
 
 **Files:**
+
 - Modify: `packages/modules/src/tavern/contract.ts`
 - Create: `packages/modules/src/tavern/tavern-module.ts`
 - Create: `packages/modules/src/tavern/tavern-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Story service modes, recipes, base demand, demand rule output, and fully resolved opening/closure records supplied by the coordinator.
 - Produces: Tavern state/read port; helper, reputation, preparation, plan, demand, and service-history owner operations; strict plan/demand/history invariants; and corresponding facts. Tavern does not consume inventory or actor state directly.
 
@@ -1487,20 +1811,45 @@ const initial = {
 
 describe("tavernModuleV1", () => {
   it("rejects a closed plan with a menu", () => {
-    const result = tavernModuleV1.owner!.propose(initial, {
-      kind: "set_plan",
-      plan: { mode: "closed", menu: [{ recipeId: e2eIdsV1.recipeStew, portions: contractValuesV1.oneQuantity }] },
-      reason: { kind: "command", commandKind: "tavern.plan.set", reasonId: e2eIdsV1.reasonClosed },
-    }, {});
-    expect(result).toEqual({ kind: "rejected", rejection: { code: "tavern.invalid_plan", details: { reason: "closed_has_menu" } } });
+    const result = tavernModuleV1.owner!.propose(
+      initial,
+      {
+        kind: "set_plan",
+        plan: {
+          mode: "closed",
+          menu: [{ recipeId: e2eIdsV1.recipeStew, portions: contractValuesV1.oneQuantity }],
+        },
+        reason: {
+          kind: "command",
+          commandKind: "tavern.plan.set",
+          reasonId: e2eIdsV1.reasonClosed,
+        },
+      },
+      {},
+    );
+    expect(result).toEqual({
+      kind: "rejected",
+      rejection: { code: "tavern.invalid_plan", details: { reason: "closed_has_menu" } },
+    });
   });
 
   it("stores materialized demand as an immutable daily value", () => {
     const demand = {
       day: contractValuesV1.day1,
-      segments: [{ segmentId: e2eIdsV1.segmentGuests, preview: { min: contractValuesV1.twoSigned, max: contractValuesV1.twoSigned }, actualCustomers: contractValuesV1.two, modifiers: [] }],
+      segments: [
+        {
+          segmentId: e2eIdsV1.segmentGuests,
+          preview: { min: contractValuesV1.twoSigned, max: contractValuesV1.twoSigned },
+          actualCustomers: contractValuesV1.two,
+          modifiers: [],
+        },
+      ],
     } as const;
-    const result = tavernModuleV1.owner!.propose(initial, { kind: "materialize_demand", demand }, {});
+    const result = tavernModuleV1.owner!.propose(
+      initial,
+      { kind: "materialize_demand", demand },
+      {},
+    );
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload.currentDemand).toEqual(demand);
@@ -1524,7 +1873,11 @@ export type TavernOwnerOperationV1 =
   | { readonly kind: "prepare"; readonly day: DayIndex; readonly reason: ChangeReasonV1 }
   | { readonly kind: "reset_preparation"; readonly day: DayIndex }
   | { readonly kind: "set_helper"; readonly helper: HelperStateV1; readonly reason: ChangeReasonV1 }
-  | { readonly kind: "adjust_reputation"; readonly delta: SafeInteger; readonly reason: ChangeReasonV1 }
+  | {
+      readonly kind: "adjust_reputation";
+      readonly delta: SafeInteger;
+      readonly reason: ChangeReasonV1;
+    }
   | { readonly kind: "set_demand_seeds"; readonly demandSeeds: readonly DemandDayStateV1[] }
   | { readonly kind: "materialize_demand"; readonly demand: MaterializedDemandDayV1 }
   | { readonly kind: "clear_demand" }
@@ -1581,12 +1934,14 @@ git commit -m "feat(modules): add tavern planning and demand owner"
 ## Task 9: Implement the Workflow Module and Opening State Machine
 
 **Files:**
+
 - Modify: `packages/modules/src/workflow/contract.ts`
 - Create: `packages/modules/src/workflow/workflow-module.ts`
 - Create: `packages/modules/src/workflow/workflow-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: coordinator-validated `OpeningSessionV1` and `WorldActionSessionV1` values.
 - Produces: the sole `activeWorkflow` owner; opening checkpoint/blocking-event transitions; WorldAction progress transitions; session modifier append; and conflict/missing/not-ready rejections.
 
@@ -1602,7 +1957,10 @@ describe("workflowModuleV1", () => {
   it("preserves a completed blocking scene gap before explicit continue", () => {
     const opening = buildOpeningSessionV1({
       checkpoint: "middle",
-      blockingEvent: { eventId: e2eIdsV1.eventOpeningInterrupt, sceneId: e2eIdsV1.sceneOpeningInterrupt },
+      blockingEvent: {
+        eventId: e2eIdsV1.eventOpeningInterrupt,
+        sceneId: e2eIdsV1.sceneOpeningInterrupt,
+      },
     });
     const cleared = workflowModuleV1.owner!.propose(
       opening,
@@ -1611,17 +1969,43 @@ describe("workflowModuleV1", () => {
     );
     expect(cleared.kind).toBe("proposed");
     if (cleared.kind !== "proposed") throw new Error("expected proposal");
-    expect(cleared.proposal.payload).toMatchObject({ kind: "opening", checkpoint: "middle", blockingEvent: null });
+    expect(cleared.proposal.payload).toMatchObject({
+      kind: "opening",
+      checkpoint: "middle",
+      blockingEvent: null,
+    });
   });
 
   it("rejects a second workflow", () => {
     const opening = buildOpeningSessionV1({ checkpoint: "started", blockingEvent: null });
     const result = workflowModuleV1.owner!.propose(
       opening,
-      { kind: "start", workflow: { kind: "world_action", actionId: e2eIdsV1.actionWorld, optionId: e2eIdsV1.choiceWorldBasic, beginStepId: e2eIdsV1.stepDeparture, completionStepId: e2eIdsV1.stepReturn, preparationBonus: contractValuesV1.zeroSigned, startedAtSequence: contractValuesV1.threePositive, startedDay: contractValuesV1.day1, startedPhase: "morning", progress: "begin_scene", paidCostEntryIds: [], choices: [] } },
+      {
+        kind: "start",
+        workflow: {
+          kind: "world_action",
+          actionId: e2eIdsV1.actionWorld,
+          optionId: e2eIdsV1.choiceWorldBasic,
+          beginStepId: e2eIdsV1.stepDeparture,
+          completionStepId: e2eIdsV1.stepReturn,
+          preparationBonus: contractValuesV1.zeroSigned,
+          startedAtSequence: contractValuesV1.threePositive,
+          startedDay: contractValuesV1.day1,
+          startedPhase: "morning",
+          progress: "begin_scene",
+          paidCostEntryIds: [],
+          choices: [],
+        },
+      },
       {},
     );
-    expect(result).toEqual({ kind: "rejected", rejection: { code: "workflow.conflict", details: { activeKind: "opening", attemptedKind: "world_action" } } });
+    expect(result).toEqual({
+      kind: "rejected",
+      rejection: {
+        code: "workflow.conflict",
+        details: { activeKind: "opening", attemptedKind: "world_action" },
+      },
+    });
   });
 });
 ```
@@ -1640,9 +2024,17 @@ export type WorkflowOwnerOperationV1 =
   | { readonly kind: "start"; readonly workflow: ActiveWorkflowV1 }
   | { readonly kind: "set_opening_blocking_event"; readonly blockingEvent: OpeningBlockingEventV1 }
   | { readonly kind: "clear_opening_blocking_event"; readonly eventId: EventId }
-  | { readonly kind: "advance_opening_checkpoint"; readonly from: OpeningCheckpointV1; readonly to: OpeningCheckpointV1 }
+  | {
+      readonly kind: "advance_opening_checkpoint";
+      readonly from: OpeningCheckpointV1;
+      readonly to: OpeningCheckpointV1;
+    }
   | { readonly kind: "append_opening_modifier"; readonly modifier: ModifierV1 }
-  | { readonly kind: "advance_world_action"; readonly from: WorldActionProgressV1; readonly to: WorldActionProgressV1 }
+  | {
+      readonly kind: "advance_world_action";
+      readonly from: WorldActionProgressV1;
+      readonly to: WorldActionProgressV1;
+    }
   | { readonly kind: "append_world_choice"; readonly choice: WorldActionChoiceV1 }
   | { readonly kind: "clear"; readonly expectedKind: "opening" | "world_action" };
 ```
@@ -1690,12 +2082,14 @@ git commit -m "feat(modules): add workflow state machines"
 ## Task 10: Implement Progression Facts, Outcomes, Checks, and Ending Inputs
 
 **Files:**
+
 - Modify: `packages/modules/src/progression/contract.ts`
 - Create: `packages/modules/src/progression/progression-module.ts`
 - Create: `packages/modules/src/progression/progression-module.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: closed Story Fact/Quest/Outcome definitions, resolved checks, and ending effects validated by the coordinator.
 - Produces: persistent Fact/Quest/Outcome/check state and read ports; only this owner applies `fact.set`, `quest.set`, and `outcome.set`.
 
@@ -1710,19 +2104,43 @@ import { progressionModuleV1 } from "./progression-module.js";
 describe("progressionModuleV1", () => {
   it("rejects a value outside the Story definition", () => {
     const state = {
-      facts: [{ factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchNone } }],
+      facts: [
+        { factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchNone } },
+      ],
       quests: [],
       outcomes: [],
       resolvedChecks: [],
     } as const;
-    const result = progressionModuleV1.owner!.propose(state, {
-      kind: "set_fact",
-      factId: e2eIdsV1.factBranch,
-      value: { kind: "token", value: e2eIdsV1.tokenBranchUnknown },
-      definition: { kind: "token", defaultValue: e2eIdsV1.tokenBranchNone, allowedValues: [e2eIdsV1.tokenBranchNone, e2eIdsV1.tokenBranchLeft, e2eIdsV1.tokenBranchRight] },
-      reason: { kind: "story_action", actionId: e2eIdsV1.actionBranch, reasonId: e2eIdsV1.reasonBranch },
-    }, {});
-    expect(result).toEqual({ kind: "rejected", rejection: { code: "engine.invariant_rejected", details: { invariantCode: "story.value_invalid" } } });
+    const result = progressionModuleV1.owner!.propose(
+      state,
+      {
+        kind: "set_fact",
+        factId: e2eIdsV1.factBranch,
+        value: { kind: "token", value: e2eIdsV1.tokenBranchUnknown },
+        definition: {
+          kind: "token",
+          defaultValue: e2eIdsV1.tokenBranchNone,
+          allowedValues: [
+            e2eIdsV1.tokenBranchNone,
+            e2eIdsV1.tokenBranchLeft,
+            e2eIdsV1.tokenBranchRight,
+          ],
+        },
+        reason: {
+          kind: "story_action",
+          actionId: e2eIdsV1.actionBranch,
+          reasonId: e2eIdsV1.reasonBranch,
+        },
+      },
+      {},
+    );
+    expect(result).toEqual({
+      kind: "rejected",
+      rejection: {
+        code: "engine.invariant_rejected",
+        details: { invariantCode: "story.value_invalid" },
+      },
+    });
   });
 
   it("appends a resolved check once and never stores its effects", () => {
@@ -1746,7 +2164,9 @@ describe("progressionModuleV1", () => {
     expect(result.kind).toBe("proposed");
     if (result.kind !== "proposed") throw new Error("expected proposal");
     expect(result.proposal.payload.resolvedChecks).toEqual([check]);
-    expect(result.proposal.facts).toEqual([{ kind: "check.resolved", result: { ...check, effects: [] } }]);
+    expect(result.proposal.facts).toEqual([
+      { kind: "check.resolved", result: { ...check, effects: [] } },
+    ]);
   });
 });
 ```
@@ -1762,9 +2182,26 @@ Expected: FAIL with `Cannot find module './progression-module.js'`.
 ```ts
 // packages/modules/src/progression/contract.ts
 export type ProgressionOwnerOperationV1 =
-  | { readonly kind: "set_fact"; readonly factId: FactId; readonly value: StoryValueV1; readonly definition: StoryValueDefinitionV1; readonly reason: ChangeReasonV1 }
-  | { readonly kind: "set_quest"; readonly quest: QuestEntryV1; readonly definition: QuestDefinitionV1; readonly reason: ChangeReasonV1 }
-  | { readonly kind: "set_outcome"; readonly outcomeId: OutcomeId; readonly value: StoryValueV1; readonly definition: StoryValueDefinitionV1; readonly reason: ChangeReasonV1 }
+  | {
+      readonly kind: "set_fact";
+      readonly factId: FactId;
+      readonly value: StoryValueV1;
+      readonly definition: StoryValueDefinitionV1;
+      readonly reason: ChangeReasonV1;
+    }
+  | {
+      readonly kind: "set_quest";
+      readonly quest: QuestEntryV1;
+      readonly definition: QuestDefinitionV1;
+      readonly reason: ChangeReasonV1;
+    }
+  | {
+      readonly kind: "set_outcome";
+      readonly outcomeId: OutcomeId;
+      readonly value: StoryValueV1;
+      readonly definition: StoryValueDefinitionV1;
+      readonly reason: ChangeReasonV1;
+    }
   | { readonly kind: "append_check"; readonly check: ResolvedCheckV1 };
 ```
 
@@ -1777,7 +2214,11 @@ export function storyValueMatchesDefinitionV1(
   if (value.kind !== definition.kind) return false;
   if (definition.kind === "boolean") return value.kind === "boolean";
   if (definition.kind === "integer") {
-    return value.kind === "integer" && value.value >= definition.range.min && value.value <= definition.range.max;
+    return (
+      value.kind === "integer" &&
+      value.value >= definition.range.min &&
+      value.value <= definition.range.max
+    );
   }
   return value.kind === "token" && definition.allowedValues.includes(value.value);
 }
@@ -1801,6 +2242,7 @@ git commit -m "feat(modules): add progression state owner"
 ## Task 11: Implement the Narrative Module and Pure Node Interpreter
 
 **Files:**
+
 - Modify: `packages/modules/src/narrative/contract.ts`
 - Create: `packages/modules/src/narrative/interpreter.ts`
 - Create: `packages/modules/src/narrative/narrative-module.ts`
@@ -1808,6 +2250,7 @@ git commit -m "feat(modules): add progression state owner"
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: validated Narrative Program, current Narrative state, exact cursor-bearing commands, and coordinator-resolved directives for conditions/checks/effects/checkpoints.
 - Produces: the sole Narrative state owner plus a pure `readNarrativeDirectiveV1` service. The service returns typed directives; it never reads another Module, applies effects, consumes RNG, or mutates Snapshot.
 
@@ -1824,23 +2267,66 @@ const scene = {
   sceneId: e2eIdsV1.sceneBranch,
   entryNodeId: e2eIdsV1.nodeBranchChoice,
   nodes: [
-    { kind: "choice", nodeId: e2eIdsV1.nodeBranchChoice, choices: [
-      { choiceId: e2eIdsV1.choiceLeft, textId: e2eIdsV1.textLeft, showWhen: [], enableWhen: [], confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] }, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchLeft }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeBranchShared },
-      { choiceId: e2eIdsV1.choiceRight, textId: e2eIdsV1.textRight, showWhen: [], enableWhen: [], confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] }, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchRight }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeBranchShared },
-    ] },
-    { kind: "line", nodeId: e2eIdsV1.nodeBranchShared, speakerId: e2eIdsV1.characterHeroine, textId: e2eIdsV1.textShared, nextNodeId: e2eIdsV1.nodeBranchEnd },
+    {
+      kind: "choice",
+      nodeId: e2eIdsV1.nodeBranchChoice,
+      choices: [
+        {
+          choiceId: e2eIdsV1.choiceLeft,
+          textId: e2eIdsV1.textLeft,
+          showWhen: [],
+          enableWhen: [],
+          confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] },
+          effects: [
+            {
+              kind: "fact.set",
+              factId: e2eIdsV1.factBranch,
+              value: { kind: "token", value: e2eIdsV1.tokenBranchLeft },
+              reasonId: e2eIdsV1.reasonBranch,
+            },
+          ],
+          nextNodeId: e2eIdsV1.nodeBranchShared,
+        },
+        {
+          choiceId: e2eIdsV1.choiceRight,
+          textId: e2eIdsV1.textRight,
+          showWhen: [],
+          enableWhen: [],
+          confirmation: { benefitTextIds: [], mutuallyExcludedActionIds: [], majorRiskTextIds: [] },
+          effects: [
+            {
+              kind: "fact.set",
+              factId: e2eIdsV1.factBranch,
+              value: { kind: "token", value: e2eIdsV1.tokenBranchRight },
+              reasonId: e2eIdsV1.reasonBranch,
+            },
+          ],
+          nextNodeId: e2eIdsV1.nodeBranchShared,
+        },
+      ],
+    },
+    {
+      kind: "line",
+      nodeId: e2eIdsV1.nodeBranchShared,
+      speakerId: e2eIdsV1.characterHeroine,
+      textId: e2eIdsV1.textShared,
+      nextNodeId: e2eIdsV1.nodeBranchEnd,
+    },
     { kind: "end", nodeId: e2eIdsV1.nodeBranchEnd },
   ],
 } as const;
 
 describe("Narrative v1", () => {
   it("stops at a presentable choice and both choices rejoin one node", () => {
-    expect(readNarrativeDirectiveV1(scene, { sceneId: scene.sceneId, nodeId: scene.entryNodeId }, [])).toEqual({
+    expect(
+      readNarrativeDirectiveV1(scene, { sceneId: scene.sceneId, nodeId: scene.entryNodeId }, []),
+    ).toEqual({
       kind: "present",
       cursor: { sceneId: scene.sceneId, nodeId: scene.entryNodeId },
     });
     expect(scene.nodes[0].choices.map((choice) => choice.nextNodeId)).toEqual([
-      e2eIdsV1.nodeBranchShared, e2eIdsV1.nodeBranchShared,
+      e2eIdsV1.nodeBranchShared,
+      e2eIdsV1.nodeBranchShared,
     ]);
   });
 
@@ -1852,15 +2338,25 @@ describe("Narrative v1", () => {
       callStack: [],
       stage: { backgroundAssetId: null, characters: [], transition: "cut" },
     } as const;
-    const result = narrativeModuleV1.owner!.propose(state, {
-      kind: "commit_choice",
-      expectedCursor: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared },
-      choiceId: e2eIdsV1.choiceLeft,
-      nextCursor: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared },
-    }, {});
+    const result = narrativeModuleV1.owner!.propose(
+      state,
+      {
+        kind: "commit_choice",
+        expectedCursor: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared },
+        choiceId: e2eIdsV1.choiceLeft,
+        nextCursor: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared },
+      },
+      {},
+    );
     expect(result).toEqual({
       kind: "rejected",
-      rejection: { code: "narrative.cursor_mismatch", details: { expected: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared }, actual: state.cursor } },
+      rejection: {
+        code: "narrative.cursor_mismatch",
+        details: {
+          expected: { sceneId: scene.sceneId, nodeId: e2eIdsV1.nodeBranchShared },
+          actual: state.cursor,
+        },
+      },
     });
   });
 });
@@ -1878,21 +2374,69 @@ Expected: FAIL with missing interpreter/module imports.
 // packages/modules/src/narrative/contract.ts
 export type NarrativeDirectiveV1 =
   | { readonly kind: "present"; readonly cursor: NarrativeCursorV1 }
-  | { readonly kind: "move"; readonly nextCursor: NarrativeCursorV1; readonly stageCue?: StageCueV1 }
-  | { readonly kind: "choose"; readonly cursor: NarrativeCursorV1; readonly choices: readonly NarrativeChoiceV1[] }
-  | { readonly kind: "evaluate_condition"; readonly conditions: readonly ConditionV1[]; readonly passCursor: NarrativeCursorV1; readonly failCursor: NarrativeCursorV1 }
-  | { readonly kind: "resolve_check"; readonly request: CheckRequestV1; readonly branches: readonly CheckBranchV1[] }
-  | { readonly kind: "apply_effects"; readonly effects: readonly EffectIntentV1[]; readonly nextCursor: NarrativeCursorV1 }
-  | { readonly kind: "schedule_checkpoint"; readonly checkpointId: CheckpointId; readonly nextCursor: NarrativeCursorV1 }
-  | { readonly kind: "call"; readonly target: NarrativeCursorV1; readonly returnCursor: NarrativeCursorV1 }
+  | {
+      readonly kind: "move";
+      readonly nextCursor: NarrativeCursorV1;
+      readonly stageCue?: StageCueV1;
+    }
+  | {
+      readonly kind: "choose";
+      readonly cursor: NarrativeCursorV1;
+      readonly choices: readonly NarrativeChoiceV1[];
+    }
+  | {
+      readonly kind: "evaluate_condition";
+      readonly conditions: readonly ConditionV1[];
+      readonly passCursor: NarrativeCursorV1;
+      readonly failCursor: NarrativeCursorV1;
+    }
+  | {
+      readonly kind: "resolve_check";
+      readonly request: CheckRequestV1;
+      readonly branches: readonly CheckBranchV1[];
+    }
+  | {
+      readonly kind: "apply_effects";
+      readonly effects: readonly EffectIntentV1[];
+      readonly nextCursor: NarrativeCursorV1;
+    }
+  | {
+      readonly kind: "schedule_checkpoint";
+      readonly checkpointId: CheckpointId;
+      readonly nextCursor: NarrativeCursorV1;
+    }
+  | {
+      readonly kind: "call";
+      readonly target: NarrativeCursorV1;
+      readonly returnCursor: NarrativeCursorV1;
+    }
   | { readonly kind: "return" }
   | { readonly kind: "complete" };
 
 export type NarrativeOwnerOperationV1 =
-  | { readonly kind: "begin"; readonly source: NarrativeSourceV1; readonly cursor: NarrativeCursorV1 }
-  | { readonly kind: "move"; readonly expectedCursor: NarrativeCursorV1; readonly nextCursor: NarrativeCursorV1; readonly stage: NarrativeStageStateV1 }
-  | { readonly kind: "commit_choice"; readonly expectedCursor: NarrativeCursorV1; readonly choiceId: ChoiceId; readonly nextCursor: NarrativeCursorV1 }
-  | { readonly kind: "push_call"; readonly expectedCursor: NarrativeCursorV1; readonly target: NarrativeCursorV1; readonly returnCursor: NarrativeCursorV1 }
+  | {
+      readonly kind: "begin";
+      readonly source: NarrativeSourceV1;
+      readonly cursor: NarrativeCursorV1;
+    }
+  | {
+      readonly kind: "move";
+      readonly expectedCursor: NarrativeCursorV1;
+      readonly nextCursor: NarrativeCursorV1;
+      readonly stage: NarrativeStageStateV1;
+    }
+  | {
+      readonly kind: "commit_choice";
+      readonly expectedCursor: NarrativeCursorV1;
+      readonly choiceId: ChoiceId;
+      readonly nextCursor: NarrativeCursorV1;
+    }
+  | {
+      readonly kind: "push_call";
+      readonly expectedCursor: NarrativeCursorV1;
+      readonly target: NarrativeCursorV1;
+      readonly returnCursor: NarrativeCursorV1;
+    }
   | { readonly kind: "pop_call"; readonly expectedCursor: NarrativeCursorV1 }
   | { readonly kind: "complete"; readonly expectedCursor: NarrativeCursorV1 }
   | { readonly kind: "reset" };
@@ -1917,17 +2461,30 @@ export function readNarrativeDirectiveV1(
     case "choice":
       return { kind: "choose", cursor, choices: node.choices };
     case "condition":
-      return { kind: "evaluate_condition", conditions: node.when, passCursor: next(node.passNodeId), failCursor: next(node.failNodeId) };
+      return {
+        kind: "evaluate_condition",
+        conditions: node.when,
+        passCursor: next(node.passNodeId),
+        failCursor: next(node.failNodeId),
+      };
     case "check":
       return { kind: "resolve_check", request: node.request, branches: node.branches };
     case "command":
       return { kind: "apply_effects", effects: node.effects, nextCursor: next(node.nextNodeId) };
     case "eventCheckpoint":
-      return { kind: "schedule_checkpoint", checkpointId: node.checkpointId, nextCursor: next(node.nextNodeId) };
+      return {
+        kind: "schedule_checkpoint",
+        checkpointId: node.checkpointId,
+        nextCursor: next(node.nextNodeId),
+      };
     case "jump":
       return { kind: "move", nextCursor: next(node.targetNodeId) };
     case "call":
-      return { kind: "call", target: { sceneId: node.sceneId, nodeId: node.entryNodeId }, returnCursor: next(node.returnNodeId) };
+      return {
+        kind: "call",
+        target: { sceneId: node.sceneId, nodeId: node.entryNodeId },
+        returnCursor: next(node.returnNodeId),
+      };
     case "return":
       return callStack.length === 0 ? { kind: "complete" } : { kind: "return" };
     case "stageCue":
@@ -1958,12 +2515,14 @@ git commit -m "feat(modules): add narrative state and interpreter"
 ## Task 12: Implement the Stateless World Service
 
 **Files:**
+
 - Modify: `packages/modules/src/world/contract.ts`
 - Create: `packages/modules/src/world/world-service.ts`
 - Create: `packages/modules/src/world/world-service.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: a validated `WorldActionDefinitionV1`, option, current day/phase, and public-port DTO assembled by the coordinator.
 - Produces: immutable Begin/Complete plans containing exact costs, steps, effects, and Check request. It has no state slot, owner operation, proposal, apply method, or candidate Snapshot access.
 
@@ -2070,12 +2629,14 @@ git commit -m "feat(modules): add stateless world service"
 ## Task 13: Implement the Stateless Scheduling Service
 
 **Files:**
+
 - Modify: `packages/modules/src/scheduling/contract.ts`
 - Create: `packages/modules/src/scheduling/scheduler-service.ts`
 - Create: `packages/modules/src/scheduling/scheduler-service.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: one frozen evaluation Snapshot projection, one `SchedulerContextV1`, Story event definitions, condition results, and explicit transactional RNG capability.
 - Produces: ordered selected events, ordered effects, zero-or-one blocking Scene request, and RNG traces through the caller's capability. It has no state or owner.
 
@@ -2084,12 +2645,7 @@ git commit -m "feat(modules): add stateless world service"
 ```ts
 // packages/modules/src/scheduling/scheduler-service.test.ts
 import { describe, expect, it } from "vitest";
-import {
-  buildEventV1,
-  contractValuesV1,
-  e2eIdsV1,
-  fixedRuleRngV1,
-} from "../testing/builders.js";
+import { buildEventV1, contractValuesV1, e2eIdsV1, fixedRuleRngV1 } from "../testing/builders.js";
 import { scheduleContextV1, schedulingModuleV1 } from "./scheduler-service.js";
 
 describe("schedulingModuleV1", () => {
@@ -2102,15 +2658,29 @@ describe("schedulingModuleV1", () => {
     const result = scheduleContextV1({
       context: { kind: "phase.entered", day: contractValuesV1.day2, phase: "morning" },
       events: [
-        buildEventV1({ eventId: e2eIdsV1.eventB, priority: contractValuesV1.hundredSigned, sceneId: null }),
-        buildEventV1({ eventId: e2eIdsV1.eventA, priority: contractValuesV1.hundredSigned, sceneId: null }),
-        buildEventV1({ eventId: e2eIdsV1.eventHigh, priority: contractValuesV1.twoHundredSigned, sceneId: null }),
+        buildEventV1({
+          eventId: e2eIdsV1.eventB,
+          priority: contractValuesV1.hundredSigned,
+          sceneId: null,
+        }),
+        buildEventV1({
+          eventId: e2eIdsV1.eventA,
+          priority: contractValuesV1.hundredSigned,
+          sceneId: null,
+        }),
+        buildEventV1({
+          eventId: e2eIdsV1.eventHigh,
+          priority: contractValuesV1.twoHundredSigned,
+          sceneId: null,
+        }),
       ],
       conditionResults: new Map(),
       rng: fixedRuleRngV1([]),
     });
     expect(result.selected.map((event) => event.eventId)).toEqual([
-      e2eIdsV1.eventHigh, e2eIdsV1.eventA, e2eIdsV1.eventB,
+      e2eIdsV1.eventHigh,
+      e2eIdsV1.eventA,
+      e2eIdsV1.eventB,
     ]);
   });
 
@@ -2118,8 +2688,16 @@ describe("schedulingModuleV1", () => {
     const result = scheduleContextV1({
       context: { kind: "phase.entered", day: contractValuesV1.day2, phase: "morning" },
       events: [
-        buildEventV1({ eventId: e2eIdsV1.eventA, priority: contractValuesV1.twoHundredSigned, sceneId: e2eIdsV1.sceneA }),
-        buildEventV1({ eventId: e2eIdsV1.eventB, priority: contractValuesV1.hundredSigned, sceneId: e2eIdsV1.sceneB }),
+        buildEventV1({
+          eventId: e2eIdsV1.eventA,
+          priority: contractValuesV1.twoHundredSigned,
+          sceneId: e2eIdsV1.sceneA,
+        }),
+        buildEventV1({
+          eventId: e2eIdsV1.eventB,
+          priority: contractValuesV1.hundredSigned,
+          sceneId: e2eIdsV1.sceneB,
+        }),
       ],
       conditionResults: new Map(),
       rng: fixedRuleRngV1([]),
@@ -2142,15 +2720,20 @@ Expected: FAIL with missing Scheduling service.
 export function orderSchedulerCandidatesV1(
   events: readonly StoryEventDefinitionV1[],
 ): readonly StoryEventDefinitionV1[] {
-  return [...events].sort((left, right) =>
-    right.priority - left.priority || left.eventId.localeCompare(right.eventId),
+  return [...events].sort(
+    (left, right) => right.priority - left.priority || left.eventId.localeCompare(right.eventId),
   );
 }
 
-export function scheduleContextV1(input: Readonly<ScheduleContextInputV1>): ScheduleContextResultV1 {
-  const candidates = orderSchedulerCandidatesV1(input.events).filter((event) =>
-    triggerMatchesV1(event.trigger, input.context) &&
-    event.when.every((condition) => input.conditionResults.get(conditionKeyV1(condition)) === true),
+export function scheduleContextV1(
+  input: Readonly<ScheduleContextInputV1>,
+): ScheduleContextResultV1 {
+  const candidates = orderSchedulerCandidatesV1(input.events).filter(
+    (event) =>
+      triggerMatchesV1(event.trigger, input.context) &&
+      event.when.every(
+        (condition) => input.conditionResults.get(conditionKeyV1(condition)) === true,
+      ),
   );
   const selected = selectWeightedGroupsV1(candidates, input.rng);
   const blocking = selected.filter((event) => event.sceneId !== null);
@@ -2159,9 +2742,10 @@ export function scheduleContextV1(input: Readonly<ScheduleContextInputV1>): Sche
     kind: "scheduled",
     selected,
     effects: selected.flatMap((event) => event.effects),
-    blocking: blocking.length === 1
-      ? { eventId: blocking[0].eventId, sceneId: blocking[0].sceneId! }
-      : null,
+    blocking:
+      blocking.length === 1
+        ? { eventId: blocking[0].eventId, sceneId: blocking[0].sceneId! }
+        : null,
   };
 }
 ```
@@ -2186,11 +2770,13 @@ git commit -m "feat(modules): add stateless scheduler service"
 ## Task 14: Implement the Exhaustive Cross-Owner Effect Router
 
 **Files:**
+
 - Create: `packages/modules/src/coordinator/effect-router.ts`
 - Create: `packages/modules/src/coordinator/effect-router.test.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: all stateful owner capabilities, exact Story definitions, one candidate-state facade controlled by the coordinator, and `effectIntentOwnerByKindV1`.
 - Produces: `routeEffectBatchV1(effects, context)` that validates the whole batch first, then applies owner proposals in authored order to the candidate only. It cannot commit, recurse into dispatch, or touch RNG.
 
@@ -2205,23 +2791,60 @@ import { routeEffectBatchV1 } from "./effect-router.js";
 describe("routeEffectBatchV1", () => {
   it("applies effects in authored order so later proposals see earlier candidate state", () => {
     const candidate = buildCandidateFacadeV1();
-    const result = routeEffectBatchV1([
-      { kind: "inventory.grant", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity }], source: { kind: "story_action", actionId: e2eIdsV1.actionBranch }, reasonId: e2eIdsV1.reasonReward },
-      { kind: "inventory.consume", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity }], reasonId: e2eIdsV1.reasonConsume },
-      { kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchLeft }, reasonId: e2eIdsV1.reasonBranch },
-    ], candidate.effectContext());
+    const result = routeEffectBatchV1(
+      [
+        {
+          kind: "inventory.grant",
+          lines: [
+            { ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity },
+          ],
+          source: { kind: "story_action", actionId: e2eIdsV1.actionBranch },
+          reasonId: e2eIdsV1.reasonReward,
+        },
+        {
+          kind: "inventory.consume",
+          lines: [
+            { ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.oneQuantity },
+          ],
+          reasonId: e2eIdsV1.reasonConsume,
+        },
+        {
+          kind: "fact.set",
+          factId: e2eIdsV1.factBranch,
+          value: { kind: "token", value: e2eIdsV1.tokenBranchLeft },
+          reasonId: e2eIdsV1.reasonBranch,
+        },
+      ],
+      candidate.effectContext(),
+    );
     expect(result.kind).toBe("applied");
     expect(candidate.readInventory().ingredientBatches).toEqual([]);
-    expect(candidate.readProgression().facts[0].value).toEqual({ kind: "token", value: e2eIdsV1.tokenBranchLeft });
+    expect(candidate.readProgression().facts[0].value).toEqual({
+      kind: "token",
+      value: e2eIdsV1.tokenBranchLeft,
+    });
   });
 
   it("restores every owner slice when a later effect rejects", () => {
     const candidate = buildCandidateFacadeV1();
     const before = candidate.snapshotState();
-    const result = routeEffectBatchV1([
-      { kind: "reputation.adjust", delta: contractValuesV1.oneSigned, reasonId: e2eIdsV1.reasonReward },
-      { kind: "inventory.consume", lines: [{ ingredientId: e2eIdsV1.ingredientMissing, quantity: contractValuesV1.oneQuantity }], reasonId: e2eIdsV1.reasonConsume },
-    ], candidate.effectContext());
+    const result = routeEffectBatchV1(
+      [
+        {
+          kind: "reputation.adjust",
+          delta: contractValuesV1.oneSigned,
+          reasonId: e2eIdsV1.reasonReward,
+        },
+        {
+          kind: "inventory.consume",
+          lines: [
+            { ingredientId: e2eIdsV1.ingredientMissing, quantity: contractValuesV1.oneQuantity },
+          ],
+          reasonId: e2eIdsV1.reasonConsume,
+        },
+      ],
+      candidate.effectContext(),
+    );
     expect(result.kind).toBe("rejected");
     expect(candidate.snapshotState()).toEqual(before);
   });
@@ -2243,26 +2866,46 @@ export function routeOneEffectV1(
   context: EffectRouterContextV1,
 ): EffectRouteResultV1 {
   switch (effect.kind) {
-    case "calendar.ap.adjust": return context.calendar.adjustAp(effect);
-    case "reputation.adjust": return context.tavern.adjustReputation(effect);
-    case "actor.stamina.adjust": return context.actors.adjustStamina(effect);
-    case "actor.mood.adjust": return context.actors.adjustMood(effect);
-    case "relationship.affection.adjust": return context.actors.adjustAffection(effect);
-    case "relationship.teamwork.adjust": return context.actors.adjustTeamwork(effect);
-    case "relationship.stage.set": return context.actors.setRelationshipStage(effect);
-    case "tavern.helper.set": return context.tavern.setHelper(effect);
-    case "inventory.grant": return context.inventory.grantIngredients(effect);
-    case "inventory.consume": return context.inventory.consumeIngredients(effect);
-    case "inventory.item.grant": return context.inventory.grantItems(effect);
-    case "inventory.item.consume": return context.inventory.consumeItems(effect);
-    case "aura.apply": return context.status.applyAura(effect);
-    case "aura.clear": return context.status.clearAura(effect);
-    case "fact.set": return context.progression.setFact(effect);
-    case "quest.set": return context.progression.setQuest(effect);
-    case "outcome.set": return context.progression.setOutcome(effect);
-    case "modifier.add": return context.workflow.addOpeningModifier(effect);
-    case "ledger.append": return context.inventory.appendLedger(effect);
-    default: return assertNeverEffectV1(effect);
+    case "calendar.ap.adjust":
+      return context.calendar.adjustAp(effect);
+    case "reputation.adjust":
+      return context.tavern.adjustReputation(effect);
+    case "actor.stamina.adjust":
+      return context.actors.adjustStamina(effect);
+    case "actor.mood.adjust":
+      return context.actors.adjustMood(effect);
+    case "relationship.affection.adjust":
+      return context.actors.adjustAffection(effect);
+    case "relationship.teamwork.adjust":
+      return context.actors.adjustTeamwork(effect);
+    case "relationship.stage.set":
+      return context.actors.setRelationshipStage(effect);
+    case "tavern.helper.set":
+      return context.tavern.setHelper(effect);
+    case "inventory.grant":
+      return context.inventory.grantIngredients(effect);
+    case "inventory.consume":
+      return context.inventory.consumeIngredients(effect);
+    case "inventory.item.grant":
+      return context.inventory.grantItems(effect);
+    case "inventory.item.consume":
+      return context.inventory.consumeItems(effect);
+    case "aura.apply":
+      return context.status.applyAura(effect);
+    case "aura.clear":
+      return context.status.clearAura(effect);
+    case "fact.set":
+      return context.progression.setFact(effect);
+    case "quest.set":
+      return context.progression.setQuest(effect);
+    case "outcome.set":
+      return context.progression.setOutcome(effect);
+    case "modifier.add":
+      return context.workflow.addOpeningModifier(effect);
+    case "ledger.append":
+      return context.inventory.appendLedger(effect);
+    default:
+      return assertNeverEffectV1(effect);
   }
 }
 
@@ -2289,6 +2932,7 @@ git commit -m "feat(modules): route cross-owner effects atomically"
 ## Task 15: Implement the Candidate Transaction and Core Command Coordinator
 
 **Files:**
+
 - Create: `packages/modules/src/coordinator/candidate.ts`
 - Create: `packages/modules/src/coordinator/command-coordinator.ts`
 - Create: `packages/modules/src/coordinator/command-coordinator.test.ts`
@@ -2297,6 +2941,7 @@ git commit -m "feat(modules): route cross-owner effects atomically"
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: every stateful owner and its strict State Schema, World/Scheduling services, Base transactional RNG, `CommandExecutionAttemptEnvelopeV1`, and one immutable `DemoSimulationProgramV1` supplied to the builder.
 - Produces: strict `gameStateV1Schema`, strict `gameSnapshotV1Schema`, `createDemoCommandCoordinatorV1(program)`, and the one `DemoCommandCoordinatorV1.executeAttempt` implementation. The builder closes the post-Hotfix rules/data program for queries; each execution uses `undefined` context and owns candidate state/RNG, guard ordering, proposals, facts, invariants, sequence, and diagnostics. Resolved identity belongs to the Story/Session boundary, not gameplay input.
 
@@ -2316,22 +2961,22 @@ describe("DemoCommandCoordinatorV1", () => {
   it("commits run.start once with demand, Narrative, RNG trace, and sequence 1", () => {
     const coordinator = createDemoCommandCoordinatorV1(buildModuleContractProgramV1());
     const snapshot = buildSequenceZeroSnapshotV1();
-    const attempt = coordinator.executeAttempt(
-      snapshot,
-      { kind: "run.start" },
-      undefined,
-    );
+    const attempt = coordinator.executeAttempt(snapshot, { kind: "run.start" }, undefined);
     expect(attempt.result.kind).toBe("committed");
     if (attempt.result.kind !== "committed") throw new Error("expected commit");
     expect(attempt.result.snapshot.commandSequence).toBe(contractValuesV1.one);
     expect(attempt.result.snapshot.state.simulation.tavern.demandSeeds).not.toEqual([]);
-    expect(attempt.result.snapshot.state.story.narrative.source).toEqual({ kind: "manifest_start" });
-    expect(attempt.result.facts.filter((fact) => fact.kind === "run.started")).toEqual([{
-      kind: "run.started",
-      runId: snapshot.state.simulation.run.runId,
-      initialSeed: snapshot.state.simulation.run.initialSeed,
-      demandSeeds: attempt.result.snapshot.state.simulation.tavern.demandSeeds,
-    }]);
+    expect(attempt.result.snapshot.state.story.narrative.source).toEqual({
+      kind: "manifest_start",
+    });
+    expect(attempt.result.facts.filter((fact) => fact.kind === "run.started")).toEqual([
+      {
+        kind: "run.started",
+        runId: snapshot.state.simulation.run.runId,
+        initialSeed: snapshot.state.simulation.run.initialSeed,
+        demandSeeds: attempt.result.snapshot.state.simulation.tavern.demandSeeds,
+      },
+    ]);
     expect(attempt.diagnostics.attemptedDraws).toHaveLength(1);
     expect(attempt.diagnostics.committedRngAfter).toEqual(attempt.result.snapshot.rng);
   });
@@ -2339,11 +2984,7 @@ describe("DemoCommandCoordinatorV1", () => {
   it("returns the exact input Snapshot on rejection", () => {
     const coordinator = createDemoCommandCoordinatorV1(buildModuleContractProgramV1());
     const snapshot = buildSequenceZeroSnapshotV1();
-    const attempt = coordinator.executeAttempt(
-      snapshot,
-      { kind: "actor.rest" },
-      undefined,
-    );
+    const attempt = coordinator.executeAttempt(snapshot, { kind: "actor.rest" }, undefined);
     expect(attempt.result.kind).toBe("rejected");
     expect(attempt.result.snapshot).toBe(snapshot);
     expect(attempt.diagnostics.committedRngAfter).toBe(snapshot.rng);
@@ -2364,10 +3005,7 @@ Create the strict aggregate State Schema before the candidate imports it:
 
 ```ts
 // packages/modules/src/profile/schemas.ts
-import {
-  createGameSnapshotEnvelopeSchemaV1,
-  rngStateV1Schema,
-} from "@project-tavern/base";
+import { createGameSnapshotEnvelopeSchemaV1, rngStateV1Schema } from "@project-tavern/base";
 import { z } from "zod";
 import { actorsStateV1Schema } from "../actors/contract.js";
 import { calendarStateV1Schema } from "../calendar/contract.js";
@@ -2417,10 +3055,7 @@ export const gameSnapshotV1Schema = createGameSnapshotEnvelopeSchemaV1(
 
 ```ts
 // packages/modules/src/coordinator/candidate.ts
-import {
-  createTransactionalRngV1,
-  parseNonNegativeSafeInteger,
-} from "@project-tavern/base";
+import { createTransactionalRngV1, parseNonNegativeSafeInteger } from "@project-tavern/base";
 import type {
   CommandExecutionDiagnosticsEnvelopeV1,
   DeepReadonly,
@@ -2428,11 +3063,7 @@ import type {
   RngStateV1,
 } from "@project-tavern/base";
 import { gameStateV1Schema } from "../profile/schemas.js";
-import type {
-  DomainFactV1,
-  GameSnapshotV1,
-  GameStateV1,
-} from "../profile/types.js";
+import type { DomainFactV1, GameSnapshotV1, GameStateV1 } from "../profile/types.js";
 
 function deepFreezeParsedStrictJsonV1(value: unknown): void {
   if (value === null || typeof value !== "object") return;
@@ -2495,7 +3126,10 @@ Both clones cross `gameStateV1Schema.parse`; no assertion turns unvalidated data
 
 ```ts
 // packages/modules/src/coordinator/command-coordinator.ts
-function guardCommandV1(snapshot: Readonly<GameSnapshotV1>, command: Readonly<GameCommandV1>): RejectionReasonV1 | null {
+function guardCommandV1(
+  snapshot: Readonly<GameSnapshotV1>,
+  command: Readonly<GameCommandV1>,
+): RejectionReasonV1 | null {
   const { run, activeWorkflow } = snapshot.state.simulation;
   const narrative = snapshot.state.story.narrative;
   if (command.kind === "run.start" && snapshot.state.simulation.tavern.demandSeeds.length !== 0) {
@@ -2505,13 +3139,24 @@ function guardCommandV1(snapshot: Readonly<GameSnapshotV1>, command: Readonly<Ga
     return { code: "run.not_started", details: { commandKind: command.kind } };
   }
   if (narrative.status === "active" && !command.kind.startsWith("narrative.")) {
-    return { code: "command.blocked_by_narrative", details: { commandKind: command.kind, cursor: narrative.cursor! } };
+    return {
+      code: "command.blocked_by_narrative",
+      details: { commandKind: command.kind, cursor: narrative.cursor! },
+    };
   }
-  if (run.status === "setup" && snapshot.state.simulation.calendar.lifePolicyId === null && command.kind !== "policy.choose" && !command.kind.startsWith("narrative.")) {
+  if (
+    run.status === "setup" &&
+    snapshot.state.simulation.calendar.lifePolicyId === null &&
+    command.kind !== "policy.choose" &&
+    !command.kind.startsWith("narrative.")
+  ) {
     return { code: "run.policy_required", details: { commandKind: command.kind } };
   }
   if (activeWorkflow !== null && !workflowAllowsV1(activeWorkflow, command.kind)) {
-    return { code: "command.blocked_by_workflow", details: { commandKind: command.kind, blocker: workflowBlockerV1(activeWorkflow) } };
+    return {
+      code: "command.blocked_by_workflow",
+      details: { commandKind: command.kind, blocker: workflowBlockerV1(activeWorkflow) },
+    };
   }
   return null;
 }
@@ -2525,7 +3170,10 @@ Implement handlers for `run.start`, `policy.choose`, `inventory.buy`, `actor.pre
 // packages/modules/src/coordinator/command-coordinator.ts
 import type { DemoCommandExecutionAttemptV1 } from "../profile/types.js";
 
-function rejectAttemptV1(snapshot: GameSnapshotV1, rejection: RejectionReasonV1): DemoCommandExecutionAttemptV1 {
+function rejectAttemptV1(
+  snapshot: GameSnapshotV1,
+  rejection: RejectionReasonV1,
+): DemoCommandExecutionAttemptV1 {
   return {
     result: { kind: "rejected", snapshot, reasons: [rejection] },
     diagnostics: {
@@ -2563,11 +3211,13 @@ git commit -m "feat(modules): coordinate core commands atomically"
 ## Task 16A: Complete Narrative Commands and Automatic-Node Arbitration
 
 **Files:**
+
 - Modify: `packages/modules/src/coordinator/command-coordinator.ts`
 - Modify: `packages/modules/src/coordinator/command-coordinator.test.ts`
 - Modify: `packages/modules/src/testing/builders.ts`
 
 **Interfaces:**
+
 - Consumes: Task 15 candidate/guard machinery, Narrative owner/interpreter, Scheduler service, effect router, Story checks, and the transaction RNG.
 - Produces: complete `narrative.advance`/`narrative.choose` handling plus `runAutomaticNarrativeV1(candidate, context)`, which stops only at a presentation/choice/completion boundary and arbitrates at most one blocking request.
 
@@ -2601,11 +3251,13 @@ git commit -m "feat(modules): coordinate narrative commands"
 ## Task 16B: Complete the Interruptible Opening Transaction
 
 **Files:**
+
 - Modify: `packages/modules/src/coordinator/command-coordinator.ts`
 - Modify: `packages/modules/src/coordinator/command-coordinator.test.ts`
 - Modify: `packages/modules/src/testing/builders.ts`
 
 **Interfaces:**
+
 - Consumes: Task 16A automatic Narrative loop, Tavern rules, Calendar/Actors/Inventory/Tavern/Workflow/Status owners, Scheduler, and the effect router.
 - Produces: complete `tavern.opening.start`, `.continue`, and `.finalize` handlers with one frozen baseline and one settlement.
 
@@ -2639,11 +3291,13 @@ git commit -m "feat(modules): coordinate interruptible opening"
 ## Task 16C: Complete WorldAction, Scheduling, and Calendar Boundaries
 
 **Files:**
+
 - Modify: `packages/modules/src/coordinator/command-coordinator.ts`
 - Modify: `packages/modules/src/coordinator/command-coordinator.test.ts`
 - Modify: `packages/modules/src/testing/builders.ts`
 
 **Interfaces:**
+
 - Consumes: World/Scheduling services, Narrative loop, all boundary owners, Story check rules, and candidate RNG.
 - Produces: `world.action.begin`, `world.action.complete`, and `calendar.advance_phase`, including planned/emergency closure, two-stage WorldAction, spoilage/Aura/recovery/reset/demand order, and Scheduler contexts.
 
@@ -2677,7 +3331,9 @@ expect(attempt.result.snapshot.state.simulation.tavern.preparation).toEqual({
   actionCount: contractValuesV1.zero,
 });
 expect(attempt.result.snapshot.state.simulation.tavern.servicePlan).toBeNull();
-expect(attempt.result.snapshot.state.simulation.tavern.currentDemand?.day).toBe(contractValuesV1.day2);
+expect(attempt.result.snapshot.state.simulation.tavern.currentDemand?.day).toBe(
+  contractValuesV1.day2,
+);
 ```
 
 - [ ] **Step 2: Run and observe missing World/Calendar handlers**
@@ -2706,11 +3362,13 @@ git commit -m "feat(modules): coordinate world and calendar workflows"
 ## Task 16D: Complete Levy and Terminal Ending Materialization
 
 **Files:**
+
 - Modify: `packages/modules/src/coordinator/command-coordinator.ts`
 - Modify: `packages/modules/src/coordinator/command-coordinator.test.ts`
 - Modify: `packages/modules/src/testing/builders.ts`
 
 **Interfaces:**
+
 - Consumes: Inventory levy resolution, Story ending rules, Progression effects, Run completion owner, and Task 16C levy-due gate.
 - Produces: the last unimplemented command, `levy.pay`, with paid/arrears terminal states and no post-terminal action path.
 
@@ -2744,6 +3402,7 @@ git commit -m "feat(modules): materialize levy endings"
 ## Task 17: Assemble Strict Aggregate Schemas and the Public Module Surface
 
 **Files:**
+
 - Modify: `packages/modules/src/profile/schemas.ts`
 - Create: `packages/modules/type-tests/public-exports.test-d.ts`
 - Modify: `packages/modules/src/profile/types.ts`
@@ -2751,6 +3410,7 @@ git commit -m "feat(modules): materialize levy endings"
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: the Task 1 type spine, Task 15's strict aggregate State Schema, plus every owner/service Schema and binding.
 - Produces: the remaining strict aggregate command/fact/rejection/fault/debug Schemas, concrete `DemoCommandExecutionResultV1`, `DemoCommandExecutionAttemptV1`, `DebugCommandOperationResultForV1<C>`, and public exports for each individual binding. It deliberately does not create a Module tuple, Profile, coordinator instance, or Story-specific program.
 
@@ -2777,9 +3437,18 @@ import {
 
 it("exports registry-owned ten stateful and two stateless profile-bound bindings", () => {
   const bindings = [
-    runModuleV1, calendarModuleV1, actorsModuleV1, statusModuleV1,
-    inventoryModuleV1, facilitiesModuleV1, tavernModuleV1, workflowModuleV1,
-    worldModuleV1, progressionModuleV1, narrativeModuleV1, schedulingModuleV1,
+    runModuleV1,
+    calendarModuleV1,
+    actorsModuleV1,
+    statusModuleV1,
+    inventoryModuleV1,
+    facilitiesModuleV1,
+    tavernModuleV1,
+    workflowModuleV1,
+    worldModuleV1,
+    progressionModuleV1,
+    narrativeModuleV1,
+    schedulingModuleV1,
   ] as const;
   expect(bindings.map((module) => module.descriptor.id)).toEqual(
     gameModuleKeysV1.map((key) => gameModuleDescriptorsV1[key].id),
@@ -2796,14 +3465,15 @@ it("rejects unknown keys at aggregate boundaries", () => {
   const initialSnapshot = buildSequenceZeroSnapshotV1();
   const state = initialSnapshot.state;
   expect(() => gameStateV1Schema.parse({ ...state, extra: true })).toThrow();
-  expect(() => gameSnapshotV1Schema.parse({
-    state,
-    rng: initialSnapshot.rng,
-    commandSequence: initialSnapshot.commandSequence,
-    extra: true,
-  })).toThrow();
+  expect(() =>
+    gameSnapshotV1Schema.parse({
+      state,
+      rng: initialSnapshot.rng,
+      commandSequence: initialSnapshot.commandSequence,
+      extra: true,
+    }),
+  ).toThrow();
 });
-
 ```
 
 - [ ] **Step 2: Run and verify aggregate files are missing**
@@ -2879,15 +3549,23 @@ const tavernPlanSetCommandV1Schema = z.strictObject({
   kind: z.literal("tavern.plan.set"),
   plan: tavernPlanCommandV1Schema,
 });
-const tavernOpeningStartCommandV1Schema = z.strictObject({ kind: z.literal("tavern.opening.start") });
-const tavernOpeningContinueCommandV1Schema = z.strictObject({ kind: z.literal("tavern.opening.continue") });
-const tavernOpeningFinalizeCommandV1Schema = z.strictObject({ kind: z.literal("tavern.opening.finalize") });
+const tavernOpeningStartCommandV1Schema = z.strictObject({
+  kind: z.literal("tavern.opening.start"),
+});
+const tavernOpeningContinueCommandV1Schema = z.strictObject({
+  kind: z.literal("tavern.opening.continue"),
+});
+const tavernOpeningFinalizeCommandV1Schema = z.strictObject({
+  kind: z.literal("tavern.opening.finalize"),
+});
 const worldActionBeginCommandV1Schema = z.strictObject({
   kind: z.literal("world.action.begin"),
   actionId: actionIdCommandV1Schema,
   optionId: choiceIdCommandV1Schema,
 });
-const worldActionCompleteCommandV1Schema = z.strictObject({ kind: z.literal("world.action.complete") });
+const worldActionCompleteCommandV1Schema = z.strictObject({
+  kind: z.literal("world.action.complete"),
+});
 const narrativeAdvanceCommandV1Schema = z.strictObject({ kind: z.literal("narrative.advance") });
 const narrativeChooseCommandV1Schema = z.strictObject({
   kind: z.literal("narrative.choose"),
@@ -2895,47 +3573,54 @@ const narrativeChooseCommandV1Schema = z.strictObject({
   nodeId: nodeIdCommandV1Schema,
   choiceId: choiceIdCommandV1Schema,
 });
-const calendarAdvancePhaseCommandV1Schema = z.strictObject({ kind: z.literal("calendar.advance_phase") });
+const calendarAdvancePhaseCommandV1Schema = z.strictObject({
+  kind: z.literal("calendar.advance_phase"),
+});
 const levyPayCommandV1Schema = z.strictObject({ kind: z.literal("levy.pay") });
 
-export const gameCommandV1Schema = z.discriminatedUnion("kind", [
-  runStartCommandV1Schema,
-  policyChooseCommandV1Schema,
-  inventoryBuyCommandV1Schema,
-  actorPrepareFoodCommandV1Schema,
-  actorRestCommandV1Schema,
-  storyActionStartCommandV1Schema,
-  facilityChooseCommandV1Schema,
-  tavernPlanSetCommandV1Schema,
-  tavernOpeningStartCommandV1Schema,
-  tavernOpeningContinueCommandV1Schema,
-  tavernOpeningFinalizeCommandV1Schema,
-  worldActionBeginCommandV1Schema,
-  worldActionCompleteCommandV1Schema,
-  narrativeAdvanceCommandV1Schema,
-  narrativeChooseCommandV1Schema,
-  calendarAdvancePhaseCommandV1Schema,
-  levyPayCommandV1Schema,
-]).superRefine((command, context) => {
-  if (command.kind === "inventory.buy") {
-    const ids = command.lines.map((line) => line.ingredientId);
-    if (new Set(ids).size !== ids.length) {
-      context.addIssue({ code: "custom", message: "inventory.buy lines must use unique ingredient IDs" });
+export const gameCommandV1Schema = z
+  .discriminatedUnion("kind", [
+    runStartCommandV1Schema,
+    policyChooseCommandV1Schema,
+    inventoryBuyCommandV1Schema,
+    actorPrepareFoodCommandV1Schema,
+    actorRestCommandV1Schema,
+    storyActionStartCommandV1Schema,
+    facilityChooseCommandV1Schema,
+    tavernPlanSetCommandV1Schema,
+    tavernOpeningStartCommandV1Schema,
+    tavernOpeningContinueCommandV1Schema,
+    tavernOpeningFinalizeCommandV1Schema,
+    worldActionBeginCommandV1Schema,
+    worldActionCompleteCommandV1Schema,
+    narrativeAdvanceCommandV1Schema,
+    narrativeChooseCommandV1Schema,
+    calendarAdvancePhaseCommandV1Schema,
+    levyPayCommandV1Schema,
+  ])
+  .superRefine((command, context) => {
+    if (command.kind === "inventory.buy") {
+      const ids = command.lines.map((line) => line.ingredientId);
+      if (new Set(ids).size !== ids.length) {
+        context.addIssue({
+          code: "custom",
+          message: "inventory.buy lines must use unique ingredient IDs",
+        });
+      }
     }
-  }
-  if (command.kind === "tavern.plan.set") {
-    const ids = command.plan.menu.map((line) => line.recipeId);
-    if (new Set(ids).size !== ids.length) {
-      context.addIssue({ code: "custom", message: "tavern menu recipe IDs must be unique" });
+    if (command.kind === "tavern.plan.set") {
+      const ids = command.plan.menu.map((line) => line.recipeId);
+      if (new Set(ids).size !== ids.length) {
+        context.addIssue({ code: "custom", message: "tavern menu recipe IDs must be unique" });
+      }
+      if (command.plan.mode === "closed" && command.plan.menu.length !== 0) {
+        context.addIssue({ code: "custom", message: "closed plan must have an empty menu" });
+      }
+      if (command.plan.mode !== "closed" && command.plan.menu.length === 0) {
+        context.addIssue({ code: "custom", message: "open plan must have at least one recipe" });
+      }
     }
-    if (command.plan.mode === "closed" && command.plan.menu.length !== 0) {
-      context.addIssue({ code: "custom", message: "closed plan must have an empty menu" });
-    }
-    if (command.plan.mode !== "closed" && command.plan.menu.length === 0) {
-      context.addIssue({ code: "custom", message: "open plan must have at least one recipe" });
-    }
-  }
-});
+  });
 ```
 
 These seventeen local strict objects correspond one-for-one with the Catalog command union; Task 17 owns them and does not import imaginary branch Schemas from Tasks 2–13. Aggregate fact/rejection/debug unions from module-owned schemas plus the strict coordinator-produced `run.started`, scheduler, opening, service, WorldAction, Narrative, and levy fact variants. Do not widen any branch with `z.unknown`, `z.record`, passthrough, optional `undefined`, or arbitrary strings.
@@ -2960,12 +3645,14 @@ git commit -m "feat(modules): publish strict gameplay contracts"
 ## Task 18: Implement Queries, Preview/Execute Parity, and the Game View Projection
 
 **Files:**
+
 - Create: `packages/modules/src/coordinator/queries.ts`
 - Create: `packages/modules/src/coordinator/queries.test.ts`
 - Modify: `packages/modules/src/profile/types.ts`
 - Modify: `packages/modules/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: immutable Snapshot, `DemoSimulationProgramV1`, and the same guard/calculator functions used by command execution.
 - Produces: `createDemoQueriesV1(snapshot, program)`, `projectDemoGameViewV1(state, queries)`, `EngineQueriesV1`, and `DemoRuntimeGameViewV1`; no query consumes RNG, invokes a mutating owner, or exposes actual hidden demand. Task 19 closes one program into the Story-owned coordinator/Profile.
 
@@ -2988,7 +3675,10 @@ import { createDemoQueriesV1 } from "./queries.js";
 describe("EngineQueriesV1", () => {
   it("returns the exact command value in every preview", () => {
     const program = buildModuleContractProgramV1();
-    const command: GameCommandV1 = { kind: "inventory.buy", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity }] };
+    const command: GameCommandV1 = {
+      kind: "inventory.buy",
+      lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: contractValuesV1.twoQuantity }],
+    };
     const preview = createDemoQueriesV1(buildActiveSnapshotV1(), program).previewCommand(command);
     expect(preview.command).toEqual(command);
   });
@@ -2998,7 +3688,13 @@ describe("EngineQueriesV1", () => {
     const forecast = createDemoQueriesV1(buildActiveSnapshotV1(), program).getDemandForecast();
     expect(forecast).toEqual({
       day: contractValuesV1.day1,
-      lines: [{ segmentId: e2eIdsV1.segmentGuests, range: { min: contractValuesV1.twoSigned, max: contractValuesV1.twoSigned }, modifiers: [] }],
+      lines: [
+        {
+          segmentId: e2eIdsV1.segmentGuests,
+          range: { min: contractValuesV1.twoSigned, max: contractValuesV1.twoSigned },
+          modifiers: [],
+        },
+      ],
     });
     expect(JSON.stringify(forecast)).not.toContain("actualCustomers");
     expect(JSON.stringify(forecast)).not.toContain("randomOffset");
@@ -3007,7 +3703,9 @@ describe("EngineQueriesV1", () => {
   it("matches execution rejection codes", () => {
     const program = buildModuleContractProgramV1();
     const snapshot = buildInsufficientOpeningSnapshotV1();
-    const preview = createDemoQueriesV1(snapshot, program).previewCommand({ kind: "tavern.opening.start" });
+    const preview = createDemoQueriesV1(snapshot, program).previewCommand({
+      kind: "tavern.opening.start",
+    });
     const attempt = createDemoCommandCoordinatorV1(program).executeAttempt(
       snapshot,
       { kind: "tavern.opening.start" },
@@ -3015,8 +3713,11 @@ describe("EngineQueriesV1", () => {
     );
     expect(preview.allowed).toBe(false);
     expect(attempt.result.kind).toBe("rejected");
-    if (preview.allowed || attempt.result.kind !== "rejected") throw new Error("expected matching rejection");
-    expect(preview.reasons.map((reason) => reason.code)).toEqual(attempt.result.reasons.map((reason) => reason.code));
+    if (preview.allowed || attempt.result.kind !== "rejected")
+      throw new Error("expected matching rejection");
+    expect(preview.reasons.map((reason) => reason.code)).toEqual(
+      attempt.result.reasons.map((reason) => reason.code),
+    );
   });
 });
 ```
@@ -3076,6 +3777,7 @@ git commit -m "feat(modules): expose deterministic game queries"
 ## Task 19: Define the Independent Minimal E2E Story Package
 
 **Files:**
+
 - Modify: `stories/e2e/package.json`
 - Modify: `stories/e2e/tsconfig.json`
 - Create: `stories/e2e/LICENSE.md`
@@ -3098,6 +3800,7 @@ git commit -m "feat(modules): expose deterministic game queries"
 - Modify: `scripts/verify-licensing.test.mjs`
 
 **Interfaces:**
+
 - Consumes: public Base authoring helpers, twelve individual public Module bindings/Schemas/coordinator/query builders, Base/UI presentation contracts, and code-native asset fallback types.
 - Produces: the first real twelve-binding post-resolution `GameProfileV1`, side-effect-free `@project-tavern/story-e2e` default GamePackage with typed Program materialization/Profile factory, fixed branded identity/revision, deterministic rules/data, typed Patch Surfaces, complete `zh-CN` catalog, and fallback-only assets. It does not expose development fixtures yet.
 
@@ -3106,27 +3809,29 @@ git commit -m "feat(modules): expose deterministic game queries"
 ```ts
 // stories/e2e/src/test/story-contract.test.ts
 import { describe, expect, it } from "vitest";
-import {
-  resolveStoryForTestV1,
-  validateStoryV1,
-} from "@project-tavern/base/testkit";
+import { resolveStoryForTestV1, validateStoryV1 } from "@project-tavern/base/testkit";
 import { e2eStoryEntryV1 } from "../index.js";
-import {
-  e2eStateContractRevisionV1,
-  e2eStoryIdentityV1,
-} from "../simulation/identity.js";
+import { e2eStateContractRevisionV1, e2eStoryIdentityV1 } from "../simulation/identity.js";
 
 describe("story.e2e_001", () => {
   it("defines an independent all-real-module Story", () => {
     expect(e2eStoryEntryV1.identity).toEqual(e2eStoryIdentityV1);
     const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
     expect(resolved.profile.modules.map((module) => module.descriptor.id)).toEqual([
-      "module.run", "module.calendar", "module.actors", "module.status",
-      "module.inventory", "module.facilities", "module.tavern", "module.workflow",
-      "module.world", "module.progression", "module.narrative", "module.scheduling",
+      "module.run",
+      "module.calendar",
+      "module.actors",
+      "module.status",
+      "module.inventory",
+      "module.facilities",
+      "module.tavern",
+      "module.workflow",
+      "module.world",
+      "module.progression",
+      "module.narrative",
+      "module.scheduling",
     ]);
-    expect(resolved.provenance.resolved.stateContractRevision)
-      .toBe(e2eStateContractRevisionV1);
+    expect(resolved.provenance.resolved.stateContractRevision).toBe(e2eStateContractRevisionV1);
     expect(resolved.simulationProgram.data.manifest.playableDays).toBe(7);
     expect(validateStoryV1(e2eStoryEntryV1)).toEqual({ ok: true });
   });
@@ -3134,7 +3839,11 @@ describe("story.e2e_001", () => {
   it("ships no runtime image provider", () => {
     const definition = e2eStoryEntryV1.define();
     expect(definition.presentation.assetPacks).toEqual([]);
-    expect(definition.presentation.assetSlots.every((slot) => slot.fallbackToken.startsWith("fallback.e2e_"))).toBe(true);
+    expect(
+      definition.presentation.assetSlots.every((slot) =>
+        slot.fallbackToken.startsWith("fallback.e2e_"),
+      ),
+    ).toBe(true);
   });
 });
 ```
@@ -3156,10 +3865,10 @@ Expected: FAIL because the existing placeholder index has no named `e2eStoryEntr
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
   },
   "dependencies": {
     "@project-tavern/base": "workspace:*",
@@ -3167,8 +3876,8 @@ Expected: FAIL because the existing placeholder index has no named `e2eStoryEntr
     "@project-tavern/ui": "workspace:*",
     "@project-tavern/assets": "workspace:*",
     "react": "19.2.7",
-    "zod": "4.4.3"
-  }
+    "zod": "4.4.3",
+  },
 }
 ```
 
@@ -3198,16 +3907,45 @@ import { e2eIdsV1, e2eValuesV1 } from "./ids.js";
 
 export const e2eStoryDataV1: DemoStoryDataV1 = Object.freeze({
   dataRevision: 1,
-  manifest: { titleTextId: e2eIdsV1.textTitle, initialSceneId: e2eIdsV1.sceneManifest, playableDays: e2eValuesV1.playableDays7 },
+  manifest: {
+    titleTextId: e2eIdsV1.textTitle,
+    initialSceneId: e2eIdsV1.sceneManifest,
+    playableDays: e2eValuesV1.playableDays7,
+  },
   stateDefinitions: {
     facts: [
-      { factId: e2eIdsV1.factBranch, value: { kind: "token", defaultValue: e2eIdsV1.tokenBranchNone, allowedValues: [e2eIdsV1.tokenBranchNone, e2eIdsV1.tokenBranchLeft, e2eIdsV1.tokenBranchRight] } },
+      {
+        factId: e2eIdsV1.factBranch,
+        value: {
+          kind: "token",
+          defaultValue: e2eIdsV1.tokenBranchNone,
+          allowedValues: [
+            e2eIdsV1.tokenBranchNone,
+            e2eIdsV1.tokenBranchLeft,
+            e2eIdsV1.tokenBranchRight,
+          ],
+        },
+      },
       { factId: e2eIdsV1.factWorld, value: { kind: "boolean", defaultValue: false } },
     ],
     quests: [],
     outcomes: [
-      { outcomeId: e2eIdsV1.outcomeRelationship, value: { kind: "token", defaultValue: e2eIdsV1.tokenRelationshipPending, allowedValues: [e2eIdsV1.tokenRelationshipPending, e2eIdsV1.tokenRelationshipShared] } },
-      { outcomeId: e2eIdsV1.outcomeInvestigation, value: { kind: "token", defaultValue: e2eIdsV1.tokenInvestigationPending, allowedValues: [e2eIdsV1.tokenInvestigationPending, e2eIdsV1.tokenInvestigationComplete] } },
+      {
+        outcomeId: e2eIdsV1.outcomeRelationship,
+        value: {
+          kind: "token",
+          defaultValue: e2eIdsV1.tokenRelationshipPending,
+          allowedValues: [e2eIdsV1.tokenRelationshipPending, e2eIdsV1.tokenRelationshipShared],
+        },
+      },
+      {
+        outcomeId: e2eIdsV1.outcomeInvestigation,
+        value: {
+          kind: "token",
+          defaultValue: e2eIdsV1.tokenInvestigationPending,
+          allowedValues: [e2eIdsV1.tokenInvestigationPending, e2eIdsV1.tokenInvestigationComplete],
+        },
+      },
     ],
   },
   initialState: e2eInitialStateV1,
@@ -3229,7 +3967,10 @@ export const e2eStoryRulesV1: StoryRulesV1 = Object.freeze({
   demand: {
     resolve: (input, rng) => ({
       lines: input.segments.map((line) => {
-        rng.nextInt({ exclusiveMax: e2eValuesV1.onePositive, purpose: `demand:${line.day}:${line.segmentId}` });
+        rng.nextInt({
+          exclusiveMax: e2eValuesV1.onePositive,
+          purpose: `demand:${line.day}:${line.segmentId}`,
+        });
         return { day: line.day, segmentId: line.segmentId, randomOffset: 0 };
       }),
     }),
@@ -3237,7 +3978,10 @@ export const e2eStoryRulesV1: StoryRulesV1 = Object.freeze({
       day: input.day,
       lines: input.seeds.map((seed) => ({
         segmentId: seed.segmentId,
-        range: { min: parseSafeInteger(seed.baseCustomers), max: parseSafeInteger(seed.baseCustomers) },
+        range: {
+          min: parseSafeInteger(seed.baseCustomers),
+          max: parseSafeInteger(seed.baseCustomers),
+        },
         actualCustomers: seed.baseCustomers,
         modifiers: [],
       })),
@@ -3252,13 +3996,31 @@ export const e2eStoryRulesV1: StoryRulesV1 = Object.freeze({
 ```ts
 // stories/e2e/src/patch-surfaces.ts
 export const e2eSimulationPatchSurfaceV1 = defineSimulationPatchSurface({
-  "rule.tavern.settle": definePatchSlot({ kind: "rule", inputSchema: tavernSettlementInputV1Schema, outputSchema: settlementDraftV1Schema, value: e2eStoryRulesV1.tavern.settle }),
-  "rule.checks.resolve": definePatchSlot({ kind: "rule", inputSchema: checkInputV1Schema, outputSchema: checkResultV1Schema, value: e2eStoryRulesV1.checks.resolve }),
-  "value.balance": definePatchSlot({ kind: "value", valueSchema: storyBalanceV1Schema, value: e2eStoryDataV1.balance }),
+  "rule.tavern.settle": definePatchSlot({
+    kind: "rule",
+    inputSchema: tavernSettlementInputV1Schema,
+    outputSchema: settlementDraftV1Schema,
+    value: e2eStoryRulesV1.tavern.settle,
+  }),
+  "rule.checks.resolve": definePatchSlot({
+    kind: "rule",
+    inputSchema: checkInputV1Schema,
+    outputSchema: checkResultV1Schema,
+    value: e2eStoryRulesV1.checks.resolve,
+  }),
+  "value.balance": definePatchSlot({
+    kind: "value",
+    valueSchema: storyBalanceV1Schema,
+    value: e2eStoryDataV1.balance,
+  }),
 });
 
 export const e2ePresentationPatchSurfaceV1 = definePresentationPatchSurface({
-  "text.catalogs": definePatchSlot({ kind: "text", valueSchema: textCatalogSetV1Schema, value: e2eTextCatalogsV1 }),
+  "text.catalogs": definePatchSlot({
+    kind: "text",
+    valueSchema: textCatalogSetV1Schema,
+    value: e2eTextCatalogsV1,
+  }),
 });
 ```
 
@@ -3271,9 +4033,18 @@ export function createE2eGameProfileV1(program: DeepReadonly<DemoSimulationProgr
   return defineGameProfile<DemoProfileTypesV1>()({
     contractRevision: 1,
     modules: [
-      runModuleV1, calendarModuleV1, actorsModuleV1, statusModuleV1,
-      inventoryModuleV1, facilitiesModuleV1, tavernModuleV1, workflowModuleV1,
-      worldModuleV1, progressionModuleV1, narrativeModuleV1, schedulingModuleV1,
+      runModuleV1,
+      calendarModuleV1,
+      actorsModuleV1,
+      statusModuleV1,
+      inventoryModuleV1,
+      facilitiesModuleV1,
+      tavernModuleV1,
+      workflowModuleV1,
+      worldModuleV1,
+      progressionModuleV1,
+      narrativeModuleV1,
+      schedulingModuleV1,
     ] as const,
     stateSchema: gameStateV1Schema,
     commandSchema: gameCommandV1Schema,
@@ -3281,15 +4052,14 @@ export function createE2eGameProfileV1(program: DeepReadonly<DemoSimulationProgr
     rejectionSchema: rejectionReasonV1Schema,
     debugCommandSchema: debugCommandV1Schema,
     coordinator,
-    createBootstrapInput: (entropy) => Object.freeze({
-      rngSeed: entropy.nextNonZeroUint32(),
-      runId: parseRunId(entropy.nextUuidV4()),
-    }),
+    createBootstrapInput: (entropy) =>
+      Object.freeze({
+        rngSeed: entropy.nextNonZeroUint32(),
+        runId: parseRunId(entropy.nextUuidV4()),
+      }),
     createInitialState: (bootstrap) => createE2eInitialStateV1(bootstrap, program.data),
-    projectView: (snapshot) => projectDemoGameViewV1(
-      snapshot.state,
-      coordinator.createQueries(snapshot),
-    ),
+    projectView: (snapshot) =>
+      projectDemoGameViewV1(snapshot.state, coordinator.createQueries(snapshot)),
   });
 }
 ```
@@ -3308,11 +4078,13 @@ import { defineUiScene, defineUiSceneGraph } from "@project-tavern/ui";
 
 export const e2eUiSceneGraphV1 = defineUiSceneGraph({
   initialSceneId: "ui_scene.e2e_bootstrap",
-  scenes: [defineUiScene({
-    id: "ui_scene.e2e_bootstrap",
-    select: (view) => view,
-    renderer: () => null,
-  })],
+  scenes: [
+    defineUiScene({
+      id: "ui_scene.e2e_bootstrap",
+      select: (view) => view,
+      renderer: () => null,
+    }),
+  ],
 });
 ```
 
@@ -3320,15 +4092,9 @@ The source definition has no pre-resolved Profile. Its exact materialization map
 
 ```ts
 // stories/e2e/src/story.ts
-import type {
-  DeepReadonly,
-  ResolvedPatchValuesV1,
-} from "@project-tavern/base";
+import type { DeepReadonly, ResolvedPatchValuesV1 } from "@project-tavern/base";
 import type { DemoSimulationProgramV1 } from "@project-tavern/modules";
-import {
-  e2ePresentationPatchSurfaceV1,
-  e2eSimulationPatchSurfaceV1,
-} from "./patch-surfaces.js";
+import { e2ePresentationPatchSurfaceV1, e2eSimulationPatchSurfaceV1 } from "./patch-surfaces.js";
 import { e2eAssetSlotsV1 } from "./presentation/assets.js";
 import { e2eUiSceneGraphV1 } from "./presentation/scene-graph.js";
 import { e2eTextCatalogsV1 } from "./presentation/text-catalogs.js";
@@ -3337,12 +4103,8 @@ import { e2eStoryDataV1 } from "./simulation/data.js";
 import { e2eStateContractRevisionV1 } from "./simulation/identity.js";
 import { e2eStoryRulesV1 } from "./simulation/rules.js";
 
-type E2eSimulationPatchValuesV1 = ResolvedPatchValuesV1<
-  typeof e2eSimulationPatchSurfaceV1
->;
-type E2ePresentationPatchValuesV1 = ResolvedPatchValuesV1<
-  typeof e2ePresentationPatchSurfaceV1
->;
+type E2eSimulationPatchValuesV1 = ResolvedPatchValuesV1<typeof e2eSimulationPatchSurfaceV1>;
+type E2ePresentationPatchValuesV1 = ResolvedPatchValuesV1<typeof e2ePresentationPatchSurfaceV1>;
 
 function materializeE2eSimulationProgramV1(
   values: DeepReadonly<E2eSimulationPatchValuesV1>,
@@ -3365,9 +4127,7 @@ function materializeE2eSimulationProgramV1(
   return Object.freeze({ data, rules });
 }
 
-function materializeE2ePresentationV1(
-  values: DeepReadonly<E2ePresentationPatchValuesV1>,
-) {
+function materializeE2ePresentationV1(values: DeepReadonly<E2ePresentationPatchValuesV1>) {
   return Object.freeze({
     uiSceneGraph: e2eUiSceneGraphV1,
     textCatalogs: values["text.catalogs"],
@@ -3436,6 +4196,7 @@ git commit -m "feat(story-e2e): define independent module fixture story"
 ## Task 20: Add VN Branch/Rejoin and Story-Owned Scene Contributions
 
 **Files:**
+
 - Create: `stories/e2e/src/testing/session-harness.ts`
 - Create: `stories/e2e/src/testing/scenario-commands.ts`
 - Create: `stories/e2e/src/simulation/narrative.ts`
@@ -3446,6 +4207,7 @@ git commit -m "feat(story-e2e): define independent module fixture story"
 - Modify: `stories/e2e/src/presentation/text-catalogs.ts`
 
 **Interfaces:**
+
 - Consumes: Narrative interpreter/coordinator, Story state definitions, generic UI scene/contribution contracts, PresentationReadPort, and the resolved E2E simulation facet.
 - Produces: a test-only command driver that mutates only through the real Profile coordinator, one typed command-derived scenario registry for later integration tests, manifest VN, branch/rejoin VN, stable stage cues, Story-owned main menu/play scenes, and a headless integration test proving local divergence and convergence.
 
@@ -3453,15 +4215,9 @@ git commit -m "feat(story-e2e): define independent module fixture story"
 
 ```ts
 // stories/e2e/src/testing/session-harness.ts
-import {
-  createTransactionalRngV1,
-  parseNonNegativeSafeInteger,
-} from "@project-tavern/base";
+import { createTransactionalRngV1, parseNonNegativeSafeInteger } from "@project-tavern/base";
 import type { DeepReadonly } from "@project-tavern/base";
-import {
-  resolveStoryForTestV1,
-  strictJsonRoundTripV1,
-} from "@project-tavern/base/testkit";
+import { resolveStoryForTestV1, strictJsonRoundTripV1 } from "@project-tavern/base/testkit";
 import {
   gameSnapshotV1Schema,
   type DemoCommandExecutionAttemptV1,
@@ -3471,10 +4227,7 @@ import {
   type GameSnapshotV1,
 } from "@project-tavern/modules";
 import { e2eStoryEntryV1 } from "../index.js";
-import {
-  e2eReferenceRunIdV1,
-  e2eReferenceSeedV1,
-} from "../simulation/identity.js";
+import { e2eReferenceRunIdV1, e2eReferenceSeedV1 } from "../simulation/identity.js";
 import { e2eIdsV1 } from "../simulation/ids.js";
 import type { createE2eGameProfileV1 } from "../profile.js";
 
@@ -3500,10 +4253,7 @@ class PrivateE2eSessionHarnessV1 implements E2eSessionHarnessV1 {
   readonly #profile: E2eGameProfileV1;
   #snapshot: GameSnapshotV1;
 
-  constructor(
-    profile: E2eGameProfileV1,
-    bootstrap: DemoGameBootstrapInputV1,
-  ) {
+  constructor(profile: E2eGameProfileV1, bootstrap: DemoGameBootstrapInputV1) {
     this.#profile = profile;
     this.#snapshot = gameSnapshotV1Schema.parse({
       state: this.#profile.createInitialState(bootstrap),
@@ -3512,9 +4262,7 @@ class PrivateE2eSessionHarnessV1 implements E2eSessionHarnessV1 {
     });
   }
 
-  commitAttempt(
-    command: DeepReadonly<GameCommandV1>,
-  ): DeepReadonly<DemoCommandExecutionAttemptV1> {
+  commitAttempt(command: DeepReadonly<GameCommandV1>): DeepReadonly<DemoCommandExecutionAttemptV1> {
     const attempt = this.#profile.coordinator.executeAttempt(this.#snapshot, command, undefined);
     if (attempt.result.kind !== "committed") {
       throw new Error(`scenario command did not commit: ${attempt.result.kind}`);
@@ -3637,9 +4385,18 @@ describe("E2E branch/rejoin VN", () => {
     harness.startAndChoosePolicy();
     harness.commit({ kind: "story.action.start", actionId: e2eIdsV1.actionBranch });
     const projection = harness.queries().getNarrativeProjection();
-    if (projection === null || projection.cursor === null) throw new Error("expected choice cursor");
-    harness.commit({ kind: "narrative.choose", sceneId: projection.cursor.sceneId, nodeId: projection.cursor.nodeId, choiceId });
-    expect(harness.snapshot().state.story.facts).toContainEqual({ factId: e2eIdsV1.factBranch, value: { kind: "token", value: branchToken } });
+    if (projection === null || projection.cursor === null)
+      throw new Error("expected choice cursor");
+    harness.commit({
+      kind: "narrative.choose",
+      sceneId: projection.cursor.sceneId,
+      nodeId: projection.cursor.nodeId,
+      choiceId,
+    });
+    expect(harness.snapshot().state.story.facts).toContainEqual({
+      factId: e2eIdsV1.factBranch,
+      value: { kind: "token", value: branchToken },
+    });
     const shared = harness.queries().getNarrativeProjection();
     if (shared === null) throw new Error("expected shared line");
     expect(shared.textId).toBe(e2eIdsV1.textSharedLine);
@@ -3665,12 +4422,62 @@ export const e2eBranchSceneV1: NarrativeSceneV1 = Object.freeze({
   sceneId: e2eIdsV1.sceneBranch,
   entryNodeId: e2eIdsV1.nodeBranchStage,
   nodes: [
-    { kind: "stageCue", nodeId: e2eIdsV1.nodeBranchStage, cue: { kind: "character.show", slot: "center", characterId: e2eIdsV1.characterHeroine, poseAssetId: e2eIdsV1.assetHeroineNeutral }, nextNodeId: e2eIdsV1.nodeBranchChoice },
-    { kind: "choice", nodeId: e2eIdsV1.nodeBranchChoice, choices: [
-      { choiceId: e2eIdsV1.choiceLeft, textId: e2eIdsV1.textChoiceLeft, showWhen: [], enableWhen: [], confirmation: emptyConfirmationV1, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchLeft }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeSharedLine },
-      { choiceId: e2eIdsV1.choiceRight, textId: e2eIdsV1.textChoiceRight, showWhen: [], enableWhen: [], confirmation: emptyConfirmationV1, effects: [{ kind: "fact.set", factId: e2eIdsV1.factBranch, value: { kind: "token", value: e2eIdsV1.tokenBranchRight }, reasonId: e2eIdsV1.reasonBranch }], nextNodeId: e2eIdsV1.nodeSharedLine },
-    ] },
-    { kind: "line", nodeId: e2eIdsV1.nodeSharedLine, speakerId: e2eIdsV1.characterHeroine, textId: e2eIdsV1.textSharedLine, nextNodeId: e2eIdsV1.nodeBranchEnd },
+    {
+      kind: "stageCue",
+      nodeId: e2eIdsV1.nodeBranchStage,
+      cue: {
+        kind: "character.show",
+        slot: "center",
+        characterId: e2eIdsV1.characterHeroine,
+        poseAssetId: e2eIdsV1.assetHeroineNeutral,
+      },
+      nextNodeId: e2eIdsV1.nodeBranchChoice,
+    },
+    {
+      kind: "choice",
+      nodeId: e2eIdsV1.nodeBranchChoice,
+      choices: [
+        {
+          choiceId: e2eIdsV1.choiceLeft,
+          textId: e2eIdsV1.textChoiceLeft,
+          showWhen: [],
+          enableWhen: [],
+          confirmation: emptyConfirmationV1,
+          effects: [
+            {
+              kind: "fact.set",
+              factId: e2eIdsV1.factBranch,
+              value: { kind: "token", value: e2eIdsV1.tokenBranchLeft },
+              reasonId: e2eIdsV1.reasonBranch,
+            },
+          ],
+          nextNodeId: e2eIdsV1.nodeSharedLine,
+        },
+        {
+          choiceId: e2eIdsV1.choiceRight,
+          textId: e2eIdsV1.textChoiceRight,
+          showWhen: [],
+          enableWhen: [],
+          confirmation: emptyConfirmationV1,
+          effects: [
+            {
+              kind: "fact.set",
+              factId: e2eIdsV1.factBranch,
+              value: { kind: "token", value: e2eIdsV1.tokenBranchRight },
+              reasonId: e2eIdsV1.reasonBranch,
+            },
+          ],
+          nextNodeId: e2eIdsV1.nodeSharedLine,
+        },
+      ],
+    },
+    {
+      kind: "line",
+      nodeId: e2eIdsV1.nodeSharedLine,
+      speakerId: e2eIdsV1.characterHeroine,
+      textId: e2eIdsV1.textSharedLine,
+      nextNodeId: e2eIdsV1.nodeBranchEnd,
+    },
     { kind: "end", nodeId: e2eIdsV1.nodeBranchEnd },
   ],
 });
@@ -3696,7 +4503,11 @@ export const e2eUiSceneGraphV1 = defineUiSceneGraph({
       select: (view) => view.runStart,
       renderer: ({ viewSlice, playerPort, presentation }) => {
         const title = presentation.text(e2eIdsV1.textTitle);
-        return <button type="button" onClick={() => playerPort.commands.dispatch(viewSlice.command)}>{title.text}</button>;
+        return (
+          <button type="button" onClick={() => playerPort.commands.dispatch(viewSlice.command)}>
+            {title.text}
+          </button>
+        );
       },
     }),
     defineUiScene({
@@ -3707,9 +4518,7 @@ export const e2eUiSceneGraphV1 = defineUiSceneGraph({
     defineUiScene({
       id: e2eUiSceneIdsV1.summary,
       select: (view) => view.completion,
-      renderer: ({ viewSlice }) => viewSlice === null
-        ? null
-        : <div data-e2e-scene="summary" />,
+      renderer: ({ viewSlice }) => (viewSlice === null ? null : <div data-e2e-scene="summary" />),
     }),
   ],
 });
@@ -3733,6 +4542,7 @@ git commit -m "feat(story-e2e): prove vn branch and rejoin"
 ## Task 21: Prove an Opening Scheduler Interruption
 
 **Files:**
+
 - Create: `stories/e2e/src/test/opening-interruption.integration.test.ts`
 - Modify: `stories/e2e/src/testing/scenario-commands.ts`
 - Modify: `stories/e2e/src/simulation/data.ts`
@@ -3740,6 +4550,7 @@ git commit -m "feat(story-e2e): prove vn branch and rejoin"
 - Modify: `stories/e2e/src/presentation/text-catalogs.ts`
 
 **Interfaces:**
+
 - Consumes: one D1 service, Opening checkpoints, Scheduler, Narrative, and the headless session harness.
 - Produces: an `opening.middle` event with one blocking VN Scene and a deterministic command sequence that Phase 3 can persist/reload. Phase 2 proves the serializable interruption state and continuation semantics, not IndexedDB behavior.
 
@@ -3756,9 +4567,18 @@ export function buildCommandsToOpeningStartV1(): readonly GameCommandV1[] {
     { kind: "run.start" },
     { kind: "narrative.advance" },
     { kind: "policy.choose", policyId: e2eIdsV1.policyBalanced },
-    { kind: "inventory.buy", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: e2eValuesV1.oneQuantity }] },
+    {
+      kind: "inventory.buy",
+      lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: e2eValuesV1.oneQuantity }],
+    },
     { kind: "actor.prepare_food" },
-    { kind: "tavern.plan.set", plan: { mode: "manual", menu: [{ recipeId: e2eIdsV1.recipeStew, portions: e2eValuesV1.oneQuantity }] } },
+    {
+      kind: "tavern.plan.set",
+      plan: {
+        mode: "manual",
+        menu: [{ recipeId: e2eIdsV1.recipeStew, portions: e2eValuesV1.oneQuantity }],
+      },
+    },
     { kind: "calendar.advance_phase" },
     { kind: "calendar.advance_phase" },
   ]);
@@ -3773,7 +4593,13 @@ export const commandsToOpeningShortageV1 = freezeScenarioCommandsV1([
   { kind: "run.start" },
   { kind: "narrative.advance" },
   { kind: "policy.choose", policyId: e2eIdsV1.policyBalanced },
-  { kind: "tavern.plan.set", plan: { mode: "manual", menu: [{ recipeId: e2eIdsV1.recipeStew, portions: e2eValuesV1.oneQuantity }] } },
+  {
+    kind: "tavern.plan.set",
+    plan: {
+      mode: "manual",
+      menu: [{ recipeId: e2eIdsV1.recipeStew, portions: e2eValuesV1.oneQuantity }],
+    },
+  },
   { kind: "calendar.advance_phase" },
   { kind: "calendar.advance_phase" },
 ]);
@@ -3794,7 +4620,10 @@ describe("E2E opening interruption", () => {
     expect(interrupted.state.simulation.activeWorkflow).toMatchObject({
       kind: "opening",
       checkpoint: "middle",
-      blockingEvent: { eventId: e2eIdsV1.eventOpeningInterrupt, sceneId: e2eIdsV1.sceneOpeningInterrupt },
+      blockingEvent: {
+        eventId: e2eIdsV1.eventOpeningInterrupt,
+        sceneId: e2eIdsV1.sceneOpeningInterrupt,
+      },
     });
     const cashAfterStart = interrupted.state.simulation.inventory.cash;
     const restored = harness.roundTripCurrentSnapshot();
@@ -3859,6 +4688,7 @@ git commit -m "test(story-e2e): cover interrupted opening workflow"
 ## Task 22: Prove WorldAction Cross-Effects and D7 Ending
 
 **Files:**
+
 - Create: `stories/e2e/src/test/world-ending.integration.test.ts`
 - Modify: `stories/e2e/src/testing/scenario-commands.ts`
 - Modify: `stories/e2e/src/simulation/data.ts`
@@ -3867,6 +4697,7 @@ git commit -m "test(story-e2e): cover interrupted opening workflow"
 - Modify: `stories/e2e/src/presentation/text-catalogs.ts`
 
 **Interfaces:**
+
 - Consumes: World service, Narrative, Calendar, Actors, Inventory, Workflow, Progression, Status, Tavern, Run, and fixed E2E rules.
 - Produces: one two-stage WorldAction whose result changes Inventory/Fact/Outcome, plus paid/arrears ending vectors and a D7 terminal completion projection.
 
@@ -3882,7 +4713,11 @@ export function buildCommandsToWorldMorningV1(): readonly GameCommandV1[] {
 
 export const commandsToWorldDepartureV1 = freezeScenarioCommandsV1([
   ...buildCommandsToWorldMorningV1(),
-  { kind: "world.action.begin", actionId: e2eIdsV1.actionWorld, optionId: e2eIdsV1.choiceWorldPrepared },
+  {
+    kind: "world.action.begin",
+    actionId: e2eIdsV1.actionWorld,
+    optionId: e2eIdsV1.choiceWorldPrepared,
+  },
 ]);
 
 export const commandsToWorldReadyV1 = freezeScenarioCommandsV1([
@@ -3892,12 +4727,16 @@ export const commandsToWorldReadyV1 = freezeScenarioCommandsV1([
   { kind: "narrative.advance" },
 ]);
 
-export function buildCommandsToLevyDueV1(
-  route: "stable" | "arrears",
-): readonly GameCommandV1[] {
-  const spendToArrears: readonly GameCommandV1[] = route === "arrears"
-    ? [{ kind: "inventory.buy", lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: e2eValuesV1.tenQuantity }] }]
-    : [];
+export function buildCommandsToLevyDueV1(route: "stable" | "arrears"): readonly GameCommandV1[] {
+  const spendToArrears: readonly GameCommandV1[] =
+    route === "arrears"
+      ? [
+          {
+            kind: "inventory.buy",
+            lines: [{ ingredientId: e2eIdsV1.ingredientGrain, quantity: e2eValuesV1.tenQuantity }],
+          },
+        ]
+      : [];
   return freezeScenarioCommandsV1([
     { kind: "run.start" },
     { kind: "narrative.advance" },
@@ -3921,14 +4760,21 @@ The E2E balance fixes grain price to one and starting cash to ten, so the single
 // stories/e2e/src/test/world-ending.integration.test.ts
 import { describe, expect, it } from "vitest";
 import { e2eIdsV1, e2eValuesV1 } from "../simulation/ids.js";
-import { buildCommandsToLevyDueV1, buildCommandsToWorldMorningV1 } from "../testing/scenario-commands.js";
+import {
+  buildCommandsToLevyDueV1,
+  buildCommandsToWorldMorningV1,
+} from "../testing/scenario-commands.js";
 import { createE2eSessionHarnessV1 } from "../testing/session-harness.js";
 
 describe("E2E WorldAction and ending", () => {
   it("moves through two scenes, resolves one check, and applies cross-owner rewards", () => {
     const harness = createE2eSessionHarnessV1();
     harness.loadCommands(buildCommandsToWorldMorningV1());
-    harness.commit({ kind: "world.action.begin", actionId: e2eIdsV1.actionWorld, optionId: e2eIdsV1.choiceWorldPrepared });
+    harness.commit({
+      kind: "world.action.begin",
+      actionId: e2eIdsV1.actionWorld,
+      optionId: e2eIdsV1.choiceWorldPrepared,
+    });
     harness.drainNarrative();
     harness.commit({ kind: "calendar.advance_phase" });
     harness.drainNarrative();
@@ -3936,9 +4782,19 @@ describe("E2E WorldAction and ending", () => {
     const snapshot = harness.snapshot();
     expect(snapshot.state.simulation.activeWorkflow).toBeNull();
     expect(snapshot.state.story.resolvedChecks).toHaveLength(1);
-    expect(snapshot.state.story.facts).toContainEqual({ factId: e2eIdsV1.factWorld, value: { kind: "boolean", value: true } });
-    expect(snapshot.state.story.outcomes).toContainEqual({ outcomeId: e2eIdsV1.outcomeInvestigation, value: { kind: "token", value: e2eIdsV1.tokenInvestigationComplete } });
-    expect(snapshot.state.simulation.inventory.ingredientBatches.some((batch) => batch.ingredientId === e2eIdsV1.ingredientGrain)).toBe(true);
+    expect(snapshot.state.story.facts).toContainEqual({
+      factId: e2eIdsV1.factWorld,
+      value: { kind: "boolean", value: true },
+    });
+    expect(snapshot.state.story.outcomes).toContainEqual({
+      outcomeId: e2eIdsV1.outcomeInvestigation,
+      value: { kind: "token", value: e2eIdsV1.tokenInvestigationComplete },
+    });
+    expect(
+      snapshot.state.simulation.inventory.ingredientBatches.some(
+        (batch) => batch.ingredientId === e2eIdsV1.ingredientGrain,
+      ),
+    ).toBe(true);
   });
 
   it.each([
@@ -3950,7 +4806,10 @@ describe("E2E WorldAction and ending", () => {
     harness.commit({ kind: "levy.pay" });
     expect(harness.snapshot().state.simulation.run.status).toBe(status);
     expect(harness.queries().getRunCompletion()?.status).toBe(status);
-    expect(harness.snapshot().state.simulation.calendar).toMatchObject({ day: e2eValuesV1.day7, phase: "afternoon" });
+    expect(harness.snapshot().state.simulation.calendar).toMatchObject({
+      day: e2eValuesV1.day7,
+      phase: "afternoon",
+    });
   });
 });
 ```
@@ -3976,12 +4835,38 @@ const e2eWorldActionV1: WorldActionDefinitionV1 = {
   playerStaminaCost: e2eValuesV1.one,
   beginEffects: [],
   options: [
-    { optionId: e2eIdsV1.choiceWorldBasic, labelTextId: e2eIdsV1.textWorldBasic, availability: [], additionalCashCost: e2eValuesV1.zeroMoney, preparationBonus: e2eValuesV1.zeroSigned, beginEffects: [], confirmation: emptyConfirmationV1 },
-    { optionId: e2eIdsV1.choiceWorldPrepared, labelTextId: e2eIdsV1.textWorldPrepared, availability: [], additionalCashCost: e2eValuesV1.oneMoney, preparationBonus: e2eValuesV1.oneSigned, beginEffects: [], confirmation: emptyConfirmationV1 },
+    {
+      optionId: e2eIdsV1.choiceWorldBasic,
+      labelTextId: e2eIdsV1.textWorldBasic,
+      availability: [],
+      additionalCashCost: e2eValuesV1.zeroMoney,
+      preparationBonus: e2eValuesV1.zeroSigned,
+      beginEffects: [],
+      confirmation: emptyConfirmationV1,
+    },
+    {
+      optionId: e2eIdsV1.choiceWorldPrepared,
+      labelTextId: e2eIdsV1.textWorldPrepared,
+      availability: [],
+      additionalCashCost: e2eValuesV1.oneMoney,
+      preparationBonus: e2eValuesV1.oneSigned,
+      beginEffects: [],
+      confirmation: emptyConfirmationV1,
+    },
   ],
   steps: [
-    { stepId: e2eIdsV1.stepWorldDeparture, phase: "morning", apCost: e2eValuesV1.one, sceneId: e2eIdsV1.sceneWorldDeparture },
-    { stepId: e2eIdsV1.stepWorldReturn, phase: "afternoon", apCost: e2eValuesV1.one, sceneId: e2eIdsV1.sceneWorldReturn },
+    {
+      stepId: e2eIdsV1.stepWorldDeparture,
+      phase: "morning",
+      apCost: e2eValuesV1.one,
+      sceneId: e2eIdsV1.sceneWorldDeparture,
+    },
+    {
+      stepId: e2eIdsV1.stepWorldReturn,
+      phase: "afternoon",
+      apCost: e2eValuesV1.one,
+      sceneId: e2eIdsV1.sceneWorldReturn,
+    },
   ],
   checkId: e2eIdsV1.checkWorld,
 };
@@ -4000,10 +4885,21 @@ import { e2eIdsV1 } from "./ids.js";
 function evaluateE2eEndingV1(input: Readonly<EndingInputV1>): EndingResultV1 {
   const status = input.levy.kind === "arrears" ? "failed_arrears" : "completed_stable";
   const endingId = status === "failed_arrears" ? e2eIdsV1.endingArrears : e2eIdsV1.endingStable;
-  const reasonId = status === "failed_arrears" ? e2eIdsV1.reasonEndingArrears : e2eIdsV1.reasonEndingStable;
-  const relationship = input.outcomes.find((entry) => entry.outcomeId === e2eIdsV1.outcomeRelationship)!;
-  const investigation = input.outcomes.find((entry) => entry.outcomeId === e2eIdsV1.outcomeInvestigation)!;
-  return { endingId, status, reasonIds: [reasonId], effects: [], summary: { relationship, investigation } };
+  const reasonId =
+    status === "failed_arrears" ? e2eIdsV1.reasonEndingArrears : e2eIdsV1.reasonEndingStable;
+  const relationship = input.outcomes.find(
+    (entry) => entry.outcomeId === e2eIdsV1.outcomeRelationship,
+  )!;
+  const investigation = input.outcomes.find(
+    (entry) => entry.outcomeId === e2eIdsV1.outcomeInvestigation,
+  )!;
+  return {
+    endingId,
+    status,
+    reasonIds: [reasonId],
+    effects: [],
+    summary: { relationship, investigation },
+  };
 }
 ```
 
@@ -4023,6 +4919,7 @@ git commit -m "test(story-e2e): cover world action and ending"
 ## Task 22A: Prove Official Pre-Session Hotfix Integration and Safe Mode
 
 **Files:**
+
 - Create: `stories/e2e/src/development/hotfixes/official-balance-hotfix.ts`
 - Create: `stories/e2e/src/development/hotfixes/conflicting-rule-hotfix.ts`
 - Create: `stories/e2e/src/testing/resolve-startup.ts`
@@ -4038,6 +4935,7 @@ git commit -m "test(story-e2e): cover world action and ending"
 - Modify: `scripts/verify-stories.test.mjs`
 
 **Interfaces:**
+
 - Consumes: Base PatchSurface/Hotfix/Story/build-identity resolvers, the generic Web `createGameBootstrapControllerV1`, the E2E Story entry, one official value+rule Hotfix, generic Save envelope Schema, same-attempt diagnostics, and the real Story-owned Profile/harness.
 - Produces: an E2E adapter over the same generic Loader bootstrap controller with `ready | safe_mode`, one pre-session official patch path, a fully named `hotfix-test-vectors.ts` implementation for bootstrap/Save Schema/probe/replay expectations, deterministic provenance-bound Save-contract/replay vectors, and conflict fallback. It exposes no Snapshot/state setter and never installs a Hotfix into a live Session.
 
@@ -4065,16 +4963,21 @@ it("applies an official value and rule patch before the Session exists", async (
   const startup = await resolveE2eStartupV1({ hotfixes: [officialBalanceHotfixV1] });
   expect(startup.kind).toBe("ready");
   if (startup.kind !== "ready") throw new Error("expected patched startup");
-  expect(startup.resolved.provenance.resolved.patchSet.appliedHotfixes.map((entry) => entry.identity.id))
-    .toEqual([officialBalanceHotfixV1.manifest.identity.id]);
-  expect(startup.resolved.provenance.resolved.simulationDigest)
-    .not.toBe(startup.base.provenance.resolved.simulationDigest);
-  expect(startup.resolved.provenance.resolved.stateContractRevision)
-    .toBe(startup.base.provenance.resolved.stateContractRevision);
-  expect(startup.resolved.provenance.resolved.stateContractDigest)
-    .toBe(startup.base.provenance.resolved.stateContractDigest);
-  expect(startup.resolved.provenance.resolved.presentationDigest)
-    .toBe(startup.base.provenance.resolved.presentationDigest);
+  expect(
+    startup.resolved.provenance.resolved.patchSet.appliedHotfixes.map((entry) => entry.identity.id),
+  ).toEqual([officialBalanceHotfixV1.manifest.identity.id]);
+  expect(startup.resolved.provenance.resolved.simulationDigest).not.toBe(
+    startup.base.provenance.resolved.simulationDigest,
+  );
+  expect(startup.resolved.provenance.resolved.stateContractRevision).toBe(
+    startup.base.provenance.resolved.stateContractRevision,
+  );
+  expect(startup.resolved.provenance.resolved.stateContractDigest).toBe(
+    startup.base.provenance.resolved.stateContractDigest,
+  );
+  expect(startup.resolved.provenance.resolved.presentationDigest).toBe(
+    startup.base.provenance.resolved.presentationDigest,
+  );
   const harness = createResolvedE2eSessionHarnessV1(startup.resolved, e2eReferenceBootstrapV1);
   expect(await runHotfixProbeCommandsV1(harness)).toEqual(expectedOfficialPatchProbeV1);
 });
@@ -4084,8 +4987,9 @@ it("binds Save-contract provenance and replay to the resolved simulation", async
   if (first.kind !== "ready") throw new Error("expected ready");
   const run = await runHotfixReplayVectorV1(first.resolved);
   const parsed = strictJsonRoundTripV1(run.saveRecord, e2eSaveRecordSchemaV1);
-  expect(parsed.provenance.resolved.simulationDigest)
-    .toBe(first.resolved.provenance.resolved.simulationDigest);
+  expect(parsed.provenance.resolved.simulationDigest).toBe(
+    first.resolved.provenance.resolved.simulationDigest,
+  );
   const replay = await replayHotfixCommandsV1(first.resolved, run.commands, run.bootstrap);
   expect(replay.finalStateDigest).toBe(run.finalStateDigest);
   expect(replay.rngDraws).toEqual(run.rngDraws);
@@ -4105,8 +5009,9 @@ it("enters base safe mode when patches conflict", async () => {
     ],
   });
   if (startup.kind !== "safe_mode") throw new Error("expected safe mode");
-  expect(startup.resolved.provenance.resolved.simulationDigest)
-    .toBe(startup.base.provenance.resolved.simulationDigest);
+  expect(startup.resolved.provenance.resolved.simulationDigest).toBe(
+    startup.base.provenance.resolved.simulationDigest,
+  );
 });
 
 it("rejects a patched Save under base resolution before replay", async () => {
@@ -4114,12 +5019,9 @@ it("rejects a patched Save under base resolution before replay", async () => {
   const base = await resolveE2eStartupV1({ hotfixes: [] });
   if (patched.kind !== "ready" || base.kind !== "ready") throw new Error("expected ready");
   const run = await runHotfixReplayVectorV1(patched.resolved);
-  await expect(replayHotfixSaveRecordV1(
-    base.resolved,
-    run.saveRecord,
-    run.commands,
-    run.bootstrap,
-  )).resolves.toEqual({
+  await expect(
+    replayHotfixSaveRecordV1(base.resolved, run.saveRecord, run.commands, run.bootstrap),
+  ).resolves.toEqual({
     kind: "rejected",
     code: "identity.simulation_digest_mismatch",
     attemptedCommands: 0,
@@ -4201,6 +5103,7 @@ git commit -m "test(story-e2e): prove pre-session hotfix integration"
 ## Task 23: Add Command-Derived Development Fixtures and the Phase 2 Gate
 
 **Files:**
+
 - Create: `stories/e2e/src/development.ts`
 - Create: `stories/e2e/src/development/fixtures.ts`
 - Create: `stories/e2e/src/test/fixture-contract.test.ts`
@@ -4212,6 +5115,7 @@ git commit -m "test(story-e2e): prove pre-session hotfix integration"
 - Modify: `scripts/verify-stories.test.mjs`
 
 **Interfaces:**
+
 - Consumes: fixed E2E Story identity/seed, public commands, Story resolver/testkit, and Phase 1 boundary/type/test scripts.
 - Produces: eight fixed fixtures as seed+command lists, a development-only entry, read-only `verify:fixtures`, and `verify:phase2`. Phase 3 consumes these fixtures in its persistence/diagnostics tests.
 
@@ -4238,10 +5142,12 @@ describe("E2E development fixtures", () => {
       e2eIdsV1.fixtureLevyDue,
       e2eIdsV1.fixtureReplayTail,
     ]);
-    expect(validateDevelopmentFixturesV1(e2eDevelopmentEntryV1, {
-      fixtureIdSchema: fixtureIdSchemaV1,
-      commandSchema: gameCommandV1Schema,
-    })).toEqual({ ok: true });
+    expect(
+      validateDevelopmentFixturesV1(e2eDevelopmentEntryV1, {
+        fixtureIdSchema: fixtureIdSchemaV1,
+        commandSchema: gameCommandV1Schema,
+      }),
+    ).toEqual({ ok: true });
   });
 });
 ```
@@ -4271,13 +5177,37 @@ import {
 
 export const e2eFixturesV1: StoryDevelopmentSupportV1["fixtures"] = Object.freeze([
   { fixtureId: e2eIdsV1.fixtureBootstrap, seed: e2eReferenceSeedV1, commands: [] },
-  { fixtureId: e2eIdsV1.fixtureBranchLeft, seed: e2eReferenceSeedV1, commands: commandsToBranchLeftV1 },
-  { fixtureId: e2eIdsV1.fixtureOpeningInterrupted, seed: e2eReferenceSeedV1, commands: commandsToInterruptedOpeningV1 },
-  { fixtureId: e2eIdsV1.fixtureOpeningShortage, seed: e2eReferenceSeedV1, commands: commandsToOpeningShortageV1 },
-  { fixtureId: e2eIdsV1.fixtureWorldDeparture, seed: e2eReferenceSeedV1, commands: commandsToWorldDepartureV1 },
-  { fixtureId: e2eIdsV1.fixtureWorldReady, seed: e2eReferenceSeedV1, commands: commandsToWorldReadyV1 },
+  {
+    fixtureId: e2eIdsV1.fixtureBranchLeft,
+    seed: e2eReferenceSeedV1,
+    commands: commandsToBranchLeftV1,
+  },
+  {
+    fixtureId: e2eIdsV1.fixtureOpeningInterrupted,
+    seed: e2eReferenceSeedV1,
+    commands: commandsToInterruptedOpeningV1,
+  },
+  {
+    fixtureId: e2eIdsV1.fixtureOpeningShortage,
+    seed: e2eReferenceSeedV1,
+    commands: commandsToOpeningShortageV1,
+  },
+  {
+    fixtureId: e2eIdsV1.fixtureWorldDeparture,
+    seed: e2eReferenceSeedV1,
+    commands: commandsToWorldDepartureV1,
+  },
+  {
+    fixtureId: e2eIdsV1.fixtureWorldReady,
+    seed: e2eReferenceSeedV1,
+    commands: commandsToWorldReadyV1,
+  },
   { fixtureId: e2eIdsV1.fixtureLevyDue, seed: e2eReferenceSeedV1, commands: commandsToLevyDueV1 },
-  { fixtureId: e2eIdsV1.fixtureReplayTail, seed: e2eReferenceSeedV1, commands: commandsToReplayTailV1 },
+  {
+    fixtureId: e2eIdsV1.fixtureReplayTail,
+    seed: e2eReferenceSeedV1,
+    commands: commandsToReplayTailV1,
+  },
 ]);
 ```
 
@@ -4307,7 +5237,7 @@ In `stories/e2e/package.json`, add `"./development": "./src/development.ts"` in 
 ```jsonc
 // package.json scripts additions
 {
-  "verify:phase2": "pnpm verify:stories && pnpm verify:fixtures && pnpm verify:boundaries && pnpm verify:cycles && pnpm typecheck && pnpm --filter @project-tavern/modules test && pnpm --filter @project-tavern/story-e2e test"
+  "verify:phase2": "pnpm verify:stories && pnpm verify:fixtures && pnpm verify:boundaries && pnpm verify:cycles && pnpm typecheck && pnpm --filter @project-tavern/modules test && pnpm --filter @project-tavern/story-e2e test",
 }
 ```
 

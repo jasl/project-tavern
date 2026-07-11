@@ -16,9 +16,7 @@ describe("Story resolver", () => {
     if (result.kind !== "resolved") return;
     expect(result.resolved.frozen).toBe(true);
     expect(result.resolved.assets.assets).toEqual([]);
-    expect(result.resolved.provenance.resolved.simulationDigest).toMatch(
-      /^sha256:[0-9a-f]{64}$/u,
-    );
+    expect(result.resolved.provenance.resolved.simulationDigest).toMatch(/^sha256:[0-9a-f]{64}$/u);
     expect(Object.isFrozen(result.resolved)).toBe(true);
   });
 });

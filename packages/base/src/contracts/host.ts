@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { BootstrapEntropyV1 } from "./module.js";
-import type {
-  Brand,
-  NonNegativeSafeInteger,
-  PositiveSafeInteger,
-} from "./values.js";
+import type { Brand, NonNegativeSafeInteger, PositiveSafeInteger } from "./values.js";
 import type { StrictJsonObjectV1 } from "./strict-json.js";
 import { parseNonNegativeSafeInteger } from "./values.js";
 
@@ -45,10 +41,7 @@ export type HostAtomicCommitResultV1 =
     };
 
 export interface HostAtomicRecordStoreV1 {
-  read(
-    namespace: HostRecordNamespaceV1,
-    key: HostRecordKeyV1,
-  ): Promise<HostStoredRecordV1 | null>;
+  read(namespace: HostRecordNamespaceV1, key: HostRecordKeyV1): Promise<HostStoredRecordV1 | null>;
   list(namespace: HostRecordNamespaceV1): Promise<readonly HostStoredRecordV1[]>;
   commit(
     mutations: readonly [HostRecordMutationV1, ...HostRecordMutationV1[]],
@@ -97,10 +90,7 @@ export function createMemoryHostRecordStoreV1(): HostAtomicRecordStoreV1 {
   const composite = (namespace: HostRecordNamespaceV1, key: HostRecordKeyV1) =>
     `${namespace}\0${key}`;
   return Object.freeze({
-    async read(
-      namespace: HostRecordNamespaceV1,
-      key: HostRecordKeyV1,
-    ) {
+    async read(namespace: HostRecordNamespaceV1, key: HostRecordKeyV1) {
       const record = records.get(composite(namespace, key));
       return record ? cloneRecord(record) : null;
     },
@@ -112,12 +102,8 @@ export function createMemoryHostRecordStoreV1(): HostAtomicRecordStoreV1 {
           .map(cloneRecord),
       );
     },
-    async commit(
-      mutations: readonly [HostRecordMutationV1, ...HostRecordMutationV1[]],
-    ) {
-      const identities = mutations.map((mutation) =>
-        composite(mutation.namespace, mutation.key),
-      );
+    async commit(mutations: readonly [HostRecordMutationV1, ...HostRecordMutationV1[]]) {
+      const identities = mutations.map((mutation) => composite(mutation.namespace, mutation.key));
       if (new Set(identities).size !== identities.length) {
         throw new TypeError("duplicate Host record mutation");
       }
@@ -143,9 +129,7 @@ export function createMemoryHostRecordStoreV1(): HostAtomicRecordStoreV1 {
         const next = Object.freeze({
           namespace: mutation.namespace,
           key: mutation.key,
-          revision: parseNonNegativeSafeInteger(
-            (mutation.expectedRevision ?? 0) + 1,
-          ),
+          revision: parseNonNegativeSafeInteger((mutation.expectedRevision ?? 0) + 1),
           bytes: Uint8Array.from(mutation.bytes),
         });
         records.set(identity, next);

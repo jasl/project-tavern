@@ -6,7 +6,12 @@ interface CommandPort<TCommand> {
   readonly commands: { dispatch(command: DeepReadonly<TCommand>): Promise<unknown> };
 }
 
-export interface GameShellPropsV1<TView, TCommand, TPlayerPort extends CommandPort<TCommand>, TPresentation> {
+export interface GameShellPropsV1<
+  TView,
+  TCommand,
+  TPlayerPort extends CommandPort<TCommand>,
+  TPresentation,
+> {
   readonly view: ReadonlyViewSourceV1<TView>;
   readonly playerPort: TPlayerPort;
   readonly presentation: TPresentation;
@@ -17,9 +22,12 @@ export interface GameShellPropsV1<TView, TCommand, TPlayerPort extends CommandPo
   readonly incrementLabel: string;
 }
 
-export function GameShell<TView, TCommand, TPlayerPort extends CommandPort<TCommand>, TPresentation>(
-  props: GameShellPropsV1<TView, TCommand, TPlayerPort, TPresentation>,
-) {
+export function GameShell<
+  TView,
+  TCommand,
+  TPlayerPort extends CommandPort<TCommand>,
+  TPresentation,
+>(props: GameShellPropsV1<TView, TCommand, TPlayerPort, TPresentation>) {
   const current = useReadonlyViewV1(props.view);
   const context = Object.freeze({
     view: current,

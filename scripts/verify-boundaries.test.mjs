@@ -28,8 +28,6 @@ test("rejects references imports", async (t) => {
   const root = await fixture('import "../../../references/example.js";\n');
   t.after(() => rm(root, { recursive: true, force: true }));
   assert(
-    (await verifyBoundaries(root)).some((error) =>
-      error.includes("references/ is forbidden"),
-    ),
+    (await verifyBoundaries(root)).some((error) => error.includes("references/ is forbidden")),
   );
 });

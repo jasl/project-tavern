@@ -8,23 +8,17 @@ import type {
 import { parseDigest, parsePositiveSafeInteger } from "../contracts/values.js";
 import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
 
-type SlotRecordV1 = Readonly<
-  Record<string, PatchSlotDescriptorV1<PatchSymbolKindV1, unknown>>
->;
+type SlotRecordV1 = Readonly<Record<string, PatchSlotDescriptorV1<PatchSymbolKindV1, unknown>>>;
 type ValuesForSlotsV1<TSlots extends SlotRecordV1> = {
   readonly [TKey in keyof TSlots]: TSlots[TKey]["defaultValue"];
 };
 
-export interface PatchSurfaceV1<TValues>
-  extends PatchSurfaceValueMapWitnessV1<TValues> {
+export interface PatchSurfaceV1<TValues> extends PatchSurfaceValueMapWitnessV1<TValues> {
   readonly surface: PatchSurfaceKindV1;
   readonly slots: SlotRecordV1;
 }
 
-export function definePatchSlot<
-  TKind extends PatchSymbolKindV1,
-  TValue,
->(
+export function definePatchSlot<TKind extends PatchSymbolKindV1, TValue>(
   slot: Omit<PatchSlotDescriptorV1<TKind, TValue>, "replaceable">,
 ): PatchSlotDescriptorV1<TKind, TValue> {
   if (!/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$/u.test(slot.symbolId)) {
@@ -44,11 +38,7 @@ function defineSurface<TSlots extends SlotRecordV1>(
     throw new TypeError("duplicate Patch symbol ID");
   }
   for (const slot of Object.values(slots)) {
-    if (
-      surface === "simulation" &&
-      slot.kind !== "rule" &&
-      slot.kind !== "value"
-    ) {
+    if (surface === "simulation" && slot.kind !== "rule" && slot.kind !== "value") {
       throw new TypeError("invalid simulation Patch kind");
     }
     if (

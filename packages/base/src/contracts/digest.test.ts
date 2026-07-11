@@ -13,9 +13,7 @@ describe("SHA-256 identities", () => {
         identity: { id: "assets.synthetic", revision: 1 },
         providers: [],
       }),
-    ).toBe(
-      "sha256:fa4639da8be532f6097a895b8769fee4f51fbe3bf7168a90b32fb2faeb807e4e",
-    );
+    ).toBe("sha256:fa4639da8be532f6097a895b8769fee4f51fbe3bf7168a90b32fb2faeb807e4e");
     expect(digestBytes(new TextEncoder().encode("abc"))).toBe(
       "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
     );

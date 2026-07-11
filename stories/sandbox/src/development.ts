@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { defineStoryDevelopmentEntry, parseNonZeroUint32, parsePositiveSafeInteger } from "@project-tavern/base";
+import {
+  defineStoryDevelopmentEntry,
+  parseNonZeroUint32,
+  parsePositiveSafeInteger,
+} from "@project-tavern/base";
 
 import type { SandboxCommandV1 } from "./contracts.js";
 

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, it } from "vitest";
 
-import { resolveStoryForTestV1, validateDevelopmentFixturesV1, validateStoryV1 } from "@project-tavern/base/testkit";
+import {
+  resolveStoryForTestV1,
+  validateDevelopmentFixturesV1,
+  validateStoryV1,
+} from "@project-tavern/base/testkit";
 
 import { sandboxDevelopmentEntryV1 } from "./development.js";
 import { sandboxCommandSchemaV1 } from "./contracts.js";

@@ -6,9 +6,35 @@
   background: #171412;
 }
 
-.game-shell__stage { position: relative; display: grid; place-items: center; padding: 2rem; }
-.game-shell__hud { position: absolute; inset: 1rem 1rem auto auto; }
-.game-shell__workspace { display: flex; justify-content: center; padding: 1rem; }
-.game-shell__narrative { min-height: 3rem; padding: 1rem; }
-.game-shell__status { position: absolute; overflow: hidden; width: 1px; height: 1px; clip: rect(0 0 0 0); }
-.game-shell__action { min-width: 44px; min-height: 44px; font: inherit; cursor: pointer; }
+.game-shell__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+.game-shell__hud {
+  position: absolute;
+  inset: 1rem 1rem auto auto;
+}
+.game-shell__workspace {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}
+.game-shell__narrative {
+  min-height: 3rem;
+  padding: 1rem;
+}
+.game-shell__status {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip: rect(0 0 0 0);
+}
+.game-shell__action {
+  min-width: 44px;
+  min-height: 44px;
+  font: inherit;
+  cursor: pointer;
+}

@@ -10,7 +10,9 @@ describe("mountGameApplicationV1", () => {
   it("owns one React root lifecycle", () => {
     const container = document.createElement("div");
     let mounted: MountedGameApplicationV1 | undefined;
-    act(() => { mounted = mountGameApplicationV1(container, <p>ready</p>); });
+    act(() => {
+      mounted = mountGameApplicationV1(container, <p>ready</p>);
+    });
     expect(container).toHaveTextContent("ready");
     act(() => mounted?.unmount());
     expect(container).toBeEmptyDOMElement();

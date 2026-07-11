@@ -47,8 +47,11 @@ export interface SandboxBootstrapInputV1 extends GameBootstrapInputV1 {
 
 export type SandboxSnapshotV1 = GameSnapshotEnvelopeV1<SandboxStateV1, RngStateV1>;
 
-export interface SandboxProfileTypesV1
-  extends GameProfileTypeMapV1<SandboxBootstrapInputV1, SandboxStateV1, RngStateV1> {
+export interface SandboxProfileTypesV1 extends GameProfileTypeMapV1<
+  SandboxBootstrapInputV1,
+  SandboxStateV1,
+  RngStateV1
+> {
   readonly snapshot: SandboxSnapshotV1;
   readonly rngDrawTrace: RngDrawTraceV1;
   readonly command: SandboxCommandV1;
@@ -81,13 +84,12 @@ function exactObject(value: unknown, key: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-export const sandboxCounterStateSchemaV1: RuntimeSchemaV1<SandboxCounterStateV1> =
-  Object.freeze({
-    parse(value: unknown) {
-      const parsed = exactObject(value, "value");
-      return Object.freeze({ value: parseNonNegativeSafeInteger(parsed.value) });
-    },
-  });
+export const sandboxCounterStateSchemaV1: RuntimeSchemaV1<SandboxCounterStateV1> = Object.freeze({
+  parse(value: unknown) {
+    const parsed = exactObject(value, "value");
+    return Object.freeze({ value: parseNonNegativeSafeInteger(parsed.value) });
+  },
+});
 
 export const sandboxStateSchemaV1: RuntimeSchemaV1<SandboxStateV1> = Object.freeze({
   parse(value: unknown) {

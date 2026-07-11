@@ -19,8 +19,7 @@ declare const persistence: PlayerPersistencePortV1<
   never
 >;
 
-export const stored: Promise<SaveExportOperationResultV1> =
-  persistence.exportSave("quick");
+export const stored: Promise<SaveExportOperationResultV1> = persistence.exportSave("quick");
 export const current: Promise<ExportedSaveV1> = persistence.exportCurrentSave();
 
 declare const persistenceResult: PersistenceOperationResultV1;

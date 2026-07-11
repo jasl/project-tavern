@@ -99,15 +99,18 @@ it("falls back per asset without rejecting the preload batch", async () => {
   await expect(registry.preload("scene", neverAborted)).resolves.toMatchObject([
     { assetId: assetId("asset.test.scene"), status: "fallback" },
   ]);
-  expect(registry.resolve(assetId("asset.test.scene"), syntheticSceneUsage).delivery)
-    .toBe("code_fallback");
+  expect(registry.resolve(assetId("asset.test.scene"), syntheticSceneUsage).delivery).toBe(
+    "code_fallback",
+  );
 });
 
 it("resolves locale fallback without exposing the catalog", () => {
   const port = createPresentationReadPort({ catalogs, locale: locale("zh-Hant"), registry });
   expect(port.text(textId("ui.save"))).toEqual({
-    textId: textId("ui.save"), requestedLocale: locale("zh-Hant"),
-    resolvedLocale: locale("zh-CN"), text: "保存",
+    textId: textId("ui.save"),
+    requestedLocale: locale("zh-Hant"),
+    resolvedLocale: locale("zh-CN"),
+    text: "保存",
   });
   expect(port).not.toHaveProperty("catalogs");
 });
@@ -128,9 +131,10 @@ export interface AssetLoadResultV1<TAssetId> {
 }
 
 export interface AssetRegistryV1<TAssetId, TUsage, TFallbackToken> {
-  resolve(assetId: TAssetId, usage: TUsage): ResolvedAssetPresentationV1<
-    TAssetId, TUsage, TFallbackToken
-  >;
+  resolve(
+    assetId: TAssetId,
+    usage: TUsage,
+  ): ResolvedAssetPresentationV1<TAssetId, TUsage, TFallbackToken>;
   preload(
     group: "bootstrap" | "scene" | "overlay",
     signal: AbortSignal,
@@ -179,8 +183,9 @@ git commit -m "feat(ui): add resolved asset presentation port"
 
 ```tsx
 it("rejects duplicate contribution IDs before React renders", () => {
-  expect(() => createUiContributionRegistry([setA, setWithDuplicateScene]))
-    .toThrowError(/ui\.duplicate_scene_id/);
+  expect(() => createUiContributionRegistry([setA, setWithDuplicateScene])).toThrowError(
+    /ui\.duplicate_scene_id/,
+  );
 });
 
 it("publishes the exact immutable view reference from the application port", () => {
@@ -297,8 +302,20 @@ Expected: FAIL because the seven-layer GameStage and responsive framing are abse
   margin-inline: auto;
   position: relative;
 }
-@media (max-aspect-ratio: 4 / 3) { .frame { aspect-ratio: auto; min-block-size: 100dvh; } }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms; transition-duration: 1ms; } }
+@media (max-aspect-ratio: 4 / 3) {
+  .frame {
+    aspect-ratio: auto;
+    min-block-size: 100dvh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms;
+    transition-duration: 1ms;
+  }
+}
 ```
 
 Use semantic buttons, headings, lists, progressbar attributes, and live regions. Background fill outside the capped frame may use tokens/blur but cannot stretch the scene. Keep every stage layer mounted in fixed order; inactive Overlay/Narrative hosts render empty regions rather than reordering layers.
@@ -359,7 +376,11 @@ Expected: FAIL on missing VN components.
 
 ```ts
 export const allowedDuringBlockingNarrative = new Set([
-  "save.quick", "save.manual", "save.export", "diagnostics.export", "settings.open",
+  "save.quick",
+  "save.manual",
+  "save.export",
+  "diagnostics.export",
+  "settings.open",
 ]);
 ```
 
@@ -561,8 +582,16 @@ Expected: FAIL because tavern renderers and Story Scene composition are missing.
 export const demoUiContributions = defineUiContributionSet({
   scenes: [mainMenuScene, tavernPlayScene, runSummaryScene],
   hud: [tavernHudContribution],
-  overlays: [policyOverlay, inventoryOverlay, purchaseOverlay, tavernPlanOverlay,
-    facilityOverlay, worldActionOverlay, ledgerOverlay, runSummaryOverlay],
+  overlays: [
+    policyOverlay,
+    inventoryOverlay,
+    purchaseOverlay,
+    tavernPlanOverlay,
+    facilityOverlay,
+    worldActionOverlay,
+    ledgerOverlay,
+    runSummaryOverlay,
+  ],
   gameSymbols: [projectTavernSymbolProvider],
 });
 ```
@@ -885,7 +914,9 @@ Expected: all three builds exist, the server unit tests pass, Playwright lists t
 - [ ] **Step 3: Add semantic primary-flow acceptance**
 
 ```ts
-test("keyboard-only player can start, finish VN, choose policy, and open inventory", async ({ page }) => {
+test("keyboard-only player can start, finish VN, choose policy, and open inventory", async ({
+  page,
+}) => {
   await page.goto(`${demoPlayerUrl}/#/play`);
   await page.getByRole("button", { name: "开始新游戏" }).press("Enter");
   await page.getByRole("button", { name: "继续" }).press("Enter");
@@ -893,7 +924,6 @@ test("keyboard-only player can start, finish VN, choose policy, and open invento
   await page.getByRole("button", { name: "背包" }).press("Enter");
   await expect(page.getByRole("dialog", { name: "背包" })).toBeVisible();
 });
-
 ```
 
 Add separate tests for Demo new-game/initial VN/policy/first action/Quick+Manual Save/recovery, E2E deterministic scene/command integration, and Developer dock/fixture/diagnostic visibility. Locators use roles/names; only stage layers may use stable test IDs. These are acceptance tests over Tasks 1–8, not an excuse to add new domain logic: if one fails, fix the owning earlier UI/application slice and rerun its focused test first.
@@ -935,8 +965,10 @@ git commit -m "test(ui): add three-root browser flows"
 
 ```ts
 for (const viewport of [
-  { width: 1024, height: 768 }, { width: 1600, height: 1000 },
-  { width: 2560, height: 1080 }, { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
+  { width: 1600, height: 1000 },
+  { width: 2560, height: 1080 },
+  { width: 768, height: 1024 },
   { width: 800, height: 500 }, // 1600x1000 at equivalent 200% layout viewport
 ]) {
   test(`stage constraints hold at ${viewport.width}x${viewport.height}`, async ({ page }) => {

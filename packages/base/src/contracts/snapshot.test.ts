@@ -36,10 +36,7 @@ const syntheticRngStateSchema: RuntimeSchemaV1<{ readonly cursor: number }> = {
 
 describe("generic Snapshot envelope", () => {
   it("parses exact fields and rejects unknown keys", () => {
-    const schema = createGameSnapshotEnvelopeSchemaV1(
-      counterStateSchema,
-      syntheticRngStateSchema,
-    );
+    const schema = createGameSnapshotEnvelopeSchemaV1(counterStateSchema, syntheticRngStateSchema);
     expect(
       schema.parse({
         state: { count: 0 },

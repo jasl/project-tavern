@@ -9,8 +9,7 @@ import test from "node:test";
 
 import { verifyLicensing } from "./verify-licensing.mjs";
 
-const sha256 = (value) =>
-  createHash("sha256").update(value, "utf8").digest("hex");
+const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "project-tavern-license-"));
@@ -43,10 +42,7 @@ test("accepts a complete repository fixture", async (t) => {
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeValidPackageMetadata(root);
 
-  assert.deepEqual(
-    await verifyLicensing(root, { policy, trackedReferences: "" }),
-    [],
-  );
+  assert.deepEqual(await verifyLicensing(root, { policy, trackedReferences: "" }), []);
 });
 
 test("requires every declared workspace package manifest", async (t) => {
@@ -58,11 +54,7 @@ test("requires every declared workspace package manifest", async (t) => {
     trackedReferences: "",
   });
 
-  assert(
-    errors.includes(
-      "missing required package metadata: packages/base/package.json",
-    ),
-  );
+  assert(errors.includes("missing required package metadata: packages/base/package.json"));
 });
 
 test("reports missing and modified legal files", async (t) => {
@@ -105,48 +97,24 @@ test("keeps human-maintained AIGC archives outside licensing verification", asyn
   const root = await fixture();
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeValidPackageMetadata(root);
-  const archive = join(
-    root,
-    "art-source",
-    "aigc",
-    "openai",
-    "illustrations",
-  );
+  const archive = join(root, "art-source", "aigc", "openai", "illustrations");
   await mkdir(archive, { recursive: true });
-  await writeFile(
-    join(archive, "heroine-neutral.png"),
-    new Uint8Array(),
-  );
-  execFileSync(
-    "git",
-    [
-      "add",
-      "--",
-      "art-source/aigc/openai/illustrations/heroine-neutral.png",
-    ],
-    { cwd: root },
-  );
+  await writeFile(join(archive, "heroine-neutral.png"), new Uint8Array());
+  execFileSync("git", ["add", "--", "art-source/aigc/openai/illustrations/heroine-neutral.png"], {
+    cwd: root,
+  });
 
-  assert.deepEqual(
-    await verifyLicensing(root, { policy, trackedReferences: "" }),
-    [],
-  );
+  assert.deepEqual(await verifyLicensing(root, { policy, trackedReferences: "" }), []);
 });
 
 test("documents the active Goal and Phase 1 stop boundary", async () => {
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
-  const docsReadme = await readFile(
-    new URL("../docs/README.md", import.meta.url),
-    "utf8",
-  );
+  const docsReadme = await readFile(new URL("../docs/README.md", import.meta.url), "utf8");
 
   assert.match(readme, /六阶段.*Goal.*已获授权.*进行中/u);
   assert.match(readme, /完成全部 Phase 1.*阶段验收后暂停.*不进入 Phase 2/u);
   assert.doesNotMatch(readme, /尚未创建或启动长期 Goal/u);
   assert.match(docsReadme, /六阶段.*Goal.*已获授权.*进行中/u);
-  assert.match(
-    docsReadme,
-    /完成全部 Phase 1.*阶段验收后暂停.*不进入 Phase 2/u,
-  );
+  assert.match(docsReadme, /完成全部 Phase 1.*阶段验收后暂停.*不进入 Phase 2/u);
   assert.doesNotMatch(docsReadme, /\*\*尚未启动\*\*：长期 Goal/u);
 });

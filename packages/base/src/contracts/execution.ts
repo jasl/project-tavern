@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { RngDrawTraceV1, RngStateV1, RuleRngV1 } from "./rng.js";
 
-export type CommandExecutionResultEnvelopeV1<
-  TSnapshot,
-  TFact,
-  TRejection,
-  TFault,
-> =
+export type CommandExecutionResultEnvelopeV1<TSnapshot, TFact, TRejection, TFault> =
   | {
       readonly kind: "committed";
       readonly snapshot: TSnapshot;
@@ -23,10 +18,7 @@ export type CommandExecutionResultEnvelopeV1<
       readonly fault: TFault;
     };
 
-export interface CommandExecutionDiagnosticsEnvelopeV1<
-  TRngState,
-  TRngDrawTrace,
-> {
+export interface CommandExecutionDiagnosticsEnvelopeV1<TRngState, TRngDrawTrace> {
   readonly committedRngBefore: TRngState;
   readonly attemptedDraws: readonly TRngDrawTrace[];
   readonly candidateRngAfter?: TRngState;
@@ -41,16 +33,8 @@ export interface CommandExecutionAttemptEnvelopeV1<
   TRngState,
   TRngDrawTrace,
 > {
-  readonly result: CommandExecutionResultEnvelopeV1<
-    TSnapshot,
-    TFact,
-    TRejection,
-    TFault
-  >;
-  readonly diagnostics: CommandExecutionDiagnosticsEnvelopeV1<
-    TRngState,
-    TRngDrawTrace
-  >;
+  readonly result: CommandExecutionResultEnvelopeV1<TSnapshot, TFact, TRejection, TFault>;
+  readonly diagnostics: CommandExecutionDiagnosticsEnvelopeV1<TRngState, TRngDrawTrace>;
 }
 
 type SnapshotWithRng = { readonly rng: RngStateV1 };
@@ -68,22 +52,12 @@ function diagnostics(
   });
 }
 
-export function commitAttemptV1<
-  TSnapshot extends SnapshotWithRng,
-  TFact,
->(
+export function commitAttemptV1<TSnapshot extends SnapshotWithRng, TFact>(
   committedBefore: TSnapshot,
   committedAfter: TSnapshot,
   rng: RuleRngV1,
   facts: readonly TFact[],
-): CommandExecutionAttemptEnvelopeV1<
-  TSnapshot,
-  TFact,
-  never,
-  never,
-  RngStateV1,
-  RngDrawTraceV1
-> {
+): CommandExecutionAttemptEnvelopeV1<TSnapshot, TFact, never, never, RngStateV1, RngDrawTraceV1> {
   return Object.freeze({
     result: Object.freeze({
       kind: "committed",
@@ -94,10 +68,7 @@ export function commitAttemptV1<
   });
 }
 
-export function rejectAttemptV1<
-  TSnapshot extends SnapshotWithRng,
-  TRejection,
->(
+export function rejectAttemptV1<TSnapshot extends SnapshotWithRng, TRejection>(
   snapshot: TSnapshot,
   rng: RuleRngV1,
   reasons: readonly TRejection[],
@@ -123,14 +94,7 @@ export function faultAttemptV1<TSnapshot extends SnapshotWithRng, TFault>(
   snapshot: TSnapshot,
   rng: RuleRngV1,
   fault: TFault,
-): CommandExecutionAttemptEnvelopeV1<
-  TSnapshot,
-  never,
-  never,
-  TFault,
-  RngStateV1,
-  RngDrawTraceV1
-> {
+): CommandExecutionAttemptEnvelopeV1<TSnapshot, never, never, TFault, RngStateV1, RngDrawTraceV1> {
   return Object.freeze({
     result: Object.freeze({ kind: "faulted" as const, snapshot, fault }),
     diagnostics: diagnostics(snapshot.rng, snapshot.rng, rng),

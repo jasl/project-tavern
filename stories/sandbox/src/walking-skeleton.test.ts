@@ -25,9 +25,10 @@ describe("Sandbox walking skeleton", () => {
       execution: { kind: "committed" },
     });
     expect(session.getCurrentSnapshot().state.counter.value).toBe(1);
-    expect(
-      resolved.presentationProgram.textCatalogs.catalogs[0]?.entries,
-    ).toContainEqual({ textId: "text.sandbox.counter", text: "计数" });
+    expect(resolved.presentationProgram.textCatalogs.catalogs[0]?.entries).toContainEqual({
+      textId: "text.sandbox.counter",
+      text: "计数",
+    });
     const counterAsset = resolved.assets.assets.find(
       (asset) => asset.assetId === "asset.sandbox.counter",
     );

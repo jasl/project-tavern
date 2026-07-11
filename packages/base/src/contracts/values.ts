@@ -7,13 +7,7 @@ export type Brand<T, TBrand extends string> = T & {
 };
 
 export type DeepReadonly<T> = T extends
-  | null
-  | undefined
-  | string
-  | number
-  | boolean
-  | bigint
-  | symbol
+  null | undefined | string | number | boolean | bigint | symbol
   ? T
   : T extends (...args: never[]) => unknown
     ? T
@@ -80,10 +74,7 @@ export function parseStateSlotId(value: unknown): StateSlotId {
   if (
     parts.length < 2 ||
     (parts[0] !== "simulation" && parts[0] !== "story") ||
-    parts.some(
-      (part) =>
-        !statePropertyPattern.test(part) || dangerousProperties.has(part),
-    )
+    parts.some((part) => !statePropertyPattern.test(part) || dangerousProperties.has(part))
   ) {
     throw new TypeError("invalid StateSlotId");
   }
@@ -100,9 +91,7 @@ function parseInteger(value: unknown, label: string): number {
   return value;
 }
 
-export function parseNonNegativeSafeInteger(
-  value: unknown,
-): NonNegativeSafeInteger {
+export function parseNonNegativeSafeInteger(value: unknown): NonNegativeSafeInteger {
   const parsed = parseInteger(value, "NonNegativeSafeInteger");
   if (parsed < 0) throw new TypeError("invalid NonNegativeSafeInteger");
   return parsed as NonNegativeSafeInteger;
@@ -125,9 +114,7 @@ export function parseNonZeroUint32(value: unknown): NonZeroUint32 {
 export function parseRunId(value: unknown): RunId {
   if (
     typeof value !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
-      value,
-    )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(value)
   ) {
     throw new TypeError("invalid RunId");
   }

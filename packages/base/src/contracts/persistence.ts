@@ -14,17 +14,9 @@ import type {
   PositiveSafeInteger,
   RuntimeSchemaV1,
 } from "./values.js";
-import {
-  parseDigest,
-  parsePositiveSafeInteger,
-} from "./values.js";
+import { parseDigest, parsePositiveSafeInteger } from "./values.js";
 
-export type SaveSlotHealthV1 =
-  | "empty"
-  | "valid"
-  | "invalid"
-  | "recovery_candidate"
-  | "unavailable";
+export type SaveSlotHealthV1 = "empty" | "valid" | "invalid" | "recovery_candidate" | "unavailable";
 
 export interface SaveSlotSummaryV1 {
   readonly slotId: SaveSlotIdV1;
@@ -120,12 +112,7 @@ export type SessionLeaseOperationResultV1 =
 
 export type SaveWriteReasonV1 = "auto" | PlayerWritableSaveSlotIdV1;
 
-export interface SaveRecordEnvelopeV1<
-  TSnapshot,
-  TProvenance,
-  TSlotMetadata,
-  TSimulationLineage,
-> {
+export interface SaveRecordEnvelopeV1<TSnapshot, TProvenance, TSlotMetadata, TSimulationLineage> {
   readonly formatRevision: 1;
   readonly recordRevision: PositiveSafeInteger;
   readonly provenance: TProvenance;
@@ -178,7 +165,10 @@ function parseByteExport<T extends ExportedSaveV1>(value: unknown, label: string
   const fields = ["filename", "mediaType", "digest", "bytes"] as const;
   const descriptors = exactDescriptors(value, fields, label);
   const bytesValue = descriptors.bytes?.value;
-  if (!(bytesValue instanceof Uint8Array) || Object.getPrototypeOf(bytesValue) !== Uint8Array.prototype) {
+  if (
+    !(bytesValue instanceof Uint8Array) ||
+    Object.getPrototypeOf(bytesValue) !== Uint8Array.prototype
+  ) {
     throw new TypeError(`invalid ${label} bytes`);
   }
   const bytes = Uint8Array.from(bytesValue);
@@ -201,62 +191,73 @@ export const exportedSaveSchemaV1: RuntimeSchemaV1<ExportedSaveV1> = Object.free
   },
 });
 
-export const sessionLeaseStatusSchemaV1: RuntimeSchemaV1<SessionLeaseStatusV1> =
-  Object.freeze({
-    parse(value: unknown) {
-      if (value === null || typeof value !== "object") {
-        throw new TypeError("invalid SessionLeaseStatusV1");
+export const sessionLeaseStatusSchemaV1: RuntimeSchemaV1<SessionLeaseStatusV1> = Object.freeze({
+  parse(value: unknown) {
+    if (value === null || typeof value !== "object") {
+      throw new TypeError("invalid SessionLeaseStatusV1");
+    }
+    const kind = Reflect.get(value, "kind");
+    if (kind === "owned" || kind === "readonly") {
+      const fields = exactDescriptors(
+        value,
+        ["kind", "ownerId", "fencingToken"],
+        "SessionLeaseStatusV1",
+      );
+      return Object.freeze({
+        kind,
+        ownerId: requiredString(fields.ownerId?.value, "ownerId") as SessionLeaseOwnerId,
+        fencingToken: parsePositiveSafeInteger(fields.fencingToken?.value),
+      });
+    }
+    if (kind === "handoff_requested") {
+      const fields = exactDescriptors(
+        value,
+        ["kind", "ownerId", "fencingToken", "requestId", "requestedByOwnerId"],
+        "SessionLeaseStatusV1",
+      );
+      return Object.freeze({
+        kind,
+        ownerId: requiredString(fields.ownerId?.value, "ownerId") as SessionLeaseOwnerId,
+        fencingToken: parsePositiveSafeInteger(fields.fencingToken?.value),
+        requestId: requiredString(fields.requestId?.value, "requestId") as LeaseHandoffRequestId,
+        requestedByOwnerId: requiredString(
+          fields.requestedByOwnerId?.value,
+          "requestedByOwnerId",
+        ) as SessionLeaseOwnerId,
+      });
+    }
+    if (kind === "unowned") {
+      const fields = exactDescriptors(
+        value,
+        ["kind", "ownerId", "fencingToken"],
+        "SessionLeaseStatusV1",
+      );
+      if (fields.ownerId?.value !== null) throw new TypeError("unowned lease has an owner");
+      return Object.freeze({
+        kind,
+        ownerId: null,
+        fencingToken: parsePositiveSafeInteger(fields.fencingToken?.value),
+      });
+    }
+    if (kind === "unavailable") {
+      const fields = exactDescriptors(
+        value,
+        ["kind", "ownerId", "fencingToken", "code"],
+        "SessionLeaseStatusV1",
+      );
+      if (fields.ownerId?.value !== null || fields.fencingToken?.value !== null) {
+        throw new TypeError("unavailable lease carries ownership");
       }
-      const kind = Reflect.get(value, "kind");
-      if (kind === "owned" || kind === "readonly") {
-        const fields = exactDescriptors(value, ["kind", "ownerId", "fencingToken"], "SessionLeaseStatusV1");
-        return Object.freeze({
-          kind,
-          ownerId: requiredString(fields.ownerId?.value, "ownerId") as SessionLeaseOwnerId,
-          fencingToken: parsePositiveSafeInteger(fields.fencingToken?.value),
-        });
-      }
-      if (kind === "handoff_requested") {
-        const fields = exactDescriptors(
-          value,
-          ["kind", "ownerId", "fencingToken", "requestId", "requestedByOwnerId"],
-          "SessionLeaseStatusV1",
-        );
-        return Object.freeze({
-          kind,
-          ownerId: requiredString(fields.ownerId?.value, "ownerId") as SessionLeaseOwnerId,
-          fencingToken: parsePositiveSafeInteger(fields.fencingToken?.value),
-          requestId: requiredString(fields.requestId?.value, "requestId") as LeaseHandoffRequestId,
-          requestedByOwnerId: requiredString(
-            fields.requestedByOwnerId?.value,
-            "requestedByOwnerId",
-          ) as SessionLeaseOwnerId,
-        });
-      }
-      if (kind === "unowned") {
-        const fields = exactDescriptors(value, ["kind", "ownerId", "fencingToken"], "SessionLeaseStatusV1");
-        if (fields.ownerId?.value !== null) throw new TypeError("unowned lease has an owner");
-        return Object.freeze({
-          kind,
-          ownerId: null,
-          fencingToken: parsePositiveSafeInteger(fields.fencingToken?.value),
-        });
-      }
-      if (kind === "unavailable") {
-        const fields = exactDescriptors(value, ["kind", "ownerId", "fencingToken", "code"], "SessionLeaseStatusV1");
-        if (fields.ownerId?.value !== null || fields.fencingToken?.value !== null) {
-          throw new TypeError("unavailable lease carries ownership");
-        }
-        return Object.freeze({
-          kind,
-          ownerId: null,
-          fencingToken: null,
-          code: requiredString(fields.code?.value, "lease unavailable code"),
-        });
-      }
-      throw new TypeError("invalid SessionLeaseStatusV1 kind");
-    },
-  });
+      return Object.freeze({
+        kind,
+        ownerId: null,
+        fencingToken: null,
+        code: requiredString(fields.code?.value, "lease unavailable code"),
+      });
+    }
+    throw new TypeError("invalid SessionLeaseStatusV1 kind");
+  },
+});
 
 export function createSaveRecordEnvelopeSchemaV1<
   TSnapshot,
