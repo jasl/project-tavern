@@ -32,6 +32,7 @@
 - Create `LICENSES/MIT.txt`: SPDX MIT template with only the copyright placeholder replaced.
 - Create `LICENSES/PolyForm-Noncommercial-1.0.0.txt`: byte-for-byte official PolyForm text.
 - Create `LICENSES/CC-BY-NC-SA-4.0.txt`: byte-for-byte Creative Commons legal code text.
+- Create `.gitattributes`: preserve the official CC text's second terminal LF without weakening whitespace checks for other files.
 - Create `THIRD_PARTY_NOTICES.md`: current empty production inventory plus required record schema and exclusion rules.
 - Create `TRADEMARKS.md`: explicit trademark reservation and nominative-use clarification.
 - Create `CONTRIBUTING.md`: MIT inbound=outbound rule and restricted-area CLA gate.
@@ -315,6 +316,7 @@ git commit -m "test: add repository licensing verifier"
 - Create: `LICENSES/MIT.txt`
 - Create: `LICENSES/PolyForm-Noncommercial-1.0.0.txt`
 - Create: `LICENSES/CC-BY-NC-SA-4.0.txt`
+- Create: `.gitattributes`
 - Create: `THIRD_PARTY_NOTICES.md`
 - Create: `TRADEMARKS.md`
 - Create: `CONTRIBUTING.md`
@@ -354,6 +356,14 @@ e66c269d4819aaab34b49ef5220c4ddab6756f21bb5180761a4eb8561f2b7bbd
 - [ ] **Step 2: Add the three legal texts with `apply_patch`**
 
 Use exactly the three streams verified in Step 1. `MIT.txt` changes only the template copyright line; PolyForm and CC remain byte-for-byte identical to their official `.txt` responses. Do not reflow, translate, trim, or add repository commentary to these files.
+
+Add this single path-specific attribute because the official CC response ends with two LF bytes and Git otherwise reports the second one as `blank-at-eof`:
+
+```gitattributes
+/LICENSES/CC-BY-NC-SA-4.0.txt whitespace=-blank-at-eof
+```
+
+No other path may disable whitespace checks.
 
 - [ ] **Step 3: Add the root scope and notices**
 
@@ -396,7 +406,7 @@ Expected hashes exactly match Step 1.
 - [ ] **Step 7: Commit the legal bundle**
 
 ```bash
-git add LICENSE.md NOTICE LICENSES THIRD_PARTY_NOTICES.md TRADEMARKS.md CONTRIBUTING.md
+git add .gitattributes LICENSE.md NOTICE LICENSES THIRD_PARTY_NOTICES.md TRADEMARKS.md CONTRIBUTING.md
 git commit -m "legal: publish repository licensing policy"
 ```
 
