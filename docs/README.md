@@ -11,6 +11,7 @@
 - [`superpowers/specs/2026-07-10-react-game-harness-design.md`](superpowers/specs/2026-07-10-react-game-harness-design.md)：当前技术架构权威；定义 Base/UI 包、由 Story 组合的 Modules、Story 自有 Scenes、Loader/Host、Hotfix、中央舞台、存档/调试、测试、构建与素材边界。
 - [`superpowers/specs/2026-07-10-engine-contract-catalog.md`](superpowers/specs/2026-07-10-engine-contract-catalog.md)：v1 字段级合同；区分 Base 共享 envelope 与 Demo Module/Story 具体 ABI，穷举 Snapshot、命令/Fact/拒绝、规则、Narrative、resolved provenance、Save/Debug 和关键不变量。
 - [`superpowers/specs/2026-07-11-repository-licensing-design.md`](superpowers/specs/2026-07-11-repository-licensing-design.md)：MIT Engine、PolyForm 非商业游戏代码、CC BY-NC-SA 原创内容、npm 依赖与 `vendor/**` 第三方隔离边界。
+- [`superpowers/specs/2026-07-12-aigc-asset-archive-design.md`](superpowers/specs/2026-07-12-aigc-asset-archive-design.md)：人类可维护的 AIGC 来源目录、图片/prompt 归档、无审计提升与自动 Asset Pack digest 边界。
 - [`superpowers/plans/2026-07-11-repository-licensing-implementation.md`](superpowers/plans/2026-07-11-repository-licensing-implementation.md)：标准法律文本、范围声明、验证器、第三方/商标/贡献政策和公开入口的实施记录。
 - [`superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md`](superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md)：第一版工程 Goal 的总路线、固定阶段顺序、公共命令面、跨阶段停止线和最终 Definition of Done。
   - [`Phase 1 — Foundation & Walking Skeleton`](superpowers/plans/2026-07-11-project-tavern-01-foundation-walking-skeleton.md)
