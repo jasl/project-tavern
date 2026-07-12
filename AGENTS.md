@@ -9,20 +9,21 @@ This repository is for a solo tavern-management, relationship-sim, and text-adve
 Read these before changing behavior:
 
 1. `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md` — authoritative Phase 2+ terminology, Story/Gameplay ownership, ResolvedGame/GameSimulation, unified application capabilities, SemanticGamePort, Input, and one-Artifact boundaries.
-2. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — Phase 1 as-built package, Loader/Host, Hotfix, save/debug, test, and asset principles not replaced by the Phase 2+ revision.
-3. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete PoC ABI, interpreted through the Phase 2+ naming/ownership revision; tavern-specific types do not belong in Base.
-4. `docs/superpowers/specs/2026-07-11-repository-licensing-design.md` — authoritative MIT/PolyForm/CC scope, third-party material, trademark, and contribution boundaries.
-5. `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md` — authoritative AIGC source directory, optional prompt/model archive, manual runtime promotion, and technical Asset Pack digest boundaries.
-6. `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` — mandatory first-Goal phase order, checkpoints, stop lines, verification surface, and Definition of Done; follow its linked phase plans during execution.
-7. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
-8. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
-9. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
-10. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
-11. `docs/poc/reference-strategies.md` — deterministic reference inputs.
-12. `docs/design/game-design-baseline.md` — long-term product direction.
-13. `docs/art/first-web-visual-pack.md` — provisional Web visual language, stable runtime Asset IDs, safe zones, source illustrations, and acceptance.
+2. `docs/superpowers/specs/2026-07-12-scene-interaction-character-presentation-design.md` — authoritative StageScene/variant, Character/纸娃娃, HitMap/Interaction, content-maturity, presentation fallback, and authoritative-state publication boundaries.
+3. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — Phase 1 as-built package, Loader/Host, Hotfix, save/debug, test, and asset principles not replaced by the Phase 2+ revisions.
+4. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete PoC ABI, interpreted through the Phase 2+ naming/ownership revisions; tavern-specific types do not belong in Base.
+5. `docs/superpowers/specs/2026-07-11-repository-licensing-design.md` — authoritative MIT/PolyForm/CC scope, third-party material, trademark, and contribution boundaries.
+6. `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md` — authoritative AIGC source directory, optional prompt/model archive, manual runtime promotion, and technical Asset Pack digest boundaries.
+7. `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` — mandatory first-Goal phase order, checkpoints, stop lines, verification surface, and Definition of Done; follow its linked phase plans during execution.
+8. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
+9. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
+10. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
+11. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
+12. `docs/poc/reference-strategies.md` — deterministic reference inputs.
+13. `docs/design/game-design-baseline.md` — long-term product direction.
+14. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Phase 4B-aligned runtime Asset IDs, safe zones, source illustrations, and acceptance.
 
-Authority is domain-specific: the Phase 2+ revision governs the changed runtime architecture, while the Harness design governs only unchanged Phase 1 principles; the Contract Catalog freezes field-level ABI after applying the revision's naming and ownership rules; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and asset contracts. The roadmap governs execution order and evidence but cannot override those specifications. Record intentional changes in the relevant authoritative document in the same change as the code.
+Authority is domain-specific: the Phase 2+ runtime revision governs terminology and runtime ownership; the StageScene/Interaction revision governs presentation, character, input-hit-test, content-level and fallback boundaries; the Harness design governs only unchanged Phase 1 principles. The Contract Catalog freezes field-level ABI after applying both revisions' naming and ownership rules; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and only those asset contracts aligned with Phase 4B. The roadmap governs execution order and evidence but cannot override those specifications. Record intentional changes in the relevant authoritative document in the same change as the code.
 
 ## Scope constraints
 
@@ -46,6 +47,7 @@ Authority is domain-specific: the Phase 2+ revision governs the changed runtime 
 - Save plain versioned data and stable IDs, never component instances or rule functions. Ordinary load requires matching Story ID/revision, state-contract revision/digest, engine digest, and resolved simulation digest. Story/presentation digests, engine version, and appBuildId are diagnostic. A managed Hotfix may explicitly adopt an older simulation digest only when the state contract is unchanged and full validation passes; adoption creates a new replay anchor.
 - Story content and balance use validated IR/data. A Story may also contain Scene/UI code and named synchronous deterministic rule implementations, but Scene code never writes Snapshot. Bootstrap Hotfix code is the only official executable replacement seam.
 - The resolved SceneGraph in the default Story/Headless closure is a Node-type-strip-safe `.ts` data descriptor with stable renderer IDs and no React/function/browser values. Story Web-only `.tsx` renderer contributions resolve those IDs from the application closure and never enter GameSimulation.
+- Treat `GameSimulation → GameQueries → atomic SemanticPublication → RuntimePresentationPublication → renderer` as the one authoritative read direction. Renderer-local animation/hover/GPU state may feed back only through typed Presentation intents or the exact Story Semantic invocation; it never writes State or recomputes Gameplay availability. Interaction target meaning is global, but resolution mode and `open_surface` transition are context-specific `InteractionSurfaceTargetBindingV1` data.
 - Keep content effects to a small, code-owned discriminated union. No `eval`, reflection, arbitrary expressions, script strings, or content-node callbacks.
 - Story rules receive deep-readonly inputs and Base RNG capabilities and return validated effect intents; official rules must not mutate state or read UI/storage/network/time globals. The runtime validates results even though arbitrary third-party JavaScript cannot be sandboxed by this contract.
 - Story exposes separate typed Simulation (`rule | value`) and Presentation (`value | text | asset`) Patch Surfaces. Managed Hotfixes execute deterministically after Story definition and before Session creation, are tracked by actual import-closure digest, and require explicit `supersedes` on collisions. Revoke/freeze surfaces before Session creation. Bypassing the PatchSurface is unsupported and receives no compatibility or replay guarantee.

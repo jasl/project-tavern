@@ -12,6 +12,7 @@
 
 - Phase 1 completed at `4e9c2bd5b06f3cc6f338d30ff43bc6e0188f74d2`; it was re-verified on 2026-07-12 with frozen install, `pnpm verify`, Chromium/WebKit, reproducible release, clean diff and clean worktree.
 - [`2026-07-12-post-phase1-game-runtime-design.md`](../specs/2026-07-12-post-phase1-game-runtime-design.md) is authoritative for Phase 2+ terminology, ownership, capabilities, SemanticGamePort, Input and Artifact boundaries.
+- [`2026-07-12-scene-interaction-character-presentation-design.md`](../specs/2026-07-12-scene-interaction-character-presentation-design.md) is authoritative for StageScene/variant, Character/HitMap/Interaction, content maturity, RuntimePresentation and the one-way authoritative publication boundary.
 - Before every phase, re-read live `AGENTS.md`, the Phase 2+ specification, the Contract Catalog header/mapping, the phase plan, package exports, scripts, routes, `git status` and the previous checkpoint evidence.
 - Do not execute the former public-Modules/Demo/Player-Developer phase plans from repository history. The active files linked below replace them.
 - Do not preserve compatibility aliases for `GameProfile`, `CommandCoordinator`, `ResolvedStory`, `EngineSession`, Sandbox/Demo Story packages or Player/Developer build scripts. No external release depends on them.
@@ -36,10 +37,12 @@
 3. [`Phase 3 — Persistence, Capabilities, Replay & Diagnostics`](2026-07-11-project-tavern-03-persistence-diagnostics.md)
 4. [`Phase 4A — PoC Gameplay & GameSimulation`](2026-07-11-project-tavern-04a-poc-gameplay-simulation.md)
 5. [`Phase 4B — Seven-day PoC Story & Golden Week`](2026-07-11-project-tavern-04b-poc-story-golden.md)
-6. [`Phase 5 — UI, Input, Assets, Accessibility & Automation`](2026-07-11-project-tavern-05-ui-assets-accessibility.md)
-7. [`Phase 6 — Reproducible PoC Release & Pages`](2026-07-11-project-tavern-06-release-pages.md)
+6. [`Phase 5A — UI Runtime Foundations`](2026-07-12-project-tavern-05a-ui-runtime-foundations.md)
+7. [`Phase 5B — StageScene, Character & Story Presentation`](2026-07-12-project-tavern-05b-stage-character-story-presentation.md)
+8. [`Phase 5C — Tooling, Automation & Acceptance`](2026-07-12-project-tavern-05c-tooling-automation-acceptance.md)
+9. [`Phase 6 — Reproducible PoC Release & Pages`](2026-07-11-project-tavern-06-release-pages.md)
 
-The order is mandatory. Phase 4A and 4B share one Phase 4 checkpoint but are separate plans so concrete Gameplay implementation does not obscure content and balance work. A phase may add a failing contract for its immediate successor, but cannot implement around an unaccepted earlier public interface.
+The order is mandatory. Phase 4A and 4B share one Phase 4 checkpoint but are separate plans so concrete Gameplay implementation does not obscure content and balance work. Phase 5A/5B/5C form one cumulative Phase 5 checkpoint: neutral UI/runtime foundations first, Story presentation second, and tooling/full acceptance last. A phase may add a failing contract for its immediate successor, but cannot implement around an unaccepted earlier public interface.
 
 ## Recommended Goal Objective
 
@@ -67,7 +70,7 @@ pnpm verify:golden           read-only E2E and PoC golden verification
 pnpm verify:determinism      fixed E2E deterministic corpus
 pnpm --filter @project-tavern/story-poc verify:commands  read-only PoC reference commands
 pnpm verify:balance          PoC 1..1000-seed thresholds
-pnpm verify:assets           runtime manifests, bytes, digests and budgets
+pnpm verify:assets           runtime manifest paths, media bytes, hashes and dimensions
 pnpm verify:semantic         SemanticGamePort and DOM/action parity
 pnpm verify:ui               RTL, responsive, Input and accessibility checks
 pnpm verify:bundle           E2E/PoC source and emitted-byte checks
@@ -94,6 +97,7 @@ pnpm --filter @project-tavern/story-poc update:commands
 pnpm --filter @project-tavern/story-poc update:golden
 pnpm --filter @project-tavern/story-poc update:fixtures
 pnpm update:screenshots
+pnpm update:ui-snapshots
 pnpm release:prepare
 ```
 
@@ -126,7 +130,7 @@ Evidence:
 
 **Consumes:** verified Phase 1 Base/UI/Web/Sandbox implementation.
 
-**Produces:** breaking public ABI migration, complete ResolvedGame and GameSession contracts, the final E2E/PoC directory layout, one E2E Web application, the invariant that each eventual Story/Host has only one application root, unified GameApplication/Semantic contracts, Story-local E2E fixture GameplayModules and a deterministic SemanticGamePort runner.
+**Produces:** breaking public ABI migration, complete ResolvedGame and GameSession contracts, neutral StageScene/Character/HitMap/Interaction/content-preference contracts, the final E2E/PoC directory layout, one E2E Web application, the invariant that each eventual Story/Host has only one application root, unified GameApplication contracts, atomic SemanticPublication/SemanticGamePort, Story-local E2E fixture GameplayModules and a deterministic semantic runner.
 
 - [ ] Execute Phase 2A migration tasks first; no new gameplay may use old Profile/Coordinator contracts.
 - [ ] Execute Phase 2B fixture Gameplay, Narrative/workflow, Hotfix and semantic automation tasks.
@@ -168,7 +172,7 @@ Stop if PoC Gameplay enters Base/UI/Web, a GameplayModule writes another owner, 
 
 **Consumes:** accepted PocGameSimulation and existing seven-day design documents.
 
-**Produces:** PoC Story identity/data/content/Narrative/SceneGraph/PatchSurfaces, six reference strategies, reviewed golden artifacts, 1..1000 seed metrics and persistence/tooling fixtures.
+**Produces:** PoC Story identity/data/content/Narrative/PatchSurfaces, exact StageScene/variant/rig/HitMap/Interaction catalog, standard-only content policy, one atomic GameView/action Semantic publication path, six reference strategies, reviewed golden artifacts, 1..1000 seed metrics and persistence/tooling fixtures.
 
 - [ ] Implement D1–D7 content and Story composition without changing E2E.
 - [ ] Review every explicit generated baseline diff before commit.
@@ -176,19 +180,47 @@ Stop if PoC Gameplay enters Base/UI/Web, a GameplayModule writes another owner, 
 
 Stop if content adds arbitrary callbacks/expressions, golden verification writes files, or one strategy silently dominates all outcomes.
 
-### R5: Complete Phase 5 — UI, Input, assets and automation
+### R5A: Complete Phase 5A — neutral UI runtime foundations
 
-**Plan:** [`2026-07-11-project-tavern-05-ui-assets-accessibility.md`](2026-07-11-project-tavern-05-ui-assets-accessibility.md)
+**Plan:** [`2026-07-12-project-tavern-05a-ui-runtime-foundations.md`](2026-07-12-project-tavern-05a-ui-runtime-foundations.md)
 
-**Consumes:** complete PoC projections, SemanticGamePort and runtime capabilities.
+**Consumes:** atomic SemanticGamePort publications, resolved text/assets and Phase 3 player-safe ports.
 
-**Produces:** generic Shell/Stage/VN/Overlay/Input/DevDock framework, PoC-owned HUD/Scenes, Pointer mouse/touch support, runtime tooling toggles, versioned Automation Bridge, governed fallback assets and accessible PoC/E2E Web flows.
+**Produces:** exact-AssetId loading, atomic React bridge, neutral renderer registry, Input/Pointer adapters, fixed seven-layer Stage, semantic primitives, Overlay/VN/System hosts, persistence/recovery surfaces and a read-only Phase 5A gate.
 
-- [ ] Implement generic semantic UI and Input before PoC renderers.
-- [ ] Prove DOM/action availability parity and no double dispatch from Pointer/click synthesis.
-- [ ] Run responsive, keyboard, touch, reduced-motion, accessibility, capability and two-Story browser acceptance.
+- [ ] Implement exact asset demand and the atomic publication bridge before any Story renderer.
+- [ ] Implement Input ownership and the fixed Stage without geometry, HitMap or PoC semantics.
+- [ ] Prove generic blocking/persistence/recovery surfaces and the cumulative Phase 5A gate.
 
-Stop if ordinary controls require coordinates, Automation sees hidden state or DebugTools, UI writes Snapshot, or DevDock requires another Artifact.
+Stop if UI rebuilds action availability, coarse preloading returns, browser input becomes a Gameplay command, or a Story-specific renderer enters UI/Web.
+
+### R5B: Complete Phase 5B — StageScene, Character and Story presentation
+
+**Plan:** [`2026-07-12-project-tavern-05b-stage-character-story-presentation.md`](2026-07-12-project-tavern-05b-stage-character-story-presentation.md)
+
+**Consumes:** accepted Phase 5A foundations, frozen E2E/PoC presentation catalogs and atomic Semantic publications.
+
+**Produces:** RuntimePresentationStore, StageScene/variant and hybrid Character renderers, HitMap/Interaction controller, Story-scoped content preference, neutral E2E fixture, and the complete E2E/PoC Web roots.
+
+- [ ] Project one immutable RuntimePresentation publication without rereading Queries.
+- [ ] Prove Pointer/semantic controls converge on typed activation and exact existing actions.
+- [ ] Prove content filtering changes presentation/assets only and PoC remains standard-only.
+
+Stop if GameSimulation imports presentation IDs, a projector creates a second Gameplay gate, an invalid dynamic join mutates Session, or Phase 5 adds PoC Gameplay.
+
+### R5C: Complete Phase 5C — tooling, automation and full acceptance
+
+**Plan:** [`2026-07-12-project-tavern-05c-tooling-automation-acceptance.md`](2026-07-12-project-tavern-05c-tooling-automation-acceptance.md)
+
+**Consumes:** complete Story Web roots, RuntimeCapabilities, DebugTools, player Semantic ports and accessible DOM surfaces.
+
+**Produces:** same-Artifact DevDock/Cheat/Story tooling, bounded Debug UI context, versioned Automation/browser facade, DOM/Port parity, full accessibility/browser/visual checks and the cumulative Phase 5 gate.
+
+- [ ] Keep DevDock and tooling lazy/capability-gated inside the existing root.
+- [ ] Expose normal play to Automation without Snapshot, hidden state or DebugTools.
+- [ ] Run keyboard, touch, zoom, reduced-motion, axe, Chromium/WebKit and visual acceptance.
+
+Stop if tooling creates another Artifact/Session, Automation can cheat, semantic and DOM availability diverge, or coordinate-only operation becomes required.
 
 ### R6: Complete Phase 6 — reproducible PoC release
 
@@ -214,9 +246,12 @@ The engineering Goal is complete only when all of the following are true:
 - E2E and PoC are independently resolvable and buildable;
 - E2E covers module dependencies, transactions, Narrative, Hotfix, Save, Replay and Semantic automation without importing PoC;
 - PoC runs the complete seven-day week through GameSession and SemanticGamePort;
+- each authoritative token creates one Queries-backed atomic GameView/action publication, and one RuntimePresentationStore joins only that publication, the resolved catalog, content preference, and UI session state;
+- StageScene/variant, Character/HitMap/Interaction and GameSymbol remain presentation concerns; GameSimulation/GameView contain no renderer, StageScene, asset, coordinate or Host preference authority;
 - Auto/Quick/Manual Save, strict import, State Dump, DebugBundle and replay work with RunIntegrity;
 - Debug/Cheat/Automation default off and can be enabled in the same PoC Artifact;
 - Pointer supports mouse/touch, semantic DOM supports keyboard/readers, and DOM/Port action semantics agree;
+- the PoC ships only standard content, one heroine figure target and existing Gameplay actions; content preference changes presentation/assets only;
 - code-native fallback assets provide a complete experience without approving archived AIGC candidates;
 - `dist/poc` is reproducible, nested-base-safe, technically deployable and is the same artifact exercised by release smoke;
 - all fast tests, Chromium/WebKit, accessibility, artifact, docs and release gates pass without modifying tracked baselines;

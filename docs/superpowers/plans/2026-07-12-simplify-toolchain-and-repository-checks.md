@@ -176,7 +176,7 @@ git commit -m "chore: remove repository licensing gates"
 
 ### Task 3: Migrate authoritative documentation and all six phase plans
 
-> **Historical path note:** 本计划执行时 `docs/superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md` 仍是当时的 Phase 4 文件，因此下方 Files 与历史 commit 命令保留该路径作为执行记录。该文件现已删除并由 `2026-07-11-project-tavern-04a-poc-gameplay-simulation.md` 与 `2026-07-11-project-tavern-04b-poc-story-golden.md` 取代；后续工作不得重建或继续执行旧 Phase 4 文件。
+> **Historical path note:** 本计划执行时 `docs/superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md` 与 `docs/superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md` 仍是当时的 Phase 4/5 文件，因此下方 Files 与历史 commit 命令保留这些路径作为执行记录。旧 Phase 4 已由 `2026-07-11-project-tavern-04a-poc-gameplay-simulation.md` 与 `2026-07-11-project-tavern-04b-poc-story-golden.md` 取代；旧 Phase 5 已由 `2026-07-12-project-tavern-05a-ui-runtime-foundations.md`、`2026-07-12-project-tavern-05b-stage-character-story-presentation.md` 与 `2026-07-12-project-tavern-05c-tooling-automation-acceptance.md` 取代。后续工作不得重建或继续执行旧文件。
 
 **Files:**
 

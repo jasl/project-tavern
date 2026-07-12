@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - Phase 4A `pnpm verify:poc-gameplay` is a hard prerequisite. Consume `PocGameSimulationV1`, its ten Story-local GameplayModules, Rules/Resolvers, `PocGameCommandExecutorV1`, `PocGameDebugCommandExecutorV1`, `PocGameQueriesV1`, and `PocGameViewV1`; do not copy or replace them in content/presentation/tooling code.
+- `docs/superpowers/specs/2026-07-12-scene-interaction-character-presentation-design.md` is authoritative for StageScene/variant/rig/HitMap/Interaction/content-policy boundaries and atomic SemanticPublication. Phase 4B registers PoC data and mappings against the Phase 2 contracts; it must not create engine contracts or a second GameView.
 - Story identity is exactly `{ id: "week.poc_001", revision: 1 }`; state-contract revision begins at `1`. Package/build key is `poc`, and the package name is `@project-tavern/story-poc`.
 - The run is exactly D1–D7: D1–D6 are service days, D7 has no service, levy is due D7 afternoon, and D7 evening is not actionable.
 - Use exactly two life policies, four recipes, five ingredients, two customer segments, four service modes, one helper, one facility opportunity, one relationship opportunity, one two-stage WorldAction, one deterministic threshold choice, one four-band 2D6 check, three Auras, five Scheduler events, and three ending IDs defined by `docs/poc/`.
@@ -23,6 +24,7 @@
 - Story tooling is part of the same Story×Web Artifact and is capability-gated at runtime. It may be a lazy package export, but it must not create a separate application root, HTML file, build mode, GameSimulation, or Story identity.
 - Player-facing text is Chinese; stable identifiers are English. Real text remains in TextCatalogs and does not enter semantic Narrative control flow.
 - Runtime assets remain fallback-only until explicit asset selection. Current Image Gen candidates must not enter Asset Packs, resolved providers, digests, screenshots, or generation inputs.
+- The current seven-day PoC registers only content maturity `standard = 0`. It adds no daily-touch reward, touch counter, relationship reaction rule, persistent outfit choice, new state/command/action, or suggestive/sexual/explicit runtime content; those require an explicit Phase 4A/4B gameplay revision rather than a presentation shortcut.
 - `references/` and `art-source/aigc/**` are never imported, scanned, copied, bundled, or used by tests/generators.
 - Command, golden, and Save fixture verification is read-only. Only `update:commands`, `update:golden`, and `update:fixtures` may rewrite their respective tracked directories, and every generated diff requires manual review.
 - Any balance change updates `docs/poc/balance-v0.md` and the corresponding reviewed thresholds/golden outputs in the same change; implementation must not silently tune around a failing gate.
@@ -62,6 +64,8 @@ stories/poc/
       text-catalogs/index.ts
       assets.ts
       scene-graph.ts
+      interaction-catalog.ts
+      content-maturity-policy.ts
       semantic-actions.ts
     application/
       create-poc-semantic-port.ts
@@ -126,7 +130,16 @@ import {
   pocReferenceSeedV1,
   pocStoryIdentityV1,
 } from "../content/identity.js";
-import { actionIdsV1, eventIdsV1, ingredientIdsV1, recipeIdsV1 } from "../content/ids.js";
+import {
+  actionIdsV1,
+  eventIdsV1,
+  ingredientIdsV1,
+  pocGameSymbolIdsV1,
+  pocHeroineAppearanceLayerOrderV1,
+  pocHeroinePresentationIdsV1,
+  pocSemanticWorkflowActionIdsV1,
+  recipeIdsV1,
+} from "../content/ids.js";
 
 describe("week.poc_001 identity", () => {
   it("freezes the Story and six deterministic runs", () => {
@@ -140,6 +153,34 @@ describe("week.poc_001 identity", () => {
     expect(new Set([...eventIdsV1, ...actionIdsV1, ...ingredientIdsV1, ...recipeIdsV1]).size).toBe(
       eventIdsV1.length + actionIdsV1.length + ingredientIdsV1.length + recipeIdsV1.length,
     );
+  });
+
+  it("freezes fourteen Story-owned world symbols outside UI", () => {
+    expect(pocGameSymbolIdsV1).toHaveLength(14);
+    expect(new Set(pocGameSymbolIdsV1).size).toBe(14);
+    expect(pocGameSymbolIdsV1.every((id) => id.startsWith("symbol.poc."))).toBe(true);
+  });
+
+  it("freezes seven workflow controls outside generic StoryContent actions", () => {
+    expect(pocSemanticWorkflowActionIdsV1).toHaveLength(7);
+    expect(new Set([...actionIdsV1, ...pocSemanticWorkflowActionIdsV1]).size).toBe(
+      actionIdsV1.length + pocSemanticWorkflowActionIdsV1.length,
+    );
+  });
+
+  it("freezes the PoC heroine renderer identity and seven authored layer slots", () => {
+    expect(pocHeroinePresentationIdsV1).toEqual({
+      characterId: "character.poc.heroine",
+      rigId: "rig.poc.heroine.default",
+      poseId: "pose.poc.heroine.idle",
+      expressionId: "expression.poc.heroine.neutral",
+      activityId: "activity.poc.heroine.idle",
+      hitMapId: "hit_map.poc.heroine.idle",
+      rendererId: "renderer.poc.character.paper_doll",
+      staticFallbackAssetId: "asset.poc.character.heroine.static.standard",
+    });
+    expect(pocHeroineAppearanceLayerOrderV1).toHaveLength(7);
+    expect(new Set(pocHeroineAppearanceLayerOrderV1).size).toBe(7);
   });
 });
 ```
@@ -171,7 +212,101 @@ export const pocReferenceRunIdsV1 = Object.freeze({
 } as const);
 ```
 
-`ids.ts` parses and freezes every policy, actor, character, ingredient, recipe, segment, mode, facility, aura, action, event, check/band, fact, quest, outcome, ending, reason, modifier source, scene/node/choice/checkpoint, Text, and Asset ID from the PoC documents. No later file constructs a stable ID from a raw string outside this registry.
+`ids.ts` parses and freezes every policy, actor, character, ingredient, recipe, segment, mode, facility, aura, action, event, check/band, fact, quest, outcome, ending, reason, modifier source, Narrative scene/node/choice/checkpoint, Text, Asset, StageScene, StageSceneVariant, Character/rig/pose/expression/activity/appearance/HitMap, InteractionSurface, InteractionTarget, and InteractionBehavior ID from the PoC documents. No later Story file constructs one of those stable IDs from an unregistered raw string. Narrative `SceneId` and Presentation `StageSceneId` remain distinct branded namespaces。十四个 `symbol.poc.*` 值在这里仅作为严格、唯一、冻结的 Story 字符串登记；Phase 4B 不导入 UI，也不调用尚由 Phase 5A 才提供的 `parseGameSymbolIdV1`。
+
+The presentation catalog is closed to these exact Stage identities:
+
+```ts
+export const pocStageSceneIdsV1 = Object.freeze([
+  "stage_scene.poc.main_menu",
+  "stage_scene.poc.tavern",
+  "stage_scene.poc.market",
+  "stage_scene.poc.world_map",
+  "stage_scene.poc.week_summary",
+] as const);
+
+export const pocStageSceneVariantIdsV1 = Object.freeze([
+  "stage_variant.poc.main_menu.default",
+  "stage_variant.poc.tavern.day",
+  "stage_variant.poc.tavern.evening",
+  "stage_variant.poc.market.day",
+  "stage_variant.poc.world_map.default",
+  "stage_variant.poc.week_summary.default",
+] as const);
+
+export const pocInteractionSurfaceIdsV1 = Object.freeze([
+  "surface.poc.heroine",
+  "surface.poc.tavern",
+  "surface.poc.market",
+  "surface.poc.world_map",
+] as const);
+
+export const pocInteractionTargetIdsV1 = Object.freeze([
+  "target.poc.heroine.figure",
+  "target.poc.tavern.service",
+  "target.poc.market.purchase",
+  "target.poc.world_map.old_trade_road",
+] as const);
+
+export const pocInteractionBehaviorIdsV1 = Object.freeze([
+  "behavior.poc.heroine.open_profile",
+  "behavior.poc.heroine.repair_sign",
+  "behavior.poc.heroine.apologize",
+  "behavior.poc.tavern.service_plan",
+  "behavior.poc.market.purchase",
+  "behavior.poc.world_map.old_trade_road",
+] as const);
+
+export const pocHeroinePresentationIdsV1 = Object.freeze({
+  characterId: "character.poc.heroine",
+  rigId: "rig.poc.heroine.default",
+  poseId: "pose.poc.heroine.idle",
+  expressionId: "expression.poc.heroine.neutral",
+  activityId: "activity.poc.heroine.idle",
+  hitMapId: "hit_map.poc.heroine.idle",
+  rendererId: "renderer.poc.character.paper_doll",
+  staticFallbackAssetId: "asset.poc.character.heroine.static.standard",
+} as const);
+
+export const pocHeroineAppearanceLayerOrderV1 = Object.freeze([
+  "appearance_layer.poc.heroine.back_hair",
+  "appearance_layer.poc.heroine.costume_body",
+  "appearance_layer.poc.heroine.face",
+  "appearance_layer.poc.heroine.front_hair",
+  "appearance_layer.poc.heroine.accessory",
+  "appearance_layer.poc.heroine.held_prop",
+  "appearance_layer.poc.heroine.foreground_effect",
+] as const);
+
+export const pocGameSymbolIdsV1 = Object.freeze([
+  "symbol.poc.actor.stamina",
+  "symbol.poc.actor.mood",
+  "symbol.poc.economy.cash",
+  "symbol.poc.tavern.reputation",
+  "symbol.poc.obligation.levy",
+  "symbol.poc.inventory.ingredient",
+  "symbol.poc.relationship.affection",
+  "symbol.poc.relationship.teamwork",
+  "symbol.poc.action.purchase",
+  "symbol.poc.action.service",
+  "symbol.poc.overlay.ledger",
+  "symbol.poc.overlay.facility",
+  "symbol.poc.facility.cold_storage",
+  "symbol.poc.facility.comfortable_bed",
+] as const);
+
+export const pocSemanticWorkflowActionIdsV1 = Object.freeze([
+  "action.run_start",
+  "action.tavern_opening_start",
+  "action.tavern_opening_continue",
+  "action.tavern_opening_finalize",
+  "action.world_action_complete",
+  "action.narrative_advance",
+  "action.narrative_choose",
+] as const);
+```
+
+`behavior.poc.heroine.open_profile` is Presentation-only. The other five behaviors join only to already-existing Phase 4A action descriptors; they do not introduce commands or rewards. Body-part target IDs are deliberately absent from this PoC catalog。纸娃娃顺序、角色/rig/pose/expression/activity/HitMap/renderer/static fallback 身份同样由这里唯一冻结；Phase 5B 只能消费，不能重命名或重排。
 
 - [ ] **Step 4: Run focused and repository verification**
 
@@ -537,6 +672,8 @@ git commit -m "feat(story-poc): freeze ending and forecast data"
 - Create: `stories/poc/src/presentation/text-catalogs/index.ts`
 - Create: `stories/poc/src/presentation/assets.ts`
 - Create: `stories/poc/src/presentation/scene-graph.ts`
+- Create: `stories/poc/src/presentation/interaction-catalog.ts`
+- Create: `stories/poc/src/presentation/content-maturity-policy.ts`
 - Create: `stories/poc/src/presentation/semantic-actions.ts`
 - Create: `stories/poc/src/patch-surfaces.ts`
 - Create: `stories/poc/src/story-definition.ts`
@@ -549,7 +686,7 @@ git commit -m "feat(story-poc): freeze ending and forecast data"
 **Interfaces:**
 
 - Consumes: complete Story data/Narrative, `createPocRulesV1`, `createPocGameSimulationV1`, Base ResolvedGame/Story/Patch/asset contracts, the Node-safe data-only renderer/layout descriptor contract proven by Phase 2, and stable Text/Asset/Action IDs. The default Story closure does not import `@project-tavern/ui` or a Web renderer registry.
-- Produces: `pocStoryEntryV1`, `definePocStoryV1`, `materializePocSimulationProgramV1`, `materializePocPresentationV1`, typed Patch Surfaces, one complete Chinese TextCatalog, fallback-only assets, a data-only resolved SceneGraph, and `createPocSemanticActionCatalogV1(queries)`.
+- Produces: `pocStoryEntryV1`, `definePocStoryV1`, `materializePocSimulationProgramV1`, `materializePocPresentationV1`, typed Patch Surfaces, one complete Chinese TextCatalog, fallback-only assets, `PocPresentationV1`, `PocStageSceneGraphV1`, `PocResolvedAssetsV1`, `PocResolvedGameV1`, `pocSceneGraphV1`, `pocHeroineStandardAppearanceV1`, `pocResolvedPresentationCatalogV1`, `pocContentMaturityPolicyV1`, the derived single-source `pocStandardRequiredAssetIdsByVariantV1` mapping, a data-only resolved StageScene/variant/rig/hitmap/interaction catalog, the standard-only PoC content policy, and the complete `PocSemantic*V1` contract plus `createPocSemanticActionCatalogV1(queries)`.
 
 - [ ] **Step 1: Write the failing complete-Story contract test**
 
@@ -558,11 +695,17 @@ it("resolves one frozen game with one simulation and the resolved SceneGraph", (
   const resolved = resolveStoryForTestV1(pocStoryEntryV1);
   expect(resolved.frozen).toBe(true);
   expect(resolved.gameSimulation.modules).toHaveLength(10);
-  expect(resolved.sceneGraph.scenes.map((scene) => scene.id)).toEqual([
-    "scene.main_menu",
-    "scene.play",
-    "scene.week_summary",
+  expect(resolved.sceneGraph.stageScenes.map((scene) => scene.stageSceneId)).toEqual([
+    "stage_scene.poc.main_menu",
+    "stage_scene.poc.tavern",
+    "stage_scene.poc.market",
+    "stage_scene.poc.world_map",
+    "stage_scene.poc.week_summary",
   ]);
+  expect(resolved.sceneGraph.contentMaturityPolicy).toMatchObject({
+    levels: [{ id: "content.poc.standard", ordinal: 0 }],
+    defaultMaximumLevel: 0,
+  });
   expect(resolved.presentation.textCatalogs.defaultLocale).toBe("zh-CN");
   expect(resolved.assets.packs).toEqual([]);
   expect(
@@ -581,6 +724,26 @@ it("keeps semantic actions strict and derived from GameQueries", () => {
   );
   expect(actions.every((action) => action.actionId && action.textId)).toBe(true);
   expect(actions.some((action) => "snapshot" in action)).toBe(false);
+  for (const action of actions) {
+    if (action.directInvocation === null) {
+      expect(action.options.length).toBeGreaterThan(0);
+      expect(
+        action.options.every(({ invocation }) => invocation.actionId === action.actionId),
+      ).toBe(true);
+    } else {
+      expect(action.options).toEqual([]);
+      expect(action.directInvocation.actionId).toBe(action.actionId);
+    }
+  }
+  expect(Object.keys(pocSemanticInvocationOptionsSchemaByActionV1).sort()).toEqual(
+    [...actionIdsV1, ...pocSemanticWorkflowActionIdsV1].sort(),
+  );
+  expect(() => parsePocSemanticInvocationV1(unknownSemanticActionV1())).toThrowError(
+    expect.objectContaining({ code: "semantic.action_unknown" }),
+  );
+  expect(() => parsePocSemanticInvocationV1(extraSemanticOptionV1())).toThrowError(
+    expect.objectContaining({ code: "semantic.options_invalid" }),
+  );
 });
 ```
 
@@ -621,7 +784,165 @@ export default pocStoryEntryV1;
 
 `scene-graph.ts` exports only deeply frozen renderer IDs, layout/slot descriptors, and Strict JSON presentation data. It contains no JSX, React component, callback, class instance, DOM/browser global, or dynamic import. The default `src/index.ts`/StoryEntry/Headless import closure may import this descriptor but must not reach any `.tsx` file. Phase 5 adds the Story's Web-only `.tsx` renderer registry/contributions, which resolve these IDs without constructing a second graph or entering the default/Headless closure.
 
-Future Scene renderers receive only `{ viewSlice, semantic: PocSemanticGamePortV1, presentation }`; no complete `GameApplicationPortV1`, Snapshot, persistence, diagnostics, capability/debug port, module owner, Rule, resolver, or raw content object. Semantic descriptors already contain stable ActionId/TextId, enabled, ordered reasons, and strict invocation options derived from `PocGameQueriesV1`. Do not activate React, JSX, DOM, or `DOM.Iterable` in this phase. Extend `LICENSE.md` so `src/presentation/text-catalogs/**` is CC BY-NC-SA while executable code remains PolyForm.
+The resolved graph registers exactly the StageScene/variant/surface/target/behavior IDs frozen in Task 1, the exact `pocHeroinePresentationIdsV1` identity, and one concept HitMap whose only PoC target is `target.poc.heroine.figure`. It must not invent head/face/body-part targets or persistent appearance state. `stage_variant.poc.tavern.day` and `.evening` are catalog variants selected later by the Story Application presentation projector; the catalog contains no Calendar trigger and the Gameplay `PocGameViewV1` contains no StageScene/variant/Asset ID.
+
+`assets.ts` freezes exactly five initially selected appearance layers—back hair, costume body, face, front hair, and accessory—against Task 1's seven-slot authored rig order. `held_prop` and `foreground_effect` remain valid empty slots and therefore produce no invisible placeholder demand. It must preserve the explicit layer-to-asset pairs rather than relying on two parallel arrays:
+
+```ts
+export const pocHeroineStandardAppearanceV1 = deepFreeze([
+  {
+    layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.back_hair"),
+    assetId: parseAssetId("asset.poc.character.heroine.back_hair.standard"),
+  },
+  {
+    layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.costume_body"),
+    assetId: parseAssetId("asset.poc.character.heroine.costume_body.standard"),
+  },
+  {
+    layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.face"),
+    assetId: parseAssetId("asset.poc.character.heroine.face.neutral"),
+  },
+  {
+    layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.front_hair"),
+    assetId: parseAssetId("asset.poc.character.heroine.front_hair.standard"),
+  },
+  {
+    layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.accessory"),
+    assetId: parseAssetId("asset.poc.character.heroine.accessory.standard"),
+  },
+] as const);
+
+const pocHeroineStandardDemandV1 = Object.freeze([
+  ...pocHeroineStandardAppearanceV1.map(({ assetId }) => assetId),
+  parseAssetId("asset.poc.character.heroine.static.standard"),
+]);
+
+export const pocStandardRequiredAssetIdsByVariantV1 = deepFreeze({
+  "stage_variant.poc.main_menu.default": [parseAssetId("asset.poc.background.main_menu.standard")],
+  "stage_variant.poc.tavern.day": [
+    parseAssetId("asset.poc.background.tavern.day.standard"),
+    ...pocHeroineStandardDemandV1,
+  ],
+  "stage_variant.poc.tavern.evening": [
+    parseAssetId("asset.poc.background.tavern.evening.standard"),
+    ...pocHeroineStandardDemandV1,
+  ],
+  "stage_variant.poc.market.day": [parseAssetId("asset.poc.background.market.day.standard")],
+  "stage_variant.poc.world_map.default": [parseAssetId("asset.poc.background.world_map.standard")],
+  "stage_variant.poc.week_summary.default": [
+    parseAssetId("asset.poc.background.week_summary.standard"),
+  ],
+} as const);
+
+export const pocResolvedPresentationCatalogV1 = deepFreeze({
+  sceneGraph: pocSceneGraphV1,
+  heroineStandardAppearance: pocHeroineStandardAppearanceV1,
+  requiredAssetIdsByVariant: pocStandardRequiredAssetIdsByVariantV1,
+});
+```
+
+All twelve Asset IDs are registered fallback-only with `provider: null`: five selected appearance layers, one heroine static fallback, and one background for each of the six variants. `pocResolvedPresentationCatalogV1` is one deep-frozen object returned by resolved Presentation and passed to the Phase 5B projector; it is not a Web-only second catalog. Phase 5B derives the Runtime character's `appearance` directly from its explicit pairs and, after selecting a variant, reads `requiredAssetIds` only from `input.resolvedCatalog.requiredAssetIdsByVariant[variantId]`; it never ambient-imports the mapping or restates, zips, sorts, unions, or coarsens it. Tests assert the pair order matches the first five authored rig slots, all six exact variant keys and ordered demand arrays, every non-null `backgroundAssetId` equals the first ID of its variant demand, no duplicate within a demand, no unselected slot, and no non-standard asset.
+
+`interaction-catalog.ts` maps `behavior.poc.heroine.open_profile` to a closed Presentation intent symbol, while repair/apology/service-plan/purchase/old-trade-road map to the existing Semantic action IDs. It stores only stable provider symbols in Strict JSON—not invocations, commands, closures, or enabled flags. Phase 5B joins those symbols to the atomic action catalog and performs dynamic mode/cardinality validation; Phase 4B validates only static references, ID uniqueness, HitMap shapes, and the complete open-surface DAG.
+
+The outer `surface.poc.tavern` contains a contextual binding from `target.poc.heroine.figure` to `open_surface → surface.poc.heroine`; `surface.poc.heroine` reuses that same target with allowed `direct | choose` and `openSurfaceId: null`. The Tavern service target remains a separate binding. This deliberately exercises the Phase 2 `InteractionSurfaceTargetBindingV1` contract: target semantics are reusable, while transition/mode is surface-local.
+
+`content-maturity-policy.ts` exports `pocContentMaturityPolicyV1` and registers exactly `{ id: "content.poc.standard", ordinal: 0 }` as the only level and default maximum. `scene-graph.ts` exports `pocSceneGraphV1`. Every runtime asset, variant, target, behavior, text, and fallback in this Story requires that same level. No filtered AssetId or alternative suggestive asset enters the resolved graph.
+
+`semantic-actions.ts` owns these exact closed types; none may remain an implied name:
+
+```ts
+type PocCommandOptionsV1<TKind extends PocGameCommandV1["kind"]> = Omit<
+  Extract<PocGameCommandV1, { readonly kind: TKind }>,
+  "kind"
+>;
+type PocNoSemanticOptionsV1 = Readonly<Record<string, never>>;
+
+export interface PocSemanticInvocationOptionsByActionV1 {
+  readonly "action.choose_life_policy": PocCommandOptionsV1<"policy.choose">;
+  readonly "action.purchase": PocCommandOptionsV1<"inventory.buy">;
+  readonly "action.prepare_food": PocNoSemanticOptionsV1;
+  readonly "action.rest": PocNoSemanticOptionsV1;
+  readonly "action.service_plan": PocCommandOptionsV1<"tavern.plan.set">;
+  readonly "action.advance_phase": PocNoSemanticOptionsV1;
+  readonly "action.pay_levy": PocNoSemanticOptionsV1;
+  readonly "action.facility_window": Omit<PocCommandOptionsV1<"facility.choose">, "opportunityId">;
+  readonly "action.repair_sign_with_heroine": PocNoSemanticOptionsV1;
+  readonly "action.old_trade_road": Omit<PocCommandOptionsV1<"world.action.begin">, "actionId">;
+  readonly "action.apologize_to_heroine": PocNoSemanticOptionsV1;
+  readonly "action.run_start": PocNoSemanticOptionsV1;
+  readonly "action.tavern_opening_start": PocNoSemanticOptionsV1;
+  readonly "action.tavern_opening_continue": PocNoSemanticOptionsV1;
+  readonly "action.tavern_opening_finalize": PocNoSemanticOptionsV1;
+  readonly "action.world_action_complete": PocNoSemanticOptionsV1;
+  readonly "action.narrative_advance": PocNoSemanticOptionsV1;
+  readonly "action.narrative_choose": PocCommandOptionsV1<"narrative.choose">;
+}
+
+export type PocSemanticInvocationV1 = {
+  readonly [TActionId in keyof PocSemanticInvocationOptionsByActionV1]: {
+    readonly kind: "invoke";
+    readonly actionId: TActionId;
+    readonly options: DeepReadonly<PocSemanticInvocationOptionsByActionV1[TActionId]>;
+  };
+}[keyof PocSemanticInvocationOptionsByActionV1];
+
+export interface PocSemanticActionOptionV1<TInvocation extends PocSemanticInvocationV1> {
+  readonly optionId: string;
+  readonly textId: TextId;
+  readonly invocation: DeepReadonly<TInvocation>;
+}
+
+type PocSemanticActionDeliveryV1<TInvocation extends PocSemanticInvocationV1> =
+  | {
+      readonly directInvocation: DeepReadonly<TInvocation>;
+      readonly options: readonly [];
+    }
+  | {
+      readonly directInvocation: null;
+      readonly options: readonly [
+        DeepReadonly<PocSemanticActionOptionV1<TInvocation>>,
+        ...DeepReadonly<PocSemanticActionOptionV1<TInvocation>>[],
+      ];
+    };
+
+export type PocSemanticActionDescriptorV1 = {
+  readonly [TActionId in keyof PocSemanticInvocationOptionsByActionV1]: {
+    readonly actionId: TActionId;
+    readonly textId: TextId;
+    readonly enabled: boolean;
+    readonly reasons: readonly DeepReadonly<PocRejectionReasonV1>[];
+    readonly confirmation: DeepReadonly<PocSemanticConfirmationV1> | null;
+  } & PocSemanticActionDeliveryV1<
+    Extract<PocSemanticInvocationV1, { readonly actionId: TActionId }>
+  >;
+}[keyof PocSemanticInvocationOptionsByActionV1];
+
+export type PocSemanticConfirmationV1 = NonNullable<
+  Extract<PocCommandPreviewV1, { readonly allowed: true }>["confirmation"]
+>;
+export type PocSemanticPreviewV1 = PocCommandPreviewV1;
+export type PocSemanticActionResultV1 =
+  | { readonly kind: "committed" }
+  | {
+      readonly kind: "rejected";
+      readonly reasons: readonly DeepReadonly<PocRejectionReasonV1>[];
+    }
+  | {
+      readonly kind: "not_executed";
+      readonly code:
+        "session_unavailable" | "fault_paused" | "hmr_invalidated" | "validation_failed";
+    }
+  | { readonly kind: "faulted"; readonly code: "gameplay_fault" };
+```
+
+The file declares one strict schema in `pocSemanticInvocationOptionsSchemaByActionV1` for every generic and workflow action member and derives the discriminated union/parser from that closed map. Every descriptor has exactly one mapping: a no-parameter action has one `directInvocation` and zero `options`; a parameterized action has `directInvocation: null` plus finite controlled options whose invocations parse against its action-specific schema. The mapped descriptor union preserves `descriptor.actionId === directInvocation/options[].invocation.actionId` at compile time. Unknown actions, missing/extra options, callbacks, state paths, Snapshot fragments, and arbitrary JSON are rejected with stable typed errors. Type tests prove the schema keys equal the combined literal action-ID union in both directions, reject an extra property on `PocNoSemanticOptionsV1`, reject a mismatched descriptor/invocation action ID, and prove all five `PocSemantic*V1` names export from the Story root.
+
+`PocSemanticActionResultV1` is deliberately not the GameSession dispatch envelope. `projectPocSemanticActionResultV1` exhaustively maps `not_executed` unchanged, maps committed execution to `{ kind: "committed" }`, preserves only player-visible rejection reasons, and collapses an engine fault to `{ kind: "faulted", code: "gameplay_fault" }`. Snapshot, State, RNG, facts, internal fault details, attempts, and CommandLog evidence never cross SemanticGamePort; diagnostics remain the separate player-safe inspection path.
+
+The resolved Story exports exact structural aliases `PocPresentationV1`, `PocStageSceneGraphV1`, and `PocResolvedAssetsV1`, then specializes Base's generic `ResolvedGameV1` as `PocResolvedGameV1`. The aliases are inferred from the concrete materializers/catalogs without `as unknown as`, and public type tests prove their simulation/program/presentation/sceneGraph/assets members match `pocStoryEntryV1`.
+
+Future Scene renderers receive only `{ viewSlice, semantic, presentation }`; no complete `GameApplicationPortV1`, Snapshot, persistence, diagnostics, capability/debug port, module owner, Rule, resolver, or raw content object. Semantic descriptors already contain stable ActionId/TextId, enabled, ordered reasons, and strict invocation options derived from `PocGameQueriesV1`. Do not activate React, JSX, DOM, or `DOM.Iterable` in this phase. Extend `LICENSE.md` so `src/presentation/text-catalogs/**` is CC BY-NC-SA while executable code remains PolyForm.
 
 - [ ] **Step 5: Run Story, boundary, type, and full checks**
 
@@ -652,20 +973,14 @@ git commit -m "feat(story-poc): compose seven-day story"
 
 **Interfaces:**
 
-- Consumes: resolved Story, `createGameSessionV1`, Phase 2 `SemanticGamePortV1` plus the state-only/FIFO-read `SemanticGamePortSourceV1`, the shared bounded observer/subscriber-failure callback, `PocGameQueriesV1`, Story semantic action descriptors, fixed bootstrap, and runtime-owned bounded CommandLog.
-- Produces: `projectPocSemanticGameViewV1(queries, revision, status)`, `createPocSemanticGamePortV1`, test-only `createPocStoryHarnessV1`, all real D1–D7 command-through route evidence, and the root `verify:semantic` aggregator ordered E2E then PoC.
+- Consumes: resolved Story, `createGameSessionV1`, Phase 2 atomic `SemanticPublicationV1`/`SemanticGamePortV1` plus the state-only/FIFO-read `SemanticGamePortSourceV1`, the shared bounded observer/subscriber-failure callback, `PocGameSimulationV1.projectGameView`, `PocGameQueriesV1`, Story semantic action descriptors, fixed bootstrap, and runtime-owned bounded CommandLog.
+- Produces: the exact `PocSemanticGamePortV1` specialization, `createPocSemanticGamePortV1`, test-only `createPocStoryHarnessV1`, atomic same-Queries GameView/action publications, all real D1–D7 command-through route evidence, and the root `verify:semantic` aggregator ordered E2E then PoC. It does not produce a second semantic GameView projector.
 
 - [ ] **Step 1: Write the failing semantic harness contract**
 
 ```ts
 export interface PocStoryHarnessV1 {
-  readonly semantic: SemanticGamePortV1<
-    PocSemanticGameViewV1,
-    PocSemanticActionDescriptorV1,
-    PocSemanticInvocationV1,
-    PocSemanticPreviewV1,
-    PocSemanticActionResultV1
-  >;
+  readonly semantic: PocSemanticGamePortV1;
   snapshotForTest(): DeepReadonly<PocGameSnapshotV1>;
   executedAttempts(): readonly DeepReadonly<PocHarnessAttemptV1>[];
 }
@@ -674,9 +989,8 @@ it("exposes only legal visible actions and waits by revision", async () => {
   const harness = createPocStoryHarnessV1({ bootstrap: fixedPocBootstrapV1() });
   const before = harness.semantic.observe();
   expect(before.revision).toBe(0);
-  expect(harness.semantic.availableActions().map((entry) => entry.actionId)).toContain(
-    "action.run_start",
-  );
+  expect(harness.semantic.availableActions()).toBe(before.actions);
+  expect(before.actions.map((entry) => entry.actionId)).toContain("action.run_start");
   const nextIdle = harness.semantic.waitForIdle(before.revision);
   const published: number[] = [];
   const unsubscribe = harness.semantic.subscribe(() => {
@@ -696,7 +1010,7 @@ it("previews at the FIFO front against the latest committed state", async () => 
   const dispatch = harness.semantic.dispatch(consumeLastApInvocationV1());
   const preview = harness.semantic.preview(requiresApInvocationV1());
   harness.releaseQueueFront();
-  await expect(dispatch).resolves.toMatchObject({ kind: "executed" });
+  await expect(dispatch).resolves.toMatchObject({ kind: "committed" });
   await expect(preview).resolves.toMatchObject({
     allowed: false,
     reasons: [{ code: "calendar.insufficient_ap" }],
@@ -714,6 +1028,33 @@ it.each(["lifecycle", "load"] as const)(
     expect(harness.semantic.observe()).not.toHaveProperty("snapshot");
   },
 );
+
+it("publishes the Gameplay view and action catalog from the same Queries instance", async () => {
+  const harness = createQueriesCountingPocStoryHarnessV1();
+  const initial = harness.semantic.observe();
+  expect(harness.createQueriesCalls()).toBe(1);
+  expect(initial.game).toEqual(harness.projectedGameViewFromWitness());
+  expect(initial.actions).toEqual(harness.projectedActionsFromWitness());
+
+  await harness.publishBusyReadyWithoutReplacement();
+  const statusOnly = harness.semantic.observe();
+  expect(statusOnly.game).toBe(initial.game);
+  expect(statusOnly.actions).toBe(initial.actions);
+  expect(harness.createQueriesCalls()).toBe(1);
+});
+
+it.each([
+  ["committed", { kind: "committed" }],
+  ["rejected", { kind: "rejected", reasons: [{ code: "calendar.insufficient_ap" }] }],
+  ["faulted", { kind: "faulted", code: "gameplay_fault" }],
+  ["not_executed", { kind: "not_executed", code: "fault_paused" }],
+] as const)("projects a player-safe %s dispatch result", async (source, expected) => {
+  const result = await createPocSemanticResultFixtureV1(source).dispatch();
+  expect(result).toEqual(expected);
+  expect(collectObjectKeysRecursivelyV1(result)).not.toEqual(
+    expect.arrayContaining(["snapshot", "state", "rng", "facts", "fault", "attempt", "commandLog"]),
+  );
+});
 ```
 
 - [ ] **Step 2: Run and confirm the missing semantic adapter/harness**
@@ -725,6 +1066,15 @@ Expected: FAIL with missing `create-poc-semantic-port.js` and `poc-story-harness
 - [ ] **Step 3: Implement the semantic adapter over one GameSession**
 
 ```ts
+export type PocSemanticGamePortV1 = SemanticGamePortV1<
+  PocGameViewV1,
+  PocSemanticActionDescriptorV1,
+  PocSemanticInvocationV1,
+  PocSemanticPreviewV1,
+  PocSemanticActionResultV1,
+  RuntimeSessionStatusV1
+>;
+
 export function createPocSemanticGamePortV1(
   session: GameSessionV1<PocGameSimulationTypesV1>,
   gameSimulation: PocGameSimulationV1,
@@ -741,16 +1091,20 @@ export function createPocSemanticGamePortV1(
         session.readAtQueueFront((snapshot) => reader(snapshot.state)),
     },
     createQueries: (state) => gameSimulation.createQueries(state),
-    projectView: (queries, revision, status) =>
-      projectPocSemanticGameViewV1(queries, revision, status),
+    projectGameView: (queries) => gameSimulation.projectGameView(queries),
     actions: (queries) => createPocSemanticActionCatalogV1(queries),
     preview: (queries, invocation) => previewPocSemanticInvocationV1(queries, invocation),
-    dispatch: (invocation) => session.dispatch(commandFromPocSemanticInvocationV1(invocation)),
+    dispatch: async (invocation) =>
+      projectPocSemanticActionResultV1(
+        await session.dispatch(commandFromPocSemanticInvocationV1(invocation)),
+      ),
   });
 }
 ```
 
-`projectPocSemanticGameViewV1` receives only `PocGameQueriesV1`, semantic revision, and public status; it never receives Snapshot or RunIntegrity. `getAuthoritativeRevisionToken` returns the immutable current Snapshot reference only as an opaque Base-internal identity token; Base compares it by reference and never passes it to `createQueries`, the projector, actions, preview, UI, or Automation. Preview is a non-mutating FIFO read: the Base factory enqueues it, obtains the latest Gameplay State only when it reaches the queue front, rebuilds Queries there, and creates no attempt, RNG draw, sequence increment, or CommandLog entry. Dispatch maps the strict invocation and the GameCommandExecutor performs the final guard at its own FIFO execution point with the same Rules/Queries semantics. Disabled/unknown/stale option invocations return stable non-executed/rejection results. `subscribe` publishes immutable view/status changes while incrementing semantic revision only when the authoritative Snapshot token changes; every listener is isolated and forwards failures through the same bounded callback injected into GameSession/Application composition. Lifecycle and load replacement therefore publish even when the replacement Gameplay State is structurally equal, while busy/idle-only publication does not increment revision. Task 12 adds the equivalent assertion for fixture anchor replacement once PoC tooling fixtures exist. `waitForIdle(afterRevision)` subscribes before dispatch in the race-sensitive test, follows session/view revisions, and uses no sleep. Automation uses ordinary commands and leaves RunIntegrity normal.
+The adapter directly reuses `gameSimulation.projectGameView(queries)`; there is no `PocSemanticGameViewV1`, `projectPocSemanticGameViewV1`, second State reader, or second Gameplay gate. For each new authoritative token the Base factory creates exactly one `PocGameQueriesV1`, then atomically publishes its renderer-neutral `PocGameViewV1` and `createPocSemanticActionCatalogV1(queries)` result. A status-only publication reuses both references, and `availableActions()` returns the current publication's exact `actions` reference.
+
+`getAuthoritativeRevisionToken` returns the immutable current Snapshot reference only as an opaque Base-internal identity token; Base compares it by reference and never passes it to `createQueries`, `projectGameView`, actions, preview, UI, or Automation. Preview is a non-mutating FIFO read: the Base factory enqueues it, obtains the latest Gameplay State only when it reaches the queue front, rebuilds Queries there, and creates no attempt, RNG draw, sequence increment, or CommandLog entry. Dispatch maps the strict invocation and the GameCommandExecutor performs the final guard at its own FIFO execution point with the same Rules/Queries semantics. Disabled/unknown/stale option invocations return stable non-executed/rejection results. `subscribe` publishes immutable publication/status changes while incrementing semantic revision only when the authoritative Snapshot token changes; every listener is isolated and forwards failures through the same bounded callback injected into GameSession/Application composition. Lifecycle and load replacement therefore publish even when the replacement Gameplay State is structurally equal, while busy/ready-only publication does not increment revision. Task 12 adds the equivalent assertion for fixture anchor replacement once PoC tooling fixtures exist. `waitForIdle(afterRevision)` subscribes before dispatch in the race-sensitive test, follows semantic publication revisions, and uses no sleep. Automation uses ordinary commands and leaves RunIntegrity normal.
 
 - [ ] **Step 4: Port complete D1–D7 routes through semantic invocations**
 
@@ -771,7 +1125,7 @@ Set the PoC package script to `vitest run src/test/semantic-flow.integration.tes
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/*.integration.test.ts && node --test scripts/verify-semantic.test.mjs && pnpm verify:semantic && pnpm verify:stories && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all routes use SemanticGamePort/GameSession, blocked-queue preview reads the latest queue-front State, subscribe/revision behavior is deterministic across commit/lifecycle/load replacement, opaque revision tokens never reach Story callbacks, preview/dispatch agree, D7 ends in afternoon, both E2E and PoC are covered by the public semantic gate, and normal automation leaves RunIntegrity unchanged.
+Expected: PASS; all routes use SemanticGamePort/GameSession, each authoritative token creates one Queries and atomically publishes the Phase 4A GameView/actions, status-only publications reuse both references, blocked-queue preview reads the latest queue-front State, subscribe/revision behavior is deterministic across commit/lifecycle/load replacement, opaque revision tokens never reach Story callbacks, preview/dispatch agree, D7 ends in afternoon, both E2E and PoC are covered by the public semantic gate, and normal automation leaves RunIntegrity unchanged.
 
 - [ ] **Step 6: Commit semantic Story integration**
 
@@ -810,7 +1164,7 @@ for (const definition of Object.values(pocReferenceStrategyDefinitionsV1)) {
     const compiled = await compilePocReferenceStrategyV1(definition);
     const stored = await readPocCommandFixtureV1(definition.strategyId);
     expect(canonicalJsonBytes(compiled.invocations)).toEqual(canonicalJsonBytes(stored));
-    expect(compiled.results.every((result) => result.kind === "executed")).toBe(true);
+    expect(compiled.results.every((result) => result.kind === "committed")).toBe(true);
     expect(compiled.finalView.status).toBe("terminal");
     expect(compiled.finalSnapshot.integrity.mode).toBe("normal");
   });
@@ -832,7 +1186,7 @@ export interface CompiledPocReferenceStrategyV1 {
   readonly strategyId: PocReferenceStrategyIdV1;
   readonly invocations: readonly PocSemanticInvocationV1[];
   readonly results: readonly PocSemanticActionResultV1[];
-  readonly finalView: PocSemanticGameViewV1;
+  readonly finalView: PocGameViewV1;
   readonly finalSnapshot: PocGameSnapshotV1;
 }
 ```
@@ -1375,8 +1729,9 @@ git commit -m "test(story-poc): add phase four story gate"
 - [ ] Relationship pending/completed/abandoned/unresolved/reconciled routes and anger Aura application/apology/expiry pass without conflating mood, affection, teamwork, or stage.
 - [ ] Reference-seed basic/prepared investigation totals are exactly 8/9 from dice `[4,3]`; one persisted check maps to the correct outcome and rewards.
 - [ ] All `current_gap`, `committed_plan_conservative`, and `final` forecasts pass; stable/danger/arrears endings persist exact three-dimensional summaries.
-- [ ] Story SemanticGamePort exposes only visible legal actions, `subscribe` publishes immutable views, lifecycle/load/anchor replacement changes the opaque authoritative token and semantic revision even for structurally equal Gameplay State, preview reads the latest State at the shared FIFO front, preview/dispatch use the same state-only GameQueries/rules, `waitForIdle` uses revisions rather than sleeps, and automation leaves RunIntegrity normal.
-- [ ] The resolved default Story uses one complete `zh-CN` catalog, fallback-only assets, and a Node-importable data-only `.ts` SceneGraph; its default/Headless closure contains no `.tsx`, React/DOM, runtime image provider, tooling import, or `references/`/AIGC source dependency.
+- [ ] Story SemanticGamePort exposes only visible legal actions, creates exactly one Queries per authoritative token, atomically publishes the Phase 4A `PocGameViewV1` and action catalog, makes `availableActions()` return that same actions reference, reuses GameView/actions for status-only publications, and never defines a second semantic GameView projector. Lifecycle/load/anchor replacement changes the opaque authoritative token and semantic revision even for structurally equal Gameplay State; preview reads the latest State at the shared FIFO front, preview/dispatch use the same state-only GameQueries/rules, `waitForIdle` uses revisions rather than sleeps, and automation leaves RunIntegrity normal. Dispatch exhaustively maps the GameSession result to `PocSemanticActionResultV1`; no Snapshot/State/RNG/facts/internal fault/attempt/log field reaches UI or Automation.
+- [ ] The resolved default Story uses one complete `zh-CN` catalog, fallback-only assets, the exact closed PoC StageScene/variant/rig/HitMap/Interaction catalog, and a Node-importable data-only `.ts` SceneGraph; its default/Headless closure contains no `.tsx`, React/DOM, runtime image provider, tooling import, or `references/`/AIGC source dependency. Its content policy registers only `content.poc.standard = 0`, and `PocGameViewV1` contains no StageScene/variant/Asset ID.
+- [ ] `pocGameSymbolIdsV1` freezes exactly fourteen `symbol.poc.*` IDs for Phase 5B Story-owned providers; no provider/component enters Phase 4B, Base/UI, Gameplay, SceneGraph, AssetId, or semantic publication.
 - [ ] Exactly 6 literal semantic invocation fixtures and 6 golden artifacts verify byte-for-byte without writes; every golden contains same-attempt state/RNG/GameplayFact evidence, 6 nightly rows, terminal summary, and normal integrity.
 - [ ] Seeds 1–1000 meet all frozen thresholds: primary strategies at least 900 paid; delegation 850–950 paid with median cash 0–35; two-closure at least 700 paid; explicit failure at most 200 paid; D4 pressure primary strategies at least 750 paid; maximum strict dominance at most 800.
 - [ ] Bed and cold-storage counterfactuals pass exactly as specified by the PoC documents.

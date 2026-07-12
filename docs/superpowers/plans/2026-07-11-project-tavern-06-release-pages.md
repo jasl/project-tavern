@@ -417,7 +417,7 @@ Expected: FAIL because the final two-build order/link checker is absent.
 
 Use `spawnSync(command,args,{stdio:"inherit"})`, no shell command strings. Every ID above maps to one frozen leaf command; in particular `runtime-fixtures → pnpm verify:runtime-fixtures`, `poc-commands → pnpm --filter @project-tavern/story-poc verify:commands`, and `semantic → pnpm verify:semantic`. No entry invokes `verify`, `verify:phase*`, or another recursive aggregate. `test:scripts` runs once before builds. `build:poc` and `build:e2e` run once; `verify:semantic`, UI, bundle, semantic smoke, and artifact steps inspect them. Preserve the Phase 1 tracked-byte/status `finally` guard.
 
-At Task 4, `verify:release` runs `pnpm verify`, WebKit UI E2E, prebuilt PoC smoke, artifact verification, and reproducibility. Task 5 appends workflow validation only after workflows exist.
+At Task 4, `verify:release` runs `pnpm verify`, prebuilt PoC smoke, artifact verification, and reproducibility. Accepted Phase 5C `pnpm verify` already runs the complete Chromium, touch, and WebKit UI matrix against the same two prebuilt roots, so the release wrapper must not run WebKit a second time. Task 5 appends workflow validation only after workflows exist.
 
 Final browser scripts:
 
