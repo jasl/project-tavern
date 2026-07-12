@@ -24,6 +24,27 @@
 - Gameplay randomness uses the serializable project PRNG only. `Math.random()` and retries/search over RNG results are forbidden.
 - Every task follows TDD: add a focused failing test, run it and observe the declared failure, implement the smallest complete slice, rerun focused tests, run `pnpm typecheck && pnpm verify`, and make a narrow commit.
 - No task may add Story identity, TextCatalog strings, Scene renderers, asset providers, application roots, tooling, tracked golden bytes, or Save fixtures. Those belong to Phase 4B or later phases.
+- R1.5 has already materialized every exact dependency and frozen `pnpm-lock.yaml`. Phase 4A adds no registry dependency, never runs `pnpm add`, and must leave `pnpm-lock.yaml` byte-identical; `stories/poc/package.json` changes in this plan are limited to scripts/metadata that do not alter dependency resolution.
+- `docs/poc/balance-v0.md` is the single numeric authority for the Narrative guard values. Both the Phase 4A fixture program and the later concrete Story carry `maxNarrativeStepsPerCommand = 128` and `maxNarrativeCallDepth = 8`; the interpreter consumes those program values and contains no private fallback literal.
+- Phase 4A tests remain a permanently closed gameplay-only leaf. `test:gameplay` enumerates only the Phase 4A files listed by Task 13; it must not expand to `src/test`, glob future Phase 4B tests, read tracked baselines, or invoke any writer.
+
+## Unattended prerequisite, resume, and staging contract
+
+Before Task 1, run this hard gate from a clean Phase 3 checkpoint:
+
+```bash
+test -z "$(git status --porcelain=v1)"
+pnpm verify:materialization
+pnpm verify:phase2
+pnpm verify:persistence-diagnostics
+pnpm verify
+git diff --exit-code -- pnpm-lock.yaml
+test -z "$(git status --porcelain=v1)"
+```
+
+Expected: every command exits 0. `verify:materialization` proves the tracked `scripts/preflight/materialization-lock.json` contract and ignored `.project-tavern/goal-materialization.json` attestation match; missing/stale materialization exits as `external_precondition.materialization_stale` before any edit. A missing script/public Phase 2–3 symbol, lockfile mutation, or dirty tree is a prerequisite failure; do not start Phase 4A by recreating an older ABI or installing a package. Diagnose and repair the owning earlier phase first.
+
+Every task is a resumable checkpoint. At task entry run `git status --short --branch` and inspect the task's exact paths. If an interruption left plan-owned unstaged files, resume at the first unproven step instead of deleting or blindly regenerating them. Before every commit, stage only the task's explicit `git add -- <paths...>` list, run `git diff --cached --name-only`, and fail if any staged path is outside that list; `git add -A`, wildcard staging, unrelated cleanup, amend, and opportunistic dependency changes are forbidden. After each commit run `git status --short --branch` and `git diff --exit-code -- pnpm-lock.yaml`; the expected status is clean.
 
 ---
 
@@ -214,7 +235,7 @@ describe("PoC gameplay contract", () => {
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/gameplay-contract.test.ts`
 
-Expected: FAIL because the `gameplay/contracts` files and the package test dependencies do not exist.
+Expected: FAIL only because the `gameplay/contracts` files do not exist. R1.5 already materialized the package's exact test dependencies; a missing dependency is an environment/prerequisite failure, not the expected TDD failure.
 
 - [ ] **Step 3: Add the exact module catalog and type witness**
 
@@ -973,7 +994,7 @@ export function interpretPocNarrativeStepV1(
 ): PocNarrativeStepResultV1;
 ```
 
-Implement all Catalog node kinds, stale cursor checks, jump/call/return, branch choice, effect/checkpoint atomicity, one blocking request, step limit 64, and call depth 4. The module writes only Narrative State; returned effects are applied later by the executor's effect router.
+Implement all Catalog node kinds, stale cursor checks, jump/call/return, branch choice, effect/checkpoint atomicity, and one blocking request. The interpreter reads `maxNarrativeStepsPerCommand` and `maxNarrativeCallDepth` from the validated immutable Simulation Program; the Phase 4A fixture values are exactly `128` and `8`. Crossing either value produces the Catalog's stable fault and rolls back the whole outer command. There is no hard-coded `64`/`4`, environment override, or hidden fallback. The module writes only Narrative State; returned effects are applied later by the executor's effect router.
 
 The Narrative owner additionally exposes an absolute `narrative.debug.jump` proposal that validates the target scene/node and active-Narrative state without interpreting intervening effects. It is callable only from `PocGameDebugCommandExecutorV1`. Transaction candidate owns the corresponding debug-only RNG replacement primitive for `debug.rng.set`; RNG is not a Gameplay State Slice and no GameplayModule may claim it.
 
@@ -981,7 +1002,7 @@ The Narrative owner additionally exposes an absolute `narrative.debug.jump` prop
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/narrative.test.ts && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all node kinds, both stable limits, invalid references, branch/rejoin, and strict JSON round-trip pass.
+Expected: PASS; all node kinds, the exact program-owned `128`/`8` limits (including boundary and one-past-boundary vectors), invalid references, branch/rejoin, and strict JSON round-trip pass.
 
 - [ ] **Step 5: Commit Narrative**
 
@@ -1510,7 +1531,7 @@ export function createPocGameSimulationV1(
 }
 ```
 
-`pocGameplayModuleTupleV1` is the frozen ten-binding tuple in the exact ownership-catalog order; the bindings are static, so it accepts no `program`. `createPocGameBootstrapInputV1` calls `nextNonZeroUint32()` and then `nextUuidV4()` exactly once each, validates both values, and freezes the result. `createInitialPocGameStateV1` calls each binding's bootstrap-only `createInitialState` in that same fixed order, then applies any Story-data initialization through explicit owner initialization proposals derived from `program.data`; it never passes the complete program into a module or writes a slice directly. Finally it assembles the aggregate State and runs all aggregate schemas/invariants.
+`pocGameplayModuleTupleV1` is the frozen ten-binding tuple in the exact ownership-catalog order; the bindings are static, so it accepts no `program`. `createPocGameBootstrapInputV1` calls `nextNonZeroUint32()` and then `nextUuidV4()` exactly once each, validates both values, and freezes the result. `createInitialPocGameStateV1` calls each binding's bootstrap-only `createInitialState` in that same fixed order, then applies any Story-data initialization through explicit owner initialization proposals derived from `program.data`; it never passes the complete program into a module or writes a slice directly. Finally it assembles the aggregate State and runs all aggregate schemas/invariants. GameSimulation validation also proves the program's Narrative limits are positive safe integers and the Narrative interpreter observes the exact `128`/`8` fixture values.
 
 The tuple is assembled only here; no module, Rule, Resolver, query, or executor imports `story-definition.ts`. `createPocRulesV1(data)` is used only by the default Story materializer and test fixtures. `createPocGameSimulationV1(program)` consumes the supplied, already frozen `program.rules` and must never regenerate Rules from data, otherwise a resolved Hotfix could be silently bypassed. GameSimulation validation proves descriptor/slot uniqueness, dependency closure/DAG, owner triads, aggregate schemas, both executors, and the same type witness. The debug command schema, validation-error schema, executor provider, owner-routing tables, and rule inputs are part of the simulation source projection; changing any of them must change `simulationDigest`, while fixture/tooling adapters must not enter it. Phase 4B's resolved-Story contract test verifies that split. The integration test composes the public GameSession factory around this exact simulation; test helpers may read Snapshot, but production Gameplay exports no Session or integrity mutation capability.
 
@@ -1546,6 +1567,7 @@ git commit -m "feat(story-poc): compose gameplay simulation"
 ```js
 // scripts/verify-poc-gameplay.test.mjs
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("owns a read-only Phase 4A command list", async () => {
@@ -1558,6 +1580,16 @@ test("owns a read-only Phase 4A command list", async () => {
     ["pnpm", ["build"]],
   ]);
   assert(!JSON.stringify(pocGameplayVerificationCommandsV1).match(/update|regenerate/u));
+});
+
+test("keeps test:gameplay closed to Phase 4A files", async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../stories/poc/package.json", import.meta.url), "utf8"),
+  );
+  assert.equal(
+    packageJson.scripts["test:gameplay"],
+    "vitest run src/test/gameplay-contract.test.ts src/test/run-calendar.test.ts src/test/actors-status.test.ts src/test/inventory.test.ts src/test/facilities-tavern.test.ts src/test/workflow-progression.test.ts src/test/narrative.test.ts src/test/rules-resolvers.test.ts src/test/transaction.test.ts src/test/command-executor-core.test.ts src/test/command-executor-workflows.test.ts src/test/game-debug-command-executor.test.ts src/test/game-queries.test.ts src/test/game-simulation.test.ts src/test/game-session-integration.test.ts",
+  );
 });
 ```
 
@@ -1582,7 +1614,7 @@ export const pocGameplayVerificationCommandsV1 = Object.freeze([
 ] as const);
 ```
 
-The runner executes sequentially, stops on first nonzero status, and never invokes a baseline writer. Set `test:gameplay` to `vitest run src/test` and root `verify:poc-gameplay` to the strip-only Node invocation.
+The runner executes sequentially, stops on first nonzero status, and never invokes a baseline writer. Set `test:gameplay` to the exact fifteen-file command frozen by the test above—never `vitest run src/test` or a glob—and root `verify:poc-gameplay` to the strip-only Node invocation.
 
 - [ ] **Step 4: Run the gate twice and prove no tracked mutation**
 
@@ -1620,4 +1652,7 @@ git commit -m "test(story-poc): add gameplay verification gate"
 - [ ] `PocGameQueriesV1` is immutable, consumes no RNG, exposes no hidden results or Snapshot, and preview/execute use the same guards, calculators, and rejection codes.
 - [ ] `PocGameSimulationV1` closes the ten-module tuple, aggregate schemas, normal/debug executors, state-only query factory, query-only projector, bootstrap, and initial-state factory from one `PocGameSimulationTypesV1` witness.
 - [ ] No Story identity, SceneGraph, React, TextCatalog, asset, tooling, application, golden, or Save fixture is introduced before Phase 4B.
+- [ ] Phase 2 and Phase 3 prerequisite gates passed before Task 1, every task used exact-path staging/resume rules, and `pnpm-lock.yaml` remained byte-identical with no mid-Goal registry operation.
+- [ ] Narrative limits are program-owned and exactly `128` automatic nodes / `8` call frames in both fixture and concrete-program contracts; boundary tests prove the interpreter has no stale `64`/`4` literal.
+- [ ] `test:gameplay` is the exact fifteen-file Phase 4A leaf and remains unchanged when Phase 4B tests are later added.
 - [ ] `pnpm --filter @project-tavern/story-poc test:gameplay`, `pnpm verify:poc-gameplay`, and `pnpm verify` pass without changing tracked files.

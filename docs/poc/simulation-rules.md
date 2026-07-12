@@ -1,13 +1,13 @@
 # 七日 PoC 模拟规则与结算顺序
 
-> 本文负责七日 Story 的玩法语义、结算顺序和固定验收向量。架构合同以 `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` 为准，`GameState`、Story 状态、DomainFact、Snapshot/DebugBundle 等字段级 ABI 以 `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` 为准；本文的玩法描述不得重新定义 envelope 或全局合同。
+> 本文负责七日 Story 的玩法语义、结算顺序和固定验收向量。Phase 2+ 术语、运行时所有权和命令边界以 `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md` 为准，未被修订的通用原则继续来自 `docs/superpowers/specs/2026-07-10-react-game-harness-design.md`；`GameState`、Story 状态、GameplayFact、Snapshot/DebugBundle 等字段级 ABI 以 `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` 为准。本文的玩法描述不得重新定义 envelope 或全局合同。
 
 状态：v0，待实现验证
 原则：所有规则必须确定、可保存、可解释、可测试
 
 ## 1. 状态所有权
 
-EngineSession 拥有唯一的 `GameSnapshot`。UI 不直接修改状态，只提交命令并渲染结果。
+GameSession 拥有唯一的 `GameSnapshot`。UI 不直接修改状态，只提交命令并渲染结果。
 
 概念模型：
 
@@ -28,9 +28,9 @@ GameSnapshot
 └── commandSequence
 ```
 
-静态的原料、菜谱、基础需求、设施、事件、文本与素材引用属于 Demo Story 的强类型 data facet；Story 还负责选择这些玩法 Modules、素材包和 Scene。Snapshot 记录稳定 ID、`StartRun` 抽出的每日/客群 base+random-offset seeds，以及当前营业日早晨物化后整日冻结的 `currentDemand`。Story/Engine/ResolvedStory 身份位于 SaveRecord/DebugBundle provenance，不复制进 `GameState`。
+静态的原料、菜谱、基础需求、设施、事件、文本与素材引用属于 PoC Story 的强类型 data facet；Story 还负责选择这些 GameplayModules、素材包和 Scene。Snapshot 记录稳定 ID、`StartRun` 抽出的每日/客群 base+random-offset seeds，以及当前营业日早晨物化后整日冻结的 `currentDemand`。Story/Engine/ResolvedGame 身份位于 SaveRecord/DebugBundle provenance，不复制进 `GameState`。
 
-CommandLog、每次 dispatch 返回的非权威 `DomainFactV1`、UI 状态和异常属于 Diagnostics，不进入 `GameSnapshot`。持久 `Story Fact`、Outcome、Quest 和 Narrative runtime 位于 `state.story`；所有现金与估值原因的权威 `LedgerEntryV1` 位于 `state.simulation.inventory.ledger`，营业历史只引用这些账本行。
+CommandLog、每次 dispatch 返回的非权威 `GameplayFactV1`、UI 状态和异常属于 Diagnostics，不进入 `GameSnapshot`。持久 `Story Fact`、Outcome、Quest 和 Narrative runtime 位于 `state.story`；所有现金与估值原因的权威 `LedgerEntryV1` 位于 `state.simulation.inventory.ledger`，营业历史只引用这些账本行。
 
 `run.status` 只允许 `setup | active | completed_stable | completed_danger | failed_arrears`。`createInitialSnapshot` 先创建 sequence 0、Narrative idle、空 demand seeds 且 `currentDemand=null`、status 已为 `setup` 的 replay base；第一条 `StartRun` 为 D1–D6 两客群生成并持久化 base+random-offset seeds，用初始人气/Fact/Modifier 物化并冻结 D1 `currentDemand`，发出 `demand.materialized`，再启动 manifest 开局文字卡，仍保持 `setup`。玩家走完该 Scene 后选择生活方针才进入 `active`；只有 `PayLevy` 可以写入三个 terminal 值。
 
@@ -65,12 +65,12 @@ PoC 不记录小时、分钟、月份、季节或真实日期。v1 ABI 只有 `m
 1. 验证当前阻塞事件已经处理，或显式声明将延续到紧邻的下一时段；
 2. 标记本时段到期机会；
 3. 清除按时段到期的 Aura；
-4. 进入下一时段并重置 AP，在该 mutation 点先追加 `calendar.phase_advanced`；若跨入新营业日早晨，再从持久 seed 与此刻人气/Fact/Modifier 物化并冻结 `currentDemand`，紧随其后追加一个同值的 `demand.materialized` DomainFact；进入非营业日则清为 null 且不追加该 Fact；
+4. 进入下一时段并重置 AP，在该 mutation 点先追加 `calendar.phase_advanced`；若跨入新营业日早晨，再从持久 seed 与此刻人气/Fact/Modifier 物化并冻结 `currentDemand`，紧随其后追加一个同值的 `demand.materialized` GameplayFact；进入非营业日则清为 null 且不追加该 Fact；
 5. 按 Catalog 的外层全序计算 `day.ended`、`week.ended`、`phase.entered` 等 Scheduler contexts，并在直接 handler 的事件之后追加各 context 的 trigger/effect 事件；
-6. 保持全部 DomainFact 的 mutation/因果顺序，不按 kind 或 ID 重排；
-7. Engine 只提交通过 Schema 与不变量的 Snapshot 和 DomainFact；Application Runtime 收到成功且 Snapshot 已改变的 dispatch 结果后，再排队 Auto Save candidate。
+6. 保持全部 GameplayFact 的 mutation/因果顺序，不按 kind 或 ID 重排；
+7. Engine 只提交通过 Schema 与不变量的 Snapshot 和 GameplayFact；Application Runtime 收到成功且 Snapshot 已改变的 dispatch 结果后，再排队 Auto Save candidate。
 
-周六晚上进入周日时，还要先完成营业和日终结算。周日缴税后直接写入对应 terminal `RunStatus`、生成 `run.completed` DomainFact，不再触发普通行动。
+周六晚上进入周日时，还要先完成营业和日终结算。周日缴税后直接写入对应 terminal `RunStatus`、生成 `run.completed` GameplayFact，不再触发普通行动。
 
 晚上通常先完成营业工作流，再执行独立的 `AdvancePhase`。七日 Story 把非 `closed` 服务的玩法 shorthand `ResolveService` 展开为 `StartOpening` 与 `FinalizeOpening`，由 Finalize 设置 `eveningResolved=true`；主动或入夜时无计划产生的紧急 `closed` 则直接设置该标记，不建立 OpeningSession。`StartOpening`/`FinalizeOpening` 都不改变时段。若 non-closed 计划因原料、现金或体力不足始终未能 Start，且当前没有 active workflow，玩家仍可在晚上执行 `AdvancePhase` 接受紧急收店：同一事务改为 closed、扣人气并写 closure history 后继续日终；若 OpeningSession 已建立则必须 Finalize，不能用推进逃过已提交成本。这样既不锁档，时段也始终只有一个所有者。
 
@@ -236,7 +236,7 @@ coverage = 实际销量 / 当晚全部潜在客流
 3. 按 FIFO 消耗计划份数所需原料并记录成品数量；
 4. 读取该营业日早晨已经用持久 seed、日初人气、日初 Fact 与受控 Modifier 物化并冻结的 `currentDemand`；同日后续变化不回写它；
 5. 保存菜单、成品、同一份 materialized demand、设施、Aura、参与者能力和开始成本账本行 ID 为窄 `OpeningBaseline`；
-6. 由 Workflow owner 设置 `ActiveWorkflow=OpeningSession` 并提交 Snapshot 与 DomainFact，时段仍为晚上；Application Runtime 在 dispatch 成功后再排队 Auto Save candidate。
+6. 由 Workflow owner 设置 `ActiveWorkflow=OpeningSession` 并提交 Snapshot 与 GameplayFact，时段仍为晚上；Application Runtime 在 dispatch 成功后再排队 Auto Save candidate。
 
 任一步失败则整条 `StartOpening` 拒绝，AP、体力、现金、库存、RNG 和 `commandSequence` 都不变。
 
@@ -249,7 +249,7 @@ coverage = 实际销量 / 当晚全部潜在客流
 5. 只对本次成功营业中实际适用并被纳入修正的 `opening` countdown Aura 扣除次数；不适用的营业方式不消费，拒绝或故障回滚也不消费；
 6. 将开始成本与最终结果归并为完整的 `LedgerEntryV1` 引用与 `OpeningLedgerV1`；
 7. 清除 OpeningSession，设置 `eveningResolved=true`；
-8. 提交 Snapshot 与 DomainFact，时段仍为晚上；Application Runtime 在 dispatch 成功后再排队 Auto Save candidate。
+8. 提交 Snapshot 与 GameplayFact，时段仍为晚上；Application Runtime 在 dispatch 成功后再排队 Auto Save candidate。
 
 Finalize 的候选结算、Schema 或不变量失败时，本条命令的 1–8 全部不提交；已经由 StartOpening 合法提交的成本和 OpeningSession 保持原样，不能重复扣除，也不存在返还成本的取消路径。`StartOpening` 与 `FinalizeOpening` 各自增加一次 `commandSequence`。
 
@@ -264,7 +264,7 @@ Finalize 的候选结算、Schema 或不变量失败时，本条命令的 1–8 
 7. `day + 1`，设置次日上午、对应 AP，并将 `DailyPreparationStateV1` 重置为次日 0 次；
 8. 若新日是营业日，用新日 seed 与此刻的 reputation/Fact/Modifier 物化并冻结 `currentDemand`；否则设为 `null`；
 9. 清除 `eveningResolved`；
-10. 依 Catalog 处理 `day.ended`、`phase.entered` 等 Scheduler contexts，生成按因果顺序排列的 `DomainFactV1[]`，通过 Schema/invariants 后一次提交 Snapshot；Application Runtime 在成功结果后排队 Auto Save candidate。
+10. 依 Catalog 处理 `day.ended`、`phase.entered` 等 Scheduler contexts，生成按因果顺序排列的 `GameplayFactV1[]`，通过 Schema/invariants 后一次提交 Snapshot；Application Runtime 在成功结果后排队 Auto Save candidate。
 
 主动提交 `closed` 计划后，进入晚上时直接把 `eveningResolved` 标记为真，不建立 OpeningSession，也不扣工资、杂费或人气；若进入晚上时仍无计划，`AdvancePhase` 在同一事务补上紧急 `closed` 计划、人气 -1 和类型化事件，并同样标记已解决。已有 non-closed plan 但未能开店时，晚上结束的 `AdvancePhase` 使用完全相同的紧急 closure reason/penalty/history 后继续日终。三种情况都由唯一的 Calendar 命令拥有跨日边界，不存在第二条偷偷跨日的路径。
 
@@ -298,7 +298,7 @@ PoC 只允许以下 Aura：
 
 事件定义使用稳定 ID、明确窗口、优先级、受限条件与受限效果。PoC 不实现动态脚本或通用加权事件池。Scheduler 在每个 context 开始时冻结一份不可变 observation；该 context 的所有 trigger/condition 都读取同一份 observation，并在候选选择完成后才按稳定顺序应用效果，因此同一 context 的事件不能互相启用或禁用。后续 context 可以看到前一 context 已提交到同一候选事务的效果。
 
-对 PoC 最重要的 observation 边界是：`command.succeeded` 看到 CommandCoordinator 已应用的各 owner proposals；`calendar.advance_phase` 是唯一时间命令，但 Calendar owner 只写 Calendar 路径。Coordinator 先协调营业后腐败、日终 Aura 计时、夜间恢复、每日重置及日期/时段推进，再让 `day.ended` 与 `phase.entered` 读取完整 post-transition candidate。前者 context 携带刚结束的旧日，后者携带新日期/时段；Story 匹配旧日必须使用 `day.ended` trigger 自带的 `days`，不能假定 conditions 中的 calendar 仍停在旧日。这些只是同一命令事务里的不可变投影，不是额外提交的 Snapshot。
+对 PoC 最重要的 observation 边界是：`command.succeeded` 看到 GameCommandExecutor 已应用的各 owner proposals；`calendar.advance_phase` 是唯一时间命令，但 Calendar owner 只写 Calendar 路径。GameCommandExecutor 先协调营业后腐败、日终 Aura 计时、夜间恢复、每日重置及日期/时段推进，再让 `day.ended` 与 `phase.entered` 读取完整 post-transition candidate。前者 context 携带刚结束的旧日，后者携带新日期/时段；Story 匹配旧日必须使用 `day.ended` trigger 自带的 `days`，不能假定 conditions 中的 calendar 仍停在旧日。这些只是同一命令事务里的不可变投影，不是额外提交的 Snapshot。
 
 七日 Story 用以下整数层级给候选排序：
 
@@ -311,7 +311,7 @@ PoC 只允许以下 Aura：
 
 周五上午同时展示两条机会与互斥说明。调查必须在上午执行 `world.action.begin { actionId: "action.old_trade_road", optionId }`；`optionId` 只能是 `choice.old_trade_road.basic` 或 `choice.old_trade_road.prepared`，不存在独立的准备命令。Begin 扣除 `step.old_trade_road.departure` 的 1 AP，并在同一事务中验证与扣除 3 体力、基础物资费 4 以及准备 option 的额外 4；成功后立即占用互斥组、将 `outcome.relationship_opportunity` 设为 `relationship.abandoned`，并以 `scene.old_trade_road.departure` 建立 Narrative。扣款、体力、Scheduler 或 Narrative 仲裁失败时整条命令回滚，关系机会仍可用。均衡生活多出的上午 1 AP 必须在出发前使用。
 
-`scene.old_trade_road.departure` 结束后 workflow 进入等待下午状态；在此之前 `calendar.advance_phase` 会被 Narrative 阻止。合法推进到下午时，Coordinator 完成各 owner 的 phase-transition proposals 后请求第二步 `step.old_trade_road.investigation` 的 `scene.old_trade_road.investigation`。该场景结束后 workflow 才进入 `ready_to_complete`，此时除系统/存档外只允许 `world.action.complete`：扣除第二步 2 AP，使用 Begin 冻结的 `preparationBonus` 结算检定，追加 `ResolvedCheckV1` 与 band effects，并清除 workflow；不再扣现金或体力，也不启动第三段隐式 Narrative。结果 Overlay 从已提交的 ResolvedCheck projection 展示档位和收益，读档不会重掷。
+`scene.old_trade_road.departure` 结束后 workflow 进入等待下午状态；在此之前 `calendar.advance_phase` 会被 Narrative 阻止。合法推进到下午时，GameCommandExecutor 完成各 owner 的 phase-transition proposals 后请求第二步 `step.old_trade_road.investigation` 的 `scene.old_trade_road.investigation`。该场景结束后 workflow 才进入 `ready_to_complete`，此时除系统/存档外只允许 `world.action.complete`：扣除第二步 2 AP，使用 Begin 冻结的 `preparationBonus` 结算检定，追加 `ResolvedCheckV1` 与 band effects，并清除 workflow；不再扣现金或体力，也不启动第三段隐式 Narrative。结果 Overlay 从已提交的 ResolvedCheck projection 展示档位和收益，读档不会重掷。
 
 若没有开始调查，进入下午后调查入口关闭，关系 StoryAction `story.action.start { actionId: "action.repair_sign_with_heroine" }` 开放。关系场景分别用 `choice.repair_sign.cooperate`（2 AP）、`choice.repair_sign.decline`（0 AP）或 `choice.repair_sign.conflict`（0 AP）提交结果；任一选择都将 `outcome.investigation` 设为 `investigation.missed_by_choice`。玩家也可以完全不发起该 StoryAction，此时不自动修改关系 Outcome，保持普通经营伙伴路线。周六生气时才开放 `action.apologize_to_heroine`。
 
@@ -336,7 +336,7 @@ WorldAction/StoryAction 自带的 scene request 与同一外层命令内 Schedul
 4. 根据税后现金、人气与设施计算稳定/危险结果；
 5. 组合关系与调查结果；
 6. 生成周总结与诊断指标；
-7. 提交 terminal Snapshot 与 DomainFact；Application Runtime 按通用规则为成功 dispatch 排队 Auto Save candidate。
+7. 提交 terminal Snapshot 与 GameplayFact；Application Runtime 按通用规则为成功 dispatch 排队 Auto Save candidate。
 
 `PayLevy` 不改变 `phase`；最终存档固定为 `day=7`、`phase=afternoon` 与 terminal run status。总结界面是终局投影，不代表另一个晚上时段。
 
@@ -348,13 +348,13 @@ WorldAction/StoryAction 自带的 scene request 与同一外层命令内 Schedul
 
 Slot 语义在 D7 也不改变：`auto.current` 是滚动自动存档；它缺失或未通过完整验证时，合法的 `auto.previous` 只作为显式标记的 recovery candidate，不静默回退。`quick` 和 `manual` 是两个独立可替换 Slot，各自捕获调用瞬间的已提交 Snapshot。
 
-加载顺序为：严格解析隔离候选 → SaveRecord Schema 与上限 → state digest → identity/compatibility → 稳定引用与当前 Story Schema → Base/Module/Profile invariants → 原子替换 Session。阻断键精确为 `story.id + story.revision + stateContractRevision + stateContractDigest + engine.digest + simulationDigest`；`story.digest`、`presentationDigest`、display-only `engine.version` 与 diagnostics-only `appBuildId` 只提示。只有独立 adoption declaration 精确匹配旧/新 simulation digest、状态合同 revision/digest 与当前 simulation PatchSet，且候选通过完整校验时可以收养；纯表现补丁不影响该资格。收养必须建立新 replay anchor并清空旧 CommandLog。其他阻断差异保留原文件、允许导出并拒绝建立可运行 Session。Developer 对 DebugBundle 的 best-effort inspection/replay 不得写入 Save Slot。
+加载顺序为：严格解析隔离候选 → SaveRecord Schema 与上限 → state digest → identity/compatibility → 稳定引用与当前 Story Schema → Base/GameplayModule/GameSimulation invariants → 原子替换 GameSession。阻断键精确为 `story.id + story.revision + stateContractRevision + stateContractDigest + engine.digest + simulationDigest`；`story.digest`、`presentationDigest`、display-only `engine.version` 与 diagnostics-only `appBuildId` 只提示。只有独立 adoption declaration 精确匹配旧/新 simulation digest、状态合同 revision/digest 与当前 simulation PatchSet，且候选通过完整校验时可以收养；纯表现补丁不影响该资格。收养必须建立新 replay anchor并清空旧 CommandLog。其他阻断差异保留原文件、允许导出并拒绝建立可运行 GameSession。`debug_tools` capability 下对 DebugBundle 的 best-effort inspection/replay 仍不得写入 Save Slot。
 
 至少保留一个 `SaveRecordV1` fixture，证明 Auto、Quick、Manual、OpeningSession、WorldActionSession 与周结算状态的 round-trip；另保留损坏、未来 formatRevision、revision mismatch、digest mismatch 和 current→previous recovery fixtures。首版 fixture 不虚构尚不存在的 migrator。
 
-## 13. DomainFact、Story Fact 与账本行
+## 13. GameplayFact、Story Fact 与账本行
 
-每个成功命令返回按引擎应用顺序排列的不可变 `DomainFactV1[]`，例如：
+每个成功命令返回按引擎应用顺序排列的不可变 `GameplayFactV1[]`，例如：
 
 ```text
 inventory.purchased
@@ -378,7 +378,7 @@ levy.paid
 run.completed
 ```
 
-UI 文案和测试消费 DomainFact 中的类型化字段，并在适用时读取 `ChangeReasonV1` 与 before/after，不重新猜测状态差量。`GameSnapshot` 是唯一恢复来源；`DomainFactV1[]` 只负责解释本次 dispatch 并进入最多 200 条的有界 CommandLog，不用于恢复或再次应用。需要跨命令保留的故事状态必须是 Snapshot 中的强类型 Story Fact/Outcome；现金、报废、腐败和其他估值原因必须写入 `InventoryStateV1.ledger` 的 `LedgerEntryV1`，不伪装成 Story Fact。
+UI 文案和测试消费 GameplayFact 中的类型化字段，并在适用时读取 `ChangeReasonV1` 与 before/after，不重新猜测状态差量。`GameSnapshot` 是唯一恢复来源；`GameplayFactV1[]` 只负责解释本次 dispatch 并进入最多 200 条的有界 CommandLog，不用于恢复或再次应用。需要跨命令保留的故事状态必须是 Snapshot 中的强类型 Story Fact/Outcome；现金、报废、腐败和其他估值原因必须写入 `InventoryStateV1.ledger` 的 `LedgerEntryV1`，不伪装成 Story Fact。
 
 ## 14. 七日 Story 最小回归矩阵
 

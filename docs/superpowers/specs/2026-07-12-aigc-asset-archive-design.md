@@ -18,7 +18,7 @@
 
 - 不存储或验证生成服务条款副本、条款日期或账号类型。
 - 不维护逐图 provenance Schema、版权结论、输入链、hash 链或 review 状态机。
-- 不对 AIGC 归档目录、入选图片或最终 Player/Pages 做版权扫描或自动准入判定。
+- 不对 AIGC 归档目录、入选图片或最终 E2E/PoC Web Artifact 做版权扫描或自动准入判定。
 - 不要求为每张图片标注许可证、版权人、生成时间、模型摘要或不可重复的输出身份。
 - 不把 Asset Pack digest 解释为版权、来源或生成证据。
 
@@ -83,7 +83,7 @@ AIGC 归档不再创建或要求：
 - candidate/selected/runtime 版权准入状态；
 - 条款证据、权利受益人证明、输入权利证明或完整生成链。
 
-许可验证器、素材验证器、CI 和发布验证器均不读取、遍历或判定 `art-source/aigc/**`。该目录不是运行时输入，也不进入 Player/Pages 构建。
+许可验证器、素材验证器、本地工程 gate 和未来发布验证器均不读取、遍历或判定 `art-source/aigc/**`。该目录不是运行时输入，也不进入 E2E/PoC Web Artifact。
 
 ## 6. 入选素材提升
 
@@ -135,6 +135,6 @@ Asset Pack digest 只用于：
 - 仓库不存在 AIGC service-terms review 或 provenance JSON；
 - 首批四张图和 prompt 可在 `art-source/aigc/openai/illustrations/` 直接浏览和编辑；
 - 没有测试、CI 或发布步骤扫描 `art-source/aigc/**` 的许可、provenance、prompt 配对或 digest；
-- `art-source/aigc/**` 不进入 Player/Pages；
+- `art-source/aigc/**` 不进入 E2E/PoC Web Artifact；
 - 未入选归档图片的变化不影响 Asset Pack digest；
 - 最终运行时素材字节变化会由构建自动反映到 Asset Pack digest。

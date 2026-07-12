@@ -11,6 +11,8 @@
 ## Global Constraints
 
 - Phase 2A–4B and their acceptance commands must pass from the live phase base SHA before this plan starts; use the live post-Phase-4B paths and public exports when a historical Phase 1 filename differs.
+- The roadmap `R1.5` materialization checkpoint is a hard prerequisite. `pnpm prepare:goal` is the only networked/side-effecting dependency preparation step and runs before the engineering Goal; every Phase 5A task starts by passing read-only `pnpm verify:materialization`. The tracked contract is `scripts/preflight/materialization-lock.json`, the ignored local attestation is `.project-tavern/goal-materialization.json`, and missing/stale evidence fails before task changes with `external_precondition.materialization_stale`.
+- All exact Phase 5A npm dependencies, lockfile packages, pnpm store objects, and Playwright browser revisions are already pinned and materialized by R1.5. This plan never chooses a version, runs `pnpm add`, contacts a registry, downloads a browser, or repairs materialization in place; when a task needs to refresh workspace links it may run only `pnpm install --offline --frozen-lockfile` after the materialization check.
 - `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md` and `docs/superpowers/specs/2026-07-12-scene-interaction-character-presentation-design.md` are authoritative. This plan must not restore a pre-publication view shape, coarse asset load group API, Player/Developer split, or UI-owned Gameplay gate.
 - Current Story roots remain exactly `stories/poc` and `stories/e2e`. Phase 5A does not create a Story Web root or create/modify a PoC-specific character, StageScene renderer, HitMap, interaction behavior, content-maturity preference, DevDock, Cheat UI, Automation Bridge, or browser test facade. It may adapt the existing neutral Phase-2 E2E root only to keep each generic UI contract migration independently buildable.
 - `packages/ui/**` and game-neutral `apps/web/**` remain MIT and contain no PoC/E2E identifiers or semantics. The runtime asset verifier may enumerate the closed Story entries only to inspect their resolved manifests; it must not import Story presentation renderers or content into UI/Web.
@@ -25,7 +27,10 @@
 - Interactive targets are at least 44×44 CSS px, information is not hover-only, visible focus is mandatory, closing a blocking surface returns focus, and reduced motion removes nonessential transitions.
 - Runtime controls, labels, focus indicators, and system symbols are semantic DOM/code-native. `art-source/aigc/**` and `references/**` are never enumerated, read, imported, hashed, bundled, or used as fallback inputs.
 - Lucide is limited to system/application controls. Stamina, mood, cash, reputation, ingredients, relationships and other world semantics use the separate Story-supplied `GameSymbol` registry with a code-native fallback; UI defines only the neutral contract and no project symbol ID.
-- Every task follows TDD, runs its focused suite, the current `pnpm verify:ui`, and the current full `pnpm verify`, reviews the exact staged file list, and creates one focused commit. Verification and CI never rewrite tracked assets, fixtures, screenshots, or goldens.
+- Material selection/generation, subjective art approval, VoiceOver/device review, human playtesting, CI, and remote distribution are outside this local engineering plan. Approved runtime assets may be consumed through their manifest; every absent/unapproved slot must remain fully operable through the registered code-native/static fallback.
+- Every task follows TDD, runs its focused suite, the current `pnpm verify:ui`, and the current full `pnpm verify`, reviews the exact staged file list, and creates one focused commit. Local verification never rewrites tracked assets, fixtures, screenshots, or goldens.
+- At every task boundary record phase-base SHA, current HEAD, last completed task commit, and `git status --short`. A matching existing task commit is reverified and skipped; a dirty task resumes only when every changed/untracked path is inside that task's `Files` allowlist. Preserve all other user changes and never restart an already accepted task merely because the Goal/session resumed.
+- An expected-red step is valid only when the named focused test/assertion fails for the documented missing API or stable diagnostic. Registry, host-browser availability, port, permission, unrelated compile, or stale-materialization failures are never accepted as red evidence. Before each commit inspect tracked and untracked paths, stage only the task allowlist with explicit `git add -- ...`, verify `git diff --cached --name-only` and `git diff --cached --check`, and report any remaining worktree changes.
 
 ---
 
@@ -812,7 +817,6 @@ Expected staged paths are only `packages/ui/src/input/**`, `packages/ui/src/inde
 - Modify: `stories/e2e/src/application/e2e-application-root.test.tsx`
 - Create: `.stylelintrc.json`
 - Modify: root `package.json`
-- Modify: `pnpm-lock.yaml`
 
 **Interfaces:**
 
@@ -882,17 +886,27 @@ pnpm lint:styles
 
 Expected: the Vitest command FAILs because the Stage/layout/primitives are missing; `lint:styles` FAILs until the script and reviewed configuration exist.
 
-- [ ] **Step 3: Install exact UI-owned dependencies**
+- [ ] **Step 3: Verify and consume the R1.5-pinned UI dependencies**
 
 Run:
 
 ```bash
-pnpm --filter @project-tavern/ui add --save-peer --save-exact react-dom@19.2.7
-pnpm --filter @project-tavern/ui add --save-exact lucide-react@1.24.0
-pnpm add --workspace-root --save-dev --save-exact stylelint@17.14.0 stylelint-config-standard@40.0.0
+pnpm verify:materialization
+node --input-type=module <<'NODE'
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+const root = JSON.parse(await readFile("package.json", "utf8"));
+const ui = JSON.parse(await readFile("packages/ui/package.json", "utf8"));
+const code = "external_precondition.materialization_stale";
+assert.equal(ui.peerDependencies?.["react-dom"], "19.2.7", code);
+assert.equal(ui.dependencies?.["lucide-react"], "1.24.0", code);
+assert.equal(root.devDependencies?.stylelint, "17.14.0", code);
+assert.equal(root.devDependencies?.["stylelint-config-standard"], "40.0.0", code);
+NODE
+pnpm install --offline --frozen-lockfile
 ```
 
-Expected: exact versions enter the owning manifests and frozen lockfile; no Story manifest changes.
+Expected: the read-only materialization verifier proves `react-dom@19.2.7` is already the UI peer, `lucide-react@1.24.0` is already UI-owned, and root devDependencies already contain `stylelint@17.14.0` plus `stylelint-config-standard@40.0.0`; the offline frozen install exits 0 and changes neither manifest nor lockfile. Any missing/mismatched entry is `external_precondition.materialization_stale`, not permission to edit dependencies during this task.
 
 - [ ] **Step 4: Implement the Stage data contract and pure framing calculation**
 
@@ -987,13 +1001,13 @@ Expected: every command exits 0; all seven layers remain mounted in the fixed or
 - [ ] **Step 7: Stage the exact shell slice and commit**
 
 ```bash
-git add -- packages/ui/src/theme packages/ui/src/primitives packages/ui/src/shell packages/ui/src/index.ts packages/ui/package.json stories/e2e/src/application/e2e-application-root.tsx stories/e2e/src/application/e2e-application-root.test.tsx .stylelintrc.json package.json pnpm-lock.yaml
+git add -- packages/ui/src/theme packages/ui/src/primitives packages/ui/src/shell packages/ui/src/index.ts stories/e2e/src/application/e2e-application-root.tsx stories/e2e/src/application/e2e-application-root.test.tsx .stylelintrc.json package.json
 git diff --cached --name-only
 git diff --cached --check
 git commit -m "feat(ui): add responsive seven-layer stage"
 ```
 
-Expected staged paths are only the listed UI theme/primitives/shell files, the two existing E2E root files, the UI/root manifests and lockfile, `.stylelintrc.json`, and `packages/ui/src/index.ts`.
+Expected staged paths are only the listed UI theme/primitives/shell files, the two existing E2E root files, root `package.json`, `.stylelintrc.json`, and `packages/ui/src/index.ts`; the R1.5-owned dependency entries and lockfile remain byte-identical.
 
 ## Task 5: Implement blocking Workspace Overlay, VN, and System surfaces
 
@@ -1020,8 +1034,6 @@ Expected staged paths are only the listed UI theme/primitives/shell files, the t
 - Create: `packages/ui/src/system/index.ts`
 - Modify: `packages/ui/src/shell/game-stage.tsx`
 - Modify: `packages/ui/src/index.ts`
-- Modify: `packages/ui/package.json`
-- Modify: `pnpm-lock.yaml`
 
 **Interfaces:**
 
@@ -1106,15 +1118,26 @@ pnpm --filter @project-tavern/ui exec vitest run src/overlays src/narrative src/
 
 Expected: FAIL because the bounded Overlay store and blocking layer hosts do not exist.
 
-- [ ] **Step 3: Install the exact dialog dependency at its owner**
+- [ ] **Step 3: Verify the R1.5-pinned dialog dependency at its owner**
 
 Run:
 
 ```bash
-pnpm --filter @project-tavern/ui add --save-exact @radix-ui/react-dialog@1.1.19
+pnpm verify:materialization
+node --input-type=module <<'NODE'
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+const ui = JSON.parse(await readFile("packages/ui/package.json", "utf8"));
+assert.equal(
+  ui.dependencies?.["@radix-ui/react-dialog"],
+  "1.1.19",
+  "external_precondition.materialization_stale",
+);
+NODE
+pnpm install --offline --frozen-lockfile
 ```
 
-Expected: the exact dependency enters `packages/ui/package.json` and `pnpm-lock.yaml`; React/React DOM remain peer-owned as frozen in Task 4.
+Expected: the verifier proves `@radix-ui/react-dialog@1.1.19` is already an exact UI dependency and the offline frozen install changes no bytes; React/React DOM remain peer-owned as frozen in Task 4. Missing or mismatched dependency evidence is `external_precondition.materialization_stale`, not a mid-Goal install decision.
 
 - [ ] **Step 4: Implement the bounded application-owned Overlay session**
 
@@ -1195,13 +1218,13 @@ Expected: every command exits 0; System/Overlay/Narrative events never reach Int
 - [ ] **Step 7: Stage the exact blocking-surface slice and commit**
 
 ```bash
-git add -- packages/ui/src/overlays packages/ui/src/narrative packages/ui/src/system packages/ui/src/shell/game-stage.tsx packages/ui/src/index.ts packages/ui/package.json pnpm-lock.yaml
+git add -- packages/ui/src/overlays packages/ui/src/narrative packages/ui/src/system packages/ui/src/shell/game-stage.tsx packages/ui/src/index.ts
 git diff --cached --name-only
 git diff --cached --check
 git commit -m "feat(ui): add overlay vn and system hosts"
 ```
 
-Expected staged paths are only the listed Overlay/Narrative/System files, `game-stage.tsx`, UI exports/manifest, and the lockfile.
+Expected staged paths are only the listed Overlay/Narrative/System files, `game-stage.tsx`, and UI exports; the R1.5-owned dependency manifest entries and lockfile remain byte-identical.
 
 ## Task 6: Add persistence, diagnostics, and recovery surfaces
 
@@ -1536,6 +1559,7 @@ Update `coreVerificationCommandsV1` by replacing its one direct `verify:phase4` 
 Run:
 
 ```bash
+pnpm verify:materialization
 before="$(git ls-files -z | xargs -0 shasum -a 256)"
 pnpm verify:assets
 pnpm verify:ui
@@ -1580,6 +1604,7 @@ Expected staged paths are only `scripts/assets/**`, `scripts/ui/**`, the listed 
 - [ ] Save UI represents all Phase 3 status/result variants truthfully, writes only Quick/Manual, and leaves current-session plus diagnostic export reachable during storage/session failure.
 - [ ] Runtime asset validation checks safe exact path, realpath containment, media bytes, byte length, SHA-256, and dimensions without directory enumeration or source-archive access; fallback-only manifests perform zero runtime file reads.
 - [ ] Phase 5A adds no PoC character/scene/HitMap/interaction implementation, RuntimePresentationStore/projector, ContentPreference behavior, Story Web root, DevDock, Debug/Cheat UI, Automation Bridge, browser facade, Gameplay contract, or persistent state.
+- [ ] `pnpm verify:materialization` passes from the unchanged R1.5 tracked contract/local attestation; all Phase 5A dependency consumption is offline/frozen and changes no dependency manifest entry or lockfile byte.
 - [ ] `pnpm verify:ui`, cumulative `pnpm verify:phase5a`, and full `pnpm verify` pass without rewriting tracked files; root verification reaches Phase 5A exactly once and keeps the direct semantic gate separate.
 
 ## Execution Handoff

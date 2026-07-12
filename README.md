@@ -10,7 +10,7 @@
 - 七日 PoC 的范围、规则、首轮数值与测试场景已经落盘；
 - Phase 1 已在 `4e9c2bd` 完成并重新通过完整验证，React/TypeScript workspace、Base、UI、Web Host、确定性 walking Story、测试和可复现构建骨架均已落地；
 - Phase 1 后架构已修订为 `ResolvedGame / GameSimulation / GameCommandExecutor / GameQueries`，当前只保留 E2E 与 PoC 两个 Story，每个 `Story × Host` 只有一个 Artifact，Debug/Cheat/Automation 改为运行时能力；
-- Phase 2–6 已依据实际 Phase 1 实现完成修订并通过交叉复核；下一次工程 Goal 从新的 Phase 2 开始，旧 Phase 2 不再执行；
+- Phase 2–6 已依据实际 Phase 1 实现完成修订；在长工程 Goal 前先独立准备素材并完成本机依赖与浏览器物化，然后从新的 Phase 2 开始；
 - 四张 OpenAI 概念图及其 prompt 已按来源归档在 `art-source/aigc/openai/illustrations/`，仅供人工浏览、调整和重新生成；当前仍未复制进运行时 Asset Pack；
 - 大规模正式美术、3D、实时战斗、成人内容和运行时 LLM 均不在当前范围；PoC 必须先以 code-native fallback 完整交付。AIGC 来源归档不进入构建；采用的图片需人工复制到资产包或 Story，由运行时清单、文件字节和自动 Asset Pack digest 进行技术验证。
 
@@ -19,6 +19,7 @@
 - [项目文档地图](docs/README.md)
 - [游戏设计基线](docs/design/game-design-baseline.md)
 - [Phase 2+ 游戏运行时架构修订](docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md)
+- [本地工程交付与独立轨道边界](docs/superpowers/specs/2026-07-12-local-engineering-delivery-boundaries-design.md)
 - [Project Tavern Web 运行时与 Story 架构](docs/superpowers/specs/2026-07-10-react-game-harness-design.md)
 - [Base Envelope 与 PoC Gameplay Contract Catalog v1](docs/superpowers/specs/2026-07-10-engine-contract-catalog.md)
 - [AIGC 素材来源归档设计](docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md)
@@ -50,4 +51,4 @@ Copyright © 2026 Jun Jiang (jasl).
 
 ## 下一道闸门
 
-下一次工程 Goal 从修订后的 Phase 2 开始，先完成破坏式 ABI、Story 布局与单 Artifact 迁移，再实现最小 E2E Story；仓库历史中的旧 Phase 2 不得执行。四张 OpenAI 概念图仍是 archive-only，没有进入运行时 Asset Pack；工程 Goal 也不会自行宣告主观试玩通过或执行远端发布。
+先完成独立素材轨道并提交可为空的 approved pack 交接，再执行 Phase 0 物化计划；只有本地离线凭据通过后，才能创建从修订版 Phase 2 开始的长工程 Goal。该 Goal 交付可复现的本地 Artifact，但不会生成或批准素材、宣告主观试玩通过、创建 GitHub Actions 或执行远端发布。完整自动化验收之后再启动最终人工审查；远端分发另行设计和批准。

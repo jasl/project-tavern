@@ -11,6 +11,6 @@ The completed migration established these durable boundaries:
 - Repository automation does not scan archive metadata, image/prompt pairing, dependencies, or `vendor/**` licensing.
 - Selected runtime images are copied manually into `packages/assets/**` or a Story asset directory.
 - Only the promoted runtime manifest and exact shipped bytes enter the technical Asset Pack digest.
-- `art-source/aigc/**` and `references/**` remain excluded from Player and Pages artifacts.
+- `art-source/aigc/**` and `references/**` remain excluded from all runtime/distribution artifacts.
 
 The archive migration and authority synchronization were committed during Phase 1. Future changes follow [`../specs/2026-07-12-aigc-asset-archive-design.md`](../specs/2026-07-12-aigc-asset-archive-design.md) and do not recreate a repository licensing verifier.

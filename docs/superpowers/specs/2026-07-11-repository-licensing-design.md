@@ -95,7 +95,7 @@ MIT 区域不得包含：
 - 酒馆专用 State、Command、Fact、规则、数值和稳定 ID；
 - Story 剧情、人物设定、本地化正文或世界观表达；
 - 项目专属皮肤、Logo、角色图片、背景、音频和其他游戏素材；
-- 只为 Demo 或正式 Story 服务的 fixture、测试内容与 Hotfix。
+- 只为 E2E 或 PoC Story 服务的 fixture、测试内容与 Hotfix。
 
 若 `apps/web` 后续出现游戏专属代码，该代码必须移动到 Story/Module，或以文件级声明改受 PolyForm/CC 管理；不能因为位于 MIT 目录就自动获得 MIT。
 
@@ -103,9 +103,8 @@ MIT 区域不得包含：
 
 以下项目自有软件默认适用 `PolyForm-Noncommercial-1.0.0`：
 
-- `packages/modules/**`；
-- `stories/**` 中的 TypeScript/JavaScript、规则、数值、配置、Scene glue、Hotfix 和游戏专用测试；
-- E2E/Sandbox Story 与依赖酒馆 Modules 的集成测试；
+- `stories/**` 中的 TypeScript/JavaScript、Story-local GameplayModules、规则、数值、配置、Scene glue、Hotfix 和游戏专用测试；
+- E2E/PoC Story 及其 Gameplay 集成测试；
 - Story 专用构建、校验、迁移和内容编译工具；
 - 未被范围表或文件级声明明确归入 MIT/CC 的其他项目自有软件。
 
@@ -139,11 +138,11 @@ MIT 区域不得包含：
 
 ## 5. 复合发布制品
 
-网页 Player bundle 是多许可证聚合制品：
+PoC Web Artifact 是多许可证聚合制品：
 
 - MIT 代码仍可被单独提取并用于商业项目；
 - PolyForm/CC 内容不会因为与 MIT 代码打包而变成 MIT；
-- 包含游戏专用软件或原创内容的整个 Player bundle 只能按所有组成许可证的交集使用，因此不能商业使用；
+- 包含游戏专用软件或原创内容的整个 PoC Web Artifact 只能按所有组成许可证的交集使用，因此不能商业使用；
 - 构建产物携带项目范围说明、Required Notice 和项目标准法律文本或稳定 URL；
 - Source map、独立素材包或可下载 Story 包也遵循相同范围，不是绕开许可的第二分发渠道。
 
@@ -180,9 +179,9 @@ MIT 区域不得包含：
 - 只用于人工观察通用模式；
 - 每项来源在 `docs/research/reference-register.md` 登记；
 - 本地存在不表示项目获得复制、修改或再分发权；
-- 根许可证和最终 Player Notices 都不覆盖其中内容。
+- 根许可证和最终 PoC Artifact notices 都不覆盖其中内容。
 
-CI 还应断言不存在已跟踪的 `references/` 文件，并检查生产 import graph、asset manifest 与生成输入中没有该路径。
+本地工程 gate 还应断言不存在已跟踪的 `references/` 文件，并检查生产 import graph、asset manifest 与生成输入中没有该路径；未来 CI 必须复用同一边界。
 
 ## 9. 商业素材、依赖与 AI 素材
 
@@ -190,7 +189,7 @@ CI 还应断言不存在已跟踪的 `references/` 文件，并检查生产 impo
 - npm 依赖通过精确 manifest 和 frozen lockfile 管理可重现性；无论直接、传递、开发或生产依赖，均不做逐包许可取证、`THIRD_PARTY_NOTICES.md` 登记或构建阻断；
 - Lucide、字体等若作为依赖安装则遵守各自原始条款；若将其文件有意复制进仓库，则放入 `vendor/**`；
 - AIGC 素材按生成来源归档在 `art-source/aigc/<source>/**`；来源目录之下自由组织，模型名和 prompt 文件均可选，不维护逐输出审计 JSON、digest、时间戳、输入链或许可判断；
-- AIGC 来源档案可以进入 Git，但不进入构建、Player、Pages 或自动许可扫描。采用的图片由作者人工复制到 `packages/assets/**` 或 Story asset 目录，之后作为普通运行时资产处理；
+- AIGC 来源档案可以进入 Git，但不进入 E2E/PoC Web Artifact、远端分发输入或自动许可扫描。采用的图片由作者人工复制到 `packages/assets/**` 或 Story asset 目录，之后作为普通运行时资产处理；
 - 商业素材和 `references/` 永不作为生成输入，除非未来取得针对该操作的明确授权并修改本规格。
 
 ### 9.1 AIGC 来源归档与运行时提升
@@ -260,8 +259,8 @@ CONTRIBUTING.md
 - `references/` 没有被跟踪、导入、打包或作为 AIGC 输入；
 - 自动化不扫描 `art-source/aigc/**` 的许可、prompt 配对、模型名、digest 或来源元数据，也不从该目录构建运行时素材；
 - MIT import graph 不依赖 PolyForm/CC 的游戏专用实现；
-- Player artifact 携带项目 License scope、NOTICE 和项目标准法律文本；artifact 检查只验证发布结构和技术 digest，不冻结法律文本哈希；
-- CI 不生成或维护 npm/vendor 版权清单，也不对其做自动法律结论。
+- PoC Web Artifact 携带项目 License scope、NOTICE 和项目标准法律文本；artifact 检查只验证发布结构和技术 digest，不冻结法律文本哈希；
+- 本地工程 gate 和未来 CI 均不生成或维护 npm/vendor 版权清单，也不对其做自动法律结论。
 
 ## 14. 权威来源
 
@@ -285,6 +284,6 @@ CONTRIBUTING.md
 3. PolyForm 与 CC 的目录默认值是否覆盖全部 Story/Module/内容资产；
 4. 混合目录是否必须依赖文件级/manifest 映射；
 5. 商业素材和 `references/` 是否仍排除在生产与生成输入之外，AIGC 来源档案是否保持不进入构建；
-6. Player bundle 是否清楚说明多许可证交集；
+6. PoC Web Artifact 是否清楚说明多许可证交集；
 7. 商标保留和贡献/CLA 闸门是否符合未来可能商业发行的需要；
 8. 是否还有任何文件会因为“位于公开仓库”而被误认为自动获得许可。

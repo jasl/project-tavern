@@ -8,7 +8,7 @@
 
 适用阶段：Phase 1 已实现机制，以及未被后续修订改变的通用原则
 
-> **Phase 2+ 权威修订：** [`2026-07-12-post-phase1-game-runtime-design.md`](2026-07-12-post-phase1-game-runtime-design.md) 已取代本文中的旧术语、公共酒馆 Modules、Sandbox/Demo Story 布局、Player/Developer build flavor、独立 Developer application 和 E2E 复用完整酒馆玩法等约定。本文保留为 Phase 1 as-built 设计记录；发生冲突时必须执行 2026-07-12 修订，不得继续扩展旧边界。
+> **Phase 2+ 权威修订：** [`2026-07-12-post-phase1-game-runtime-design.md`](2026-07-12-post-phase1-game-runtime-design.md) 已取代本文中的旧术语、公共酒馆 Modules、Sandbox/Demo Story 布局、Player/Developer build flavor、独立 Developer application 和 E2E 复用完整酒馆玩法等约定；[`2026-07-12-local-engineering-delivery-boundaries-design.md`](2026-07-12-local-engineering-delivery-boundaries-design.md) 已将素材准备、人工试玩、CI 和远端托管移出第一轮工程 Goal，并取代本文相冲突的人工审查/发布约定。本文保留为 Phase 1 as-built 设计记录；发生冲突时必须执行后续修订，不得继续扩展旧边界。
 
 ## 1. 设计结论
 
@@ -31,12 +31,13 @@
 技术实现按以下顺序解释：
 
 1. [`2026-07-12-post-phase1-game-runtime-design.md`](2026-07-12-post-phase1-game-runtime-design.md) 负责 Phase 2+ 术语、Story、Gameplay、Application、Capability、Input 和 Artifact 边界；
-2. 本规格负责 Phase 1 as-built 架构和未被修订改变的通用原则；
-3. [`2026-07-10-engine-contract-catalog.md`](2026-07-10-engine-contract-catalog.md) 负责共享 envelope 与七日 PoC 的字段语义，并按 2026-07-12 的名称和所有权映射解释；
-4. `docs/poc/poc-charter.md` 负责第一轮玩法范围与通过闸门；
-5. `docs/poc/simulation-rules.md`、`balance-v0.md`、`content-and-playtest.md` 与 `reference-strategies.md` 负责 PoC Story 的规则、数值和固定场景；
-6. `docs/design/game-design-baseline.md` 负责长期产品方向；
-7. `docs/art/first-web-visual-pack.md` 负责首批视觉语言、素材槽位、来源记录和人工准入。
+2. [`2026-07-12-local-engineering-delivery-boundaries-design.md`](2026-07-12-local-engineering-delivery-boundaries-design.md) 负责独立素材、本地无人值守工程、最终人工审查与 deferred 远端分发轨道；
+3. 本规格负责 Phase 1 as-built 架构和未被修订改变的通用原则；
+4. [`2026-07-10-engine-contract-catalog.md`](2026-07-10-engine-contract-catalog.md) 负责共享 envelope 与七日 PoC 的字段语义，并按 2026-07-12 的名称和所有权映射解释；
+5. `docs/poc/poc-charter.md` 负责第一轮玩法范围与通过闸门；
+6. `docs/poc/simulation-rules.md`、`balance-v0.md`、`content-and-playtest.md` 与 `reference-strategies.md` 负责 PoC Story 的规则、数值和固定场景；
+7. `docs/design/game-design-baseline.md` 负责长期产品方向；
+8. `docs/art/first-web-visual-pack.md` 负责独立先行素材轨道的首批视觉语言、素材槽位、来源记录和人工准入。
 
 若字段目录把某个酒馆概念写成“Engine ABI”，按 2026-07-12 修订将其解释为 `stories/poc` 的 Story-local Gameplay/PoC ABI，而不是 Base 能力。若两份文档仍出现无法由包所有权解决的冲突，停止实施并修正文档，不由实现者临场创造第三种合同。
 
@@ -367,7 +368,7 @@ Loader 根据实际取得的入口脚本及可解析本地 import closure bytes 
 
 代码 import closure 的冻结算法是：从明确的 Engine、Story simulation、Story presentation 和 Application roots 分别解析 package `exports` 后的静态生产依赖；拒绝动态任意路径、workspace 外 symlink 与 `references/`；把每个输入记录为 workspace-relative POSIX path、内容 SHA-256 和归属 facet，按 path 升序写入 Canonical JSON，再以对应 domain 摘要。不得把绝对路径、mtime、文件遍历顺序、Vite chunk 名或系统换行转换当输入。一个源文件可以由 builder 产生两个结构化投影，但代码 bytes 只能按实际 import root 归入允许的 closure；非法 simulation → presentation 依赖直接失败。
 
-生成的 root manifests 位于忽略的 `dist/manifests/`，不提交仓库；`pnpm verify` 完成一次 Player 构建并只读检查同次产物，`pnpm verify:release` 才在隔离的 clean source archive 中执行两次完整构建并比较字节级可复现性，两者都不得改 tracked 文件。Save/Debug/golden 中需要稳定 provenance 的测试 fixture 单独跟踪，只有显式 `regenerate:fixtures`/`update:golden` 可以重写，并必须人工审阅。摘要算法 revision、root 清单与 package/toolchain version 写入 manifest，算法变化视为 Engine/state-contract ABI 变更。
+生成的 root manifests 位于忽略的 `dist/manifests/`，不提交仓库；`pnpm verify` 完成一次构建并只读检查同次产物，`pnpm verify:release` 才在隔离的 clean source archive 中执行两次完整构建并比较字节级可复现性，两者都不得改 tracked 文件。Save/Debug/golden 中需要稳定 provenance 的测试 fixture 单独跟踪，只有显式 writer 可以重写，并由执行 agent 按 delivery-boundaries 规格记录 canonical diff、摘要、分类和审查结论；普通验证不能自动接受。摘要算法 revision、root 清单与 package/toolchain version 写入 manifest，算法变化视为 Engine/state-contract ABI 变更。
 
 State digest 只覆盖完整 GameSnapshot，不包含 provenance、Slot metadata、保存时间、CommandLog 或 UI 状态。
 
@@ -558,7 +559,7 @@ Profile/Coordinator 集成测试验证唯一状态 owner、无非法跨模块 im
 - 规则同步性、输入不变、输出 Schema、无 `NaN/Infinity`、账本和平衡不变量；
 - 相同 seed/输入得到相同结果。
 
-Demo 继续保留六种 reference strategies、golden week、fast-check 命令序列和 1,000-seed balance driver。Golden/截图只能通过显式命令和人工评审更新，CI 不写回。
+PoC 继续保留六种 reference strategies、golden week、fast-check 命令序列和 1,000-seed balance driver。Golden/工程截图只能通过显式命令和执行 agent 的证据审查更新；普通验证不写回。素材采用和人工试玩仍由独立轨道负责。
 
 ### 21.4 E2E Story
 
@@ -580,12 +581,12 @@ Playwright 失败产物包含 screenshot、trace、console、State Dump 和 Debu
 - Playwright 主视口至少覆盖 1024×768 与 1600×1000，并验证超宽屏不拉伸；
 - 少量稳定 fixture 才使用视觉截图，不建立大面积脆弱像素快照；
 - 覆盖 keyboard-only、焦点恢复、200% zoom、reduced-motion 和自动化可访问性扫描；
-- 核心 E2E 至少在 Chromium 与 WebKit 运行；首次 Pages 试玩前完成一次真实横屏平板与 VoiceOver smoke；
+- 核心 E2E 至少在 Chromium 与 WebKit 运行；真实横屏平板与 VoiceOver 属于工程验收后的最终人工审查；
 - 正式 Demo Story 只做启动、首个行动和素材加载 Smoke。
 
-## 22. CI、构建与发布
+## 22. 本地验证、构建与交付边界
 
-每次提交至少执行：
+每个工程 checkpoint 至少执行：
 
 1. format、lint、import boundary 和 cycle 检查；
 2. TypeScript 7 typecheck；
@@ -594,17 +595,15 @@ Playwright 失败产物包含 screenshot、trace、console、State Dump 和 Debu
 5. E2E Story Playwright smoke；
 6. Demo Story artifact 的 base-path、启动、首行动和素材 Smoke。
 
-主分支或发布构建再执行完整 Playwright、关键分辨率、可访问性和可复现 artifact manifest 检查。仓库最终提供单一非交互入口 `pnpm verify`；它不发布、不改 tracked baseline。
+本地 release gate 再执行完整 Playwright、关键分辨率、可访问性和可复现 artifact manifest 检查。仓库最终提供单一非交互入口 `pnpm verify`；它不发布、不改 tracked baseline。
 
-Player 与 Developer 是静态 build flavor：Player 编译时排除 mutating DevTools；Developer 可使用 playground、fixtures、DebugCommand 和 Hotfix diagnostics。两者共享 GameShell，但 Developer E2E artifact 永不部署。
+Phase 1 的 Player/Developer 静态 build flavor 只保留为迁移输入：Player 编译时排除 mutating DevTools，Developer 提供 playground、fixtures、DebugCommand 和 Hotfix diagnostics。Phase 2 必须按后续修订将它们收敛为每个 `Story × Host` 唯一 Artifact 和默认关闭的运行时 capabilities，不得继续扩展这套 flavor split。
 
-Vite 固定 `base: "./"` 和 HashRouter。发布流程只部署已经在验证 job 中构建、Smoke 并上传的同一份 Player `dist`，Pages job 不重新构建。`dist`、报告、存档和 DebugBundle 保持 gitignored。
+Vite 固定 `base: "./"` 和 HashRouter。正式本地 Artifact 从干净输入构建两次并比较排序后的 artifact SHA-256 manifest；时间戳等允许的非确定 metadata 不进入比较，source map 默认关闭。`dist`、报告、存档和 DebugBundle 保持 gitignored。
 
-发布 workflow 使用受保护的 GitHub Pages environment。正式发布从干净输入构建两次并比较排序后的 artifact SHA-256 manifest；时间戳等允许的非确定 metadata 不进入比较。正式 Player 默认不公开 source map。
+本地交付证据记录 Engine/Story/resolved digests、Hotfix 集合、`appBuildId`、artifact SHA-256 manifest、许可证 notices 和浏览器 smoke。旧构建遇到更高 IndexedDB database revision 时只读退出，不能为了回滚破坏新数据。
 
-Release 记录 Engine/Story/resolved digests、Hotfix 集合、`appBuildId`、artifact SHA-256 manifest、许可证 notices、浏览器 smoke 和回滚目标。旧构建遇到更高 IndexedDB database revision 时只读退出，不能为了回滚破坏新数据。
-
-回滚采用前向修复：revert/修复源码后重新通过完整验证、构建和部署，不能直接把未经当前管线验证的历史 artifact 重新发布。首次 Pages 试玩前补齐短运行手册：本地 bootstrap/verify、Story/Hotfix authoring 与校验失败、存档恢复/导出/删除、Pages 发布与前向回滚、依赖升级、平板/VoiceOver smoke、DebugBundle 隐私和素材许可登记。
+远端 CI、部署、remote smoke、权限和回滚由 deferred 分发轨道单独设计。本地工程轨道只提供 bootstrap/verify、Story/Hotfix authoring、存档恢复/导出/删除、依赖物化和 DebugBundle 隐私手册；平板/VoiceOver 与主观试玩属于最终人工审查。
 
 ## 23. 安全与健壮性边界
 
@@ -629,8 +628,8 @@ Release 记录 Engine/Story/resolved digests、Hotfix 集合、`appBuildId`、ar
 - 中央舞台、Overlay、VN、顶栏和可切换 DevDock 完成；
 - Auto/Quick/Manual Save、JSON 导入导出、State Dump 和有界 replay 完成；
 - E2E Story 稳定验证各个模块及跨模块工作流；
-- GitHub Pages 可以从新局开始、刷新后继续，并部署测试过的同一 artifact；
-- 素材 fallback、来源/许可/预算和 Image Gen 人工闸门生效。
+- `dist/poc` 可以从新局开始、刷新后继续，并在 nested base 下运行通过测试的同一 artifact；
+- 素材 fallback 和技术 Asset Pack 验证生效；来源/许可与 Image Gen 采用由先行素材轨道负责。
 
 Demo 玩法验收继续采用 `docs/poc/` 定义的七日范围：生活方针、采购、备菜、营业模式、设施选择、关系/调查取舍、属性门槛、2D6、Aura、税负和多维结局。试玩前不因架构重构主动增加玩法。
 

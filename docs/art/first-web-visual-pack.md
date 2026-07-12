@@ -2,9 +2,11 @@
 
 日期：2026-07-12
 
-状态：v2 视觉方向；v1 四张 OpenAI 概念图保留归档，尚无图片提升为运行时素材
+状态：独立先行素材准备轨道；v2 视觉方向；v1 四张 OpenAI 概念图保留归档，尚无图片提升为运行时素材
 
 适用范围：React Harness 的 StageScene、角色呈现、HUD、VN、Workspace Overlay 与七日 PoC 视觉探索
+
+> 本文属于工程 Goal 之前的独立素材轨道。Image Gen、人工筛选、风格/一致性与采用决定不进入 Phase 2–6 Goal；Goal 只消费启动时已经批准并提升的 runtime assets，并对所有缺失槽位保留完整 code-native/static fallback。素材轨道可以先行但不要求一次完成全部槽位。
 
 ## 1. 目的
 
@@ -198,9 +200,12 @@ symbol.poc.facility.comfortable_bed
 
 ## 9. 运行时提升与 Asset Pack
 
-`art-source/aigc/**` 是 archive-only：生产代码、测试扫描、构建和 Pages 都不读取它。概念图进入 Git 不代表已被运行时采用。
+`art-source/aigc/**` 是 archive-only：生产代码、测试扫描、构建和 Web Artifact 都不读取它。概念图进入 Git 不代表已被运行时采用。
 
 被采用的图片由作者人工复制到 `packages/assets/**` 或 `stories/<story>/assets/**`。运行时记录只包含稳定 Asset ID、相对路径、媒体类型、尺寸、字节数和精确文件摘要，不保留生成服务、模型、prompt、审计或反向来源字段。
+
+本先行轨道必须在 Phase 0 之前提交一个版本化技术交接点：
+`packages/assets/src/approved-poc-pack.ts` 导出 `approvedPocAssetPacksV1`。没有图片获准时该只读数组为空；有图片获准时，它只登记已复制到 `packages/assets/runtime/poc/**` 的 provider，并使用本文和 Phase 4B 冻结的稳定 Asset ID。`packages/assets/src/index.ts` 公开该值；`packages/assets/src/approved-poc-pack.test.ts` 对非空 provider 的受控根路径、媒体 magic、字节数、尺寸和 SHA-256 做机械校验，并证明空数组合法。文件名中的 `approved` 只表示项目所有者已决定让它进入 runtime；许可/审美判断不进入引擎 schema。该模块、测试、provider 文件和 clean Git commit 是素材轨道交给工程 Goal 的唯一输入，工程 Goal 不扫描候选目录或等待新的人工决定。
 
 `RuntimePresentationView` 先根据当前 StageScene variant、角色层和内容等级求出精确、去重且保持首现顺序的 `requiredAssetIds`；AssetRegistry 只加载这些 ID。被当前内容等级过滤或当前画面未使用的素材不能先加载再隐藏。
 
@@ -217,6 +222,8 @@ Asset Pack digest 自动覆盖 runtime manifest 的 canonical projection；provi
 - 背景、人物和物件不含可读文字、Logo、水印或现代物件；
 - 代码 UI 保持语义 DOM、键盘可达、可见焦点和 code-native fallback；
 - `art-source/aigc/**` 不进入 Web Artifact，也不被 runtime 素材验证器扫描；
+- `approvedPocAssetPacksV1` 始终存在且可为空；每个非空 provider 只引用已提交的 `packages/assets/runtime/poc/**` 文件和既有 Asset ID；
+- `pnpm exec vitest run packages/assets/src/approved-poc-pack.test.ts`、`pnpm typecheck`、`pnpm verify:boundaries` 和当前 `pnpm verify` 在该素材 commit 上通过；
 - 当前 PoC 只登记 standard 内容；suggestive 研究稿如产生也保持 archive-only；
 - v1 四张和 v2 新稿都不因“已生成”自动进入 Asset Pack。
 

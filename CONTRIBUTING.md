@@ -10,7 +10,7 @@ By submitting such a contribution, you represent that you have the right to lice
 
 ## Restricted game and content areas
 
-The project does not currently accept external contributions to PolyForm-covered game software or CC BY-NC-SA-covered original content. This includes `packages/modules`, `stories/**`, project narrative, localization, art, audio, game-design documents, Story Hotfixes, fixtures, and game-specific tests.
+The project does not currently accept external contributions to PolyForm-covered game software or CC BY-NC-SA-covered original content. This includes shared or Story-local Gameplay software, `stories/**`, project narrative, localization, art, audio, game-design documents, Story Hotfixes, fixtures, and game-specific tests.
 
 Restricted-area contributions may be accepted only after Jun Jiang has approved a written Contributor License Agreement or copyright assignment that permits copying, modification, distribution, sublicensing, and commercial use while preserving reasonable contributor attribution. No such general CLA is currently offered.
 

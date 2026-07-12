@@ -1,5 +1,9 @@
 # Simplify Toolchain and Repository Checks Implementation Plan
 
+> **Status:** Completed Phase 1 cleanup record; do not execute again. The later
+> [`Project Tavern Goal Materialization`](2026-07-12-project-tavern-00-goal-materialization.md)
+> plan deliberately reintroduces an exact local Node/package-manager checkpoint for the bounded Phase 2–6 Goal and supersedes this document's no-`.node-version` constraint for future work. The Player/Developer commands below remain as-built historical evidence only.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace exact local toolchain and repository-license gates with minimum engine declarations while preserving behavior, architecture, artifact, and E2E verification.
@@ -191,7 +195,7 @@ git commit -m "chore: remove repository licensing gates"
 - Modify: `docs/superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md`
 - Modify: `docs/superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md`
 - Modify: `docs/superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md`
-- Modify: `docs/superpowers/plans/2026-07-11-project-tavern-06-release-pages.md`
+- Modify: `docs/superpowers/plans/2026-07-11-project-tavern-06-local-artifact.md`
 - Modify: `docs/superpowers/plans/2026-07-11-repository-licensing-implementation.md`
 - Modify: `docs/superpowers/plans/2026-07-12-simplify-aigc-asset-archiving.md`
 
@@ -231,7 +235,7 @@ Expected: the forbidden scan is empty, minimum-version language is present in al
 - [ ] **Step 3: Commit the documentation migration**
 
 ```bash
-git add -- AGENTS.md CONTRIBUTING.md docs/README.md docs/superpowers/specs/2026-07-10-react-game-harness-design.md docs/superpowers/specs/2026-07-11-repository-licensing-design.md docs/superpowers/specs/2026-07-12-simplify-toolchain-and-repository-checks-design.md docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md docs/superpowers/plans/2026-07-11-project-tavern-01-foundation-walking-skeleton.md docs/superpowers/plans/2026-07-11-project-tavern-02-modules-e2e-story.md docs/superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md docs/superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md docs/superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md docs/superpowers/plans/2026-07-11-project-tavern-06-release-pages.md docs/superpowers/plans/2026-07-11-repository-licensing-implementation.md docs/superpowers/plans/2026-07-12-simplify-aigc-asset-archiving.md docs/superpowers/plans/2026-07-12-simplify-toolchain-and-repository-checks.md
+git add -- AGENTS.md CONTRIBUTING.md docs/README.md docs/superpowers/specs/2026-07-10-react-game-harness-design.md docs/superpowers/specs/2026-07-11-repository-licensing-design.md docs/superpowers/specs/2026-07-12-simplify-toolchain-and-repository-checks-design.md docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md docs/superpowers/plans/2026-07-11-project-tavern-01-foundation-walking-skeleton.md docs/superpowers/plans/2026-07-11-project-tavern-02-modules-e2e-story.md docs/superpowers/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md docs/superpowers/plans/2026-07-11-project-tavern-04-demo-story-golden.md docs/superpowers/plans/2026-07-11-project-tavern-05-ui-assets-accessibility.md docs/superpowers/plans/2026-07-11-project-tavern-06-local-artifact.md docs/superpowers/plans/2026-07-11-repository-licensing-implementation.md docs/superpowers/plans/2026-07-12-simplify-aigc-asset-archiving.md docs/superpowers/plans/2026-07-12-simplify-toolchain-and-repository-checks.md
 git diff --cached --check
 git commit -m "docs: align plans with lightweight repository policy"
 ```

@@ -12,6 +12,7 @@
 
 - 本计划以 docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md 为最高优先级架构输入。
 - Phase 2 Acceptance、pnpm verify:phase2 和当前完整 pnpm verify 必须在本阶段开始前通过，工作树状态必须明确。
+- 在任何 Phase 3 编辑前运行只读 `pnpm verify:materialization`；缺失或 stale 必须以 `external_precondition.materialization_stale` 在改动前停止。Phase 3 不运行 `pnpm prepare:goal`、`pnpm add`、`pnpm view` 或任何 registry-facing command，只消费 R1.5 已写入 manifest/lock 并缓存的 exact dependencies。
 - 所有权威操作共享一条 GameSession FIFO：Gameplay dispatch、合法 load/import/adoption、lifecycle replacement、replayable DebugCommand 和 fixture/DebugBundle anchor。
 - GameSession 调用同一个 GameCommandExecutor attempt 恰好一次；CommandLog 消费该 attempt，不允许为诊断或 replay 重新执行当前命令。
 - CommandLog 只记录 schema 实际 parse 后的 GameCommand/DebugCommand 与 Session-finalized attempt；Semantic invocation、UI form 和 Story executor 的未最终 candidate 不入日志。
@@ -30,6 +31,9 @@
 - Base 不导入 idb、IndexedDB、DOM、React、具体 Story 或 E2E 类型；apps/web 不静态导入 E2E Story。
 - 每个任务严格 TDD、聚焦测试、当前 pnpm verify、git diff --check、精确暂存和独立 commit。
 - tracked Save/Debug fixtures 只能由显式 regenerate:runtime-fixtures 重写；普通 test、verify 和 CI 只读。
+- 每个 Expected RED 必须由命令输出中的指定 test title、缺失 symbol/path 或稳定 error code 命中；执行 agent 保存匹配证据。若命令因语法、dependency materialization、浏览器、其他测试或未声明错误失败，必须先修复意外失败，不得把任意非零退出当成合格 RED。
+- Goal 恢复时先读取 `git status --short --branch`、`git log -1 --oneline`、Phase 2 gate 和当前任务 Files：clean tree 从下一任务开始；dirty tree 只有在全部路径属于同一个未完成任务且 focused RED/GREEN 可重建时才续跑，否则停止并报告。不得重做已提交任务或猜测 fixture transaction 的状态；Task 11 generator 的 recovery protocol 是唯一允许的自动恢复。
+- 每次 commit 前，执行 agent 将 `git diff --cached --name-status` 与当前任务 Files 加精确 rename/delete/generated manifest 集合逐项比较；出现未列出的路径即停止。fixture/provenance 的 review 由执行 agent 按 schema、classification、digest、manifest 与 byte diff rubric 完成并记录证据，不等待人工批准。
 
 ---
 
@@ -531,8 +535,8 @@ git commit -m "feat(base): validate save compatibility"
 - Create: apps/web/src/host/indexeddb-record-store.test.ts
 - Modify: apps/web/src/host/create-web-host.ts
 - Modify: apps/web/src/host/create-web-host.test.ts
-- Modify: apps/web/package.json
-- Modify: pnpm-lock.yaml
+- Inspect unchanged: apps/web/package.json
+- Inspect unchanged: pnpm-lock.yaml
 - Test: apps/web/src/host/indexeddb-record-store.test.ts
 
 **Interfaces:**
@@ -540,18 +544,29 @@ git commit -m "feat(base): validate save compatibility"
 - Consumes: HostAtomicRecordStoreV1、HostStoredRecordV1、HostRecordMutationV1 and browser IndexedDB。
 - Produces: createIndexedDbRecordStoreV1 with all-or-nothing read/list/commit、Host revision CAS、stable error mapping and no Base dependency on idb。
 
-- [ ] **Step 1: Add exact Web-only dependencies**
+- [ ] **Step 1: Assert the pre-materialized exact Web-only dependencies without registry access**
 
 Run:
 
 ```bash
-pnpm --filter @project-tavern/web add --save-exact idb@8.0.3
-pnpm --filter @project-tavern/web add --save-dev --save-exact fake-indexeddb@6.2.5
-pnpm view idb@8.0.3 name version license repository dist.integrity --json
-pnpm view fake-indexeddb@6.2.5 name version license repository dist.integrity --json
+pnpm verify:materialization
+node --input-type=module - <<'NODE'
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const manifest = JSON.parse(readFileSync("apps/web/package.json", "utf8"));
+assert.equal(manifest.dependencies?.idb, "8.0.3");
+assert.equal(manifest.devDependencies?.["fake-indexeddb"], "6.2.5");
+const lock = readFileSync("pnpm-lock.yaml", "utf8");
+assert.match(lock, /idb:\s*\n\s*specifier: 8\.0\.3\s*\n\s*version: 8\.0\.3/u);
+assert.match(lock, /fake-indexeddb:\s*\n\s*specifier: 6\.2\.5\s*\n\s*version: 6\.2\.5/u);
+NODE
+pnpm install --frozen-lockfile --offline
+pnpm --filter @project-tavern/web exec node --input-type=module -e \
+  'await import("idb"); await import("fake-indexeddb");'
+git diff --exit-code -- apps/web/package.json pnpm-lock.yaml
 ```
 
-Expected: apps/web/package.json and pnpm-lock.yaml record exact versions；no dependency notice inventory is generated。
+Expected: all commands exit 0；apps/web/package.json and pnpm-lock.yaml already record exact versions from R1.5；offline resolution succeeds；manifest/lock remain byte-identical。任一失败归类为 `external_precondition.materialization_stale` 并在写 Task 4 code 前停止。
 
 - [ ] **Step 2: Write failing transaction, ordering, and upgrade tests**
 
@@ -577,6 +592,28 @@ it("lists records by stable key order", async () => {
   await seedKeys(store, ["z", "a", "m"]);
   expect((await store.list("save")).map((record) => record.key)).toEqual(["a", "m", "z"]);
 });
+
+it("opens the frozen v1 schema through the injected factory", async () => {
+  const factory = createInstrumentedIdbFactoryV1();
+  const store = await createIndexedDbRecordStoreV1({ indexedDB: factory });
+  await store.list("settings");
+  expect(factory.opens()).toEqual([{ name: "project-tavern.runtime", version: 1 }]);
+  expect(factory.schema()).toEqual({
+    storeName: "records",
+    keyPath: ["namespace", "key"],
+    indexes: [{ name: "by-namespace", keyPath: "namespace", unique: false }],
+  });
+});
+
+it.each([
+  [createUnavailableFactoryV1(), "indexeddb.unavailable"],
+  [createFutureRevisionFactoryV1(2), "indexeddb.database_newer"],
+  [createBlockedUpgradeFactoryV1(), "indexeddb.upgrade_blocked"],
+  [createQuotaFailureFactoryV1(), "indexeddb.quota_exceeded"],
+  [createAbortedTransactionFactoryV1(), "indexeddb.transaction_aborted"],
+] as const)("maps expected storage failure to %s", async (factory, code) => {
+  await expect(createAndExerciseStoreV1(factory)).rejects.toMatchObject({ code });
+});
 ```
 
 另加 tests：database revision > supported 时只读拒绝、blocked upgrade、quota、transaction abort、duplicate mutation identity and Uint8Array defensive copies。
@@ -591,7 +628,46 @@ pnpm --filter @project-tavern/web exec vitest run src/host/indexeddb-record-stor
 
 Expected: FAIL because IndexedDB adapter does not exist and createWebHost still uses memory records by default。
 
-- [ ] **Step 4: Implement the one-store atomic adapter**
+- [ ] **Step 4: Implement the frozen one-store IndexedDB ABI and atomic adapter**
+
+Web-internal durable ABI 精确为：
+
+```ts
+export const PROJECT_TAVERN_DATABASE_NAME_V1 = "project-tavern.runtime";
+export const PROJECT_TAVERN_DATABASE_VERSION_V1 = 1;
+export const PROJECT_TAVERN_RECORD_STORE_NAME_V1 = "records";
+export const PROJECT_TAVERN_NAMESPACE_INDEX_NAME_V1 = "by-namespace";
+
+export interface IndexedDbRecordRowV1 {
+  readonly namespace: HostRecordNamespaceV1;
+  readonly key: HostRecordKeyV1;
+  readonly revision: HostRecordRevisionV1;
+  readonly bytes: ArrayBuffer;
+}
+
+export type IndexedDbRecordStoreFailureCodeV1 =
+  | "indexeddb.unavailable"
+  | "indexeddb.database_newer"
+  | "indexeddb.upgrade_blocked"
+  | "indexeddb.quota_exceeded"
+  | "indexeddb.transaction_aborted"
+  | "indexeddb.request_failed"
+  | "indexeddb.schema_invalid";
+
+export interface IndexedDbRecordStoreFailureV1 extends Error {
+  readonly code: IndexedDbRecordStoreFailureCodeV1;
+  readonly operation: "open" | "read" | "list" | "commit";
+}
+
+export interface CreateIndexedDbRecordStoreOptionsV1 {
+  readonly indexedDB: IDBFactory;
+  readonly databaseName?: string;
+}
+```
+
+Production WebHost 必须显式传 `globalThis.indexedDB`，tests 只通过 `CreateIndexedDbRecordStoreOptionsV1.indexedDB` 注入 fake/instrumented `IDBFactory`；adapter 不直接捕获全局 factory。`databaseName` 只用于 test isolation，production 固定使用 `project-tavern.runtime`。version 1 恰好拥有 object store `records`，composite keyPath `["namespace","key"]` 和 non-unique index `by-namespace`；row 没有时间戳、Story ID 或额外 metadata，转换到 `HostStoredRecordV1` 时复制 `ArrayBuffer`→`Uint8Array`。
+
+Open 必须以显式 version 1 执行；遇到更高 database version 的 `VersionError` 映射 `indexeddb.database_newer`，不得 delete/recreate/upgrade；blocked callback close pending handle and rejects `indexeddb.upgrade_blocked`。version=1 但 store/keyPath/index 不精确时 close 并返回 `indexeddb.schema_invalid`，不得自行修复。所有 expected DOMException 在 Web boundary 映射为上述稳定 code；failure 对象不携带本地路径、原始 row bytes 或任意 database dump。
 
 使用一个 records object store 和 composite key [namespace,key]。commit 在单一 readwrite transaction 中：
 
@@ -602,11 +678,11 @@ Expected: FAIL because IndexedDB adapter does not exist and createWebHost still 
 5. await transaction done；
 6. return defensive copies of changed records。
 
-Expected IndexedDB failures map to typed Host errors at Web boundary；unexpected implementation bugs may reject and are normalized by higher runtime failure handling。Base source and package manifest must contain no idb import。
+Expected IndexedDB failures map to `IndexedDbRecordStoreFailureV1` at Web boundary；unexpected implementation bugs may reject and are normalized by higher runtime failure handling。Base source and package manifest must contain no idb import。
 
 - [ ] **Step 5: Wire WebHost and verify boundaries**
 
-createWebHostV1 在 browser 支持 IndexedDB 时使用 persistent adapter；test/options 可以显式注入 memory record store。Host construction must not open Story or GameSession。
+createWebHostV1 在 browser 支持 IndexedDB 时使用 persistent adapter；production 缺少 `globalThis.indexedDB` 时安装返回 `indexeddb.unavailable` 的 degraded record store，绝不静默回退到 memory 并谎报持久化成功；只有 test/options 可以显式注入 memory record store。Host construction must not open Story or GameSession。
 
 Run:
 
@@ -623,7 +699,8 @@ Expected: 所有命令退出 0；IndexedDB/idb imports only exist under apps/web
 - [ ] **Step 6: Commit the Web record store**
 
 ```bash
-git add -- apps/web/src/host/indexeddb-record-store.ts apps/web/src/host/indexeddb-record-store.test.ts apps/web/src/host/create-web-host.ts apps/web/src/host/create-web-host.test.ts apps/web/package.json pnpm-lock.yaml
+git add -- apps/web/src/host/indexeddb-record-store.ts apps/web/src/host/indexeddb-record-store.test.ts apps/web/src/host/create-web-host.ts apps/web/src/host/create-web-host.test.ts
+git diff --exit-code -- apps/web/package.json pnpm-lock.yaml
 git diff --cached --check
 git commit -m "feat(web): persist atomic host records"
 ```
@@ -1323,6 +1400,8 @@ git commit -m "feat(runtime): gate same-artifact debug tools"
 - Modify: packages/base/src/runtime/session/index.ts
 - Modify: packages/base/src/runtime/persistence/persistence-service.ts
 - Modify: packages/base/src/runtime/persistence/persistence-service.test.ts
+- Modify: packages/base/src/runtime/persistence/session-lease.ts
+- Modify: packages/base/src/runtime/persistence/session-lease.test.ts
 - Modify: packages/base/src/runtime/diagnostics/runtime-failures.ts
 - Modify: packages/base/src/runtime/diagnostics/runtime-failures.test.ts
 - Modify: packages/base/src/runtime/index.ts
@@ -1344,6 +1423,7 @@ git commit -m "feat(runtime): gate same-artifact debug tools"
 
 - Consumes: unified E2E application root、accepted ResolvedGame digest tuple、GameSession invalidation、Save/Debug export and import.meta.hot-like adapter。
 - Produces: RuntimeInvalidationControllerV1、installResolvedGameHmrV1 and same-root full rebootstrap with no Developer-specific path。
+- Produces: a disposal/handoff lifecycle that fences the invalidated runtime before a fresh HMR runtime receives Save ownership。
 
 - [ ] **Step 1: Write failing invalidation and queued-dispatch tests**
 
@@ -1378,6 +1458,35 @@ it("skips a command queued behind invalidation", async () => {
   });
   expect(fixture.executeAttemptCalls()).toBe(0);
 });
+
+it("fences the old lease owner before the replacement runtime can save", async () => {
+  const fixture = await createOwnedHmrRuntimeFixture("owner-old");
+  const staleFence = fixture.currentFence();
+  const replacement = fixture.acceptAndRebootstrap({ nextOwnerId: "owner-new" });
+  fixture.releaseBlockedAutoWrite();
+  await replacement;
+
+  expect(fixture.oldRuntimeDisposition()).toBe("disposed");
+  expect(fixture.currentLease()).toMatchObject({
+    ownerId: "owner-new",
+    fencingToken: staleFence.fencingToken + 1,
+  });
+  await expect(fixture.writeWithOldRuntime(staleFence)).resolves.toMatchObject({
+    kind: "rejected",
+    code: "conflict",
+  });
+  await expect(fixture.saveWithReplacement()).resolves.toMatchObject({ kind: "saved" });
+});
+
+it("keeps the replacement read-only when lease takeover fails", async () => {
+  const fixture = await createHmrRuntimeWithTakeoverFailure();
+  await fixture.acceptAndRebootstrap({ nextOwnerId: "owner-new" });
+  expect(fixture.replacementPersistenceStatus()).toMatchObject({
+    ownership: "read_only",
+    code: "lease_takeover_failed",
+  });
+  expect(fixture.oldRuntimeCanWrite()).toBe(false);
+});
 ```
 
 - [ ] **Step 2: Write failing resolved-tuple and same-root tests**
@@ -1385,6 +1494,8 @@ it("skips a command queued behind invalidation", async () => {
 HMR tuple exactly includes Story ID/revision/digest、Engine digest、state-contract revision/digest、simulation digest and presentation digest。engine.version、appBuildId and RuntimeCapabilities are excluded。Any single blocking/visual field change or resolution failure invalidates once；equal tuple CSS/UI/tooling-note update does not。
 
 Full rebootstrap must call the same stories/e2e/src/application/entry.tsx composition factory；test asserts no developer-entry、player-entry、second HTML or second Vite mode。
+
+HMR identity changes also freeze one persistence-owner lifecycle: equal-tuple CSS/UI update does nothing to lease ownership；digest-changing accept creates a fresh owner ID from Host bootstrap entropy, invalidates old Session synchronously, calls `disposeForRebootstrap()` on old PersistenceService, and does not expose the replacement as writable until an explicit lease transfer succeeds。
 
 - [ ] **Step 3: Run focused tests and confirm unified HMR is absent**
 
@@ -1402,6 +1513,8 @@ Expected: FAIL because invalidation policy and same-root HMR adapter do not exis
 
 Digest change synchronously publishes hmr_invalidated，blocks queued/new Gameplay、Debug mutation and Auto Save before attempt，records one runtime.hmr_invalidated，preserves last legal Snapshot/provenance for current Save/Debug export。HMR-invalidated Session cannot recover by load；the application unmounts and constructs a fresh ResolvedGame/GameSession through the same root。
 
+`disposeForRebootstrap()` is idempotent and ordered：increment Auto `anchorEpoch` → drop not-started candidates → await any started write plus stale-write repair → mark old PersistenceService disposed → release old lease with its exact current fence。After release, the new runtime performs explicit takeover of the unowned lease, which increments `fencingToken` exactly once, then enables writes。Old queued/new Save operations return stable `runtime_disposed`/`conflict` and cannot touch the replacement world。Release or takeover failure never re-enables the old runtime；the replacement remains read-only with stable `lease_release_failed` or `lease_takeover_failed` status and JSON `exportCurrentSave` still works。No owner ID or fence is reused across HMR rebootstrap。
+
 Fault-paused Session remains distinct：validated exact load/restart can recover through FIFO。Internal queue throws settle as typed fault and cannot poison tail。
 
 `RuntimeInvalidationControllerV1` 是 Web HMR adapter 所需的公开 Base runtime contract；它必须从 `runtime/session/index.ts` → `runtime/index.ts` → Base root 完整导出，同步更新 type test 和 `public-exports.v1.json`。Web 不得 deep-import `runtime/session/runtime-invalidation.ts`。
@@ -1411,7 +1524,7 @@ Fault-paused Session remains distinct：validated exact load/restart can recover
 Run:
 
 ```bash
-pnpm --filter @project-tavern/base exec vitest run src/runtime/session src/runtime/persistence/persistence-service.test.ts src/runtime/diagnostics/runtime-failures.test.ts
+pnpm --filter @project-tavern/base exec vitest run src/runtime/session src/runtime/persistence/persistence-service.test.ts src/runtime/persistence/session-lease.test.ts src/runtime/diagnostics/runtime-failures.test.ts
 pnpm --filter @project-tavern/web exec vitest run src/application
 pnpm --filter @project-tavern/story-e2e exec vitest run src/runtime/hmr-integration.test.ts
 pnpm build:e2e
@@ -1420,12 +1533,12 @@ pnpm verify
 git diff --check
 ```
 
-Expected: all commands exit 0；same Artifact/root reboots；no second app build；capability toggles never invalidate。
+Expected: all commands exit 0；same Artifact/root reboots；no second app build；capability toggles never invalidate；old HMR owner is fenced before replacement writes and takeover failure yields a read-only replacement rather than a stuck or shared owner。
 
 - [ ] **Step 6: Commit HMR invalidation**
 
 ```bash
-git add -- packages/base/src/runtime/session packages/base/src/runtime/persistence/persistence-service.ts packages/base/src/runtime/persistence/persistence-service.test.ts packages/base/src/runtime/diagnostics/runtime-failures.ts packages/base/src/runtime/diagnostics/runtime-failures.test.ts packages/base/src/runtime/index.ts packages/base/src/index.ts packages/base/type-tests/public-exports.test-d.ts packages/base/public-exports.v1.json apps/web/src/application apps/web/src/index.ts stories/e2e/src/application/entry.tsx stories/e2e/src/runtime/hmr-integration.test.ts
+git add -- packages/base/src/runtime/session packages/base/src/runtime/persistence/persistence-service.ts packages/base/src/runtime/persistence/persistence-service.test.ts packages/base/src/runtime/persistence/session-lease.ts packages/base/src/runtime/persistence/session-lease.test.ts packages/base/src/runtime/diagnostics/runtime-failures.ts packages/base/src/runtime/diagnostics/runtime-failures.test.ts packages/base/src/runtime/index.ts packages/base/src/index.ts packages/base/type-tests/public-exports.test-d.ts packages/base/public-exports.v1.json apps/web/src/application apps/web/src/index.ts stories/e2e/src/application/entry.tsx stories/e2e/src/runtime/hmr-integration.test.ts
 git diff --cached --check
 git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 ```
@@ -1434,6 +1547,7 @@ git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 
 **Files:**
 
+- Modify: .gitignore
 - Create: stories/e2e/src/test/fixtures/runtime/auto-current-flow-blocked.v1.json
 - Create: stories/e2e/src/test/fixtures/runtime/auto-previous-recovery.v1.json
 - Create: stories/e2e/src/test/fixtures/runtime/quick-narrative-branch.v1.json
@@ -1444,6 +1558,7 @@ git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 - Create: stories/e2e/src/test/fixtures/runtime/corrupt-state-digest.v1.json
 - Create: stories/e2e/src/test/fixtures/runtime/future-format-revision.v1.json
 - Create: stories/e2e/src/test/fixtures/runtime/debug-flow-command-log.v1.json
+- Create: stories/e2e/src/test/fixtures/runtime/manifest.v1.json
 - Create: stories/e2e/src/runtime/runtime-fixture-provenance.ts
 - Create: stories/e2e/scripts/runtime-fixture-builder.mts
 - Create: stories/e2e/scripts/regenerate-runtime-fixtures.mts
@@ -1462,7 +1577,7 @@ git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 **Interfaces:**
 
 - Consumes: green Phase 3 runtime、fixed E2E Story/tooling、Save/Debug codecs、RunIntegrity and explicit frozen provenance。
-- Produces: ten reviewed canonical fixture files、explicit writer/read-only verifier and pnpm verify:persistence-diagnostics。
+- Produces: ten reviewed canonical fixture payloads、one provenance-bound manifest、recoverable directory transaction、explicit writer/read-only verifier and cumulative pnpm verify:persistence-diagnostics。
 
 - [ ] **Step 1: Write failing fixture classification and integrity tests**
 
@@ -1496,6 +1611,8 @@ it("authoritatively replays the tracked debug bundle", async () => {
 
 ```js
 const expected = [
+  ["pnpm", ["verify:materialization"]],
+  ["pnpm", ["verify:phase2"]],
   ["pnpm", ["--filter", "@project-tavern/base", "run", "test:runtime"]],
   ["pnpm", ["--filter", "@project-tavern/web", "run", "test:host"]],
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "run", "test:runtime"]],
@@ -1511,6 +1628,8 @@ const expected = [
 
 Test freezes nested arrays、first-failure exit and prohibition of regenerate/update/release/publish commands。
 
+Gate test 还必须证明 `verify:phase2` 位于任何 Phase 3-specific test 之前，从而 Phase 3 gate 是累积 gate，而不是允许 Phase 2 regression 的旁路。
+
 - [ ] **Step 3: Run tests and confirm fixtures/gate are absent**
 
 Run:
@@ -1520,7 +1639,7 @@ pnpm --filter @project-tavern/story-e2e exec vitest run src/runtime/runtime-fixt
 node --test scripts/verify-persistence-diagnostics.test.mjs
 ```
 
-Expected: FAIL because fixture corpus、builder and phase gate do not exist。
+Expected RED 必须逐项命中：Vitest 只因 exact ten payloads/manifest/classifier 尚不存在而失败；Node test 只因 `verify-persistence-diagnostics.mts` 或包含 `verify:materialization`→`verify:phase2` 的 exact mapping 尚不存在而失败。出现 syntax、dependency、browser 或既有 Phase 2 regression 时不得继续。
 
 - [ ] **Step 4: Implement one pure deterministic fixture builder**
 
@@ -1531,7 +1650,19 @@ runtime-fixture-provenance.ts freezes：
 
 Builder uses fixed seed、fixed UTC times、fixed tooling commands and frozen provenance；it calls real public Save/Debug encoders and returns filename-to-bytes map。modified fixture must be produced by real successful DebugCommand，not by directly editing integrity。Corrupt/future files derive from one legal record by changing exactly one declared field and canonical re-encoding。
 
-regenerate script is sole tracked writer，requires no pre-existing changes under runtime fixtures and exact current blocking identity。Verifier builds into temp/in-memory，compares sorted file set and every byte，checks classifications/integrity and never updates frozen provenance。
+`manifest.v1.json` is canonical JSON and contains exactly：`formatRevision: 1`、sorted ten payload entries `{ path, byteLength, sha256, classification, integrityMode }`、the complete blocking provenance tuple、diagnostic-at-generation tuple and generator source digest。Manifest不得自我列出；verifier computes every payload SHA-256/size/classification and rejects missing/extra files, unsorted entries or provenance drift。
+
+regenerate script is sole tracked writer。启动时先只处理下段定义的 recognized transaction residue；recovery 完成后要求 target runtime-fixtures directory 下没有 pre-existing tracked、untracked、intent-to-add change。Task-authored `runtime-fixture-provenance.ts` 可以是本任务的 untracked/modified source，但必须通过 strict parser，且其 blocking identity 与 live ResolvedGame 精确匹配后 writer 才能开始。它不得逐文件覆盖 target：先在 sibling `.runtime-fixtures.next-<pid>` 写完整十个 payload 与 manifest，fsync/close、用 verifier 校验；若 target 已存在，将它 rename 为 `.runtime-fixtures.previous`，首次生成则跳过该 rename；再将 next rename 为 target，复验后删除 previous。`.gitignore` 精确忽略 `stories/e2e/src/test/fixtures/.runtime-fixtures.next-*`、`.runtime-fixtures.previous` 和 `.runtime-fixtures.transaction.v1.json`。
+
+Writer 在第一次 rename 前原子写 transaction journal `{ formatRevision: 1, phase: "prepared" | "swapped", hadPrevious: boolean, expectedManifestSha256 }`，且每次 journal/rename 后 fsync parent directory。Recovery 决策精确为：
+
+- `prepared + hadPrevious`：删除可能已换入的 target/next，以 verified previous 恢复 target，再删 journal，返回 `runtime_fixture_generation.recovered_rollback`；
+- `prepared + !hadPrevious`：删除可能已换入的 target/next，使 target 回到 absent，再删 journal，返回同一 rollback code；
+- `swapped + target manifest === expectedManifestSha256`：保留完整新 target，删除 previous/next/journal；
+- `swapped + target invalid`：有 verified previous 时 rollback；首次生成则删除 invalid target；随后返回 rollback code；
+- journal 不符合 strict schema、previous 不可验证或同时存在未知 residue：不删除任何证据，失败为 `runtime_fixture_generation.recovery_ambiguous`。
+
+SIGINT/throw tests 必须分别注入在 prepared、old-renamed、new-renamed 和 swapped-journal 四个点，证明 rerun 后 target 要么是完整旧 set、要么是 manifest 验证过的完整新 set，绝不是 partial mix。Verifier builds into temp/in-memory，compares sorted file set and every byte，checks classifications/integrity/manifest and never updates frozen provenance。
 
 - [ ] **Step 5: Implement package aliases and read-only phase gate**
 
@@ -1557,7 +1688,7 @@ Exact package scripts：
 }
 ```
 
-Root `verify:runtime-fixtures` delegates only to Story read-only verifier。`verify:persistence-diagnostics.mts` runs the exact frozen command list with spawnSync and no shell interpolation。Gate test 必须同时锁定上述两个 root script 的精确映射。
+Root `verify:runtime-fixtures` delegates only to Story read-only verifier。`verify:persistence-diagnostics.mts` runs the exact frozen cumulative command list with spawnSync and no shell interpolation。Gate test 必须同时锁定上述两个 root script 的精确映射；普通 verify 不得 invoke recovery/writer or modify journal/temp paths。
 
 - [ ] **Step 6: Generate once, review, and prove read-only behavior**
 
@@ -1565,7 +1696,17 @@ Run:
 
 ```bash
 pnpm --filter @project-tavern/story-e2e regenerate:runtime-fixtures
+git add -N -- stories/e2e/src/test/fixtures/runtime/*.json stories/e2e/src/runtime/runtime-fixture-provenance.ts
 git diff -- stories/e2e/src/runtime/runtime-fixture-provenance.ts stories/e2e/src/test/fixtures/runtime
+node --input-type=module - <<'NODE'
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const manifest = JSON.parse(readFileSync("stories/e2e/src/test/fixtures/runtime/manifest.v1.json", "utf8"));
+assert.equal(manifest.formatRevision, 1);
+assert.equal(manifest.files.length, 10);
+assert.deepEqual(manifest.files.map(({ path }) => path), manifest.files.map(({ path }) => path).toSorted());
+NODE
+shasum -a 256 stories/e2e/src/test/fixtures/runtime/*.json
 pnpm --filter @project-tavern/story-e2e verify:runtime-fixtures
 before="$(git status --porcelain=v1)"
 pnpm verify:persistence-diagnostics
@@ -1576,12 +1717,12 @@ test "$before" = "$after"
 git diff --check
 ```
 
-Expected: explicit writer creates exactly ten files；normal/modified distinctions are visible；all read-only gates exit 0 twice and status comparison passes。
+Expected: explicit writer creates exactly ten payload files plus manifest；`git add -N` makes every new artifact visible to review without accepting its content；executing agent checks exact file set、manifest hashes/sizes、blocking and diagnostic provenance、normal/modified/classification matrix and records SHA-256 evidence；recovery residue is absent；all cumulative read-only gates exit 0 twice and status comparison passes。该技术 review 不等待人工批准。
 
 - [ ] **Step 7: Commit runtime fixtures and gate**
 
 ```bash
-git add -- stories/e2e/src/test/fixtures/runtime stories/e2e/src/runtime/runtime-fixture-provenance.ts stories/e2e/scripts/runtime-fixture-builder.mts stories/e2e/scripts/regenerate-runtime-fixtures.mts stories/e2e/scripts/verify-runtime-fixtures.mts stories/e2e/src/runtime/runtime-fixtures.test.ts stories/e2e/package.json package.json scripts/verify-persistence-diagnostics.mts scripts/verify-persistence-diagnostics.test.mjs scripts/run-script-tests.test.mjs packages/base/package.json apps/web/package.json
+git add -- .gitignore stories/e2e/src/test/fixtures/runtime stories/e2e/src/runtime/runtime-fixture-provenance.ts stories/e2e/scripts/runtime-fixture-builder.mts stories/e2e/scripts/regenerate-runtime-fixtures.mts stories/e2e/scripts/verify-runtime-fixtures.mts stories/e2e/src/runtime/runtime-fixtures.test.ts stories/e2e/package.json package.json scripts/verify-persistence-diagnostics.mts scripts/verify-persistence-diagnostics.test.mjs scripts/run-script-tests.test.mjs packages/base/package.json apps/web/package.json
 git diff --cached --check
 git commit -m "test(runtime): freeze persistence diagnostics evidence"
 ```
@@ -1591,8 +1732,10 @@ git commit -m "test(runtime): freeze persistence diagnostics evidence"
 从 Phase 3 最终 HEAD 运行：
 
 ```bash
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --offline
 before="$(git ls-files -z | xargs -0 shasum -a 256)"
+pnpm verify:materialization
+pnpm verify:phase2
 pnpm verify:public-exports
 pnpm verify:persistence-diagnostics
 pnpm verify
@@ -1622,6 +1765,6 @@ Expected: both gates exit 0 twice；tracked hash snapshot is identical；final s
 - [ ] 201 mixed CommandLog entries retain actual parsed Game/Debug commands plus the one Session-finalized attempt，replay exactly and never apply recorded Facts。
 - [ ] DebugBundle includes capability state、RunIntegrity、two Snapshot digests、bounded failures and scrubbed paths。
 - [ ] Throwing subscribers are isolated，recorded through the bounded failure hook，and never alter dispatch results/Snapshot/FIFO usability。
-- [ ] HMR digest change invalidates and reboots the same Story application root；capability/UI-only changes do not。
-- [ ] ten reviewed fixtures preserve bytes/classification/integrity and only explicit regeneration writes them。
+- [ ] HMR digest change invalidates、disposes/fences the old lease owner and reboots the same Story application root；replacement writes only after a fresh-token takeover；capability/UI-only changes do not touch ownership。
+- [ ] ten reviewed fixture payloads plus one manifest preserve bytes/classification/integrity/provenance；crash injection proves directory generation recovers without a partial mix，and only explicit regeneration writes them。
 - [ ] pnpm verify:persistence-diagnostics and pnpm verify pass twice without tracked mutations。

@@ -4,13 +4,15 @@
 
 **Goal:** Complete the same-artifact runtime tooling, bounded presentation diagnostics, semantic-only browser Automation, two-root browser verification, cross-browser accessibility/visual evidence, and the final read-only Phase 5 gate without adding or changing Gameplay.
 
-**Architecture:** Phase 5C consumes the accepted Phase 5A atomic `SemanticPublication` bridge and the accepted Phase 5B `RuntimePresentationPublicationV1`, Interaction DOM witnesses, ContentPreference adapter, and exactly two Story-owned Web roots. Generic UI owns the DevDock framework, Web owns capability-session and Automation adapters, each Story owns only its tooling UI/form adapter and fixed application composition, and `DebugBundle.uiContext` remains bounded non-authoritative presentation evidence. Browser and CI assertions compare one atomic Semantic publication against DOM and the Automation facade; they never read Snapshot, run HitMap through Automation, or introduce a second Gameplay availability path.
+**Architecture:** Phase 5C consumes the accepted Phase 5A atomic `SemanticPublication` bridge and the accepted Phase 5B `RuntimePresentationPublicationV1`, Interaction DOM witnesses, ContentPreference adapter, and exactly two Story-owned Web roots. Generic UI owns the DevDock framework, Web owns capability-session and Automation adapters, each Story owns only its tooling UI/form adapter and fixed application composition, and `DebugBundle.uiContext` remains bounded non-authoritative presentation evidence. Local browser assertions compare one atomic Semantic publication against DOM and the Automation facade; they never read Snapshot, run HitMap through Automation, or introduce a second Gameplay availability path.
 
-**Tech Stack:** Node.js >=22.12.0, pnpm >=11.0.0, React 19.2.7, React DOM 19.2.7, Vite 8.1.4, strict TypeScript 7.0.2, Radix Dialog 1.1.19, Lucide React 1.24.0, Noto Sans SC via @fontsource 5.2.9, CSS Modules, Stylelint 17.14.0 with stylelint-config-standard 40.0.0, Vitest 4.1.10, React Testing Library 16.3.2, user-event 14.6.1, Playwright 1.61.1, @axe-core/playwright 4.12.1, and a Docker-compatible runtime for the pinned Linux/amd64 visual image.
+**Tech Stack:** Node.js >=22.12.0, pnpm >=11.0.0, React 19.2.7, React DOM 19.2.7, Vite 8.1.4, strict TypeScript 7.0.2, Radix Dialog 1.1.19, Lucide React 1.24.0, Noto Sans SC via @fontsource 5.2.9, CSS Modules, Stylelint 17.14.0 with stylelint-config-standard 40.0.0, Vitest 4.1.10, React Testing Library 16.3.2, user-event 14.6.1, Playwright 1.61.1 with its exact R1.5-materialized local Chromium revision, and @axe-core/playwright 4.12.1.
 
 ## Global Constraints
 
 - Phase 2A–4B, [`Phase 5A`](2026-07-12-project-tavern-05a-ui-runtime-foundations.md), and [`Phase 5B`](2026-07-12-project-tavern-05b-stage-character-story-presentation.md) plus their acceptance commands are hard prerequisites from the live phase-base SHA.
+- The roadmap `R1.5` materialization checkpoint remains a hard prerequisite. Every task starts with read-only `pnpm verify:materialization`; missing/stale tracked `scripts/preflight/materialization-lock.json` or ignored `.project-tavern/goal-materialization.json` evidence fails before task changes with `external_precondition.materialization_stale`. `pnpm prepare:goal` is the sole networked preparation command and is never invoked from Phase 5C.
+- R1.5 has already pinned and materialized every exact external package, lockfile closure, pnpm/browser revision, and font package needed by Phase 5C. Phase 5C never chooses versions, runs `pnpm add`, contacts a registry, or downloads a browser; it may run only offline/frozen installs after `verify:materialization` passes. It adds no dependency entry and makes no lockfile change; root `package.json` changes are limited to the declared scripts.
 - `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md` and `docs/superpowers/specs/2026-07-12-scene-interaction-character-presentation-design.md` are authoritative. Stop rather than implementing around a live interface that differs from either specification.
 - Phase 5C adds no GameplayModule, State Slot, Gameplay Command/Fact variant, Rule, resolver, relationship counter, outfit state, Narrative control flow, balance value, or golden command sequence. It consumes the Phase 4B Story/GameSimulation and existing Semantic invocations unchanged.
 - Each `Story × Host` still has one application root and one Artifact: `poc × web → dist/poc`, `e2e × web → dist/e2e`. There is no Player/Developer/Headless flavor, Developer HTML, second Story root, or tooling-only Artifact.
@@ -27,8 +29,10 @@
 - Every browser spec created by this plan wraps its cases in `test.describe("@phase5c", ...)` and adds the narrower tag used by targeted commands (`@infrastructure`, `@semantic-parity`, `@primary-flow`, `@a11y`, `@responsive`, `@motion`, or `@visual`). The existing public smoke selector is preserved by tagging exactly four bounded cases with `@smoke`: fresh capability defaults, enabled Automation Bridge shape, the PoC first ordinary action, and one E2E Semantic command. No visual or broad matrix case receives `@smoke`.
 - Normal Semantic/Automation operations and read-only diagnostics keep `RunIntegrityV1` normal. Only an already-declared successful Cheat or fixture/debug anchor marks it modified, and Phase 5C verifies rather than reimplements that Phase 3/4 behavior.
 - Runtime controls, text, focus rings, symbols, DevDock, and diagnostic panels remain code-native semantic DOM. `references/` and `art-source/aigc/**` are never imported, scanned by production code, bundled, or used as browser/visual-regression inputs.
-- Visual-regression verification reads reviewed baselines only. Updating baselines is a separate explicit command, never part of `verify:phase5c`, `verify:ui`, root `pnpm verify`, CI, or artifact serving.
+- Visual-regression verification runs in the current host's already materialized Playwright Chromium and reads agent-reviewed engineering baselines only. It is intentionally local-environment evidence, not a cross-platform pixel guarantee. A baseline is comparable only when its recorded `LocalVisualEnvironmentV1` fingerprint exactly matches the current host probe; mismatch fails with stable `visual_environment_mismatch` and requires an explicit rebaseline. Updating baselines is an explicit offline writer, never part of `verify:phase5c`, `verify:ui`, root `pnpm verify`, or artifact serving. Screenshot review is technical evidence rather than material/character-art approval and never pauses for a human inside the Goal.
+- VoiceOver/Safari device checks, physical tablet/touch review, subjective art approval, human playtesting, CI, and remote distribution are outside Phase 5C and its acceptance status. They occur only in the post-engineering human-review or deferred-distribution tracks and no runbook/status placeholder for them is created here.
 - Every task follows TDD, runs its focused suite, cumulative `pnpm verify:phase5b` (which already invokes Phase 5A and its current inspect-only `verify:ui` exactly once), and full `pnpm verify`, reviews the exact staged diff, and ends with a narrow commit. Task 9 preserves that leaf as `verify:ui-runtime` and makes final `verify:ui` a prebuilt-only runtime → Story presentation → 5C tooling aggregator.
+- At every task boundary record phase-base SHA, current HEAD, last completed task commit, and `git status --short`. Reverify and skip an already matching task commit; resume a dirty task only when every changed/untracked path is within its `Files` allowlist. Expected-red counts only when the named focused assertion fails for its documented missing API/stable diagnostic, never for stale materialization, browser/font/visual-environment/port failures, or unrelated compilation. Stage only explicit allowlist paths, inspect cached names/diff and the complete tracked/untracked set, and preserve/report remaining user changes.
 
 ---
 
@@ -105,7 +109,6 @@ scripts/ui/
   serve-story-roots.test.ts
   run-visual-regression.mts
   run-visual-regression.test.ts
-  visual-container-entry.mts
   verify-phase5c.mts
   verify-phase5c.test.ts
   verify-stage-presentation.mts
@@ -128,9 +131,12 @@ apps/web/e2e/
   reduced-motion.spec.ts
   visual-regression.spec.ts
   __screenshots__/chromium/
+    environment.v1.json
+    poc-stage-standard.png
+    poc-devdock-overlay.png
+    e2e-narrative.png
 
 apps/web/playwright.ui.config.ts
-docs/runbooks/phase5-accessibility.md
 ```
 
 ### Task 1: Add bounded non-authoritative StageScene diagnostics
@@ -1383,38 +1389,47 @@ git commit -m "test(ui): prove atomic semantic browser parity"
 - Create: `apps/web/e2e/responsive.spec.ts`
 - Create: `apps/web/e2e/reduced-motion.spec.ts`
 - Create: `apps/web/e2e/visual-regression.spec.ts`
+- Modify: `apps/web/e2e/walking-skeleton.spec.ts`
+- Delete: `apps/web/e2e/__screenshots__/e2e-shell.png`
+- Create: `apps/web/e2e/__screenshots__/chromium/environment.v1.json`
 - Create: `apps/web/e2e/__screenshots__/chromium/poc-stage-standard.png`
 - Create: `apps/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png`
 - Create: `apps/web/e2e/__screenshots__/chromium/e2e-narrative.png`
-- Create: `docs/runbooks/phase5-accessibility.md`
+- Create: `docs/superpowers/checkpoints/phase5c-visual-baselines.md`
 - Create: `scripts/ui/run-visual-regression.mts`
 - Create: `scripts/ui/run-visual-regression.test.ts`
-- Create: `scripts/ui/visual-container-entry.mts`
 - Modify: `apps/web/playwright.ui.config.ts`
 - Modify: `packages/ui/src/shell/game-shell.tsx`
 - Modify: `packages/ui/src/shell/game-shell.module.css`
 - Modify: `packages/ui/src/theme/global.css`
-- Modify: `packages/ui/package.json`
 - Modify: `packages/ui/src/debug/DevDock.tsx`
 - Modify: `packages/ui/src/debug/DevDock.module.css`
 - Modify: `package.json`
-- Modify: `pnpm-lock.yaml`
 
 **Interfaces:**
 
 - Consumes: Task 6 two-root browser harness, accepted Phase 5A/5B responsive/Interaction behavior, Task 2 DevDock, code-native fallbacks, and `@axe-core/playwright`.
-- Produces: global `@a11y`, `@responsive`, `@motion`, and read-only `@visual` suites; pinned Linux/amd64 visual execution; explicit `update:ui-snapshots`; `verify:ui-visual`; and the manual VoiceOver runbook.
+- Produces: global `@a11y`, `@responsive`, `@motion`, and read-only `@visual` suites; host-local visual execution bound to `LocalVisualEnvironmentV1`; explicit `update:ui-snapshots`; `verify:ui-visual`; and agent-authored technical baseline evidence.
 
-- [ ] **Step 1: Install the exact test-only axe adapter and write the failing global responsive/zoom matrix**
+- [ ] **Step 1: Verify R1.5-pinned axe/font inputs and write the failing global responsive/zoom matrix**
 
-Run once before importing `AxeBuilder`:
+Run before importing `AxeBuilder`:
 
 ```bash
-pnpm add --workspace-root --save-dev --save-exact @axe-core/playwright@4.12.1
-pnpm --filter @project-tavern/ui add --save-exact @fontsource/noto-sans-sc@5.2.9
+pnpm verify:materialization
+node --input-type=module <<'NODE'
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+const root = JSON.parse(await readFile("package.json", "utf8"));
+const ui = JSON.parse(await readFile("packages/ui/package.json", "utf8"));
+const code = "external_precondition.materialization_stale";
+assert.equal(root.devDependencies?.["@axe-core/playwright"], "4.12.1", code);
+assert.equal(ui.dependencies?.["@fontsource/noto-sans-sc"], "5.2.9", code);
+NODE
+pnpm install --offline --frozen-lockfile
 ```
 
-The axe adapter changes only the root manifest/lockfile and remains test-only. The UI package imports only `@fontsource/noto-sans-sc/chinese-simplified-400.css` and `chinese-simplified-700.css`, applies `"Noto Sans SC"` before the system fallback stack, and therefore ships two pinned OFL-1.1 npm font resources rather than relying on host CJK fonts. It imports no remote stylesheet and performs no network font request.
+Expected: the verifier proves root already owns exact test-only `@axe-core/playwright@4.12.1`, UI already owns exact `@fontsource/noto-sans-sc@5.2.9`, and the lock/materialization closure contains both; the offline frozen install changes no manifest or lockfile. Missing/mismatched evidence is `external_precondition.materialization_stale`, not permission to select/install a dependency during Phase 5C. The UI package imports only `@fontsource/noto-sans-sc/chinese-simplified-400.css` and `chinese-simplified-700.css`, applies `"Noto Sans SC"` before the system fallback stack, and therefore ships two pinned OFL-1.1 npm font resources rather than relying on host CJK fonts. It imports no remote stylesheet and performs no network font request.
 
 ```ts
 for (const viewport of [
@@ -1521,38 +1536,86 @@ pnpm test:e2e:ui -- --project=chromium --grep "@responsive|@a11y|@motion"
 pnpm test:e2e:ui -- --project=chromium-touch --grep @a11y
 ```
 
-Expected: at least one portrait/zoom/DevDock/axe/text-spacing/reduced-motion assertion fails while the Phase 5B Interaction gate remains green.
+Expected: FAIL in the named `@responsive complete shell at 768x1024` case at the DevDock reachability/no-horizontal-overflow assertion while the Phase 5B Interaction gate remains green. A setup, browser-launch, port, materialization, or unrelated assertion failure does not satisfy this red step.
 
 - [ ] **Step 4: Implement bounded global adaptations without changing Interaction semantics**
 
 Adjust only shell/debug/theme CSS and component accessibility metadata needed by failing global tests. Preserve the Phase 5A seven layers and Phase 5B HitMap/Interaction contracts. Portrait DevDock becomes one focus-trapped modal sheet; ultrawide leaves centered gutters; overlays scroll internally; the page itself does not horizontally scroll at 200% equivalent zoom. `prefers-reduced-motion: reduce` removes nonessential opacity/transform/tween duration while preserving immediate state changes and focus movement.
 
-The runbook records these exact human checks:
+Do not create a VoiceOver/Safari or physical-device runbook/status in this task. Those checks belong to the post-engineering human-playtest track after the complete automated flow has passed; their absence cannot block, skip, or qualify Phase 5C acceptance. This task claims only the declared automated DOM/axe/keyboard/touch-emulation/browser evidence.
 
-1. macOS VoiceOver Safari: start/stop, rotor landmarks, primary action list, disabled reason announcement.
-2. Open/close Workspace Overlay, Narrative, System dialog, and both DevDock rails; verify announced names and focus return.
-3. Perform one normal Semantic action and one read-only diagnostic export; confirm no duplicate announcement.
-4. Record tester, OS/Safari version, source SHA, Task 5 PoC source-graph manifest digest, date, pass/fail, and issue links.
+- [ ] **Step 5: Add host-local Chromium visual baselines and an explicit update path**
 
-It explicitly does not claim automated screen-reader coverage.
-
-- [ ] **Step 5: Add deterministic Chromium visual baselines and an explicit update path**
-
-First write the container/argv/copy-back assertions in `scripts/ui/run-visual-regression.test.ts`, then run:
+First write the environment-fingerprint, argument, mismatch, diagnostics, and atomic-writer assertions in `scripts/ui/run-visual-regression.test.ts`:
 
 ```ts
+const environment: LocalVisualEnvironmentV1 = {
+  revision: 1,
+  os: "darwin",
+  arch: "arm64",
+  playwrightVersion: "1.61.1",
+  chromiumRevision: "1228",
+  chromiumVersion: "149.0.7827.55",
+  fontPackage: "@fontsource/noto-sans-sc",
+  fontVersion: "5.2.9",
+  deviceScaleFactor: 1,
+  viewport: { width: 1600, height: 1000 },
+  reducedMotion: "reduce",
+};
+
+expect(compareLocalVisualEnvironmentV1(environment, environment)).toEqual({
+  kind: "compatible",
+});
 expect(
-  createVisualDockerInvocationV1("verify", fixturePaths, { uid: 501, gid: 20 }).args.slice(0, 7),
-).toEqual(["run", "--rm", "--init", "--ipc=host", "--platform=linux/amd64", "--user", "501:20"]);
+  compareLocalVisualEnvironmentV1(environment, {
+    ...environment,
+    chromiumVersion: "150.0.0.0",
+  }),
+).toEqual({
+  kind: "incompatible",
+  code: "visual_environment_mismatch",
+  fields: ["chromiumVersion"],
+});
+expect(createVisualPlaywrightInvocationV1("verify", ".project-tavern/visual-runs/run-1")).toEqual({
+  command: "pnpm",
+  args: [
+    "test:e2e:ui",
+    "--",
+    "--project=chromium",
+    "--grep",
+    "@visual",
+    "--output=.project-tavern/visual-runs/run-1",
+  ],
+});
+expect(createVisualPlaywrightInvocationV1("update", ".project-tavern/visual-runs/run-1")).toEqual({
+  command: "pnpm",
+  args: [
+    "test:e2e:ui",
+    "--",
+    "--project=chromium",
+    "--grep",
+    "@visual",
+    "--output=.project-tavern/visual-runs/run-1",
+    "--update-snapshots",
+  ],
+});
 ```
+
+The remaining unit cases must prove: all fingerprint fields are compared in the declaration order below; missing or unknown fields are rejected; a verifier environment mismatch launches no browser test and writes diagnostics containing both fingerprints; `verify` cannot write the tracked baseline directory; only the three declared PNG names are accepted; every screenshot mismatch retains a complete expected/actual/diff triplet; `update` validates all candidates before atomically replacing the three PNGs plus `environment.v1.json`; the runner never spawns the full `verify:materialization` child; `walking-skeleton.spec.ts` no longer contains `@visual`; and the Phase 2 `e2e-shell.png` path plus legacy `update:screenshots` script are absent.
+
+Run:
 
 ```bash
 pnpm exec vitest run scripts/ui/run-visual-regression.test.ts
 ```
 
-Expected: FAIL because the pinned visual runner and container entry do not exist.
+Expected: FAIL because the host-local visual runner and `LocalVisualEnvironmentV1` contract do not exist.
 
-Use only code-native fallbacks, `standard` content, fixed 1600×1000 viewport, `reducedMotion: reduce`, the two pinned Noto Sans SC 5.2.9 resources, and settled `RuntimePresentationPublication`. Before capture, await `document.fonts.ready` and assert both `400 16px "Noto Sans SC"` and `700 16px "Noto Sans SC"`; a missing font is a test failure, never a system-font fallback. Capture exactly:
+Remove the Phase 2-only screenshot case/tag from `walking-skeleton.spec.ts`, delete `apps/web/e2e/__screenshots__/e2e-shell.png`, and remove the legacy `update:screenshots` root script in the same task. Preserve any nonvisual smoke assertions still owned by that spec. A static test must prove `apps/web/e2e/visual-regression.spec.ts` is the only executable source containing `@visual`, so the new runner cannot accidentally discover a fourth baseline.
+
+Capture the real prebuilt `poc-web` default Story and its already committed `approvedPocAssetPacksV1`; do not inject an empty pack, re-resolve the Story, add a test-only asset override, or create a second Artifact. If the approved pack is empty, the same root naturally renders code-native fallbacks. If it is non-empty, the technical baseline records the actual Artifact presentation. Phase 4B provider tests and Phase 5B injected fallback-only renderer tests remain the authoritative empty-pack/failure coverage and must stay green.
+
+Keep `standard` content, fixed 1600×1000 CSS-pixel viewport, `deviceScaleFactor: 1`, `reducedMotion: reduce`, the two pinned Noto Sans SC 5.2.9 resources, and settled `RuntimePresentationPublication`. Before capture, await `document.fonts.ready` and assert both `400 16px "Noto Sans SC"` and `700 16px "Noto Sans SC"`; a missing bundled font is a test failure, never permission to use the host's system-font fallback. Capture exactly:
 
 ```ts
 test("@visual PoC standard stage", async ({ page }) => {
@@ -1571,7 +1634,7 @@ test("@visual E2E blocking narrative", async ({ page }) => {
 });
 ```
 
-With `testDir: "./e2e"` in `apps/web/playwright.ui.config.ts`, set `snapshotPathTemplate` to `{testDir}/__screenshots__/{projectName}/{arg}{ext}`; relative templates resolve from the config directory, so repeating `apps/web` would be wrong. Run visual comparisons only in Chromium. Set `grepInvert: /@visual/` on the `chromium-touch` and `webkit` projects, while Chromium keeps the suite discoverable; this is configuration-level scope, not `test.skip`, so unfiltered touch/WebKit commands never request nonexistent baselines. Add:
+With `testDir: "./e2e"` in `apps/web/playwright.ui.config.ts`, set the normal `snapshotPathTemplate` to `{testDir}/__screenshots__/{projectName}/{arg}{ext}` and allow the runner to replace only the leading snapshot root with its absolute `PROJECT_TAVERN_VISUAL_SNAPSHOT_ROOT` candidate directory during `update`. Relative templates resolve from the config directory, so repeating `apps/web` would be wrong. Run visual comparisons only in Chromium. Set `grepInvert: /@visual/` on the `chromium-touch` and `webkit` projects, while Chromium keeps the suite discoverable; this is configuration-level scope, not `test.skip`, so unfiltered touch/WebKit commands never request nonexistent baselines. Replace the Phase 2 screenshot writer with only these root scripts; add no dependency and make no lockfile change:
 
 ```json
 {
@@ -1582,24 +1645,46 @@ With `testDir: "./e2e"` in `apps/web/playwright.ui.config.ts`, set `snapshotPath
 }
 ```
 
-`run-visual-regression.mts` accepts only `update | verify` and uses structured Docker arguments with the exact prefix frozen above. `--init` reaps browser processes, `--ipc=host` supplies the Chromium shared-memory mode recommended for the trusted local static roots, and `--platform=linux/amd64` removes host-architecture rendering drift. Use the exact image `mcr.microsoft.com/playwright:v1.61.1-noble@sha256:cf0daee9b994042e011bc29f20cdff1a9f682a039b43fcd738f7d8a9d3bcd9d6`. Set `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` and `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` to use the image's matching browser. The test freezes the full argument prefix, digest, and environment and rejects a missing `--init`/`--ipc=host`, tags, host Playwright execution, another platform, or an unknown mode.
+Define and strict-decode the following machine-readable fingerprint. `environment.v1.json` is canonical JSON containing exactly this record, and the checkpoint repeats the same values plus its canonical SHA-256:
 
-The wrapper requires POSIX `getuid/getgid`, creates one host `mkdtemp` tree owned by that user for `/work`, pnpm store, and `HOME`, runs Docker as the same UID/GID, and removes the temp tree in `finally`; large installs use disposable disk-backed bind mounts rather than tmpfs. The repository is always mounted read-only at `/source`. Only `update` adds one narrow read-write child mount for `apps/web/e2e/__screenshots__/chromium`; no mode makes the repository root writable.
+```ts
+export interface LocalVisualEnvironmentV1 {
+  readonly revision: 1;
+  readonly os: NodeJS.Platform;
+  readonly arch: string;
+  readonly playwrightVersion: "1.61.1";
+  readonly chromiumRevision: string;
+  readonly chromiumVersion: string;
+  readonly fontPackage: "@fontsource/noto-sans-sc";
+  readonly fontVersion: "5.2.9";
+  readonly deviceScaleFactor: 1;
+  readonly viewport: { readonly width: 1600; readonly height: 1000 };
+  readonly reducedMotion: "reduce";
+}
+```
 
-It never installs into the source bind: `visual-container-entry.mts` copies the required source tree into `/work` while pruning `.git`, every `node_modules`, `references`, and all of `art-source` before descending. Tests prove neither forbidden tree is read or copied. The entry verifies both prebuilt roots were copied, then invokes exact `npx --yes pnpm@11.11.0 install --frozen-lockfile --store-dir /pnpm-store` and Playwright through structured child-process args. This single writable copy covers root and every workspace-local `node_modules` symlink. In `update` mode it copies back exactly the three declared PNGs after a green run through the narrow screenshot mount; their owner remains the invoking user. In `verify` mode it copies back nothing.
+`run-visual-regression.mts` accepts only `update | verify` and performs a focused read-only visual preflight rather than spawning the full `pnpm verify:materialization` offline-copy/build smoke a second time. It imports the Phase 0 canonical contract reader, recomputes the external closure/materialization digest, strict-decodes the ignored attestation, and requires their equality before reading the Playwright/font package versions and exact Chromium revision. It confirms `chromium.executablePath()` exists, launches that already materialized executable only long enough to read `browser.version()`, and combines those values with `process.platform`, `process.arch`, and the fixed capture settings into `LocalVisualEnvironmentV1`. It neither installs dependencies nor downloads, repairs, substitutes, or builds. A missing or inconsistent contract/attestation/package/browser/font fails before the visual suite with the Phase 0 codes `external_precondition.materialization_stale`, `external_precondition.browser_missing`, `external_precondition.browser_revision_mismatch`, or `external_precondition.visual_font_missing`. The root verifier still runs the one complete `verify:materialization` leaf first; explicit baseline-generation instructions do the same before invoking the writer.
 
-Inside the container, `visual-container-entry.mts` runs the exact Chromium `@visual` command; only `update` appends `--update-snapshots`. It never builds. Unit tests freeze `--init`, `--ipc=host`, the remaining Docker argv, UID/GID and temp-directory cleanup, narrow screenshot mount, forbidden-tree copy exclusions, exact pnpm argv, three-file copy-back allowlist, and read-only verify behavior. This makes baseline generation and comparison use the same Ubuntu Noble userspace, Chromium build, Skia stack, CPU architecture, pnpm version, and pinned Web fonts on macOS, Linux, and CI. The update script is manual. Review all three image diffs before staging; no verifier invokes it.
+In `verify` mode, strict-decode tracked `environment.v1.json` and compare every fingerprint field before launching the screenshot suite. Any difference emits `visual_environment_mismatch`, records current and baseline fingerprints plus their canonical SHA-256 values in ignored `.project-tavern/visual-diagnostics/<run-id>/environment-mismatch.v1.json`, and exits nonzero without comparing pixels. This result means only that the local pixel baseline is no longer comparable; it is not an application defect and it is not a cross-platform compatibility claim. The sole recovery is an intentional `pnpm update:ui-snapshots` followed by the same full agent review and checkpoint update required for any rebaseline.
+
+Both modes invoke Playwright with the structured arguments frozen above, use a new ignored `.project-tavern/visual-runs/<run-id>/` output directory, and never build. `verify` uses the tracked snapshot root and cannot alter it. If its only test failures are screenshot mismatches for the three declared cases, validate and preserve one expected/actual/diff triplet for every mismatched case plus a canonical manifest containing paths, byte sizes, SHA-256 values, materialization digest, and the complete `LocalVisualEnvironmentV1` fingerprint under `.project-tavern/visual-diagnostics/<run-id>/`; reject missing, partial, duplicate, or extra evidence. Print the preserved diagnostics path before returning the original nonzero result.
+
+`update` points Playwright at a fresh candidate snapshot root, requires exactly the three declared PNGs, and rejects a missing/extra name, non-1600×1000 dimensions, empty file, or file changed during hashing. Only after the full candidate set validates does it atomically replace the three tracked PNGs and canonical `environment.v1.json` through same-filesystem temporary names. An interruption before replacement leaves the previous baseline set intact. Unit tests freeze the fingerprint probe/comparison order, structured Playwright arguments, explicit update-only flag, complete PNG allowlist, environment and screenshot diagnostic manifests, atomic replacement, cleanup, and absence of tracked writes during `verify`. These baselines are therefore deterministic evidence only for the exact recorded host-local environment; functional, responsive, accessibility, and WebKit/touch tests provide the portable behavioral coverage.
 
 - [ ] **Step 6: Generate/review baselines once and run the full browser matrix**
 
-Run:
+The execution agent performs this technical review without waiting for a human and without treating it as artwork approval. For a first baseline set, run the writer, immediately make the three PNGs plus `environment.v1.json` visible to Git, and record their complete sorted path/size/SHA-256 set:
 
 ```bash
+pnpm verify:materialization
 pnpm verify:phase5b
 pnpm verify:application-graphs
 pnpm exec vitest run scripts/ui/run-visual-regression.test.ts
 pnpm update:ui-snapshots
-git diff -- apps/web/e2e/__screenshots__
+git add -N -- apps/web/e2e/__screenshots__/chromium/environment.v1.json apps/web/e2e/__screenshots__/chromium/poc-stage-standard.png apps/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png apps/web/e2e/__screenshots__/chromium/e2e-narrative.png
+wc -c apps/web/e2e/__screenshots__/chromium/e2e-narrative.png apps/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png apps/web/e2e/__screenshots__/chromium/poc-stage-standard.png
+shasum -a 256 apps/web/e2e/__screenshots__/chromium/environment.v1.json apps/web/e2e/__screenshots__/chromium/e2e-narrative.png apps/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png apps/web/e2e/__screenshots__/chromium/poc-stage-standard.png
+git diff -- apps/web/e2e/__screenshots__/chromium
 pnpm verify:ui-visual
 pnpm test:e2e:ui -- --project=chromium --grep "@responsive|@a11y|@motion"
 pnpm test:e2e:ui -- --project=chromium-touch --grep "@responsive|@a11y"
@@ -1608,12 +1693,17 @@ pnpm verify
 git diff --check
 ```
 
-Expected: exactly three reviewed Chromium baselines exist; all automated accessibility/responsive/motion checks pass in their declared projects; WebKit and touch have no unexplained runtime skip (their intentional `@visual` exclusion is visible in project configuration); Phase 5B Interaction tests remain unchanged and green.
+For an existing baseline set, first run `pnpm verify:ui-visual`. If it passes, do not invoke the writer. If it fails with `visual_environment_mismatch`, inspect the recorded baseline/current fingerprints and their diagnostics digest, confirm that the host change is understood, then explicitly run `pnpm update:ui-snapshots`; no pixel comparison from the mismatched environment is evidence. If and only if it instead fails solely with declared Playwright screenshot mismatches, use the printed ignored diagnostics path to verify its manifest and inspect every preserved expected/actual/diff triplet before running the writer. Any other failure follows normal debugging and cannot authorize an update.
+
+After first-generation or changed-baseline review, inspect each full-resolution PNG with the agent's image-view capability and write `docs/superpowers/checkpoints/phase5c-visual-baselines.md` with reviewer=`agent`; materialization, presentation and approved Asset Pack digests; the complete `LocalVisualEnvironmentV1` record and canonical fingerprint SHA-256; baseline path/dimensions/SHA-256; comparison evidence (`full_image` for first generation, environment-mismatch evidence when applicable, or the ignored expected/actual/diff paths and manifest digest for a pixel update); and one pass/fail result for each fixed item: clipping/truncation, unintended overlap, focus visibility, dialog/backdrop layering, Stage/HUD/card readability, Interaction layer occlusion, and fallback integrity for every unresolved/failed slot visible in the captured state. Record an explicit acceptance reason per image. A failed rubric item is an implementation defect; it is never waived as taste. This checkpoint approves only the technical test baseline for the already owner-approved runtime pack in that exact local environment; it does not make a new AIGC/commercial-material adoption decision or claim character style, cross-platform pixel identity, or player experience approval.
+
+Expected: exactly the three agent-reviewed Chromium PNG baselines over the default resolved E2E/PoC roots, one canonical matching `environment.v1.json`, and one complete environment/presentation/Asset-Pack digest plus rubric checkpoint exist; `verify:ui-visual` then passes read-only and offline on the recorded host-local environment; all automated accessibility/responsive/motion checks pass in their declared projects; WebKit and touch have no unexplained runtime skip (their intentional `@visual` exclusion is visible in project configuration); Phase 4B asset-provider/fallback and Phase 5B Interaction/fallback tests remain unchanged and green.
 
 - [ ] **Step 7: Commit global accessibility and visual evidence**
 
 ```bash
-git add -- apps/web/e2e/accessibility.spec.ts apps/web/e2e/responsive.spec.ts apps/web/e2e/reduced-motion.spec.ts apps/web/e2e/visual-regression.spec.ts apps/web/e2e/__screenshots__ apps/web/playwright.ui.config.ts packages/ui/src/shell/game-shell.tsx packages/ui/src/shell/game-shell.module.css packages/ui/src/theme/global.css packages/ui/src/debug/DevDock.tsx packages/ui/src/debug/DevDock.module.css packages/ui/package.json scripts/ui/run-visual-regression.mts scripts/ui/run-visual-regression.test.ts scripts/ui/visual-container-entry.mts docs/runbooks/phase5-accessibility.md package.json pnpm-lock.yaml
+git add -- apps/web/e2e/accessibility.spec.ts apps/web/e2e/responsive.spec.ts apps/web/e2e/reduced-motion.spec.ts apps/web/e2e/visual-regression.spec.ts apps/web/e2e/walking-skeleton.spec.ts apps/web/e2e/__screenshots__/e2e-shell.png apps/web/e2e/__screenshots__/chromium/environment.v1.json apps/web/e2e/__screenshots__/chromium/poc-stage-standard.png apps/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png apps/web/e2e/__screenshots__/chromium/e2e-narrative.png apps/web/playwright.ui.config.ts packages/ui/src/shell/game-shell.tsx packages/ui/src/shell/game-shell.module.css packages/ui/src/theme/global.css packages/ui/src/debug/DevDock.tsx packages/ui/src/debug/DevDock.module.css scripts/ui/run-visual-regression.mts scripts/ui/run-visual-regression.test.ts docs/superpowers/checkpoints/phase5c-visual-baselines.md package.json
+git diff --cached --name-only
 git diff --cached --check
 git commit -m "test(ui): enforce global accessible presentation"
 ```
@@ -1639,7 +1729,7 @@ git commit -m "test(ui): enforce global accessible presentation"
 **Interfaces:**
 
 - Consumes: the Phase 5A UI leaf, Phase 5B Stage/Story verifier and cumulative aliases, all 5C unit/graph/browser/visual checks, exactly one prebuilt E2E/PoC root pair, and the existing Phase 4B E2E-then-PoC headless Semantic verifier.
-- Produces: preserved Phase 5A leaf `pnpm verify:ui-runtime`, prebuilt-only Phase 5B leaf `pnpm verify:story-presentation`, inspect-only Phase 5C leaf `pnpm verify:ui-tooling`, cumulative developer gate `pnpm verify:phase5c`, final prebuilt-only `pnpm verify:ui`, atomic browser extension of `pnpm verify:semantic`, and the complete one-build Phase 5 root verification order.
+- Produces: preserved Phase 5A leaf `pnpm verify:ui-runtime`, prebuilt-only Phase 5B leaf `pnpm verify:story-presentation`, inspect-only Phase 5C leaf `pnpm verify:ui-tooling`, cumulative implementation gate `pnpm verify:phase5c`, final prebuilt-only `pnpm verify:ui`, atomic browser extension of `pnpm verify:semantic`, and the complete one-build Phase 5 root verification order.
 
 - [ ] **Step 1: Write failing structured-command, order, no-write, and discovery tests**
 
@@ -1740,20 +1830,21 @@ it("keeps Phase 5C inspect-only", () => {
 });
 ```
 
-The renamed Phase 5A test keeps the exact original `uiRuntimeVerificationCommandsV1` leaf unchanged. Refactor `stagePresentationVerificationCommandsV1` by removing only its `build:e2e`/`build:poc` commands; it must require both roots already exist and retain every unit, Interaction, Story, asset, boundary, cycle, and type check in prior relative order. Package-script tests require the cumulative developer aliases shown in Step 3 and forbid any UI leaf from invoking a cumulative phase. Script discovery asserts every `scripts/ui/**/*.test.ts|test.mjs` appears exactly once in `test:scripts`. Root verification contains exactly one `test:scripts`, one `build:poc`, one `build:e2e`, one inspect-only `verify:semantic`, then one inspect-only `verify:ui`, asset/boundary/bundle checks, and no direct Phase 5 aggregate or recursive `pnpm verify` child.
+The renamed Phase 5A test keeps the exact original `uiRuntimeVerificationCommandsV1` leaf unchanged. Refactor `stagePresentationVerificationCommandsV1` by removing only its `build:e2e`/`build:poc` commands; it must require both roots already exist and retain every unit, Interaction, Story, asset, boundary, cycle, and type check in prior relative order. Package-script tests require the cumulative implementation aliases shown in Step 3 and forbid any UI leaf from invoking a cumulative phase. Script discovery asserts every `scripts/ui/**/*.test.ts|test.mjs` appears exactly once in `test:scripts`. Root verification begins with exactly one direct read-only `verify:materialization`, then contains exactly one `test:scripts`, one `build:poc`, one `build:e2e`, one inspect-only `verify:semantic`, one inspect-only `verify:ui`, and the remaining asset/boundary/bundle checks; it has no prepare/writer, direct Phase 5 aggregate, remote command, or recursive `pnpm verify` child.
 
 - [ ] **Step 2: Run script tests and confirm the final orchestration is absent**
 
 Run:
 
 ```bash
+pnpm verify:materialization
 pnpm test:scripts
 node --test scripts/verify-semantic.test.mjs scripts/verify.test.mjs
 ```
 
 Expected: FAIL because the preserved runtime-leaf alias, prebuilt-only Story leaf, Phase 5C leaf/cumulative mapping, final inspect-only `verify:ui`, and atomic browser semantic parity are not wired.
 
-- [ ] **Step 3: Implement the inspect-only UI leaves and cumulative developer aliases**
+- [ ] **Step 3: Implement the inspect-only UI leaves and cumulative implementation aliases**
 
 Rename the existing Phase 5A `verify-ui.mts` and its test to `verify-ui-runtime.*` without changing `uiRuntimeVerificationCommandsV1`; this preserves that inspect-only leaf under the new `verify:ui-runtime` alias. Update `verify:phase5a` to call `verify:ui-runtime`, so later reuse of the public `verify:ui` name cannot recurse through Phase 5B.
 
@@ -1795,6 +1886,7 @@ The third command inspects the already built roots and proves complete-publicati
 The root verifier order is:
 
 ```text
+verify:materialization
 test:scripts
 typecheck/lint/unit and existing Phase 2–4 gates in their established order
 build:poc
@@ -1814,6 +1906,7 @@ Replace the direct cumulative Phase 5B root child with its existing Phase 4 prer
 Run:
 
 ```bash
+pnpm verify:materialization
 pnpm test:scripts
 pnpm build:poc
 pnpm build:e2e
@@ -1843,6 +1936,7 @@ git commit -m "test(ui): freeze complete phase five gate"
 Run from the live Phase 5B acceptance SHA plus the complete Phase 5C implementation:
 
 ```bash
+pnpm verify:materialization
 pnpm test:scripts
 pnpm build:poc
 pnpm build:e2e
@@ -1870,7 +1964,7 @@ Acceptance criteria:
 - Player-safe diagnostic export succeeds from normal, blocking Narrative, and fault-pause surfaces in both keyboard-driven Chromium and touch-driven Chromium-touch without internal state/export hooks.
 - Phase 5B remains the sole detailed HitMap/Interaction accessibility gate. Phase 5C adds complete-application DOM/Automation parity and global DevDock/capability/browser evidence without duplicating or weakening that gate.
 - 1024×768, 1600×1000, 768×1024, 2560×1080, 800×500, equivalent 200% zoom, keyboard-only navigation, WCAG A/AA, text spacing, focus restoration, at-least-44×44 targets, and reduced motion pass in Chromium and WebKit; touch global controls pass in Chromium-touch.
-- Exactly three reviewed code-native Chromium visual baselines pass read-only comparison. No verifier updates them or reads AIGC/reference material.
+- Exactly three agent-reviewed Chromium PNG baselines over the default resolved E2E/PoC roots pass read-only/offline comparison in the exact host-local `LocalVisualEnvironmentV1` recorded beside them. The Phase 2 `e2e-shell.png`, its `@visual` case, and `update:screenshots` writer are absent. The complete environment fingerprint, presentation/approved Asset Pack digests, each PNG's full path/dimensions/SHA-256, and the fixed technical rubric are recorded; a fingerprint difference fails with `visual_environment_mismatch` until an explicit rebaseline, no verifier updates files or reads AIGC/reference material, and this evidence claims neither cross-platform pixel identity nor a new material/player-experience approval.
 - Both prebuilt roots pass traversal-safe serving, application graph, asset, boundary, and bundle checks; Web remains Story-neutral and E2E imports no PoC implementation or ID.
 - No Phase 5C change adds Gameplay state, commands, facts, rules, balance, relationship counters, outfit persistence, Narrative control flow, or a second availability calculation.
-- The checkpoint records phase-base/head SHA, exact commands/results, Task 5 source-graph manifest digests, capability/publication/parity/a11y evidence, VoiceOver runbook status, reviewed visual-baseline diff, and final worktree status. Phase 6 owns formal build-input/artifact manifests and release provenance.
+- The checkpoints record phase-base/head SHA, exact commands/results, R1.5 materialization digest, Task 5 source-graph manifest digests, capability/publication/parity/a11y evidence, the complete local visual-environment fingerprint, presentation and approved Asset Pack digests, visual-baseline file/comparison digests and rubric results, plus final worktree status. No VoiceOver/device/human-playtest or remote-distribution status belongs to Phase 5C; Phase 6 owns formal local build-input/artifact manifests.

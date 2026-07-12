@@ -9,21 +9,22 @@ This repository is for a solo tavern-management, relationship-sim, and text-adve
 Read these before changing behavior:
 
 1. `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md` — authoritative Phase 2+ terminology, Story/Gameplay ownership, ResolvedGame/GameSimulation, unified application capabilities, SemanticGamePort, Input, and one-Artifact boundaries.
-2. `docs/superpowers/specs/2026-07-12-scene-interaction-character-presentation-design.md` — authoritative StageScene/variant, Character/纸娃娃, HitMap/Interaction, content-maturity, presentation fallback, and authoritative-state publication boundaries.
-3. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — Phase 1 as-built package, Loader/Host, Hotfix, save/debug, test, and asset principles not replaced by the Phase 2+ revisions.
-4. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete PoC ABI, interpreted through the Phase 2+ naming/ownership revisions; tavern-specific types do not belong in Base.
-5. `docs/superpowers/specs/2026-07-11-repository-licensing-design.md` — authoritative MIT/PolyForm/CC scope, third-party material, trademark, and contribution boundaries.
-6. `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md` — authoritative AIGC source directory, optional prompt/model archive, manual runtime promotion, and technical Asset Pack digest boundaries.
-7. `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` — mandatory first-Goal phase order, checkpoints, stop lines, verification surface, and Definition of Done; follow its linked phase plans during execution.
-8. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
-9. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
-10. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
-11. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
-12. `docs/poc/reference-strategies.md` — deterministic reference inputs.
-13. `docs/design/game-design-baseline.md` — long-term product direction.
-14. `docs/art/first-web-visual-pack.md` — provisional Web visual language, Phase 4B-aligned runtime Asset IDs, safe zones, source illustrations, and acceptance.
+2. `docs/superpowers/specs/2026-07-12-local-engineering-delivery-boundaries-design.md` — authoritative separation of the predecessor asset track, unattended local engineering Goal, final human review, deferred remote distribution, agent baseline review, materialization preflight, and resume rules.
+3. `docs/superpowers/specs/2026-07-12-scene-interaction-character-presentation-design.md` — authoritative StageScene/variant, Character/纸娃娃, HitMap/Interaction, content-maturity, presentation fallback, and authoritative-state publication boundaries.
+4. `docs/superpowers/specs/2026-07-10-react-game-harness-design.md` — Phase 1 as-built package, Loader/Host, Hotfix, save/debug, test, and asset principles not replaced by the Phase 2+ revisions.
+5. `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` — field-level v1 catalog for Base envelopes and the concrete PoC ABI, interpreted through the Phase 2+ naming/ownership revisions; tavern-specific types do not belong in Base.
+6. `docs/superpowers/specs/2026-07-11-repository-licensing-design.md` — authoritative MIT/PolyForm/CC scope, third-party material, trademark, and contribution boundaries.
+7. `docs/superpowers/specs/2026-07-12-aigc-asset-archive-design.md` — authoritative AIGC source directory, optional prompt/model archive, manual runtime promotion, and technical Asset Pack digest boundaries.
+8. `docs/superpowers/plans/2026-07-11-project-tavern-poc-roadmap.md` — mandatory first-Goal phase order, checkpoints, stop lines, verification surface, and Definition of Done; follow its linked phase plans during execution.
+9. `docs/poc/poc-charter.md` — first Story scope and acceptance gates.
+10. `docs/poc/simulation-rules.md` — seven-day state transitions and settlement semantics.
+11. `docs/poc/balance-v0.md` — tunable seven-day values and formulas.
+12. `docs/poc/content-and-playtest.md` — fixed seven-day scenario and strategy matrix.
+13. `docs/poc/reference-strategies.md` — deterministic reference inputs.
+14. `docs/design/game-design-baseline.md` — long-term product direction.
+15. `docs/art/first-web-visual-pack.md` — independent predecessor asset-preparation track, provisional Web visual language, Phase 4B-aligned runtime Asset IDs, safe zones, source illustrations, and human approval criteria.
 
-Authority is domain-specific: the Phase 2+ runtime revision governs terminology and runtime ownership; the StageScene/Interaction revision governs presentation, character, input-hit-test, content-level and fallback boundaries; the Harness design governs only unchanged Phase 1 principles. The Contract Catalog freezes field-level ABI after applying both revisions' naming and ownership rules; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs provisional Web art direction and only those asset contracts aligned with Phase 4B. The roadmap governs execution order and evidence but cannot override those specifications. Record intentional changes in the relevant authoritative document in the same change as the code.
+Authority is domain-specific: the Phase 2+ runtime revision governs terminology and runtime ownership; the delivery-boundaries revision governs track separation, unattended execution, technical baseline review, materialization and resume; the StageScene/Interaction revision governs presentation, character, input-hit-test, content-level and fallback boundaries; the Harness design governs only unchanged Phase 1 principles. The Contract Catalog freezes field-level ABI after applying those revisions' naming and ownership rules; the licensing design governs copyright, package metadata, third-party admission, and release notices; the PoC documents govern the seven-day gameplay and numbers inside those interfaces; the visual-pack document governs the separate predecessor asset track, provisional Web art direction and only those asset contracts aligned with Phase 4B. The roadmap governs execution order and evidence but cannot override those specifications. Record intentional changes in the relevant authoritative document in the same change as the code.
 
 ## Scope constraints
 
@@ -60,7 +61,7 @@ Authority is domain-specific: the Phase 2+ runtime revision governs terminology 
 - One GameSession FIFO serializes every authoritative operation: Gameplay dispatch, validated Save load/import (including explicit resolved-PatchSet adoption), lifecycle create/restart, replayable DebugCommand, and fixture anchor. Entry marks the Session busy synchronously; no Runtime component or UI may receive a direct Snapshot setter. Every successful replacement atomically establishes a new replay base and clears the old CommandLog.
 - Semantic preview uses the same FIFO boundary to read the latest Gameplay State before creating Queries. SemanticGamePort publishes immutable projections through `subscribe`; subscriber exceptions are isolated and reported as bounded runtime failures without changing committed state, FIFO results, or notification of other listeners.
 - Replayable gameplay DebugCommand semantics and validation live with the selected Story/GameSimulation and enter `simulationDigest`; admitted committed and faulted attempts both enter CommandLog, while validation failures never do. Successful rule-bypassing mutations persist RunIntegrity; legal SemanticGamePort/Automation actions do not. Fixture load resolves only active-Story tooling and establishes an integrity-marked anchor rather than a replayable gameplay log entry.
-- AIGC source archives live under `art-source/aigc/<source>/**`; organization below the source is free, prompt/model naming is optional, and no verifier scans archive metadata or pairing. Selected images are manually copied into `packages/assets/**` or a Story asset directory; only the promoted runtime manifest and exact bytes enter the technical Asset Pack digest. `art-source/aigc/**` and `references/` never enter E2E/PoC/Pages artifacts.
+- AIGC source archives live under `art-source/aigc/<source>/**`; organization below the source is free, prompt/model naming is optional, and no verifier scans archive metadata or pairing. Selected images are manually copied into `packages/assets/**` or a Story asset directory; only the promoted runtime manifest and exact bytes enter the technical Asset Pack digest. `art-source/aigc/**` and `references/` never enter E2E/PoC Web artifacts.
 
 ## Licensing constraints
 
@@ -79,12 +80,12 @@ Authority is domain-specific: the Phase 2+ runtime revision governs terminology 
 - Treat Harness code as production code. Prefer TDD for simulation rules: failing focused test, minimal implementation, focused pass, then broader verification.
 - Maintain deterministic golden-week tests for named strategies.
 - Any balance change must update the expected strategy results or explain why the invariant remains unchanged.
-- Keep files focused and interfaces explicit. Enforce import boundaries and cycles in CI. Avoid a global mutable store, generic event bus, ECS, CQRS, or event sourcing for this PoC.
-- Use Node.js >=22.12.0 and pnpm >=11.0.0 with a frozen lockfile. `pnpm verify` is the full non-interactive local/CI verification entrypoint once scaffolded.
+- Keep files focused and interfaces explicit. Enforce import boundaries and cycles in the complete local verification gate. Avoid a global mutable store, generic event bus, ECS, CQRS, or event sourcing for this PoC.
+- Node.js >=22.12.0 and pnpm >=11.0.0 remain compatibility floors, while the bounded Phase 2–6 Goal must use the exact Node/pnpm checkpoint materialized by Phase 0 with a frozen lockfile. `pnpm verify` is the full non-interactive local verification entrypoint once scaffolded; remote CI is a separate deferred distribution concern.
 - The current stable TypeScript 7 `tsc` is authoritative and must be pinned when the workspace is scaffolded. Tooling compatibility may not downgrade formal project typechecking or make project code depend on the legacy Compiler API.
 - Direct `.mts` tools run with Node's `--experimental-strip-types`; their complete import closure must remain erasable TypeScript with no enum, namespace, parameter property, or transform-required syntax. Formal diagnostics still come from TypeScript 7 `tsc`.
 - `engine.version` comes only from Application-owned build metadata and never enters engine/simulation roots.
-- Tracked persistence fixtures are provenance-bound. Any engine, state-contract, or simulation digest input change must explicitly regenerate and review fixture diffs through the eventual dedicated command; ordinary tests and CI only verify and never rewrite tracked baselines.
+- Tracked persistence fixtures are provenance-bound. Any engine, state-contract, or simulation digest input change must explicitly regenerate and review fixture diffs through the eventual dedicated command; ordinary local verification only verifies and never rewrites tracked baselines, and any future CI must preserve the same rule.
 - Use Chinese for player-facing/design prose and English for identifiers unless a document states otherwise.
 
 ## Reference-code boundary

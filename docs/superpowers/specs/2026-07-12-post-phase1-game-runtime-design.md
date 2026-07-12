@@ -13,10 +13,11 @@
 本文与下列文档共同构成后续实施权威：
 
 - [`2026-07-10-react-game-harness-design.md`](2026-07-10-react-game-harness-design.md)：Phase 1 已实现基础及本文未改变的通用原则；
+- [`2026-07-12-local-engineering-delivery-boundaries-design.md`](2026-07-12-local-engineering-delivery-boundaries-design.md)：素材准备、本地工程 Goal、最终人工审查与远端分发的轨道边界，以及无人值守审查、物化和恢复规则；
 - [`2026-07-10-engine-contract-catalog.md`](2026-07-10-engine-contract-catalog.md)：现有字段级 PoC ABI 和通用 envelope；
 - 本文：Phase 2+ 的新术语、所有权和公共边界。
 
-冲突时本文优先。旧文档中的 `GameProfile`、`CommandCoordinator`、`ResolvedStory`、`EngineSession`、公共酒馆 Modules、Sandbox/Demo Story、Player/Developer build flavor 和静态 Developer 隔离均只描述 Phase 1 既有基线，不得继续扩展。Phase 2 首先迁移这些既有实现；不保留旧名称兼容别名。
+运行时术语和所有权冲突时本文优先；交付轨道、人工/agent 审查、物化和恢复冲突时 delivery-boundaries 规格优先。旧文档中的 `GameProfile`、`CommandCoordinator`、`ResolvedStory`、`EngineSession`、公共酒馆 Modules、Sandbox/Demo Story、Player/Developer build flavor 和静态 Developer 隔离均只描述 Phase 1 既有基线，不得继续扩展。Phase 2 首先迁移这些既有实现；不保留旧名称兼容别名。
 
 本文不改变七日 PoC 的玩法规则和数值；这些继续由 `docs/poc/` 与 Contract Catalog 的具体字段控制，实施所有权改为 PoC Story。
 
@@ -118,7 +119,7 @@ apps/
   web/        @project-tavern/web
 ```
 
-- `stories/e2e` 是 CI 和引擎集成夹具；
+- `stories/e2e` 是本地 Automation、AI agent 和未来 CI 共用的引擎集成夹具；
 - `stories/poc` 是当前七日酒馆可玩原型；
 - 不预建 Sandbox、Demo、Full、`stories/common` 或其他 Story；
 - `packages/modules` 当前为空且没有真实复用依据，Phase 2 删除该包；未来出现至少两个真实消费者后再创建共享 Gameplay 包；
@@ -373,7 +374,7 @@ interface RuntimeCapabilityPortV1 {
 
 ## 11. SemanticGamePort
 
-Headless、CI、Automation、AI Agent 和人类 UI 使用同一语义操作来源：
+Headless Runner、本地 Automation、AI Agent、人类 UI 和未来 CI 使用同一语义操作来源：
 
 ```ts
 interface SemanticPublicationV1<TGameView, TActionDescriptor, TStatus> {
@@ -561,7 +562,7 @@ interface ArtifactBuildRequestV1 {
 
 公共脚本最终使用 `pnpm build:e2e` 和 `pnpm build:poc`。Vite Dev Server、HMR、压缩和 source map 是工具环境，不是玩法或 Artifact flavor。Release Artifact 不含 source map、`references/`、`art-source/aigc/`、绝对本机路径、秘密或未准入远程素材。
 
-Artifact 可以包含 Debug/Tooling code；验证默认 capability 关闭、受控开启和作弊留痕，不能通过扫描 bundle 中是否出现 Developer 符号来代替运行测试。Pages 只部署构建并测试过的同一 PoC Artifact；E2E Web Artifact 只用于 CI。
+Artifact 可以包含 Debug/Tooling code；验证默认 capability 关闭、受控开启和作弊留痕，不能通过扫描 bundle 中是否出现 Developer 符号来代替运行测试。第一轮工程轨道只在本地构建和验证两份 Artifact；未来远端分发适配器必须消费这些 exact bytes，不得重新构建。
 
 ## 18. 测试分层
 
@@ -596,7 +597,7 @@ Phase 3：Persistence、RuntimeCapabilities、DebugTools、RunIntegrity、Replay
 Phase 4A：PoC GameplayModules、Rules、Resolvers、Executor、Queries
 Phase 4B：七日内容、Narrative、Golden、Balance、Save fixtures
 Phase 5：UI、Input、Assets、Accessibility、Automation Bridge
-Phase 6：单 Story×Host Artifact、CI、Pages 和交付
+Phase 6：单 Story×Host Artifact、本地可复现构建与交付就绪
 ```
 
 Phase 1 计划保留为已执行历史记录，只在顶部注明新术语和 Story 布局由本文及 Phase 2 迁移。任何后续计划若重新引入公共酒馆 Modules、Player/Developer build、独立 Developer root、Headless flavor、E2E 复用 PoC 或 Executor-owned Queries，必须停止实施并先修正文档。
@@ -613,8 +614,10 @@ Phase 1 计划保留为已执行历史记录，只在顶部注明新术语和 St
 - PoC 拥有全部酒馆 Gameplay；
 - 每个 Story/Host 只有一个 Artifact；
 - Debug、Cheat、Automation 都是默认关闭的运行时 capability；
-- SemanticGamePort 可供 UI、CI、Headless Runner 和 AI adapter 使用；
+- SemanticGamePort 可供 UI、Headless Runner、本地 Automation 和 AI adapter 使用；
 - Pointer 同时支持鼠标和触摸；
 - Cheat/fixture mutation 的 integrity 能跨 Save/Load/Replay；
-- PoC Artifact 可复现、可在嵌套 base path 运行并可直接部署 Pages；
+- PoC Artifact 可复现、可在嵌套 base path 运行并保持托管平台中立；
 - 全部 verification、browser、artifact 和 documentation gates 通过且工作树状态明确。
+
+人工素材批准、人工试玩、真实设备/VoiceOver 结论、CI、GitHub Pages、Cloudflare 和 remote smoke 均由 delivery-boundaries 规格定义的独立轨道负责，不属于上述验收。

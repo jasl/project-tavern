@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - Cumulative `pnpm verify:phase5a` (and therefore Phase 2–4B/`verify:phase4`) plus every Phase 4B Story acceptance command must pass from the live phase base SHA before this plan starts; do not rerun an already nested phase merely to satisfy the prerequisite twice.
+- The roadmap `R1.5` materialization checkpoint remains a hard prerequisite. Every task starts with read-only `pnpm verify:materialization`; missing/stale `scripts/preflight/materialization-lock.json` or `.project-tavern/goal-materialization.json` evidence fails before task changes with `external_precondition.materialization_stale`. R1.5 has already pinned every external package and browser revision needed by this plan, so Phase 5B never chooses a version, runs `pnpm add`, contacts a registry, or downloads a browser; it may only run `pnpm install --offline --frozen-lockfile` after the check.
 - The authority order for this plan is `docs/superpowers/specs/2026-07-12-scene-interaction-character-presentation-design.md`, `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md`, and `docs/superpowers/plans/2026-07-11-project-tavern-04b-poc-story-golden.md`. The first document wins when the older Phase 5 plan assumes one static background, one character image, group asset preload, or a single application-level GameView bridge.
 - Phase 5B consumes the Phase 2 neutral StageScene/Character/HitMap/Interaction/content-maturity contracts and the Phase 4B frozen PoC catalog. It does not add or rename a GameplayModule, State Slot, Game Command, GameplayFact, Rule, Resolver, ActionId, Narrative SceneId, relationship counter, daily touch reward, outfit state, or golden/Save command sequence.
 - `GameSimulation` never imports SceneGraph, renderer, Input, `ContentPreferenceV1`, DOM, React, or application UI state. `PocGameViewV1` never imports StageScene/variant/asset/renderer IDs. Pure presentation catalog or asset changes may change presentation/application identity but must leave state-contract and simulation digests byte-for-byte unchanged.
@@ -84,7 +85,9 @@
 - There remain exactly two application IDs and roots: `poc-web` and `e2e-web`. Generic `apps/web` imports neither Story. Story tooling, DevDock, Cheat UI, Automation Bridge, Debug UI context, full cross-browser/zoom/reduced-motion matrix, and visual regression remain Phase 5C work.
 - Phase 5B itself completes the Interaction-specific mouse, touch, keyboard, focus, semantic DOM, 44×44 target, no-through, and accessible fallback acceptance in Chromium desktop and touch projects. Phase 5C extends rather than replaces this evidence.
 - Player-facing text is Chinese and identifiers are English. Runtime controls, text, focus rings, HUD numbers, map labels, and icons are DOM/code-native; `art-source/aigc/**` and `references/**` are never imported, scanned, copied, preloaded, or bundled.
+- Material generation/selection, subjective art approval, VoiceOver/device review, human playtesting, CI, and remote distribution are outside this plan. Phase 5B consumes only already-approved runtime assets and otherwise proves the complete flow with registered code-native/static fallbacks.
 - Every task uses TDD, passes its focused suite and full `pnpm verify`, reviews `git diff --check`, and ends with a narrow commit. Before Task 12, root `pnpm verify` already reaches cumulative `verify:phase5a` (and therefore inspect-only `verify:ui`) exactly once; tasks do not invoke either dependency a second time. The final gate task replaces that temporary Phase 5A root child with cumulative Phase 5B exactly once.
+- At every task boundary record phase-base SHA, current HEAD, last completed task commit, and `git status --short`. Reverify and skip an already matching task commit; resume a dirty task only when all changed/untracked paths are inside that task's `Files` allowlist. An expected-red counts only when the named focused assertion fails for the documented missing symbol/stable diagnostic, never for external materialization, browser, port, or unrelated build failure. Stage only explicit allowlist paths, inspect `git diff --cached --name-only`/`--check`, and preserve/report all remaining user changes.
 
 ---
 
@@ -230,7 +233,7 @@ scripts/ui/
 
 vite.config.ts                          # exactly e2e-web and poc-web roots
 package.json                            # build/browser/Phase 5B scripts
-pnpm-lock.yaml                          # exact Story UI/Web workspace dependencies
+scripts/preflight/materialization-lock.json # R1.5 exact external closure; read-only here
 scripts/verify.mjs                      # replace Phase 5A child with Phase 5B
 scripts/verify.test.mjs
 ```
@@ -2070,8 +2073,6 @@ git commit -m "feat(story-poc): project stage interactions"
 - Create: `stories/poc/src/presentation/ui-contributions.tsx`
 - Create: `stories/poc/src/presentation/ui-contributions.test.tsx`
 - Create: `stories/poc/tsconfig.application.json`
-- Modify: `stories/poc/package.json`
-- Modify: `pnpm-lock.yaml`
 - Test: affected `stories/poc/src/presentation/**/*.test.tsx`
 
 **Interfaces:**
@@ -2193,12 +2194,22 @@ Expected: FAIL because the HUD, Stage scenes, overlays, Story world-symbol provi
 
 - [ ] **Step 4: Implement code-native PoC world symbols, scenes, and the hybrid heroine**
 
-Before importing the UI package from production `.tsx`, declare the direct workspace dependency and verify the resulting lockfile:
+Before importing the UI package from production `.tsx`, verify the already-authored Story importer and consume its R1.5 materialization without changing dependency metadata:
 
 ```bash
-pnpm --filter @project-tavern/story-poc add '@project-tavern/ui@workspace:*' --save-exact react@19.2.7
-pnpm install --frozen-lockfile
+pnpm verify:materialization
+node --input-type=module <<'NODE'
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+const story = JSON.parse(await readFile("stories/poc/package.json", "utf8"));
+const code = "external_precondition.workspace_importer_mismatch";
+assert.equal(story.dependencies?.["@project-tavern/ui"], "workspace:*", code);
+assert.equal(story.dependencies?.react, "19.2.7", code);
+NODE
+pnpm install --offline --frozen-lockfile
 ```
+
+Expected: `stories/poc/package.json` already contains `@project-tavern/ui: "workspace:*"` and exact `react: "19.2.7"`, the lock importer resolves them, and both files remain unchanged. A missing/mismatched importer entry fails as `external_precondition.workspace_importer_mismatch`; this is a Phase 2 contract failure, not stale R1.5 external-package evidence, because the materialization digest deliberately excludes workspace importer layout. This task does not run `pnpm add`.
 
 Consume the exact `pocGameSymbolIdsV1` tuple frozen by Phase 4B. Parse those values once into role aliases and register providers separately from the seven renderer namespaces; do not author another project-ID list:
 
@@ -2242,7 +2253,7 @@ The Phase 4B Story validator remains the single assertion of the tuple's exact v
 
 The persistent HUD uses the Phase 5A `start/center/end` top-card slots: date/phase; AP and both stamina meters; cash/reputation/levy forecast. Detailed inventory, obligation explanations, service forecasts, facilities, ledger, relationship profile, and summary stay in primary Overlays. `PocTavernScene` keeps the background and heroine visible, mounts `InteractionSurfaceV1` over the compatible character-local rect, and renders the DOM behavior list. `PocMarketScene` and `PocWorldMapScene` are separate StageScene renderers selected by UI state; returning/closing the Overlay returns to tavern without advancing Gameplay.
 
-The first heroine uses the frozen hybrid order from the PoC catalog (`back_hair`, `costume_body`, `face`, `front_hair`, `accessory`, `held_prop`, `foreground_effect`) only as Story-owned IDs; the generic renderer still treats them as opaque. Current runtime providers remain code-native/static fallback entries. The four archived concept images are not imported or promoted by this task.
+The first heroine uses the frozen hybrid order from the PoC catalog (`back_hair`, `costume_body`, `face`, `front_hair`, `accessory`, `held_prop`, `foreground_effect`) only as Story-owned IDs; the generic renderer still treats them as opaque. The default runtime consumes Phase 4B's already resolved provider-or-fallback entries: predecessor-approved providers may render, while every missing/load-failed layer follows its registered static/code-native fallback. The four archived concept images are not imported or promoted by this task.
 
 - [ ] **Step 5: Implement Story overlays as pure descriptor/preview consumers**
 
@@ -2267,18 +2278,18 @@ Tests require every renderer ID referenced by the frozen SceneGraph/runtime proj
 
 - [ ] **Step 6: Keep Story asset slots exact, standard-only, and fallback-complete**
 
-Phase 4B `presentation/assets.ts` and the closed IDs in `content/ids.ts` remain the only PoC asset authority; this task does not create a second slots/packs catalog. `GameSymbolIdV1` values and their code-native providers are not `AssetId` values and never enter `requiredAssetIds` or asset preload. Scene/character/Overlay render tests resolve every required standard Asset ID from `resolvedGame.assets`. The Phase 5A asset validator must show no read of `art-source/aigc/**` or `references/**`, no remote URL, no hidden non-standard-level provider, and no transparent interactive element after fallback.
+Phase 4B `presentation/assets.ts` and the closed IDs in `content/ids.ts` remain the only PoC slot authority; this task does not create a second slots/packs catalog. The predecessor-approved pack is already merged into `resolvedGame.assets` and is consumed as data, not re-read from source directories. `GameSymbolIdV1` values and their code-native providers are not `AssetId` values and never enter `requiredAssetIds` or asset preload. Scene/character/Overlay render tests resolve every required standard Asset ID from `resolvedGame.assets`; include both the default approved-pack fixture and an injected empty-pack fixture proving full fallback operation. The Phase 5A asset validator must show no read of `art-source/aigc/**` or `references/**`, no remote URL, no hidden non-standard-level provider, and no transparent interactive element after fallback.
 
 Resolve every HUD/Overlay/symbol label from the complete Phase 4B `zh-CN` Story catalog through `PresentationReadPortV1`, and fail the Story presentation test if any required `TextId` is absent. If the supposedly complete Phase 4B catalog lacks a required label, stop and correct that upstream contract explicitly before continuing rather than embedding a raw fallback string in `.tsx`. Task 9 does not add a second localization dictionary or silently mutate the frozen Text ID/catalog authority; React files contain rendered-text expectations only.
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/presentation && pnpm verify:assets && pnpm lint:styles && pnpm verify:stories && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
 
-Expected: PASS; the complete PoC Story UI remains projection-only, code-native, and playable with fallback assets.
+Expected: PASS; the complete PoC Story UI remains projection-only, renders any already-approved resolved providers, and is still fully playable through code-native/static fallbacks when the pack is empty or a load fails.
 
 - [ ] **Step 7: Commit the PoC Story presentation**
 
 ```bash
-git add -- stories/poc/src/presentation/hud stories/poc/src/presentation/scenes stories/poc/src/presentation/overlays stories/poc/src/presentation/symbols stories/poc/src/presentation/ui-contributions.tsx stories/poc/src/presentation/ui-contributions.test.tsx stories/poc/tsconfig.application.json stories/poc/package.json pnpm-lock.yaml
+git add -- stories/poc/src/presentation/hud stories/poc/src/presentation/scenes stories/poc/src/presentation/overlays stories/poc/src/presentation/symbols stories/poc/src/presentation/ui-contributions.tsx stories/poc/src/presentation/ui-contributions.test.tsx stories/poc/tsconfig.application.json
 git diff --cached --check
 git commit -m "feat(story-poc): add tavern stage presentation"
 ```
@@ -2298,7 +2309,6 @@ git commit -m "feat(story-poc): add tavern stage presentation"
 - Modify: `stories/e2e/src/application/entry.tsx`
 - Modify: `stories/e2e/index.html`
 - Modify: `stories/e2e/tsconfig.application.json`
-- Modify: `stories/e2e/package.json`
 - Create: `stories/poc/src/application/create-poc-presentation-runtime.ts`
 - Create: `stories/poc/src/application/create-poc-presentation-runtime.test.ts`
 - Create: `stories/poc/src/application/poc-application-root.tsx`
@@ -2306,16 +2316,14 @@ git commit -m "feat(story-poc): add tavern stage presentation"
 - Create: `stories/poc/src/application/entry.tsx`
 - Create: `stories/poc/index.html`
 - Modify: `stories/poc/tsconfig.application.json`
-- Modify: `stories/poc/package.json`
 - Modify: `vite.config.ts`
 - Modify: root `package.json`
-- Modify: `pnpm-lock.yaml`
 - Test: affected Story application and Web routing suites.
 
 **Interfaces:**
 
 - Consumes: each Story's existing `StoryEntry`, resolved Game/SceneGraph/Presentation/Asset catalogs, Phase 3 unified Game runtime/application ports, Story SemanticGamePort, Tasks 1–9 preference/store/projectors/contributions and the PoC world-symbol registry, Phase 5A Shell/Input/Asset/Web Pointer APIs, and generic `mountGameApplicationV1`.
-- Produces: `createE2ePresentationRuntimeV1`, `E2eApplicationRootV1`, the typed single-Session specialization `createPocGameApplicationV1`/`PocGameApplicationPortV1`, `createPocPresentationRuntimeV1`, `PocApplicationRootV1`, application IDs `e2e-web`/`poc-web`, the two build roots, and `createHashRouterV1`.
+- Produces: `createE2ePresentationRuntimeV1`, `E2eApplicationRootV1`, the typed single-Session specialization `createPocGameApplicationV1`/`PocGameApplicationPortV1`, `createPocPresentationRuntimeV1`, `PocApplicationRootV1`, application IDs `e2e-web`/`poc-web`, the two build roots, provisional `build:poc` beside the existing `build:e2e`, and `createHashRouterV1`. Phase 6 later replaces both direct Vite scripts with the closed release builder while preserving their public names.
 
 - [ ] **Step 1: Write failing one-resolution/one-session/one-store composition tests**
 
@@ -2422,7 +2430,7 @@ it("keeps generic Web source free of Story imports", async () => {
 
 Run: `pnpm --filter @project-tavern/web exec vitest run src/routing && pnpm --filter @project-tavern/story-e2e exec vitest run src/application && pnpm --filter @project-tavern/story-poc exec vitest run src/application`
 
-Expected: FAIL because the hash adapter, presentation runtime compositions, and PoC application root do not exist.
+Expected: FAIL because the hash adapter, presentation runtime compositions, PoC application root, `poc-web` Vite mapping, and `build:poc` script do not exist.
 
 - [ ] **Step 4: Implement one presentation composition per existing Story game runtime**
 
@@ -2472,15 +2480,24 @@ Both roots mount the Phase 5A `SettingsLauncherV1` in the always-reachable Syste
 
 `createHashRouterV1` supports only `#/` → `main_menu` and `#/play` → `play`; unknown or malformed hashes replace to `#/` without touching `location.pathname` or the configured Vite base. Back/forward/hashchange updates the UI state source; disposal removes one listener. It is generic and contains no Story IDs.
 
-Phase 5A already gave E2E its direct UI dependency, and Task 9 gave PoC its direct UI dependency before either new import. Add the Web composition dependency now:
+Phase 5A already gave E2E its direct UI dependency, and Task 9 verified PoC's direct UI dependency before either new import. Verify the already-authored Web composition edges now:
 
 ```bash
-pnpm --filter @project-tavern/story-poc add '@project-tavern/web@workspace:*'
-pnpm --filter @project-tavern/story-e2e add '@project-tavern/web@workspace:*'
-pnpm install --frozen-lockfile
+pnpm verify:materialization
+node --input-type=module <<'NODE'
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+for (const path of ["stories/e2e/package.json", "stories/poc/package.json"]) {
+  const story = JSON.parse(await readFile(path, "utf8"));
+  const message = `external_precondition.workspace_importer_mismatch:${path}`;
+  assert.equal(story.dependencies?.["@project-tavern/web"], "workspace:*", message);
+  assert.equal(story.dependencies?.react, "19.2.7", message);
+}
+NODE
+pnpm install --offline --frozen-lockfile
 ```
 
-Keep exact direct React dependencies at both Story packages. `vite.config.ts` maps only `e2e-web → stories/e2e/index.html → dist/e2e` and `poc-web → stories/poc/index.html → dist/poc`; `build:e2e` and `build:poc` retain their existing public names. Every HTML entry passes an explicit StoryEntry/runtime composition to generic `mountGameApplicationV1`; `apps/web` imports neither Story.
+Expected: both Story manifests already contain `@project-tavern/web: "workspace:*"`, their lock importers resolve the exact workspace edge, and the command changes neither manifests nor lockfile. A missing/mismatched importer edge is `external_precondition.workspace_importer_mismatch`, owned by Phase 2 rather than materialization; this task does not repair it with `pnpm add`. Keep exact direct React dependencies at both Story packages. Extend `vite.config.ts` from Phase 2's single `e2e-web → stories/e2e/index.html → dist/e2e` mapping to the exact closed pair by adding `poc-web → stories/poc/index.html → dist/poc`. Preserve Phase 2's `"build:e2e": "vite build --mode e2e-web"` and introduce `"build:poc": "vite build --mode poc-web"`; no other Story/Host tuple or compatibility alias is allowed. Phase 6 replaces these two implementations with its unified builder without renaming the scripts. Every HTML entry passes an explicit StoryEntry/runtime composition to generic `mountGameApplicationV1`; `apps/web` imports neither Story.
 
 - [ ] **Step 7: Run Story roots, builds, and closure verification**
 
@@ -2491,7 +2508,7 @@ Expected: PASS; exactly two roots build, both reuse one Session/publication pipe
 - [ ] **Step 8: Commit the two Story application roots**
 
 ```bash
-git add -- apps/web/src/routing apps/web/src/index.ts stories/e2e/src/application stories/e2e/index.html stories/e2e/tsconfig.application.json stories/e2e/package.json stories/poc/src/application stories/poc/index.html stories/poc/tsconfig.application.json stories/poc/package.json vite.config.ts package.json pnpm-lock.yaml
+git add -- apps/web/src/routing apps/web/src/index.ts stories/e2e/src/application stories/e2e/index.html stories/e2e/tsconfig.application.json stories/poc/src/application stories/poc/index.html stories/poc/tsconfig.application.json vite.config.ts package.json
 git diff --cached --check
 git commit -m "feat(game): compose stage presentation roots"
 ```
@@ -2863,6 +2880,7 @@ Keep Phase 5A `verify:ui` unchanged as its inspect-only package/asset/input/styl
 Run:
 
 ```bash
+pnpm verify:materialization
 before="$(git ls-files -z | xargs -0 shasum -a 256)"
 pnpm verify:story-presentation
 pnpm verify:phase5b
@@ -2914,4 +2932,5 @@ git commit -m "test(ui): add phase five stage gate"
 - [ ] There are exactly two Story-owned application roots/IDs and build outputs: `e2e-web → dist/e2e` and `poc-web → dist/poc`. Both resolve once, create one Session, one Semantic bridge, one presentation store, one input router, and one disposal tree.
 - [ ] Default Story/Headless closures remain Node type-strip-safe and cannot reach Web projectors, `.tsx` renderer registries, React/DOM, content preference storage, or application roots.
 - [ ] At 1024×768 and 768×1024, Interaction-specific Stage, target, behavior list, close control, focus, named/disabled reasons, and 44×44 targets remain operable. Phase 5C owns the additive full browser/zoom/reduced-motion/axe/visual matrix.
+- [ ] `pnpm verify:materialization` passes from the unchanged R1.5 contract/attestation; Story/UI/Web dependency edges were already pinned, every install is offline/frozen, and Phase 5B changes no lockfile byte.
 - [ ] All Phase 4B command/golden/Save fixture bytes remain unchanged and `pnpm --filter @project-tavern/story-poc verify:commands`, `pnpm verify:golden`, `pnpm verify:fixtures`, `pnpm verify:semantic`, `pnpm verify:story-presentation`, cumulative `pnpm verify:phase5b`, and full `pnpm verify` pass read-only.

@@ -1,13 +1,13 @@
 # 七日内容场景与试玩矩阵
 
 状态：v0 非正史测试内容
-目的：用最少人工内容覆盖全部关键系统，不作为正式剧本
+目的：用最少的临时内容覆盖全部关键系统，不作为正式剧本；工程 Goal 结束后才进行人工试玩终审
 
 ## 1. 本周虚构前提
 
 序章不制作正式演出。开局文字卡只说明：酒馆刚恢复营业，城镇要求周日缴纳 140 的重建税，伙计在第一天结束后可以代班。旧战友留下一个周五有效的调查机会；女主也计划在同一天下午修复酒馆招牌。
 
-首轮不固定正式人名，角色显示名使用“你”“她”“旁白”。对白采用完整但克制的功能性文案，不留未完成标记或空白句；PoC 只验证信息、选择和状态差分，不评估正式文笔，正式剧本以后整体替换。
+首轮不固定正式人名，角色显示名使用“你”“她”“旁白”。执行 Goal 的 agent 可以直接编写完整、克制、语义明确的 provisional 中文功能性文案，不需要为逐句措辞暂停或请求人工确认；文案不得含 `TODO`、占位符、空白句或未完成标记。PoC 工程验收只验证信息、选择、状态差分、引用完整性和可访问性，不把正式文笔或美术品味当作阻塞项，正式剧本以后整体替换。
 
 ## 2. 稳定内容 ID
 
@@ -196,7 +196,7 @@ reason.debug.narrative_jump
 reason.debug.rng_override
 ```
 
-这些 ID 一旦进入存档 fixture 不得重新赋予其他语义。`StorySourceIdentityV1` 固定为 `{ id: "week.poc_001", revision: 1 }`；`demo`/`@project-tavern/story-demo` 只是目录与 package/build key，不是 Save/Debug 中的 StoryId。上表同时收拢了散落在数值文档中的 Ingredient/Recipe/Facility/Aura spelling；对应数值仍以 `balance-v0.md` 为准，不能再创建第二套别名。
+这些 ID 一旦进入存档 fixture 不得重新赋予其他语义。`StorySourceIdentityV1` 固定为 `{ id: "week.poc_001", revision: 1 }`；`poc`/`@project-tavern/story-poc` 只是目录与 package/build key，不是 Save/Debug 中的 StoryId。上表同时收拢了散落在数值文档中的 Ingredient/Recipe/Facility/Aura spelling；对应数值仍以 `balance-v0.md` 为准，不能再创建第二套别名。
 
 `event.*` 只用于实际参与 Scheduler 的 `StoryEventDefinitionV1`；玩家主动调用的 StoryAction、Facility opportunity 与 WorldAction 一律使用 `action.*`，不得为了复用名称而造一个无效果的伪 Event。D4 的 `event.facility_window` 只负责在进入窗口时通知并开放机会，提交建造/跳过时 `facility.choose.opportunityId` 必须是 `action.facility_window`。
 
@@ -224,12 +224,12 @@ Action presentation 与公开 command 的对应关系冻结如下；“提交窗
 `reason.unavailable.service_mode_locked`，helper gate 使用 `reason.unavailable.helper_locked`；helper 未解锁时 tier 条件恒为 false。
 D4 Facility Event 与 action availability 都使用
 `tavern.facility_opportunity_undecided(action.facility_window)`，失败 reason 为
-`reason.unavailable.facility_decided`。备菜每日次数上限由 Tavern Module-owned guard 读取 `dailyPreparationLimit`，达到上限时
+`reason.unavailable.facility_decided`。备菜每日次数上限由 Tavern GameplayModule-owned guard 读取 `dailyPreparationLimit`，达到上限时
 query/preview/execute 都返回带 `{ current, limit }` 的 `tavern.preparation_limit_reached`；这是 Module rejection code 的
 直接本地化，不伪造 authored ReasonId，也不能只在按钮上隐藏。
 通用采购、备菜、休息与营业计划 Action 还都带 `calendar.day_at_most(D6)` gate，失败使用
 `reason.unavailable.story_window_closed`，因此 D7 只保留推进到下午、缴税与 workflow controls；D7 afternoon 的
-`calendar.advance_phase` 由 Demo Profile/Calendar Module 在 `levyDue` 以 `calendar.phase_blocked { blocker:"levy_due" }` 拒绝。
+`calendar.advance_phase` 由 PoC GameSimulation/Calendar GameplayModule 在 `levyDue` 以 `calendar.phase_blocked { blocker:"levy_due" }` 拒绝。
 D2 的智力选项使用 `reason.unavailable.intellect_b_required` 作为必填 disabledReasonId，即使 reference 初始属性已经满足。
 Action visibility 同步收束焦点：选择生活方针使用 reason `reason.unavailable.policy_not_ready` 的 authored conditions，
 仅在 `run.started + run.status=setup + narrative.not_active` 时可见，
@@ -340,7 +340,7 @@ Story 状态定义同样是封闭的：三个 Fact 都是默认 `false` 的 bool
 - 关系：`relationship.pending` 表示玩家未参与该可选关系事件，显示“维持经营伙伴”；`relationship.completed | relationship.abandoned | relationship.reconciled | relationship.unresolved_conflict` 分别显示为完成、主动放弃、和解或未处理冲突；
 - 调查：`investigation.not_attempted | investigation.missed_by_choice` 都显示为未进行，但保留不同原因；`investigation.setback | investigation.success_with_cost | investigation.complete | investigation.exceptional` 分别显示为受挫、带代价、完整或卓越。
 
-展示现金总账、腐败/报废、六晚营业方式、每次服务实际提交的 AP/双方体力消耗和关键选择；这些玩家总结来自持久 `serviceHistory`，不依赖可能被裁剪的调试 CommandLog。被拒绝命令、浪费 AP 等只属于本节自动化指标与 Developer 诊断，不伪装成可从任意终局 Save 恢复的玩家历史。存档面板在 D7 仍完整展示四个物理 Slot：
+展示现金总账、腐败/报废、六晚营业方式、每次服务实际提交的 AP/双方体力消耗和关键选择；这些玩家总结来自持久 `serviceHistory`，不依赖可能被裁剪的调试 CommandLog。被拒绝命令、浪费 AP 等只属于本节自动化指标与 DebugTools 诊断，不伪装成可从任意终局 Save 恢复的玩家历史。存档面板在 D7 仍完整展示四个物理 Slot：
 
 - 读取 `auto.current`；当 current 缺失或损坏时，只将通过完整验证的 `auto.previous` 显示为需玩家确认的 recovery candidate，不静默回退；
 - 写入或读取独立的 `quick` Slot；
@@ -356,13 +356,13 @@ Story 状态定义同样是封闭的：三个 Fact 都是默认 `false` 的 bool
 2. 当前场景、角色和轻量行动入口位于主舞台；
 3. 本周义务、库存、菜单、预测、营业账本和周总结使用舞台内 Overlay；
 4. 事件与选择使用 VN Layer；
-5. 左右开发者侧栏只在 Developer flavor 中由 Bug 按钮呼出，不承载玩家必需信息。
+5. 左右开发者侧栏由运行时 `debug_tools` 开关和 Bug 按钮随时呼出/隐藏，默认隐藏且不承载玩家必需信息；它不是独立 build flavor。
 
 营业结算使用舞台内的逐层账本 Overlay。完整布局、触摸和平板契约以运行时与 Story 架构规格为准。
 
 ## 5. 六个策略验收画像
 
-这里说明每种策略想验证什么；唯一的动作、菜单和采购输入由 `reference-strategies.md` 定义。它们是自动化 golden scenarios，也是人工试玩建议，不要求玩家照做。
+这里说明每种策略想验证什么；唯一的动作、菜单和采购输入由 `reference-strategies.md` 定义。它们是自动化 golden scenarios，不要求最终人工试玩者照做。
 
 ### `strategy.cash_first`
 
@@ -436,7 +436,9 @@ Story 状态定义同样是封闭的：三个 Fact 都是默认 `false` 的 bool
 - 读档次数与是否改变未来结果；
 - 最终三个维度的结果。
 
-## 7. 人工试玩问题
+## 7. Goal 后人工试玩终审（不属于工程计划）
+
+人工试玩不是 Phase 4、完整流程验收或主线工程 Goal 的任务、依赖或通过条件。只有 agent 已完成代码质量验收、全部自动化 gate、完整 D1–D7 流程验收且工作树干净后，才单独建立人工试玩任务；素材选择、正式文案、美术判断和“是否好玩”同样不能让工程 Goal 停在中途。人工终审可以否决下一轮玩法方向，但不追溯伪造已经通过的技术结果。
 
 结束后只问可由体验回答的问题：
 

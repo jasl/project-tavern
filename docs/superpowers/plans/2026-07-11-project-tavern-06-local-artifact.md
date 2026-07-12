@@ -1,19 +1,19 @@
-# Project Tavern Phase 6 Story-Host Release and GitHub Pages Implementation Plan
+# Project Tavern Phase 6 Reproducible Local Artifact Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce reproducible `poc × web` and `e2e × web` Artifacts, fully verify the exact PoC bytes—including default-off runtime capabilities and persistent Cheat integrity—and make those same PoC bytes deployable to protected GitHub Pages without rebuilding.
+**Goal:** Produce reproducible local `poc × web` and `e2e × web` Artifacts, fully verify the exact PoC bytes—including default-off runtime capabilities and persistent Cheat integrity—and hand one platform-neutral manifest-bound Artifact to the separate final-human-review or future remote-distribution tracks.
 
-**Architecture:** The production builder accepts only `(story, host)` from the closed set `{ poc × web, e2e × web }`; there is no Player, Developer, or Headless flavor. `pnpm verify` builds each Story/Host once for all inspect-only browser/bundle/artifact gates, while release reproducibility performs two isolated PoC builds. CI uploads only the verified `dist/poc`; the Pages deploy job downloads and deploys that same current-run Artifact without checkout or build.
+**Architecture:** The production builder accepts only `(story, host)` from the closed set `{ poc × web, e2e × web }`; there is no Player, Developer or Headless flavor. `pnpm verify` builds each Story/Host once for all inspect-only browser/bundle/artifact gates, while local release reproducibility performs two isolated PoC builds. Phase 6 performs no CI, upload, hosting, workflow or remote smoke work; future distribution consumes these exact bytes without rebuilding.
 
-**Tech Stack:** Existing Project Tavern workspace, Vite 8.1.4 production build, TypeScript 7.0.2, Playwright 1.61.1, Node.js >=22.12.0, pnpm >=11.0.0, GitHub Actions pinned to immutable commit SHAs, GitHub Pages with HashRouter and relative assets.
+**Tech Stack:** Existing Project Tavern workspace and materialization checkpoint, Vite 8.1.4 production build, TypeScript 7.0.2, Playwright 1.61.1, exact local Node/pnpm inputs, HashRouter, relative assets and local filesystem Artifacts.
 
 ## Global Constraints
 
-- Phase 5 Acceptance must pass twice and the working tree must be clean before this phase starts.
+- Phase 5 Acceptance and `pnpm verify:materialization` must pass twice and the working tree must be clean before this phase starts.
 - `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md` overrides every older Player/Developer/Headless flavor, separate Developer root, and bundle-absence rule.
 - Current build matrix is exactly `poc × web → dist/poc` and `e2e × web → dist/e2e`; reject every other Story, Host, root, or output mapping.
-- `pnpm verify`, `pnpm verify:release`, and all local release commands are nonpublishing and never change tracked files, baselines, remote state, repository settings, runtime capability preferences, or Pages.
+- `pnpm verify`, `pnpm verify:release`, and all local release commands are offline, nonpublishing and never change tracked files, baselines, remote state, repository settings or runtime capability preferences.
 - Release source maps are disabled for both Artifacts. Vite Dev Server/HMR/source-map behavior is tooling configuration, not an Artifact flavor.
 - Both builds use `base: "./"`; application routing uses HashRouter. Emitted URLs and manifests contain no root-relative runtime path.
 - Ordinary verification builds PoC once and E2E once per run. UI, semantic, capability, bundle, and artifact checks inspect those bytes; they do not invoke another build.
@@ -21,41 +21,17 @@
 - Debug/Tooling code may exist in `dist/poc`; Artifact verification must not reject symbols merely because they are debug-related. Runtime tests—not byte absence—prove a fresh isolated Host store defaults `RuntimeCapabilitiesV1` all false, Automation is semantic-only, and successful Cheat/fixture mutation persists `RunIntegrityV1`.
 - Release Artifact still forbids source maps, `references/`, `art-source/aigc/`, absolute local paths, secrets, credential-bearing URLs, and unapproved remote runtime assets.
 - Release identity excludes timestamps, temporary directories, absolute paths, traversal order, runtime capability state, and archive metadata. Sorted relative path plus SHA-256 manifests are authoritative.
-- Every workflow `uses:` reference is a full SHA from `scripts/release/actions-lock.json` with its reviewed tag in a comment. Floating tags and unlisted actions fail validation.
-- Generic `actions/upload-artifact` steps set `retention-days: 30` and `if-no-files-found: error`. The reviewed `actions/upload-pages-artifact` step sets only its supported `retention-days: 30`; the validator recognizes that pinned action's internal missing-file failure behavior and rejects an unsupported `if-no-files-found` input. Failure evidence is bounded and path-scrubbed.
-- Registry audit remains a separate scheduled/manual workflow. Registry availability does not enter deterministic local verification.
+- Package-registry/browser-download access ended at Phase 0. Later deterministic checks consume the already validated host pnpm store and exact host Playwright browser revisions offline; host-local availability is not part of Artifact identity.
 - Release `.mts` tools remain type-erasable and run with Node native type stripping; no enum, namespace, parameter property, or second TypeScript runtime.
 - `pnpm test:scripts` recursively discovers every `scripts/**/*.test.mjs` and `scripts/**/*.test.ts` exactly once.
 - PoC release bundles include `LICENSE.md`, `NOTICE`, all three project legal texts, `TRADEMARKS.md`, and the repository's non-exhaustive `THIRD_PARTY_NOTICES.md` statement. They do not synthesize a dependency/vendor license inventory.
-- Pages deploys only the PoC Artifact from its own successful verify job. E2E Web bytes remain CI-only.
-- Rollback is forward-only: revert/fix source, run the current workflow, and deploy the new current-run PoC Artifact. Never redeploy an older cross-run Artifact or lower the IndexedDB revision.
-- Pushing, enabling Pages, approving an environment, or deploying requires explicit user authority. Local completion ends with a deploy-ready handoff unless that authority is given.
+- E2E Web bytes are local integration evidence; PoC bytes are the handoff Artifact. Neither is uploaded by this phase.
+- `.github/workflows/**`, GitHub Actions, GitHub Pages, Cloudflare, remote credentials, upload, deployment, remote smoke and remote rollback are forbidden scope and belong to the deferred distribution track.
+- A dirty-worktree build is always `provenanceMode="development"` and never release-eligible. Only a clean exact `HEAD` or a `git archive` of it may produce `provenanceMode="clean_commit"`; formal release evidence is generated after the relevant task commit.
 - Every task uses a focused failing test, confirms the intended red, implements the minimum behavior, runs the focused suite plus current `pnpm verify`, reviews staged scope, and commits.
+- Every expected red must match its named test and stable diagnostic code. Every task follows the global resume contract and accepts only the exact declared staged paths.
 
 ---
-
-## Reviewed GitHub Actions Allowlist
-
-Create `scripts/release/actions-lock.json` from this exact reviewed mapping. Upgrades require a separate dependency review.
-
-```json
-{
-  "actions/checkout": { "sha": "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0", "tag": "v7.0.0" },
-  "pnpm/action-setup": { "sha": "0ebf47130e4866e96fce0953f49152a61190b271", "tag": "v6.0.9" },
-  "actions/setup-node": { "sha": "48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e", "tag": "v6.4.0" },
-  "actions/upload-artifact": { "sha": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "tag": "v7.0.1" },
-  "actions/download-artifact": {
-    "sha": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
-    "tag": "v8.0.1"
-  },
-  "actions/configure-pages": { "sha": "45bfe0192ca1faeb007ade9deae92b16b8254a0d", "tag": "v6.0.0" },
-  "actions/upload-pages-artifact": {
-    "sha": "fc324d3547104276b827a68afc52ff2a11cc49c9",
-    "tag": "v5.0.0"
-  },
-  "actions/deploy-pages": { "sha": "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128", "tag": "v5.0.0" }
-}
-```
 
 ## File Map
 
@@ -66,16 +42,11 @@ scripts/release/create-artifact-manifest.mts    # deterministic payload manifest
 scripts/release/verify-poc-artifact.mts          # PoC release structure/identity checks
 scripts/release/build-reproducibly.mts           # two isolated PoC builds
 scripts/release/smoke-poc.mts                    # nested-base prebuilt checks
-scripts/release/validate-workflows.mts           # immutable-SHA/no-rebuild workflow policy
-scripts/release/post-deploy-smoke.mts            # read-only current-deployment smoke
-scripts/verify.mjs                               # complete local/CI nonpublishing gate
+scripts/verify.mjs                               # complete local nonpublishing gate
 scripts/verify-release.mjs                       # release-only expansion
 apps/web/playwright.prebuilt.config.ts           # serves existing dist/poc only
 apps/web/e2e/release-*.spec.ts                   # PoC base/capability/integrity smoke
-.github/workflows/ci.yml                         # verify and upload exact dist/poc
-.github/workflows/pages.yml                      # same-run protected deployment
-.github/workflows/dependency-audit.yml           # separate registry-facing audit
-docs/runbooks/                                   # verification/deploy/capability/automation/playtest
+docs/runbooks/                                   # local verification/capability/automation/privacy
 docs/checkpoints/                                # final evidence template
 ```
 
@@ -147,7 +118,7 @@ export interface ArtifactBuildRequestV1 {
 
 Require exact matching tuples: `poc/web/dist/poc` and `e2e/web/dist/e2e`. Reject caller root paths, aliases, sourcemap flags, other outDirs, and all legacy flavor names. Invoke Vite programmatically with the allowlisted HTML, `base:"./"`, `emptyOutDir:true`, source maps disabled, and normalized source-graph evidence.
 
-Write `build-input.json` with schema revision, application ID, Story, Host, application HTML, source-graph digest, source commit, Engine/Story/ResolvedGame/application identities, and exact tool versions. It contains no timestamp, capability state, absolute path, flavor, or recursive digest.
+Write `build-input.json` with schema revision, application ID, Story, Host, application HTML, source-graph digest, source commit, canonical `sourceTree`, `provenanceMode`, Engine/Story/ResolvedGame/application identities, materialization digest and exact tool versions. A clean checkout or verified archive uses the exact lowercase Git tree ID for that commit; a dirty/development build uses `sourceTree:null` and can never borrow the clean tree identity. It contains no timestamp, capability state, absolute path, flavor, or recursive digest. `build:poc` may create a development Artifact while a task is dirty; the stricter `release:prepare` entry is introduced in Task 2 and rejects dirty input.
 
 Set root scripts exactly:
 
@@ -164,7 +135,7 @@ Delete legacy `build:player`, `build:developer`, `build:e2e-player`, and their V
 
 Run: `pnpm build:poc && pnpm build:e2e && node --experimental-strip-types scripts/ui/verify-application-graphs.mts && pnpm test:scripts && pnpm verify`
 
-Expected: PASS; both builders pass through `build-artifact.mts`, neither output contains `.map`, and no third application root/output exists.
+Expected: PASS; both builders pass through `build-artifact.mts`, neither output contains `.map`, no third application root/output exists, and the dirty-task artifacts are explicitly non-release-eligible.
 
 - [ ] **Step 5: Commit the build wrapper**
 
@@ -173,6 +144,12 @@ git add -- scripts/release/build-artifact.mts scripts/release/build-artifact.tes
 git diff --cached --check
 git commit -m "build: freeze story host artifacts"
 ```
+
+- [ ] **Step 6: Prove the committed wrapper emits clean provenance**
+
+Run: `pnpm build:poc && node --input-type=module -e 'import{readFileSync}from"node:fs";import{execFileSync}from"node:child_process";const value=JSON.parse(readFileSync("dist/poc/build-input.json","utf8"));const head=execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim();if(value.provenanceMode!=="clean_commit"||value.sourceCommit!==head)process.exit(1)'`
+
+Expected: the ignored Artifact names the new exact task commit and is release-eligible.
 
 ### Task 2: Create deterministic manifests and verify PoC release contents
 
@@ -187,13 +164,15 @@ git commit -m "build: freeze story host artifacts"
 - Modify: `scripts/verify-artifact.test.mjs`
 - Modify: `scripts/verify-bundle.mjs`
 - Modify: `scripts/verify-bundle.test.mjs`
+- Modify: `scripts/verify.mjs`
+- Modify: `scripts/verify.test.mjs`
 - Modify: `scripts/prepare-artifact.mjs`
 - Modify: root `package.json`
 
 **Interfaces:**
 
 - Consumes: `dist/poc`, its normalized `poc-web` source graph, resolved runtime assets, project legal files, and `build-input.json`.
-- Produces: sorted `artifact-manifest.json`, `verifyPocArtifactV1(dir)`, inspect-only `verify:artifact`/`verify:bundle`, and release-ready `build:poc`.
+- Produces: sorted `artifact-manifest.json`, `verifyPocArtifactV1(dir)`, inspect-only `verify:artifact`/`verify:bundle`, a development-safe root artifact leaf, and release-ready `build:poc`.
 
 - [ ] **Step 1: Write failing deterministic-manifest and forbidden-content tests**
 
@@ -238,9 +217,11 @@ Expected: FAIL because final manifest/PoC verifier and new tooling policy are ab
 
 - [ ] **Step 3: Implement deterministic Artifact preparation and inspection**
 
-Scan relative POSIX paths in sorted order, reject symlink/path escape, and hash exact bytes. Verify `build-input.applicationId="poc-web"`, `story="poc"`, `host="web"`, current source commit, and the matching normalized graph digest. Copy the seven project legal files, write the self-excluding manifest last, then verify.
+Scan relative POSIX paths in sorted order, reject symlink/path escape, and hash exact bytes. Verify `build-input.applicationId="poc-web"`, `story="poc"`, `host="web"`, the declared provenance mode/source commit/source tree, materialization digest and matching normalized graph digest. A `clean_commit` build must have the exact Git/verified-archive tree; development must have `sourceTree:null`. Copy the seven project legal files, write the self-excluding manifest last, then verify. Structural development-mode inspection is allowed during TDD; release eligibility requires clean-commit mode.
 
-The PoC verifier positively permits runtime Debug/Tooling code and never scans for Developer symbol absence. It still rejects forbidden paths/bytes, source maps, secrets, remote runtime assets, unknown graph modules, and E2E/other Story roots. Capability defaults/integrity are runtime behaviors verified by prebuilt Playwright, not guessed from chunk text.
+The PoC verifier positively permits runtime Debug/Tooling code and never scans for Developer symbol absence. It still rejects forbidden paths/bytes, source maps, secrets, remote runtime assets, unknown graph modules, and E2E/other Story roots. Its only development escape hatch is an explicit `--allow-development`, which permits `provenanceMode="development"` for pre-commit structural inspection but changes no other check; ordinary `verify:artifact`, `release:prepare` and `verify:release` reject it. Capability defaults/integrity are runtime behaviors verified by prebuilt Playwright, not guessed from chunk text.
+
+In the same slice, update the root `scripts/verify.mjs` artifact leaf to invoke `pnpm verify:artifact -- --allow-development`, and freeze that exact argv in `scripts/verify.test.mjs`. This is required before the task's dirty-tree full gate: it lets ordinary local verification inspect the development Artifact produced by `build:poc` without claiming release eligibility. Do not add the allowance to the public `verify:artifact` script itself, `release:prepare`, a direct artifact invocation, or the existing clean-only `verify:release` path; those remain bare/strict. Task 4 later reorganizes the full root order but must preserve this already-established leaf mapping.
 
 `verify:bundle` inspects both `poc-web` and `e2e-web` graphs: each must bind only its own Story application root, both reject cross-Story imports and forbidden paths, and neither may contain source maps or unregistered remote assets. It does not require the E2E Artifact to carry PoC legal postprocessing.
 
@@ -250,25 +231,31 @@ Set final public behavior:
 {
   "artifact:manifest": "node --experimental-strip-types scripts/release/create-artifact-manifest.mts dist/poc",
   "verify:artifact": "node scripts/verify-artifact.mjs dist/poc",
-  "release:prepare": "pnpm build:poc"
+  "release:prepare": "node --experimental-strip-types scripts/release/build-artifact.mts --story poc --host web --out-dir dist/poc --require-clean"
 }
 ```
 
-After Vite returns, the PoC branch of `build-artifact.mts` copies legal files, creates the manifest, and invokes `verifyPocArtifactV1`; E2E remains CI-only and receives no release legal postprocessing. `verify:artifact` and `verify:bundle` inspect caller-built outputs and fail if missing; they never rebuild.
+After Vite returns, the PoC branch of `build-artifact.mts` copies legal files, creates the manifest, and invokes `verifyPocArtifactV1`; a development build selects only its internal structural allowance, while `--require-clean` rejects dirty source before building. E2E remains local integration evidence and receives no release legal postprocessing. `verify:artifact` and `verify:bundle` inspect caller-built outputs and fail if missing; they never rebuild.
 
 - [ ] **Step 4: Build once, inspect, and run current gates**
 
-Run: `pnpm release:prepare && pnpm verify:artifact && pnpm verify:bundle && pnpm verify`
+Run: `pnpm build:poc && pnpm verify:artifact -- --allow-development && pnpm verify:bundle && pnpm verify`
 
-Expected: PASS; `dist/poc` is complete/release-eligible, tooling code is allowed, and downstream checks do not rebuild.
+Expected: PASS; the development Artifact is structurally complete but explicitly non-release-eligible, tooling code is allowed, and downstream checks do not rebuild.
 
 - [ ] **Step 5: Commit release inspection**
 
 ```bash
-git add -- scripts/release/create-artifact-manifest.mts scripts/release/create-artifact-manifest.test.ts scripts/release/verify-poc-artifact.mts scripts/release/verify-poc-artifact.test.ts scripts/release/build-artifact.mts scripts/verify-artifact.mjs scripts/verify-artifact.test.mjs scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/prepare-artifact.mjs package.json
+git add -- scripts/release/create-artifact-manifest.mts scripts/release/create-artifact-manifest.test.ts scripts/release/verify-poc-artifact.mts scripts/release/verify-poc-artifact.test.ts scripts/release/build-artifact.mts scripts/verify-artifact.mjs scripts/verify-artifact.test.mjs scripts/verify-bundle.mjs scripts/verify-bundle.test.mjs scripts/verify.mjs scripts/verify.test.mjs scripts/prepare-artifact.mjs package.json
 git diff --cached --check
 git commit -m "build: verify poc artifact contents"
 ```
+
+- [ ] **Step 6: Generate formal evidence from the committed source**
+
+Run: `pnpm release:prepare && pnpm verify:artifact && pnpm verify:bundle`
+
+Expected: PASS with `provenanceMode="clean_commit"` and `sourceCommit` equal to the new HEAD.
 
 ### Task 3: Prove reproducibility, nested-base operation, and release capability semantics
 
@@ -276,6 +263,8 @@ git commit -m "build: verify poc artifact contents"
 
 - Create: `scripts/release/build-reproducibly.mts`
 - Create: `scripts/release/build-reproducibly.test.ts`
+- Modify: `scripts/release/build-artifact.mts`
+- Modify: `scripts/release/build-artifact.test.ts`
 - Create: `scripts/release/smoke-poc.mts`
 - Create: `scripts/release/smoke-poc.test.ts`
 - Create: `apps/web/playwright.prebuilt.config.ts`
@@ -310,17 +299,23 @@ it("rejects root-relative browser assets", async () => {
 
 Add browser red tests that use isolated fresh Host stores and load the same `artifact-manifest.json` digest with no session override, with `automation_bridge`, with `debug_tools`, and with `debug_tools+cheats`; all digests must match, the fresh-store default is false, only explicit contexts expose their overrides, and every context finishes without a persisted preference record.
 
+Add archive-provenance tests proving the outer process rejects a dirty/detached/non-descendant source or stale materialization attestation, ordinary `buildArtifactV1` rejects caller-supplied source/provenance/materialization overrides, the archive contains neither `.git` nor `.project-tavern/goal-materialization.json`, and only the dedicated verified-archive path can make both outputs carry the same exact clean source commit/tree and validated materialization digest. The comparator must reject archive A↔B success when either one differs from the prepared handoff, when handoff provenance is development/stale, or when any detached manifest digest differs.
+
 - [ ] **Step 2: Run focused tests and confirm failure**
 
-Run: `pnpm exec vitest run scripts/release/build-reproducibly.test.ts scripts/release/smoke-poc.test.ts`
+Run: `pnpm exec vitest run scripts/release/build-reproducibly.test.ts scripts/release/build-artifact.test.ts scripts/release/smoke-poc.test.ts`
 
 Expected: FAIL because reproducibility/smoke tooling is absent.
 
 - [ ] **Step 3: Implement isolated PoC builds and prebuilt-only smoke**
 
-Freeze the live 40-character lowercase `HEAD`, create two fresh `git archive` workspaces, install with the frozen lockfile from the same pnpm store, and pass the exact source commit through the dedicated archive-build input. Build/prepare/verify PoC in each, then compare sorted path/size/digest tuples and detached manifest digests. Never compare mtimes or temporary paths.
+The outer `build-reproducibly.mts` first runs read-only `pnpm verify:materialization`, requires a clean non-detached `HEAD`, freezes its 40-character lowercase commit and tree IDs, reads the already validated materialization digest/tool identities, and creates two tar archives. It proves each tar's embedded commit with `git get-tar-commit-id`, extracts it, checks the expected tree/file set, and asserts neither `.git` nor `.project-tavern/goal-materialization.json` exists. It resolves the already materialized host store once with structured `pnpm store path --silent` and runs exactly `pnpm install --offline --frozen-lockfile --store-dir <resolved-store>` in each archive.
 
-Serve existing `dist/poc` under `/nested/tavern/`; Playwright config must not call Vite/build. Add:
+For each extracted tree the outer process writes a closed temporary `VerifiedArchiveBuildInputV1` containing only schema revision, source commit, source tree, materialization digest, and exact tracked tool identities, then invokes a dedicated non-public `buildArtifactFromVerifiedArchiveV1` path. That path recomputes the tracked materialization contract/package closure inside the archive, requires equality with the explicit digest/tool identities, emits ordinary `provenanceMode="clean_commit"` plus the verified source tree, and never tries to read Git status or the ignored attestation. Ordinary `buildArtifactV1`, `build:poc`, and `release:prepare` reject this input and all ambient env/CLI provenance overrides; only `build-reproducibly.mts` owns the structured archive call. Tests reject a missing `--offline`, missing `--frozen-lockfile`, different store, shell command string, registry-facing environment override, altered archive/input/tree/contract, or direct provenance injection.
+
+Before comparison, require an already prepared, strict-verified `dist/poc` whose clean source commit, source tree and materialization digest match the frozen outer inputs; missing/development/stale handoff bytes fail without rebuilding them. Build/prepare/verify PoC in each archive, then compare sorted path/size/digest tuples and detached manifest digests across archive A, archive B **and the actual `dist/poc` handoff**. All three must be byte-identical; never compare mtimes or temporary paths. This makes reproducibility evidence describe the delivered Artifact rather than a parallel internal build.
+
+Serve existing `dist/poc` under `/nested/tavern/` on the already materialization-preflighted `127.0.0.1:41731` with strict port ownership and `reuseExistingServer:false`; Playwright config must not call Vite/build or choose another fixed port. Config tests freeze the host, port, nested prefix, prebuilt-only command and failure on occupation. Add:
 
 ```json
 {
@@ -331,19 +326,25 @@ Serve existing `dist/poc` under `/nested/tavern/`; Playwright config must not ca
 
 Prebuilt tests cover new game, initial VN, first action, Save/refresh/continue, default-off capabilities, semantic-only Automation, and successful Cheat integrity surviving Save/Load. They verify the served manifest digest is unchanged across capability URLs.
 
-- [ ] **Step 4: Run local nested-base/reproducibility acceptance**
+- [ ] **Step 4: Run development-safe nested-base acceptance**
 
-Run: `pnpm release:prepare && pnpm release:repro && pnpm test:e2e:prebuilt -- --project=chromium && pnpm verify`
+Run: `pnpm exec vitest run scripts/release/build-reproducibly.test.ts scripts/release/build-artifact.test.ts scripts/release/smoke-poc.test.ts && pnpm build:poc && pnpm test:e2e:prebuilt -- --project=chromium && pnpm verify`
 
-Expected: PASS; isolated manifests match and one PoC Artifact supplies normal/debug/automation behavior at the nested prefix.
+Expected: PASS; injected archive tests prove the closed reproducibility path without mislabeling the dirty task tree, while the current browser build is marked development and supplies normal/debug/automation behavior at the nested prefix. Bare `release:repro` is intentionally not run until the task implementation is committed and the outer clean-HEAD precondition can be true.
 
 - [ ] **Step 5: Commit reproducibility and release smoke**
 
 ```bash
-git add -- scripts/release/build-reproducibly.mts scripts/release/build-reproducibly.test.ts scripts/release/smoke-poc.mts scripts/release/smoke-poc.test.ts apps/web/playwright.prebuilt.config.ts apps/web/e2e/release-base-path.spec.ts apps/web/e2e/release-refresh.spec.ts apps/web/e2e/release-capabilities.spec.ts apps/web/e2e/release-integrity.spec.ts package.json
+git add -- scripts/release/build-reproducibly.mts scripts/release/build-reproducibly.test.ts scripts/release/build-artifact.mts scripts/release/build-artifact.test.ts scripts/release/smoke-poc.mts scripts/release/smoke-poc.test.ts apps/web/playwright.prebuilt.config.ts apps/web/e2e/release-base-path.spec.ts apps/web/e2e/release-refresh.spec.ts apps/web/e2e/release-capabilities.spec.ts apps/web/e2e/release-integrity.spec.ts package.json
 git diff --cached --check
 git commit -m "test(release): prove reproducible poc artifact"
 ```
+
+- [ ] **Step 6: Re-run clean reproducibility for the new task commit**
+
+Run: `pnpm release:prepare && pnpm release:repro && pnpm test:e2e:prebuilt -- --project=chromium`
+
+Expected: both isolated builds and the exact served `dist/poc` identify the new clean commit/tree/materialization digest and have identical detached manifest digests.
 
 ### Task 4: Freeze the nonpublishing verification orchestrator
 
@@ -355,6 +356,7 @@ git commit -m "test(release): prove reproducible poc artifact"
 - Modify: `scripts/run-script-tests.test.mjs`
 - Create: `scripts/docs/check-links.mts`
 - Create: `scripts/docs/check-links.test.ts`
+- Delete: root `playwright.config.ts`
 - Modify: root `package.json`
 - Modify: `README.md`
 - Modify: `CONTRIBUTING.md`
@@ -368,6 +370,7 @@ git commit -m "test(release): prove reproducible poc artifact"
 
 ```ts
 expect(verificationSteps.map((step) => step.id)).toEqual([
+  "materialization",
   "format",
   "lint",
   "lint-styles",
@@ -405,7 +408,7 @@ expect(verificationSteps.findIndex((step) => step.id === "semantic")).toBeGreate
 expect(verificationSteps.some((step) => step.id.includes("developer"))).toBe(false);
 ```
 
-Extend recursive discovery tests against the live repository and injected omission/duplication fixtures. Assert every inspect-only step fails on missing output rather than rebuilding.
+Extend recursive discovery tests against the live repository and injected omission/duplication fixtures. Assert every inspect-only step fails on missing output rather than rebuilding. Freeze the final Playwright config inventory to exactly `apps/web/playwright.interaction.config.ts`, `apps/web/playwright.ui.config.ts`, and `apps/web/playwright.prebuilt.config.ts`; the obsolete root `playwright.config.ts` must be absent so plain `playwright test` cannot bypass explicit project/visual wrappers.
 
 - [ ] **Step 2: Run orchestrator tests and confirm failure**
 
@@ -415,207 +418,55 @@ Expected: FAIL because the final two-build order/link checker is absent.
 
 - [ ] **Step 3: Implement fail-fast exact orchestration**
 
-Use `spawnSync(command,args,{stdio:"inherit"})`, no shell command strings. Every ID above maps to one frozen leaf command; in particular `runtime-fixtures → pnpm verify:runtime-fixtures`, `poc-commands → pnpm --filter @project-tavern/story-poc verify:commands`, and `semantic → pnpm verify:semantic`. No entry invokes `verify`, `verify:phase*`, or another recursive aggregate. `test:scripts` runs once before builds. `build:poc` and `build:e2e` run once; `verify:semantic`, UI, bundle, semantic smoke, and artifact steps inspect them. Preserve the Phase 1 tracked-byte/status `finally` guard.
+Use `spawnSync(command,args,{stdio:"inherit"})`, no shell command strings. Every ID above maps to one frozen leaf command; in particular `materialization → pnpm verify:materialization`, `runtime-fixtures → pnpm verify:runtime-fixtures`, `poc-commands → pnpm --filter @project-tavern/story-poc verify:commands`, and `semantic → pnpm verify:semantic`. Preserve Task 2's ordinary development leaf `artifact → pnpm verify:artifact -- --allow-development` and its exact-argv test while moving it into the final order. No entry invokes `verify`, `verify:phase*`, or another recursive aggregate. `test:scripts` runs once before builds. `build:poc` and `build:e2e` run once; `verify:semantic`, UI, bundle, semantic smoke, and artifact steps inspect them. Preserve the Phase 1 tracked-byte/status `finally` guard. The clean-only `verify:release` calls bare `pnpm verify:artifact` separately after `release:prepare`; the development allowance never establishes release eligibility.
 
-At Task 4, `verify:release` runs `pnpm verify`, prebuilt PoC smoke, artifact verification, and reproducibility. Accepted Phase 5C `pnpm verify` already runs the complete Chromium, touch, and WebKit UI matrix against the same two prebuilt roots, so the release wrapper must not run WebKit a second time. Task 5 appends workflow validation only after workflows exist.
+`verify:release` starts with `pnpm verify`—whose first and only materialization leaf is `pnpm verify:materialization`—then runs clean-only `release:prepare`, bare artifact verification, prebuilt PoC smoke, and reproducibility. Accepted Phase 5C `pnpm verify` already runs the complete Chromium, touch, and WebKit UI matrix against the same two prebuilt roots, so the release wrapper must not run WebKit a second time. It performs no network operation and has no workflow/hosting child.
 
 Final browser scripts:
 
 ```json
 {
   "test:e2e:smoke": "playwright test --config apps/web/playwright.ui.config.ts --project=chromium --grep @smoke",
-  "test:e2e:full": "playwright test --config apps/web/playwright.ui.config.ts --project=chromium --project=webkit",
+  "test:e2e:full": "playwright test --config apps/web/playwright.ui.config.ts --project=chromium --project=webkit --grep-invert @visual",
   "docs:links": "node --experimental-strip-types scripts/docs/check-links.mts"
 }
 ```
 
-- [ ] **Step 4: Run the complete local gate twice**
+Script tests freeze the `--grep-invert @visual` argument. Functional full-browser coverage never compares pixels directly; every visual verify/update must pass through `verify:ui-visual`/`update:ui-snapshots`, which enforces `LocalVisualEnvironmentV1` before launching Chromium.
 
-Run: `pnpm test:scripts && pnpm verify && pnpm verify && pnpm verify:release`
+Delete the Phase 2 root `playwright.config.ts` in the same slice. All public browser scripts name one of the three allowlisted configs explicitly; no default config or plain `playwright test` path remains.
+
+- [ ] **Step 4: Run the complete pre-commit local gate twice**
+
+Run: `pnpm test:scripts && pnpm verify && pnpm verify`
 
 Expected: all commands exit 0; PoC/E2E each build once per ordinary verify; tracked/worktree state is unchanged.
 
 - [ ] **Step 5: Commit the public verification contract**
 
 ```bash
-git add -- scripts/verify.mjs scripts/verify-release.mjs scripts/verify.test.mjs scripts/run-script-tests.test.mjs scripts/docs package.json README.md CONTRIBUTING.md
+git add -- scripts/verify.mjs scripts/verify-release.mjs scripts/verify.test.mjs scripts/run-script-tests.test.mjs scripts/docs playwright.config.ts package.json README.md CONTRIBUTING.md
 git diff --cached --check
 git commit -m "build: unify story host verification"
 ```
 
-### Task 5: Add immutable-SHA CI and bounded failure evidence
+- [ ] **Step 6: Run the clean local release gate**
 
-**Files:**
+Run: `pnpm verify:release`
 
-- Create: `scripts/release/actions-lock.json`
-- Create: `scripts/release/validate-workflows.mts`
-- Create: `scripts/release/validate-workflows.test.ts`
-- Create: `.github/workflows/ci.yml`
-- Create: `.github/workflows/dependency-audit.yml`
-- Modify: `scripts/verify-release.mjs`
-- Modify: `scripts/verify.test.mjs`
-- Modify: root `package.json`
-- Modify: `pnpm-lock.yaml`
+Expected: PASS from the exact new HEAD; both reproducibility archives and final Artifact use clean-commit provenance.
 
-**Interfaces:**
-
-- Consumes: reviewed Action allowlist and `pnpm verify:release`.
-- Produces: PR/main CI that uploads exact verified `dist/poc`, plus separate scheduled/manual dependency audit.
-
-- [ ] **Step 1: Add the exact workflow parser**
-
-Run: `pnpm add --workspace-root --save-dev --save-exact yaml@2.9.0`
-
-Expected: manifest/lockfile update exactly; current verification remains green.
-
-- [ ] **Step 2: Write failing workflow pin/retention/PoC/no-rebuild tests**
-
-```ts
-it("accepts only reviewed full Action SHAs", async () => {
-  expect(await validateWorkflowV1(validCiWorkflow, actionsLock)).toEqual([]);
-  expect(await validateWorkflowV1(ciUsingFloatingTag, actionsLock)).toContain(
-    "workflow.floating_action_ref",
-  );
-});
-
-it("uploads only the current verified PoC directory", async () => {
-  const model = await parseWorkflowV1(validCiWorkflow);
-  expect(model.uploads).toContainEqual({ path: "dist/poc", retentionDays: 30 });
-  expect(model.uploads.some((upload) => upload.path === "dist/e2e")).toBe(false);
-});
-```
-
-- [ ] **Step 3: Run workflow tests and confirm failure**
-
-Run: `pnpm exec vitest run scripts/release/validate-workflows.test.ts`
-
-Expected: FAIL because the lock, workflows, and validator are absent.
-
-- [ ] **Step 4: Implement CI from the exact allowlist**
-
-```yaml
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with: { version: 11 }
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm verify:release
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: poc-${{ github.sha }}
-          path: dist/poc
-          retention-days: 30
-          if-no-files-found: error
-```
-
-Failure evidence includes only bounded Playwright reports/traces and scrubbed DebugBundles. Add `verify:workflows`; validate full SHA/tag comments, minimal permissions, retention, job dependencies, PoC path, and no extra build after `verify:release`. The dependency audit remains outside ordinary verification.
-
-- [ ] **Step 5: Validate workflows and release gate**
-
-Run: `pnpm verify:workflows && pnpm verify:release`
-
-Expected: PASS; CI publishes nothing and uploads only the exact current PoC bytes.
-
-- [ ] **Step 6: Commit CI**
-
-```bash
-git add -- scripts/release/actions-lock.json scripts/release/validate-workflows.mts scripts/release/validate-workflows.test.ts scripts/verify-release.mjs scripts/verify.test.mjs .github/workflows/ci.yml .github/workflows/dependency-audit.yml package.json pnpm-lock.yaml
-git diff --cached --check
-git commit -m "ci: verify reproducible poc artifact"
-```
-
-### Task 6: Add same-run protected Pages deployment and remote smoke
-
-**Files:**
-
-- Create: `.github/workflows/pages.yml`
-- Create: `scripts/release/post-deploy-smoke.mts`
-- Create: `scripts/release/post-deploy-smoke.test.ts`
-- Create: `scripts/release/verify-downloaded-artifact.mjs`
-- Create: `scripts/release/verify-downloaded-artifact.test.mjs`
-- Create: `apps/web/e2e/remote-pages-smoke.spec.ts`
-- Modify: `scripts/release/validate-workflows.test.ts`
-- Modify: root `package.json`
-
-**Interfaces:**
-
-- Consumes: current workflow's verified `poc-${sha}` Artifact and detached manifest digest.
-- Produces: authorized protected Pages workflow and read-only smoke against exact deployed PoC identity.
-
-- [ ] **Step 1: Write failing deploy structural/no-rebuild tests**
-
-```ts
-it("deploys its verify dependency and never checks out or builds", async () => {
-  const model = await parseWorkflowV1(pagesWorkflow);
-  expect(model.jobs.deploy.needs).toBe("verify");
-  expect(model.jobs.deploy.downloads).toContain("poc-${{ github.sha }}");
-  expect(model.jobs.deploy.steps.some((step) => step.uses?.startsWith("actions/checkout@"))).toBe(
-    false,
-  );
-  expect(model.jobs.deploy.steps.some((step) => /pnpm (build|verify)/.test(step.run ?? ""))).toBe(
-    false,
-  );
-  expect(model.jobs.deploy.environment).toMatchObject({ name: "github-pages" });
-});
-```
-
-- [ ] **Step 2: Run deploy tests and confirm failure**
-
-Run: `pnpm exec vitest run scripts/release/post-deploy-smoke.test.ts scripts/release/validate-workflows.test.ts && node --test scripts/release/verify-downloaded-artifact.test.mjs`
-
-Expected: FAIL because Pages and downloaded-artifact tooling are absent.
-
-- [ ] **Step 3: Implement the same-run workflow**
-
-```yaml
-on: { workflow_dispatch: {} }
-permissions: { contents: read }
-concurrency: { group: pages, cancel-in-progress: false }
-```
-
-The verify job checks out the reviewed default branch SHA, runs `pnpm verify:release`, uploads `poc-${{ github.sha }}` and a self-contained built-in-Node verifier through generic `actions/upload-artifact` with `retention-days: 30` plus `if-no-files-found: error`, and exports source SHA/manifest digest. The deploy job alone receives `pages:write`/`id-token:write`, downloads those exact current-run names into empty unique directories, verifies every payload digest plus `build-input.sourceCommit`, then calls pinned `actions/upload-pages-artifact` with only `path` and `retention-days: 30` before deploy; it must not pass that action the unsupported `if-no-files-found` input. It performs no checkout/build.
-
-Smoke needs deploy, consumes `page_url`, polls `build-input.json` and `artifact-manifest.json` until current SHA/digest match or a fixed deadline expires, then runs only `remote-pages-smoke.spec.ts`. It checks out exactly the workflow SHA only for test code, never builds or modifies deployed bytes.
-
-Add `test:e2e:remote="node --experimental-strip-types scripts/release/post-deploy-smoke.mts"`; require explicit HTTPS URL, reject localhost/credentials, and never call it from local `verify:release`.
-
-- [ ] **Step 4: Validate locally without deploying**
-
-Run: `pnpm verify:workflows && pnpm exec vitest run scripts/release/post-deploy-smoke.test.ts && node --test scripts/release/verify-downloaded-artifact.test.mjs && pnpm verify:release`
-
-Expected: PASS; no remote call, upload, or deployment occurs.
-
-- [ ] **Step 5: Commit Pages workflow**
-
-```bash
-git add -- .github/workflows/pages.yml scripts/release/post-deploy-smoke.mts scripts/release/post-deploy-smoke.test.ts scripts/release/verify-downloaded-artifact.mjs scripts/release/verify-downloaded-artifact.test.mjs scripts/release/validate-workflows.test.ts apps/web/e2e/remote-pages-smoke.spec.ts package.json
-git diff --cached --check
-git commit -m "ci: deploy verified poc artifact to pages"
-```
-
-### Task 7: Write release, capability, Automation, smoke, and rollback runbooks
+### Task 5: Write local release, capability, Automation, and privacy runbooks
 
 **Files:**
 
 - Create: `docs/runbooks/local-verification.md`
 - Create: `docs/runbooks/runtime-capabilities.md`
 - Create: `docs/runbooks/semantic-automation.md`
-- Create: `docs/runbooks/pages-activation.md`
-- Create: `docs/runbooks/pages-deployment.md`
-- Create: `docs/runbooks/post-deploy-smoke.md`
-- Create: `docs/runbooks/forward-rollback.md`
 - Create: `docs/runbooks/story-hotfix-authoring.md`
 - Create: `docs/runbooks/save-data-recovery.md`
 - Create: `docs/runbooks/dependency-upgrades.md`
-- Create: `docs/runbooks/tablet-voiceover-smoke.md`
 - Create: `docs/runbooks/debug-bundle-sharing.md`
-- Create: `docs/runbooks/friend-playtest.md`
 - Create: `docs/checkpoints/release-evidence-template.md`
 - Modify: `scripts/docs/check-links.mts`
 - Modify: `scripts/docs/check-links.test.ts`
@@ -624,8 +475,8 @@ git commit -m "ci: deploy verified poc artifact to pages"
 
 **Interfaces:**
 
-- Consumes: exact commands/workflows/runtime contracts created through Phase 6.
-- Produces: operator procedures that distinguish local readiness, runtime capabilities, semantic Automation, deployment authority, smoke, privacy, and forward rollback.
+- Consumes: exact local commands, Artifact identities and runtime contracts created through Phase 6.
+- Produces: operator procedures for local readiness, materialization, runtime capabilities, semantic Automation, Save recovery, Hotfix authoring and privacy.
 
 - [ ] **Step 1: Write failing docs inventory/link/command tests**
 
@@ -656,11 +507,11 @@ Expected: FAIL because the complete runbook set is absent.
 
 Every runbook contains prerequisites, exact commands, expected output, failure evidence, stop condition, and authority boundary. `runtime-capabilities.md` documents fresh-store defaults, persisted Host preferences, nonpersistent URL session overrides, the same-Artifact guarantee, read-only Debug versus Cheat, integrity persistence, and how to return to normal capability state. `semantic-automation.md` documents bridge revision/discovery, operation-result unwrapping, `observe/availableActions/preview/dispatch/waitForIdle`, per-call capability recheck and `capability_disabled`, no sleeps, no coordinates, player-visible-only data, and no DebugTools.
 
-Pages docs distinguish activation authority from deployment. Rollback permits only a new verified source change. DebugBundle docs require privacy review/consent and explain capability/integrity fields. Friend playtest records subjective feedback without declaring the engineering or fun gate passed.
+`local-verification.md` documents `prepare:goal` versus offline/read-only verification, exact Artifact handoff identity and the rule that no local command publishes. DebugBundle docs require privacy review/consent and explain capability/integrity fields. The runbook index links to the separate final-human-review and deferred-distribution scope documents without reproducing either procedure.
 
-- [ ] **Step 4: Run docs, release, and clean-tree verification**
+- [ ] **Step 4: Run docs and development-safe verification**
 
-Run: `pnpm docs:links && pnpm verify:release && git diff --check && git status --short --branch`
+Run: `pnpm docs:links && pnpm verify && git diff --check && git status --short --branch`
 
 Expected: PASS; only intended runbook/checkpoint/index files are staged before commit.
 
@@ -669,15 +520,22 @@ Expected: PASS; only intended runbook/checkpoint/index files are staged before c
 ```bash
 git add -- docs/runbooks docs/checkpoints/release-evidence-template.md docs/README.md README.md scripts/docs/check-links.mts scripts/docs/check-links.test.ts
 git diff --cached --check
-git commit -m "docs: add poc release and automation runbooks"
+git commit -m "docs: add local artifact and automation runbooks"
 ```
+
+- [ ] **Step 6: Run the final clean release gate**
+
+Run: `pnpm verify:release && git diff --check && git status --short --branch`
+
+Expected: PASS from the exact runbook commit with clean provenance, no tracked mutation, and no remote side effect.
 
 ## Phase 6 Acceptance
 
-Run from a clean checkout with versions satisfying root `engines`:
+Run from the materialized checkout with a clean worktree and exact recorded toolchain:
 
 ```bash
-pnpm install --frozen-lockfile
+pnpm verify:materialization
+pnpm install --offline --frozen-lockfile
 pnpm test:scripts
 pnpm build:poc
 pnpm build:e2e
@@ -685,7 +543,6 @@ pnpm verify
 pnpm verify:release
 pnpm release:repro
 pnpm test:e2e:prebuilt -- --project=chromium
-pnpm verify:workflows
 pnpm docs:links
 git diff --check
 git status --short --branch
@@ -700,9 +557,8 @@ Acceptance criteria:
 - The shipped Automation Bridge is absent by default, exposes only SemanticGamePort when enabled, uses `waitForIdle` rather than sleep, and never changes RunIntegrity for legal actions.
 - Read-only Debug leaves integrity normal; successful Cheat/fixture mutation marks it modified and the mark survives the shipped Artifact's Save/Load/Replay and DebugBundle export.
 - Every PoC payload file except the self-excluding manifest has a sorted SHA-256 entry; evidence records the manifest's own detached SHA-256 and canonical project legal hashes.
-- Two fresh clean PoC builds have identical path/size/digest tuples and identical Engine/Story/ResolvedGame/application identities.
+- Two fresh clean archive PoC builds and the exact handed-off `dist/poc` have identical path/size/digest tuples, detached manifest digest, source commit/tree/materialization digest, and Engine/Story/ResolvedGame/application identities.
 - Prebuilt PoC works at a nested base path through new game, initial VN, first action, Save, refresh, continue, capability toggles, semantic Automation, and persistence of the `modified` integrity state across Save/refresh/continue.
-- CI uses only reviewed full Action SHAs, frozen install, explicit browser install, 30-day retention, and repository-owned verification; it uploads only current `dist/poc`.
-- Pages deploys only its own successful verify job's PoC Artifact; deploy does not checkout/build, remote smoke waits for exact current SHA/manifest, and protected `github-pages` gates deployment.
-- Runbooks document Story/Host builds, capabilities, Semantic Automation, privacy, activation, deployment, remote smoke, and forward-only rollback without implying external authority.
-- Without explicit authorization, Phase 6 ends at a verified deploy-ready PoC Artifact/workflow. With authorization, the same-run Pages URL passes exact-identity remote smoke.
+- Runbooks document local Story/Host builds, materialization, capabilities, Semantic Automation, Save recovery, Hotfix authoring and privacy without implying remote authority.
+- The repository contains no `.github/workflows/**`, Cloudflare configuration, remote publishing dependency, deployment script or remote-smoke command from this phase.
+- Phase 6 ends with exact local `dist/poc`, source SHA, build-input, manifest digest and verification evidence for the separate final-human-review or deferred-distribution tracks.
