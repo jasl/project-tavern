@@ -79,8 +79,22 @@ test("discovers every nested script test exactly once", async (t) => {
     vitest: ["scripts/ui/nested.test.ts"],
   });
   assert.deepEqual(scriptTestCommandsV1(discovered), [
-    ["node", ["--test", "scripts/release/deep/workflow.test.mjs", "scripts/root.test.mjs"]],
+    [
+      "node",
+      [
+        "--experimental-strip-types",
+        "--test",
+        "scripts/release/deep/workflow.test.mjs",
+        "scripts/root.test.mjs",
+      ],
+    ],
     ["pnpm", ["exec", "vitest", "run", "--project", "scripts"]],
+  ]);
+});
+
+test("runs Node script tests with strip-only TypeScript support", () => {
+  assert.deepEqual(scriptTestCommandsV1({ node: ["scripts/typed.test.mjs"], vitest: [] }), [
+    ["node", ["--experimental-strip-types", "--test", "scripts/typed.test.mjs"]],
   ]);
 });
 

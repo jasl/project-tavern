@@ -2338,6 +2338,45 @@ git diff --cached --check
 git commit -m "feat(e2e): resolve the minimal fixture story"
 ```
 
+**Accepted-owner repair before the Task 10 verification:** Task 1 retained the Phase 1 script-test
+runner while making `test:scripts` part of the cumulative Phase 2 checkpoint, but the runner starts
+Node `.mjs` tests without the repository-required `--experimental-strip-types` flag. Task 10 adds
+the first `.mjs` verifier test that statically imports its `.mts` implementation, exposing a stable
+`ERR_UNKNOWN_FILE_EXTENSION` on the supported Node 22 floor. Per the execution protocol's
+unique-answer earlier-owner rule, repair the runner independently before treating the Task 10 gate
+as valid; this does not change the semantic ABI or Task order.
+
+Repair files:
+
+- Modify: docs/engineering/plans/2026-07-11-project-tavern-02-modules-e2e-story.md
+- Modify: scripts/run-script-tests.mjs
+- Modify: scripts/run-script-tests.test.mjs
+
+Repair TDD and contract:
+
+1. Add a focused `runs Node script tests with strip-only TypeScript support` assertion that freezes
+   the Node command as `node --experimental-strip-types --test <authored test paths>` while retaining
+   the existing deterministic discovery order and separate Vitest command.
+2. Under an available Node 22.17.1 binary, run that named test and confirm it fails only because the
+   actual command omits `--experimental-strip-types`. Also confirm direct execution of
+   `scripts/verify-semantic.test.mjs` without the flag fails with
+   `ERR_UNKNOWN_FILE_EXTENSION` for `scripts/verify-semantic.mts`. Other syntax, dependency, or test
+   failures do not count as this RED.
+3. Add only `--experimental-strip-types` before `--test` in the Node child arguments. Do not add a
+   TypeScript runtime dependency, version branch, shell execution, file-specific exception, or
+   transform-required syntax.
+4. Re-run the named runner test and the Phase 2 checkpoint/semantic verifier tests with Node 22.17.1,
+   passing `--experimental-strip-types` to direct `.mts` importers. Then run `pnpm test:node` with the
+   exact materialized Goal toolchain and `git diff --check`; all commands must exit 0.
+5. Commit the accepted-owner repair exactly:
+
+   ```bash
+   git add -- docs/engineering/plans/2026-07-11-project-tavern-02-modules-e2e-story.md scripts/run-script-tests.mjs scripts/run-script-tests.test.mjs
+   git diff --cached --name-status
+   git diff --cached --check
+   git commit -m "fix(tooling): run script tests with strip types"
+   ```
+
 ### Task 10: Implement SemanticGamePort over the real GameSession
 
 **Mechanical Files repair before the Task 10 GREEN:** Task 6 correctly migrated the production

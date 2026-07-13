@@ -29,7 +29,9 @@ export async function discoverScriptTestsV1(root) {
 
 export function scriptTestCommandsV1(discovered) {
   const commands = [];
-  if (discovered.node.length > 0) commands.push(["node", ["--test", ...discovered.node]]);
+  if (discovered.node.length > 0) {
+    commands.push(["node", ["--experimental-strip-types", "--test", ...discovered.node]]);
+  }
   if (discovered.vitest.length > 0)
     commands.push(["pnpm", ["exec", "vitest", "run", "--project", "scripts"]]);
   return commands;
