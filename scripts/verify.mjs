@@ -17,7 +17,7 @@ export const coreVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["verify:stories"]],
   ["pnpm", ["verify:fixtures"]],
   ["pnpm", ["verify:golden"]],
-  ["pnpm", ["verify:balance"]],
+  ["pnpm", ["verify:determinism"]],
   ["pnpm", ["verify:assets"]],
   ["pnpm", ["verify:ui"]],
   ["pnpm", ["test:scripts"]],
@@ -32,23 +32,29 @@ export const coreVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["test:e2e:smoke"]],
 ]);
 
+export function snapshotTrackedPathsV1(root, paths) {
+  return new Map(
+    paths.map((path) => [
+      path,
+      existsSync(join(root, path))
+        ? createHash("sha256")
+            .update(readFileSync(join(root, path)))
+            .digest("hex")
+        : null,
+    ]),
+  );
+}
+
 function trackedSnapshot(root) {
   const paths = execFileSync("git", ["ls-files", "-z"], { cwd: root })
     .toString("utf8")
     .split("\0")
     .filter(Boolean)
     .sort();
-  return new Map(
-    paths.map((path) => [
-      path,
-      createHash("sha256")
-        .update(readFileSync(join(root, path)))
-        .digest("hex"),
-    ]),
-  );
+  return snapshotTrackedPathsV1(root, paths);
 }
 
-function changed(before, after) {
+export function changedTrackedPathsV1(before, after) {
   return [...new Set([...before.keys(), ...after.keys()])]
     .filter((path) => before.get(path) !== after.get(path))
     .sort();
@@ -133,7 +139,7 @@ export function runCoreVerificationV1(root) {
       }
     }
   } finally {
-    const mutations = changed(before, trackedSnapshot(root));
+    const mutations = changedTrackedPathsV1(before, trackedSnapshot(root));
     if (mutations.length > 0)
       failure = `verification changed tracked files: ${mutations.join(", ")}`;
   }

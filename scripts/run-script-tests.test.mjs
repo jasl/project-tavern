@@ -110,17 +110,19 @@ test("rejects missing and duplicate Vitest list ownership", () => {
   );
 });
 
-test("registers the Phase 2 checkpoint test exactly once", async () => {
+test("registers the final Phase 2 runtime gate test exactly once", async () => {
   const root = join(import.meta.dirname, "..");
   const discovered = await discoverScriptTestsV1(root);
   assert.equal(
-    discovered.node.filter((path) => path === "scripts/verify-phase2-checkpoint.test.mjs").length,
+    discovered.node.filter((path) => path === "scripts/verify-phase2-runtime.test.mjs").length,
     1,
   );
   assert.equal(
-    discovered.vitest.filter((path) => path === "scripts/verify-phase2-checkpoint.test.mjs").length,
+    discovered.vitest.filter((path) => path === "scripts/verify-phase2-runtime.test.mjs").length,
     0,
   );
+  assert(!discovered.node.includes("scripts/verify-phase2-checkpoint.test.mjs"));
+  assert(!discovered.vitest.includes("scripts/verify-phase2-checkpoint.test.mjs"));
 });
 
 test("registers the semantic verifier test exactly once", async () => {

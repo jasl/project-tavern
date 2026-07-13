@@ -14,7 +14,7 @@ test("imports repository TypeScript tools in strip-only mode without main effect
       "--experimental-strip-types",
       "--input-type=module",
       "--eval",
-      'await import("./scripts/verify-phase2-checkpoint.mts")',
+      'await import("./scripts/verify-phase2-runtime.mts")',
     ],
     { cwd: root, encoding: "utf8" },
   );

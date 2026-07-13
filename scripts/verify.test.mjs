@@ -6,15 +6,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   assertVitestOwnershipV1,
+  changedTrackedPathsV1,
   coreVerificationCommandsV1,
   discoverVitestTestsV1,
+  snapshotTrackedPathsV1,
 } from "./verify.mjs";
 
 test("keeps the ordered core gate read-only", () => {
   assert.equal(coreVerificationCommandsV1[0]?.[1]?.[0], "format:check");
   assert.equal(coreVerificationCommandsV1[1]?.[1]?.[0], "verify:docs");
+  assert.deepEqual(coreVerificationCommandsV1[9], ["pnpm", ["verify:determinism"]]);
   assert.equal(coreVerificationCommandsV1.at(-5)?.[1]?.[0], "build");
   assert(!coreVerificationCommandsV1.flat(2).some((value) => /update|regenerate/u.test(value)));
+  assert(!coreVerificationCommandsV1.flat(2).includes("verify:balance"));
   assert(!coreVerificationCommandsV1.flat(2).includes("verify:toolchain"));
   assert(!coreVerificationCommandsV1.flat(2).includes("verify:licensing"));
   const commandLines = coreVerificationCommandsV1.map(([command, args]) =>
@@ -57,4 +61,20 @@ test("rejects zero-owner and duplicate-list workspace tests", () => {
       }),
     /duplicate/u,
   );
+});
+
+test("keeps a planned tracked deletion stable while detecting recreation", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "tavern-tracked-snapshot-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, "present.txt"), "present\n");
+  const paths = ["deleted.txt", "present.txt"];
+  const before = snapshotTrackedPathsV1(root, paths);
+
+  assert.equal(before.get("deleted.txt"), null);
+  assert.deepEqual(changedTrackedPathsV1(before, snapshotTrackedPathsV1(root, paths)), []);
+
+  await writeFile(join(root, "deleted.txt"), "recreated\n");
+  assert.deepEqual(changedTrackedPathsV1(before, snapshotTrackedPathsV1(root, paths)), [
+    "deleted.txt",
+  ]);
 });
