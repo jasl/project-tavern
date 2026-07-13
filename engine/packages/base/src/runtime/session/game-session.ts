@@ -44,6 +44,9 @@ export interface GameSessionRuntimeControlV1<TSnapshot> {
     ) => Promise<AuthoritativeOutcomeV1<TSnapshot, TResult>>,
     normalizeUnexpectedFault: (error: unknown) => TResult,
   ): Promise<TResult>;
+  readAtQueueFront<TResult>(
+    reader: (snapshot: DeepReadonly<TSnapshot>) => TResult,
+  ): Promise<TResult>;
   inspectForRuntime(): {
     readonly snapshot: DeepReadonly<TSnapshot>;
     readonly status: RuntimeSessionStatusV1;
@@ -90,6 +93,25 @@ interface InternalCompositionV1<
   TTypes extends GameSimulationTypeMapV1,
 > extends GameSessionCompositionV1<TTypes> {
   readonly privateControl: GameSessionPrivateControlV1;
+}
+
+function isThenable(value: unknown): boolean {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) {
+    return false;
+  }
+  let current: object | null = value;
+  while (current !== null) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, "then");
+    if (descriptor !== undefined) {
+      return (
+        descriptor.get !== undefined ||
+        descriptor.set !== undefined ||
+        typeof descriptor.value === "function"
+      );
+    }
+    current = Object.getPrototypeOf(current);
+  }
+  return false;
 }
 
 function createInternal<TTypes extends GameSimulationTypeMapV1>(
@@ -156,6 +178,17 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
           publish();
           return normalizeUnexpectedFault(error);
         }
+      });
+    },
+    readAtQueueFront<TResult>(
+      reader: (current: DeepReadonly<TTypes["snapshot"]>) => TResult,
+    ): Promise<TResult> {
+      return enqueue(async () => {
+        const result = reader(snapshot as DeepReadonly<TTypes["snapshot"]>);
+        if (isThenable(result)) {
+          throw new TypeError("GameSession queue-front reader returned thenable");
+        }
+        return result;
       });
     },
     inspectForRuntime() {

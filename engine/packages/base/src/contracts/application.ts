@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { Brand, DeepReadonly } from "./values.js";
+import type { RuntimeSessionStatusV1 } from "./presentation.js";
+import type { Brand, DeepReadonly, NonNegativeSafeInteger } from "./values.js";
 
 export interface ReadonlyViewSourceV1<TViewModel> {
   getCurrent(): DeepReadonly<TViewModel>;
@@ -84,6 +85,60 @@ export interface PlayerPersistencePortV1<
 
 export interface PlayerDiagnosticsPortV1<TDebugBundle> {
   exportDebugBundle(): Promise<TDebugBundle>;
+}
+
+export interface SemanticPublicationV1<TGameView, TActionDescriptor, TStatus> {
+  readonly revision: NonNegativeSafeInteger;
+  readonly status: DeepReadonly<TStatus>;
+  readonly game: DeepReadonly<TGameView>;
+  readonly actions: readonly DeepReadonly<TActionDescriptor>[];
+}
+
+export interface SemanticGamePortV1<
+  TGameView,
+  TActionDescriptor,
+  TInvocation,
+  TPreview,
+  TResult,
+  TStatus = RuntimeSessionStatusV1,
+> {
+  observe(): DeepReadonly<SemanticPublicationV1<TGameView, TActionDescriptor, TStatus>>;
+  subscribe(listener: () => void): () => void;
+  availableActions(): readonly DeepReadonly<TActionDescriptor>[];
+  preview(invocation: DeepReadonly<TInvocation>): Promise<TPreview>;
+  dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;
+  waitForIdle(
+    afterRevision?: NonNegativeSafeInteger,
+  ): Promise<DeepReadonly<SemanticPublicationV1<TGameView, TActionDescriptor, TStatus>>>;
+}
+
+export interface SemanticGamePortSourceV1<TState, TStatus> {
+  getCurrentState(): DeepReadonly<TState>;
+  getAuthoritativeRevisionToken(): object;
+  getStatus(): DeepReadonly<TStatus>;
+  subscribe(listener: () => void): () => void;
+  reportSubscriberFailure(error: unknown): void;
+  readStateAtQueueFront<TResult>(
+    reader: (state: DeepReadonly<TState>) => TResult,
+  ): Promise<TResult>;
+}
+
+export interface SemanticGamePortInputV1<
+  TState,
+  TStatus,
+  TQueries,
+  TGameView,
+  TActionDescriptor,
+  TInvocation,
+  TPreview,
+  TResult,
+> {
+  readonly source: SemanticGamePortSourceV1<TState, TStatus>;
+  createQueries(state: DeepReadonly<TState>): TQueries;
+  projectGameView(queries: TQueries): TGameView;
+  actions(queries: TQueries): readonly TActionDescriptor[];
+  preview(queries: TQueries, invocation: DeepReadonly<TInvocation>): TPreview;
+  dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;
 }
 
 export interface UiRendererBindingV1<TId, TViewModel, TViewSlice, TRenderer> {

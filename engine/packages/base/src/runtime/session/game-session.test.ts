@@ -251,6 +251,84 @@ describe("GameSession FIFO", () => {
     expect(created.session.getCurrentSnapshot().state.count).toBe(10);
   });
 
+  it("reads the latest Snapshot at its FIFO position without executing or replacing", async () => {
+    let releaseDispatch: (() => void) | undefined;
+    const dispatchBarrier = new Promise<void>((resolve) => {
+      releaseDispatch = resolve;
+    });
+    let calls = 0;
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      async executeAttempt(snapshot: Snapshot, command: Command) {
+        calls += 1;
+        await dispatchBarrier;
+        return attempt(snapshot, command);
+      },
+      normalizeUnexpectedDispatchFault(_error: unknown, snapshot: Snapshot) {
+        return attempt(snapshot, { kind: "fault" });
+      },
+    });
+    const before = created.session.getCurrentSnapshot();
+    const dispatch = created.session.dispatch({ kind: "increment" });
+    const read = created.runtimeControl.readAtQueueFront((snapshot) => snapshot);
+
+    expect(created.session).not.toHaveProperty("readAtQueueFront");
+    expect(created.session.getStatus()).toBe("busy");
+    releaseDispatch?.();
+    await expect(dispatch).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    const readSnapshot = await read;
+    expect(readSnapshot.state.count).toBe(1);
+    expect(readSnapshot).toBe(created.session.getCurrentSnapshot());
+    expect(readSnapshot).not.toBe(before);
+    expect(calls).toBe(1);
+    expect(created.session.getStatus()).toBe("ready");
+  });
+
+  it("keeps the FIFO tail usable after a queue-front reader throws", async () => {
+    const { session, runtimeControl, calls } = fixture();
+    const before = session.getCurrentSnapshot();
+    const readerError = new Error("reader failed");
+
+    await expect(
+      runtimeControl.readAtQueueFront(() => {
+        throw readerError;
+      }),
+    ).rejects.toBe(readerError);
+    expect(session.getCurrentSnapshot()).toBe(before);
+    expect(calls()).toBe(0);
+
+    await expect(session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    expect(session.getCurrentSnapshot().state.count).toBe(1);
+    expect(calls()).toBe(1);
+    expect(session.getStatus()).toBe("ready");
+  });
+
+  it("rejects a queue-front then accessor without invoking its getter", async () => {
+    const { session, runtimeControl } = fixture();
+    let getterCalls = 0;
+    const accessor = {};
+    Reflect.defineProperty(accessor, ["th", "en"].join(""), {
+      get() {
+        getterCalls += 1;
+        return () => undefined;
+      },
+    });
+
+    await expect(runtimeControl.readAtQueueFront(() => accessor)).rejects.toThrow(
+      "GameSession queue-front reader returned thenable",
+    );
+    expect(getterCalls).toBe(0);
+    expect(session.getStatus()).toBe("ready");
+  });
+
   it("isolates throwing subscribers and an observer-failure hook", async () => {
     const subscriberError = new Error("subscriber failed once");
     const observerFailures: unknown[] = [];

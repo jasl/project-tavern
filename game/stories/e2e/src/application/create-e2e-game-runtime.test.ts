@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createWebHostV1 } from "@sillymaker/web";
 import { resolveStoryForTestV1, validateToolingFixturesV1 } from "@sillymaker/base/testkit";
 import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
@@ -93,10 +93,10 @@ describe("E2e Game Application runtime", () => {
         now: () => "2026-07-12T00:00:00.000Z",
       }),
     });
-    await expect(application.semantic.dispatch({ kind: "e2e.counter.increment" })).resolves.toEqual(
-      { kind: "committed" },
-    );
-    expect(application.semantic.view.getCurrent().count).toBe(1);
+    await expect(
+      application.semantic.dispatch({ actionId: "action.e2e.increment", parameters: {} }),
+    ).resolves.toEqual({ kind: "committed" });
+    expect(application.semantic.observe().game.counterLabel).toBe("计数 1");
     expect(fixture.calls()).toEqual({
       define: 2,
       simulationMaterializer: 1,
@@ -105,11 +105,11 @@ describe("E2e Game Application runtime", () => {
     });
   });
 
-  it("composes six frozen ports with a narrow temporary Semantic adapter", async () => {
+  it("composes six frozen ports around one real SemanticGamePort", async () => {
     const application = createE2eGameRuntimeV1({
       resolved: resolveStoryForTestV1(e2eStoryEntryV1),
       host: createWebHostV1({
-        seeds: [0x0002_3049],
+        seeds: [0x0002_3049, 0x0002_3050],
         uuids: ["00000000-0000-4000-8000-000000000001"],
         now: () => "2026-07-12T00:00:00.000Z",
       }),
@@ -123,36 +123,71 @@ describe("E2e Game Application runtime", () => {
       "semantic",
     ]);
     expect(Object.isFrozen(application)).toBe(true);
-    expect(Object.keys(application.semantic).sort()).toEqual(["dispatch", "view"]);
-    expect(Object.keys(application.semantic.view).sort()).toEqual(["getCurrent", "subscribe"]);
-    expect(application.semantic.view).not.toHaveProperty("publish");
-    expect(application.semantic.view.getCurrent()).toMatchObject({
-      count: 0,
-      parity: "even",
+    expect(Object.keys(application.semantic).sort()).toEqual([
+      "availableActions",
+      "dispatch",
+      "observe",
+      "preview",
+      "subscribe",
+      "waitForIdle",
+    ]);
+    const initial = application.semantic.observe();
+    expect(initial).toMatchObject({
+      revision: 0,
       status: "ready",
+      game: {
+        counterLabel: "计数 0",
+        flow: { status: "idle", nodeId: "intro" },
+        terminal: false,
+      },
     });
-    await expect(application.semantic.dispatch({ kind: "e2e.test.reject" })).resolves.toEqual({
+    expect(application.semantic.availableActions()).toBe(initial.actions);
+    expect(application.semantic).not.toHaveProperty("view");
+    expect(application.semantic).not.toHaveProperty("snapshot");
+    await expect(
+      application.semantic.preview({ actionId: "action.e2e.increment", parameters: {} }),
+    ).resolves.toEqual({ kind: "allowed" });
+    await expect(
+      application.semantic.dispatch({
+        actionId: "action.e2e.choose",
+        parameters: { choice: "left" },
+      }),
+    ).resolves.toEqual({
       kind: "rejected",
-      reasons: [{ code: "test.rejected" }],
+      reasons: [{ code: "flow.not_choosing" }],
     });
     await expect(
-      application.semantic.dispatch({ kind: "invalid.command" } as never),
-    ).resolves.toEqual({
-      kind: "not_executed",
-      code: "validation_failed",
-    });
-    await expect(application.semantic.dispatch({ kind: "e2e.counter.increment" })).resolves.toEqual(
-      { kind: "committed" },
-    );
-    expect(application.semantic.view.getCurrent()).toMatchObject({
-      count: 1,
-      parity: "odd",
+      application.semantic.dispatch({
+        actionId: "action.e2e.increment",
+        parameters: { extra: true },
+      } as never),
+    ).resolves.toEqual({ kind: "not_executed", code: "validation_failed" });
+
+    const listener = vi.fn();
+    const unsubscribe = application.semantic.subscribe(listener);
+    const idle = application.semantic.waitForIdle(initial.revision);
+    await expect(
+      application.semantic.dispatch({ actionId: "action.e2e.increment", parameters: {} }),
+    ).resolves.toEqual({ kind: "committed" });
+    const incremented = await idle;
+    expect(incremented).toMatchObject({
+      revision: 1,
       status: "ready",
+      game: { counterLabel: "计数 1" },
     });
-    await expect(application.semantic.dispatch({ kind: "e2e.test.fault" })).resolves.toEqual({
-      kind: "faulted",
-      code: "gameplay_fault",
+    expect(application.semantic.observe()).toBe(incremented);
+    expect(application.semantic.availableActions()).toBe(incremented.actions);
+    expect(listener).toHaveBeenCalled();
+    await expect(application.lifecycle.restartSession()).resolves.toMatchObject({
+      kind: "anchored",
+      commandSequence: 0,
     });
+    expect(application.semantic.observe()).toMatchObject({
+      revision: 2,
+      status: "ready",
+      game: { counterLabel: "计数 0" },
+    });
+    unsubscribe();
     expect(application).not.toHaveProperty("commands");
     expect(application).not.toHaveProperty("view");
     expect(application).not.toHaveProperty("player");

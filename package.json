@@ -40,6 +40,7 @@
     "update:materialization-lock": "node --experimental-strip-types scripts/preflight/materialization-contract.mts --write",
     "prepare:goal": "node --experimental-strip-types scripts/preflight/materialize-goal.mts",
     "verify:materialization": "node --experimental-strip-types scripts/preflight/verify-materialization.mts",
+    "verify:semantic": "node --experimental-strip-types scripts/verify-semantic.mts",
     "verify:phase2:checkpoint": "node --experimental-strip-types scripts/verify-phase2-checkpoint.mts",
     "release:prepare": "pnpm build:e2e && node scripts/prepare-artifact.mjs dist/e2e",
     "regenerate:fixtures": "pnpm --filter @project-tavern/story-e2e regenerate:fixtures",

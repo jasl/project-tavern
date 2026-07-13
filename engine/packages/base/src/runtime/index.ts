@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+export { createSemanticGamePortV1 } from "./application/semantic-game-port.js";
 export { createGameSessionV1 } from "./session/index.js";
 export type {
   AuthoritativeOutcomeV1,

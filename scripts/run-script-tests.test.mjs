@@ -123,6 +123,19 @@ test("registers the Phase 2 checkpoint test exactly once", async () => {
   );
 });
 
+test("registers the semantic verifier test exactly once", async () => {
+  const root = join(import.meta.dirname, "..");
+  const discovered = await discoverScriptTestsV1(root);
+  assert.equal(
+    discovered.node.filter((path) => path === "scripts/verify-semantic.test.mjs").length,
+    1,
+  );
+  assert.equal(
+    discovered.vitest.filter((path) => path === "scripts/verify-semantic.test.mjs").length,
+    0,
+  );
+});
+
 test("freezes Goal materialization root mappings and writer reachability", async () => {
   const root = join(import.meta.dirname, "..");
   const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));

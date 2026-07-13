@@ -132,6 +132,10 @@
         "SaveSlotHealthV1",
         "SaveSlotIdV1",
         "SaveSlotSummaryV1",
+        "SemanticGamePortInputV1",
+        "SemanticGamePortSourceV1",
+        "SemanticGamePortV1",
+        "SemanticPublicationV1",
         "SessionAnchorResultV1",
         "SessionDispatchOperationResultV1",
         "SessionLeaseOperationResultV1",
@@ -234,7 +238,8 @@
         "GameSessionInputV1",
         "GameSessionRuntimeControlV1",
         "GameSessionV1",
-        "createGameSessionV1"
+        "createGameSessionV1",
+        "createSemanticGamePortV1"
       ]
     },
     "./testkit": {

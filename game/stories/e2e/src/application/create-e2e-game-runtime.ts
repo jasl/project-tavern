@@ -14,7 +14,6 @@ import type {
   GameHostV1,
   PersistenceOperationResultV1,
   PersistenceStatusV1,
-  ReadonlyViewSourceV1,
   SaveExportOperationResultV1,
   SaveSlotSummaryV1,
   SessionAnchorResultV1,
@@ -22,48 +21,12 @@ import type {
   SessionLeaseStatusV1,
 } from "@sillymaker/base";
 import { createGameSessionV1 } from "@sillymaker/base/runtime";
-import { createViewSourceV1 } from "@sillymaker/ui";
 
-import type {
-  E2eGameCommandV1,
-  E2eGameSimulationTypesV1,
-  E2eGameSnapshotV1,
-  E2eRejectionReasonV1,
-} from "../gameplay/contracts/index.js";
+import type { E2eGameSimulationTypesV1, E2eGameSnapshotV1 } from "../gameplay/contracts/index.js";
+import { createE2eSemanticGamePortV1 } from "../runtime/e2e-semantic-game-port.js";
+import type { E2eSemanticGamePortV1 } from "../runtime/e2e-semantic-game-port.js";
 import { createE2eInitialSnapshotV1 } from "../session.js";
 import type { E2eResolvedGameV1 } from "../story-entry.js";
-
-export interface E2eApplicationViewV1 {
-  readonly count: number;
-  readonly parity: "even" | "odd";
-  readonly status: "ready" | "busy" | "fault_paused" | "hmr_invalidated";
-}
-
-type E2eSessionDispatchResultV1 = Awaited<
-  ReturnType<
-    ReturnType<typeof createGameSessionV1<E2eGameSimulationTypesV1>>["session"]["dispatch"]
-  >
->;
-
-export type E2eSemanticPlaceholderDispatchResultV1 =
-  | { readonly kind: "committed" }
-  | {
-      readonly kind: "rejected";
-      readonly reasons: readonly DeepReadonly<E2eRejectionReasonV1>[];
-    }
-  | {
-      readonly kind: "not_executed";
-      readonly code:
-        "session_unavailable" | "fault_paused" | "hmr_invalidated" | "validation_failed";
-    }
-  | { readonly kind: "faulted"; readonly code: "gameplay_fault" };
-
-export interface E2eSemanticPlaceholderPortV1 {
-  readonly view: ReadonlyViewSourceV1<E2eApplicationViewV1>;
-  dispatch(
-    command: DeepReadonly<E2eGameCommandV1>,
-  ): Promise<E2eSemanticPlaceholderDispatchResultV1>;
-}
 
 export interface E2eUnavailableCapabilitiesPortV1 {
   readonly kind: "unavailable";
@@ -99,7 +62,7 @@ type E2ePersistencePortV1 = {
 };
 
 export type E2eGameApplicationPortV1 = GameApplicationPortV1<
-  E2eSemanticPlaceholderPortV1,
+  E2eSemanticGamePortV1,
   {
     createNewSession(): Promise<SessionAnchorResultV1>;
     restartSession(): Promise<SessionAnchorResultV1>;
@@ -122,30 +85,6 @@ const unavailablePersistence = (): PersistenceOperationResultV1 =>
   Object.freeze({ kind: "rejected", code: "unavailable" });
 const unavailableLease = (): SessionLeaseOperationResultV1 =>
   Object.freeze({ kind: "rejected", code: "unavailable" });
-
-function projectE2ePlaceholderDispatchResultV1(
-  result: E2eSessionDispatchResultV1,
-): E2eSemanticPlaceholderDispatchResultV1 {
-  if (result.kind === "not_executed") {
-    return Object.freeze({ kind: "not_executed", code: result.code });
-  }
-  switch (result.execution.kind) {
-    case "committed":
-      return Object.freeze({ kind: "committed" });
-    case "rejected":
-      return Object.freeze({
-        kind: "rejected",
-        reasons: Object.freeze(
-          result.execution.reasons.map((reason) => Object.freeze({ code: reason.code })),
-        ),
-      });
-    case "faulted":
-      return Object.freeze({ kind: "faulted", code: "gameplay_fault" });
-  }
-  const unsupported: never = result.execution;
-  void unsupported;
-  throw new TypeError("unsupported E2E dispatch result");
-}
 
 function createE2eUnexpectedFaultAttemptV1(snapshot: DeepReadonly<E2eGameSnapshotV1>) {
   const rng = createTransactionalRngV1(snapshot.rng);
@@ -170,6 +109,9 @@ export function createE2eGameRuntimeV1(input: {
 }): E2eGameApplicationPortV1 {
   const gameSimulation = input.resolved.gameSimulation;
   const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
+  const reportRuntimeFailure = (_error: unknown): void => {
+    // Phase 3 installs the bounded runtime-failure collector at this shared seam.
+  };
   const created = createGameSessionV1<E2eGameSimulationTypesV1>({
     initialSnapshot: createE2eInitialSnapshotV1(gameSimulation, bootstrap),
     commandSchema: gameSimulation.commandSchema,
@@ -180,22 +122,14 @@ export function createE2eGameRuntimeV1(input: {
     normalizeUnexpectedDispatchFault(_error, snapshot) {
       return createE2eUnexpectedFaultAttemptV1(snapshot);
     },
+    onObserverFailure: reportRuntimeFailure,
   });
-  const project = (): E2eApplicationViewV1 => {
-    const snapshot = created.session.getCurrentSnapshot();
-    const queries = gameSimulation.createQueries(snapshot.state);
-    return Object.freeze({
-      count: queries.counterValue,
-      parity: queries.parity,
-      status: created.session.getStatus(),
-    });
-  };
-  const viewPublisher = createViewSourceV1(project());
-  const view: ReadonlyViewSourceV1<E2eApplicationViewV1> = Object.freeze({
-    getCurrent: viewPublisher.getCurrent,
-    subscribe: viewPublisher.subscribe,
+  const semantic = createE2eSemanticGamePortV1({
+    gameSimulation,
+    session: created.session,
+    runtimeControl: created.runtimeControl,
+    reportSubscriberFailure: reportRuntimeFailure,
   });
-  created.session.subscribe(() => viewPublisher.publish(project()));
 
   const lifecycleOperation = () =>
     created.runtimeControl.enqueueAuthoritative<SessionAnchorResultV1>(
@@ -285,11 +219,7 @@ export function createE2eGameRuntimeV1(input: {
   });
 
   return Object.freeze({
-    semantic: Object.freeze({
-      view,
-      dispatch: async (command: DeepReadonly<E2eGameCommandV1>) =>
-        projectE2ePlaceholderDispatchResultV1(await created.session.dispatch(command)),
-    }),
+    semantic,
     lifecycle: Object.freeze({
       createNewSession: lifecycleOperation,
       restartSession: lifecycleOperation,
