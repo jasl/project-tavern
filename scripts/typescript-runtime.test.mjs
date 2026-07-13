@@ -7,10 +7,15 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
-test("executes repository TypeScript tools in strip-only mode", () => {
+test("imports repository TypeScript tools in strip-only mode without main effects", () => {
   const result = spawnSync(
     process.execPath,
-    ["--experimental-strip-types", "game/stories/sandbox/scripts/verify-fixtures.mts"],
+    [
+      "--experimental-strip-types",
+      "--input-type=module",
+      "--eval",
+      'await import("./scripts/verify-phase2-checkpoint.mts")',
+    ],
     { cwd: root, encoding: "utf8" },
   );
   assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
