@@ -114,7 +114,11 @@ export function createE2eGameSimulationV1(program: DeepReadonly<E2eSimulationPro
       });
     },
     createQueries(state) {
-      return createE2eGameQueriesV1(state, validatedProgram.terminalThreshold);
+      return createE2eGameQueriesV1(
+        state,
+        validatedProgram.terminalThreshold,
+        modules[3].capabilities.resolveChoiceDelta,
+      );
     },
     projectGameView(queries) {
       return projectE2eGameViewV1(queries);

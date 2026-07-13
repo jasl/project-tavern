@@ -28,10 +28,18 @@ function state(input?: {
 
 const terminalThresholdV1 = parsePositiveSafeInteger(2);
 
+function resolveDefaultChoiceDeltaV1(choice: "left" | "right") {
+  return parsePositiveSafeInteger(choice === "left" ? 1 : 2);
+}
+
 describe("E2E GameQueries", () => {
   it("creates one exact frozen projection from Gameplay State only", () => {
     const gameState = state();
-    const queries = createE2eGameQueriesV1(gameState, terminalThresholdV1);
+    const queries = createE2eGameQueriesV1(
+      gameState,
+      terminalThresholdV1,
+      resolveDefaultChoiceDeltaV1,
+    );
 
     expect(queries).toEqual({
       counterValue: 0,
@@ -39,14 +47,17 @@ describe("E2E GameQueries", () => {
       flowStatus: "idle",
       visibleNodeId: "intro",
       runStatus: "active",
+      choiceDeltas: { left: 1, right: 2 },
       canStart: true,
       canComplete: false,
     });
     expect(Object.isFrozen(queries)).toBe(true);
+    expect(Object.isFrozen(queries.choiceDeltas)).toBe(true);
     expect(queries).not.toHaveProperty("state");
     expect(queries).not.toHaveProperty("snapshot");
     expect(queries).not.toHaveProperty("rng");
     expect(queries).not.toHaveProperty("commandSequence");
+    expect(queries).not.toHaveProperty("resolveChoiceDelta");
     expectTypeOf<Parameters<typeof createE2eGameQueriesV1>[0]>().toEqualTypeOf<
       DeepReadonly<E2eGameStateV1>
     >();
@@ -56,21 +67,30 @@ describe("E2E GameQueries", () => {
     const gameState = state({ counter: 3 });
     const before = structuredClone(gameState);
 
-    expect(createE2eGameQueriesV1(gameState, terminalThresholdV1).parity).toBe("odd");
+    expect(
+      createE2eGameQueriesV1(gameState, terminalThresholdV1, resolveDefaultChoiceDeltaV1).parity,
+    ).toBe("odd");
     expect(gameState).toEqual(before);
   });
 
   it("exposes canStart only for the exact active idle/intro tuple", () => {
-    expect(createE2eGameQueriesV1(state(), terminalThresholdV1).canStart).toBe(true);
+    expect(
+      createE2eGameQueriesV1(state(), terminalThresholdV1, resolveDefaultChoiceDeltaV1).canStart,
+    ).toBe(true);
     expect(
       createE2eGameQueriesV1(
         state({ flow: { status: "idle", branch: null, nodeId: "choice" } }),
         terminalThresholdV1,
+        resolveDefaultChoiceDeltaV1,
       ).canStart,
     ).toBe(false);
-    expect(createE2eGameQueriesV1(state({ run: "complete" }), terminalThresholdV1).canStart).toBe(
-      false,
-    );
+    expect(
+      createE2eGameQueriesV1(
+        state({ run: "complete" }),
+        terminalThresholdV1,
+        resolveDefaultChoiceDeltaV1,
+      ).canStart,
+    ).toBe(false);
   });
 
   it("shares the exact terminal formula with canComplete", () => {
@@ -79,7 +99,10 @@ describe("E2E GameQueries", () => {
       flow: { status: "resolved", branch: "right", nodeId: "done" },
     });
     expect(canCompleteE2eRunV1(terminal, terminalThresholdV1)).toBe(true);
-    expect(createE2eGameQueriesV1(terminal, terminalThresholdV1).canComplete).toBe(true);
+    expect(
+      createE2eGameQueriesV1(terminal, terminalThresholdV1, resolveDefaultChoiceDeltaV1)
+        .canComplete,
+    ).toBe(true);
 
     for (const nonTerminal of [
       state({
@@ -101,7 +124,10 @@ describe("E2E GameQueries", () => {
       }),
     ]) {
       expect(canCompleteE2eRunV1(nonTerminal, terminalThresholdV1)).toBe(false);
-      expect(createE2eGameQueriesV1(nonTerminal, terminalThresholdV1).canComplete).toBe(false);
+      expect(
+        createE2eGameQueriesV1(nonTerminal, terminalThresholdV1, resolveDefaultChoiceDeltaV1)
+          .canComplete,
+      ).toBe(false);
     }
   });
 });

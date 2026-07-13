@@ -159,6 +159,8 @@ describe("E2E GameSimulation", () => {
     if (continued.result.kind !== "committed") throw new TypeError("flow continue did not commit");
 
     const belowThreshold = simulation.createQueries(continued.result.snapshot.state);
+    expect(belowThreshold.choiceDeltas).toEqual({ left: 2, right: 3 });
+    expect(Object.isFrozen(belowThreshold.choiceDeltas)).toBe(true);
     expect(belowThreshold.canComplete).toBe(false);
     const prematureComplete = simulation.commandExecutor.executeAttempt(
       continued.result.snapshot,

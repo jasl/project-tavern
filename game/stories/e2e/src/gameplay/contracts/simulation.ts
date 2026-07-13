@@ -27,6 +27,10 @@ export interface E2eGameQueriesV1 {
   readonly flowStatus: E2eGameStateV1["simulation"]["flow"]["status"];
   readonly visibleNodeId: E2eGameStateV1["simulation"]["flow"]["nodeId"];
   readonly runStatus: E2eGameStateV1["simulation"]["run"]["status"];
+  readonly choiceDeltas: {
+    readonly left: PositiveSafeInteger;
+    readonly right: PositiveSafeInteger;
+  };
   readonly canStart: boolean;
   readonly canComplete: boolean;
 }
