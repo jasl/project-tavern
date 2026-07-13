@@ -2111,6 +2111,7 @@ Repair TDD and contract:
 
 **Files:**
 
+- Modify: .gitattributes
 - Create: game/stories/e2e/src/simulation/program.ts
 - Create: game/stories/e2e/src/simulation/patch-surfaces.ts
 - Create: game/stories/e2e/src/simulation/choice-delta-provider.ts
@@ -2118,6 +2119,7 @@ Repair TDD and contract:
 - Create: game/stories/e2e/src/simulation/source-digests.generated.ts
 - Create: game/stories/e2e/src/simulation/source-digests.test.ts
 - Create: game/stories/e2e/scripts/update-source-digests.mts
+- Create: game/stories/e2e/scripts/executable-source-root.mts
 - Create: game/stories/e2e/src/presentation/text-catalogs.ts
 - Create: game/stories/e2e/src/presentation/presentation-program.ts
 - Create: game/stories/e2e/src/presentation/scene-graph.ts
@@ -2245,6 +2247,15 @@ workspace-relative POSIX path 与文件 SHA-256 运行对应的 domain-separated
 bytes。value/text slot 的默认 provider digest 必须直接绑定 canonical default value；相同值的
 无语义源码重排不需要改变该 digest。
 
+`.gitattributes` 必须只为上述两个 exact source roots 声明 `text eol=lf`，使同一 Git blob 在
+不同 checkout policy 下保持相同 working-tree bytes。共享 pure guard 必须正向限定每个 root
+恰好只有两条 `@sillymaker/base` public import，并拒绝 side-effect import、所有 re-export、
+relative/absolute/bare extra specifier、dynamic import 与 CommonJS require；writer 与 read-only test
+复用同一 guard，不能维护两份可漂移 regex。writer 计算候选输出后，若现有输出逐字节相同则
+no-op；若不同，则先用无 shell 的 exact-path Git status 检查输出 path，任何 tracked dirty、
+staged、deleted 或 untracked foreign bytes 都必须稳定失败而不是覆盖。只有输出 path 当前 clean，
+或首次生成且 path 不存在时，显式 writer 才能写入。
+
 在 source roots 完成并保持格式化后显式运行一次 writer，再审查其唯一机械输出：
 
 ```bash
@@ -2322,7 +2333,7 @@ Expected: 所有命令退出 0；Story resolve 无 cast；Hotfix digest 分区�
 - [ ] **Step 6: Commit the E2E Story composition**
 
 ```bash
-git add -- game/stories/e2e/src/simulation game/stories/e2e/scripts/update-source-digests.mts game/stories/e2e/src/presentation game/stories/e2e/src/story-definition.ts game/stories/e2e/src/story-entry.ts game/stories/e2e/src/story-contract.test.ts game/stories/e2e/src/development.ts game/stories/e2e/src/tooling.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/property.test.ts game/stories/e2e/src/index.ts game/stories/e2e/package.json game/stories/e2e/tsconfig.json
+git add -- .gitattributes game/stories/e2e/src/simulation game/stories/e2e/scripts/update-source-digests.mts game/stories/e2e/scripts/executable-source-root.mts game/stories/e2e/src/presentation game/stories/e2e/src/story-definition.ts game/stories/e2e/src/story-entry.ts game/stories/e2e/src/story-contract.test.ts game/stories/e2e/src/development.ts game/stories/e2e/src/tooling.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/property.test.ts game/stories/e2e/src/index.ts game/stories/e2e/package.json game/stories/e2e/tsconfig.json
 git diff --cached --check
 git commit -m "feat(e2e): resolve the minimal fixture story"
 ```
@@ -2681,6 +2692,42 @@ git commit -m "feat(runtime): add semantic game interaction"
 
 ### Task 11: Render the resolved E2E SceneGraph from the unified Web entry
 
+**Accepted-owner repair before the Task 11 RED:** the migrated production entry still supplies
+four empty BuildIdentity facets, `resolveBuildIdentityV1` sorts paths with locale-sensitive
+`localeCompare`, and `engine.version` is hard-coded inside the Story resolver instead of arriving
+from Application-owned build metadata. Task 11 owns the only production bootstrap and remains
+before Task 12 freezes provenance-bearing fixtures, so repair these accepted earlier-owner gaps
+there in one independent commit before the UI RED. Task 10 may continue to use explicit synthetic
+identity only inside tests that do not write persistent provenance; it must not create a second
+production collector.
+
+Repair files:
+
+- Modify: engine/packages/base/src/authoring/build-identity.ts
+- Modify: engine/packages/base/src/authoring/build-identity.test.ts
+- Modify: engine/packages/base/src/authoring/story-resolver.ts
+- Modify: engine/packages/base/src/authoring/story-resolver.test.ts
+- Modify: engine/packages/base/src/testkit/resolver-fixtures.ts
+- Modify: engine/packages/web/src/loader/loader.test.tsx
+- Modify: game/stories/e2e/src/story-contract.test.ts
+
+Repair contract:
+
+1. Extend Application-supplied build input with an exact non-empty `engineVersion` display label.
+   Validate and preserve it separately from the four record arrays; changing only that label must
+   change no engine, Story, simulation, or presentation digest. The resolver must copy this value
+   into `BuildProvenanceV1.engine.version` and contain no built-in version literal.
+2. Replace locale-sensitive record ordering with an explicit UTF-16 code-unit comparator. Keep
+   workspace-relative POSIX path validation, per-facet tags, live SHA-256 validation and duplicate
+   rejection unchanged. Base remains generic and may accept empty arrays for isolated contract
+   fixtures; the production E2E collector below is the owner that requires every facet non-empty.
+3. Add focused tests that fail first on the hard-coded version and `localeCompare`, then prove
+   Application ownership and locale-independent sorting. Update only existing synthetic callers
+   with an explicit test label; no Base testkit identity may be written to a tracked Story fixture.
+4. Run Base authoring, Loader, E2E Story, public-export, boundary, typecheck and current Phase 2
+   checkpoint gates, then commit only the repair files as
+   `fix(base): accept application build metadata`.
+
 **Files:**
 
 - Modify: engine/packages/ui/src/shell/game-shell.tsx
@@ -2689,10 +2736,19 @@ git commit -m "feat(runtime): add semantic game interaction"
 - Modify: engine/packages/ui/src/contributions/registry.test.ts
 - Create: game/stories/e2e/src/application/e2e-application-root.tsx
 - Create: game/stories/e2e/src/application/e2e-application-root.test.tsx
+- Create: game/stories/e2e/src/application/e2e-build-identity.d.ts
 - Modify: game/stories/e2e/src/application/entry.tsx
+- Create: game/stories/e2e/src/simulation/story-simulation-facet.ts
+- Create: game/stories/e2e/src/presentation/story-presentation-facet.ts
+- Modify: game/stories/e2e/src/story-definition.ts
 - Modify: game/stories/e2e/src/presentation/scene-graph.ts
 - Create: game/stories/e2e/src/presentation/e2e-renderers.tsx
 - Create: game/stories/e2e/src/presentation/e2e-renderers.test.tsx
+- Modify: scripts/collect-import-closure.mjs
+- Modify: scripts/collect-import-closure.test.mjs
+- Create: scripts/build-e2e-identity.mjs
+- Create: scripts/build-e2e-identity.test.mjs
+- Modify: vite.config.ts
 - Modify: engine/packages/web/e2e/walking-skeleton.spec.ts
 - Modify: `engine/packages/web/e2e/__screenshots__/e2e-shell.png`
 - Test: engine/packages/ui/src/shell/game-shell.test.tsx
@@ -2760,6 +2816,25 @@ renderer registry tests 必须覆盖所有 SceneGraph renderer IDs 恰好一次�
 
 本任务不加入 Debug、Capability、Automation Bridge 或 InputRouter。
 
+同一任务必须接通唯一 production BuildIdentity pipeline。把当前混合 Story definition 拆成
+Node-type-strip-safe 的 simulation/presentation facet roots；`story-definition.ts` 只静态组合两者。
+Node-only `scripts/build-e2e-identity.mjs` 复用 import-closure collector，对以下四个 facet 生成
+workspace-relative POSIX path、live file SHA-256 和稳定排序 records：Base runtime/authoring engine
+root、E2E simulation facet root、E2E presentation facet root、完整 E2E application entry closure。
+Story facet collector 必须排除 Base、另一 Story facet、React/TSX 与 testkit；application facet 可以
+覆盖完整 Artifact closure。四个 facet 在 production 均必须非空、无重复且不得包含
+`references/`、tests、mtime、absolute path 或 chunk name。collector 同时从 reviewed Base package
+metadata 取得 display-only engineVersion，但 package manifest 不进入 engine records。
+
+Vite config 使用同一 collector 提供一个 closed virtual module；其 payload 只有完整 build input，
+entry.tsx import 后原样交给 Web bootstrap，不再含 empty-array literal。virtual specifier 不进入自身
+closure，collector/config source 则显式进入 application facet，避免生成自引用。read-only Node test
+必须证明 virtual payload 与 direct collector byte-for-byte 相同，并以临时 source mutations 证明：
+engine source 只漂移 engine/application，Gameplay executor 只漂移 simulation/application，
+presentation data 只漂移 presentation/application，Web renderer TSX 只漂移 application；测试无论
+成功失败都恢复临时 bytes。Task 12 的 tracked fixture/golden writers 与 verifiers必须调用该 same
+Node collector 后再 resolve Story，禁止 synthetic/empty identity provenance。
+
 - [ ] **Step 4: Prove real Pointer/keyboard behavior and one server**
 
 Playwright 覆盖：
@@ -2777,6 +2852,7 @@ Run:
 ```bash
 pnpm --filter @sillymaker/ui test
 pnpm --filter @project-tavern/story-e2e exec vitest run src/application src/presentation
+node --test scripts/build-e2e-identity.test.mjs scripts/collect-import-closure.test.mjs
 pnpm build:e2e
 pnpm test:e2e:smoke
 pnpm verify:phase2:checkpoint
@@ -2791,7 +2867,7 @@ Expected: 所有命令退出 0；DOM 与 Semantic invocation log 一致；UI rec
 pnpm update:screenshots
 git diff -- engine/packages/web/e2e/__screenshots__/e2e-shell.png
 pnpm test:e2e:full
-git add -- engine/packages/ui/src/shell engine/packages/ui/src/contributions game/stories/e2e/src/application game/stories/e2e/src/presentation/scene-graph.ts game/stories/e2e/src/presentation/e2e-renderers.tsx game/stories/e2e/src/presentation/e2e-renderers.test.tsx engine/packages/web/e2e/walking-skeleton.spec.ts engine/packages/web/e2e/__screenshots__/e2e-shell.png
+git add -- engine/packages/ui/src/shell engine/packages/ui/src/contributions game/stories/e2e/src/application game/stories/e2e/src/simulation/story-simulation-facet.ts game/stories/e2e/src/presentation/story-presentation-facet.ts game/stories/e2e/src/story-definition.ts game/stories/e2e/src/presentation/scene-graph.ts game/stories/e2e/src/presentation/e2e-renderers.tsx game/stories/e2e/src/presentation/e2e-renderers.test.tsx scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/build-e2e-identity.mjs scripts/build-e2e-identity.test.mjs vite.config.ts engine/packages/web/e2e/walking-skeleton.spec.ts engine/packages/web/e2e/__screenshots__/e2e-shell.png
 git diff --cached --check
 git commit -m "feat(web): render the resolved e2e game"
 ```
