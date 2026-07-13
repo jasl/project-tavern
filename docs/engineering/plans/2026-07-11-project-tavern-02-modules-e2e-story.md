@@ -1346,8 +1346,14 @@ git commit -m "refactor(stories): keep only e2e and poc packages"
 - Modify: scripts/verify-artifact.test.mjs
 - Modify: scripts/verify-release.mjs
 - Modify: scripts/verify-release.test.mjs
+- Modify: scripts/collect-import-closure.mjs
+- Modify: scripts/collect-import-closure.test.mjs
+- Modify: scripts/verify-boundaries.test.mjs
+- Modify: scripts/preflight/materialize-goal.mts
+- Modify: scripts/preflight/materialize-goal.test.ts
+- Modify: scripts/preflight/verify-materialization.mts
 - Modify: engine/packages/web/e2e/walking-skeleton.spec.ts
-- Modify: `engine/packages/web/e2e/__screenshots__/e2e-shell.png`
+- Inspect/protect unchanged: `engine/packages/web/e2e/__screenshots__/e2e-shell.png`
 - Test: scripts/verify-bundle.test.mjs
 - Test: scripts/verify-artifact.test.mjs
 - Test: engine/packages/web/e2e/walking-skeleton.spec.ts
@@ -1429,8 +1435,11 @@ Phase 5B 将在同一 closed map 中增加 `poc-web` 和临时直接 Vite `build
 - verifyTemporaryPlayerArtifactV1 → verifyTemporaryE2eArtifactV1；
 - default artifact root 从 dist/player 改为 dist/e2e；
 - release reproducibility 临时构建调用 build:e2e；
-- closure 继续禁止 Base testkit、references、art-source/aigc、source map、绝对路径和 secrets；
+- `build:e2e` 始终只写 closed `dist/e2e`；临时 Artifact/release verification 每次构建后复制该固定输出到隔离临时目录，再 prepare/compare，删除旧 `TAVERN_OUT_DIR` override；
+- closure 继续禁止 Base testkit、references、art-source/aigc、source map 和绝对路径；完整 emitted-byte secret/credential admission 仍由 Phase 6 定义和验收，本任务不增加模糊的源码内容扫描；
 - 不再禁止 tooling/debug 文件名，因为同 Artifact runtime capability 是 Phase 3 的权限边界。
+
+同步删除 import-closure resolver 中已移除的 `@sillymaker/web/developer` target，把 closure/boundary tests 迁到唯一 `index.html`/`entry.tsx`。为了保持 Phase 0 recovery/offline 护栏可执行，`prepare:goal` 的 disposable browser build 原子地从已删除的 `build:player` 迁到 `build:e2e`，并同步其测试与共享 build-script type；materialization contract、attestation 和 `verify:materialization` 的 read-only live check 不变。
 
 Playwright 只启动一个 4173 E2E preview server；删除 4174。route isolation 测试改为确认不存在第二 Developer URL，当前普通 E2E flow 仍可用鼠标和键盘完成。
 
@@ -1444,11 +1453,13 @@ node scripts/verify-bundle.mjs
 node scripts/verify-artifact.mjs
 pnpm test:e2e:smoke
 pnpm test:scripts
+pnpm verify:materialization
 pnpm verify:phase2:checkpoint
+git diff --exit-code -- engine/packages/web/e2e/__screenshots__/e2e-shell.png
 git diff --check
 ```
 
-Expected: 所有命令退出 0；只生成 dist/e2e；Playwright 只管理一个服务器；Artifact 中没有独立 Developer HTML 或 source map。
+Expected: 所有命令退出 0；只生成 dist/e2e；Playwright 只管理一个服务器；Artifact 中没有独立 Developer HTML 或 source map；Phase 0 recovery/materialization 护栏仍可执行；reviewed screenshot 字节不变。
 
 - [ ] **Step 6: Commit the single Artifact migration**
 
