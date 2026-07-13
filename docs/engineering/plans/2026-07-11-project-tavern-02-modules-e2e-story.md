@@ -2658,7 +2658,7 @@ Exact scripts：
     "verify:semantic": "node --experimental-strip-types scripts/verify-semantic.mts"
   },
   "game/stories/e2e": {
-    "verify:semantic": "pnpm --dir ../.. exec vitest run game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts game/stories/e2e/src/runtime/headless-runner.test.ts"
+    "verify:semantic": "pnpm --workspace-root exec vitest run game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts game/stories/e2e/src/runtime/headless-runner.test.ts"
   }
 }
 ```
