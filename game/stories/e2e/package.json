@@ -6,7 +6,7 @@
   "license": "PolyForm-Noncommercial-1.0.0",
   "exports": {
     ".": "./src/index.ts",
-    "./development": "./src/development.ts"
+    "./tooling": "./src/tooling.ts"
   },
   "scripts": {
     "test": "pnpm --workspace-root exec vitest run game/stories/e2e/src",
@@ -14,6 +14,7 @@
     "regenerate:fixtures": "node --experimental-strip-types scripts/regenerate-fixtures.mts",
     "verify:golden": "node --experimental-strip-types scripts/verify-golden.mts",
     "update:golden": "node --experimental-strip-types scripts/update-golden.mts",
+    "update:source-digests": "node --experimental-strip-types scripts/update-source-digests.mts",
     "verify:balance": "node --experimental-strip-types scripts/verify-balance.mts"
   },
   "dependencies": {

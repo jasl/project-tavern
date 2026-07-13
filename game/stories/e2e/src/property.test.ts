@@ -27,9 +27,10 @@ import { createE2eSessionV1 } from "./session.js";
 import { createE2eInitialSnapshotV1 } from "./session.js";
 import { e2eStoryEntryV1 } from "./story-entry.js";
 
+const counterPropertySimulationV1 = resolveStoryForTestV1(e2eStoryEntryV1).gameSimulation;
+
 async function run(seed: number, count: number): Promise<number> {
-  const { gameSimulation } = resolveStoryForTestV1(e2eStoryEntryV1);
-  const session = createE2eSessionV1(gameSimulation, {
+  const session = createE2eSessionV1(counterPropertySimulationV1, {
     rngSeed: parseNonZeroUint32(seed),
   });
   for (let index = 0; index < count; index += 1) {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
   canonicalJsonBytes,
+  createTransactionalRngV1,
   digestBytes,
   digestCanonical,
   parseNonNegativeSafeInteger,
@@ -23,9 +24,13 @@ import type {
 import { createGameSessionV1 } from "@sillymaker/base/runtime";
 import { createViewSourceV1 } from "@sillymaker/ui";
 
-import type { E2eCommandV1, E2eRejectionV1, E2eSimulationTypesV1 } from "../contracts.js";
+import type {
+  E2eGameCommandV1,
+  E2eGameSimulationTypesV1,
+  E2eGameSnapshotV1,
+  E2eRejectionReasonV1,
+} from "../gameplay/contracts/index.js";
 import { createE2eInitialSnapshotV1 } from "../session.js";
-import { createE2eFaultAttemptV1 } from "../profile.js";
 import type { E2eResolvedGameV1 } from "../story-entry.js";
 
 export interface E2eApplicationViewV1 {
@@ -35,14 +40,16 @@ export interface E2eApplicationViewV1 {
 }
 
 type E2eSessionDispatchResultV1 = Awaited<
-  ReturnType<ReturnType<typeof createGameSessionV1<E2eSimulationTypesV1>>["session"]["dispatch"]>
+  ReturnType<
+    ReturnType<typeof createGameSessionV1<E2eGameSimulationTypesV1>>["session"]["dispatch"]
+  >
 >;
 
 export type E2eSemanticPlaceholderDispatchResultV1 =
   | { readonly kind: "committed" }
   | {
       readonly kind: "rejected";
-      readonly reasons: readonly DeepReadonly<E2eRejectionV1>[];
+      readonly reasons: readonly DeepReadonly<E2eRejectionReasonV1>[];
     }
   | {
       readonly kind: "not_executed";
@@ -53,7 +60,9 @@ export type E2eSemanticPlaceholderDispatchResultV1 =
 
 export interface E2eSemanticPlaceholderPortV1 {
   readonly view: ReadonlyViewSourceV1<E2eApplicationViewV1>;
-  dispatch(command: DeepReadonly<E2eCommandV1>): Promise<E2eSemanticPlaceholderDispatchResultV1>;
+  dispatch(
+    command: DeepReadonly<E2eGameCommandV1>,
+  ): Promise<E2eSemanticPlaceholderDispatchResultV1>;
 }
 
 export interface E2eUnavailableCapabilitiesPortV1 {
@@ -138,13 +147,30 @@ function projectE2ePlaceholderDispatchResultV1(
   throw new TypeError("unsupported E2E dispatch result");
 }
 
+function createE2eUnexpectedFaultAttemptV1(snapshot: DeepReadonly<E2eGameSnapshotV1>) {
+  const rng = createTransactionalRngV1(snapshot.rng);
+  return Object.freeze({
+    result: Object.freeze({
+      kind: "faulted" as const,
+      snapshot,
+      fault: Object.freeze({ code: "e2e.runtime.unexpected" as const }),
+    }),
+    diagnostics: Object.freeze({
+      committedRngBefore: snapshot.rng,
+      attemptedDraws: rng.attemptedDraws(),
+      candidateRngAfter: rng.candidateState(),
+      committedRngAfter: snapshot.rng,
+    }),
+  });
+}
+
 export function createE2eGameRuntimeV1(input: {
   readonly resolved: E2eResolvedGameV1;
   readonly host: GameHostV1;
 }): E2eGameApplicationPortV1 {
   const gameSimulation = input.resolved.gameSimulation;
   const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
-  const created = createGameSessionV1<E2eSimulationTypesV1>({
+  const created = createGameSessionV1<E2eGameSimulationTypesV1>({
     initialSnapshot: createE2eInitialSnapshotV1(gameSimulation, bootstrap),
     commandSchema: gameSimulation.commandSchema,
     executionContext: undefined,
@@ -152,14 +178,17 @@ export function createE2eGameRuntimeV1(input: {
       return gameSimulation.commandExecutor.executeAttempt(snapshot, command, undefined);
     },
     normalizeUnexpectedDispatchFault(_error, snapshot) {
-      return createE2eFaultAttemptV1(snapshot, Object.freeze({ code: "e2e.runtime.unexpected" }));
+      return createE2eUnexpectedFaultAttemptV1(snapshot);
     },
   });
   const project = (): E2eApplicationViewV1 => {
     const snapshot = created.session.getCurrentSnapshot();
     const queries = gameSimulation.createQueries(snapshot.state);
-    const projected = gameSimulation.projectGameView(queries);
-    return Object.freeze({ ...projected, status: created.session.getStatus() });
+    return Object.freeze({
+      count: queries.counterValue,
+      parity: queries.parity,
+      status: created.session.getStatus(),
+    });
   };
   const viewPublisher = createViewSourceV1(project());
   const view: ReadonlyViewSourceV1<E2eApplicationViewV1> = Object.freeze({
@@ -258,7 +287,7 @@ export function createE2eGameRuntimeV1(input: {
   return Object.freeze({
     semantic: Object.freeze({
       view,
-      dispatch: async (command: DeepReadonly<E2eCommandV1>) =>
+      dispatch: async (command: DeepReadonly<E2eGameCommandV1>) =>
         projectE2ePlaceholderDispatchResultV1(await created.session.dispatch(command)),
     }),
     lifecycle: Object.freeze({

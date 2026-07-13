@@ -5,7 +5,7 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test-d.ts", "src/application/**"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.test-d.ts", "src/application/**"],
   "references": [
     { "path": "../../../engine/packages/base" },
     { "path": "../../../engine/packages/ui" },
