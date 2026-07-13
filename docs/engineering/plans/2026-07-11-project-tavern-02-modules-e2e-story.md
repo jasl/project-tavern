@@ -383,6 +383,7 @@ git commit -m "refactor(base): replace profile with game simulation"
 - Modify: engine/packages/base/src/testkit/story-contracts.test.ts
 - Modify: engine/packages/base/src/testkit/contract-suite.ts
 - Modify: engine/packages/base/src/testkit/index.ts
+- Modify: engine/packages/base/src/testkit/synthetic-counter.ts
 - Modify: engine/packages/base/type-tests/phase1-consumer.test-d.ts
 - Modify: engine/packages/base/type-tests/public-exports.test-d.ts
 - Modify: engine/packages/base/public-exports.v1.json
@@ -395,6 +396,7 @@ git commit -m "refactor(base): replace profile with game simulation"
 - Modify: game/stories/sandbox/scripts/verify-golden.mts
 - Modify: game/stories/sandbox/src/application/create-sandbox-application.test.ts
 - Modify: game/stories/sandbox/src/application/create-sandbox-application.ts
+- Modify: game/stories/sandbox/src/application/developer-entry.tsx
 - Modify: game/stories/sandbox/src/application/player-entry.tsx
 - Modify: game/stories/sandbox/src/development.ts
 - Modify: game/stories/sandbox/src/property.test.ts
