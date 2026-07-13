@@ -10,7 +10,7 @@ import type {
 } from "../contracts/assets.js";
 import { digestCanonical } from "../contracts/digest.js";
 import { parseDigest, parsePositiveSafeInteger } from "../contracts/values.js";
-import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
+import { deepFreezeAuthoringValueV1 } from "./define-gameplay-module.js";
 
 function validateRuntimePath(path: string): void {
   const segments = path.split("/");

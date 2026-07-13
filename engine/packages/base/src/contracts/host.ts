@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { BootstrapEntropyV1 } from "./module.js";
+import type { BootstrapEntropyV1 } from "./gameplay-module.js";
 import type { Brand, NonNegativeSafeInteger, PositiveSafeInteger } from "./values.js";
 import type { StrictJsonObjectV1 } from "./strict-json.js";
 import { parseNonNegativeSafeInteger } from "./values.js";

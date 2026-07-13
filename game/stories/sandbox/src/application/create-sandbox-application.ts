@@ -21,7 +21,7 @@ import type {
 import { createEngineSessionV1 } from "@sillymaker/base/runtime";
 import { createViewSourceV1 } from "@sillymaker/ui";
 
-import type { SandboxCommandV1, SandboxProfileTypesV1 } from "../contracts.js";
+import type { SandboxCommandV1, SandboxSimulationTypesV1 } from "../contracts.js";
 import { createSandboxInitialSnapshotV1 } from "../session.js";
 import { createSandboxFaultAttemptV1 } from "../profile.js";
 import type { SandboxResolvedStoryV1 } from "../story-entry.js";
@@ -62,7 +62,7 @@ export type SandboxPlayerApplicationV1 = PlayerApplicationPortV1<
     dispatch(
       command: SandboxCommandV1,
     ): ReturnType<
-      ReturnType<typeof createEngineSessionV1<SandboxProfileTypesV1>>["session"]["dispatch"]
+      ReturnType<typeof createEngineSessionV1<SandboxSimulationTypesV1>>["session"]["dispatch"]
     >;
   },
   {
@@ -82,14 +82,14 @@ export function createSandboxApplicationV1(input: {
   readonly resolved: SandboxResolvedStoryV1;
   readonly host: GameHostV1;
 }): SandboxPlayerApplicationV1 {
-  const profile = input.resolved.profile;
-  const bootstrap = profile.createBootstrapInput(input.host.bootstrapEntropy);
-  const created = createEngineSessionV1<SandboxProfileTypesV1>({
-    initialSnapshot: createSandboxInitialSnapshotV1(profile, bootstrap),
-    commandSchema: profile.commandSchema,
+  const gameSimulation = input.resolved.gameSimulation;
+  const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
+  const created = createEngineSessionV1<SandboxSimulationTypesV1>({
+    initialSnapshot: createSandboxInitialSnapshotV1(gameSimulation, bootstrap),
+    commandSchema: gameSimulation.commandSchema,
     executionContext: undefined,
     executeAttempt(snapshot, command) {
-      return profile.coordinator.executeAttempt(snapshot, command, undefined);
+      return gameSimulation.commandExecutor.executeAttempt(snapshot, command, undefined);
     },
     normalizeUnexpectedDispatchFault(_error, snapshot) {
       return createSandboxFaultAttemptV1(
@@ -100,11 +100,9 @@ export function createSandboxApplicationV1(input: {
   });
   const project = (): SandboxApplicationViewV1 => {
     const snapshot = created.session.getCurrentSnapshot();
-    const queries = profile.coordinator.createQueries(snapshot) as {
-      count: number;
-      parity: "even" | "odd";
-    };
-    return Object.freeze({ ...queries, status: created.session.getStatus() });
+    const queries = gameSimulation.createQueries(snapshot.state);
+    const projected = gameSimulation.projectGameView(queries);
+    return Object.freeze({ ...projected, status: created.session.getStatus() });
   };
   const view = createViewSourceV1(project());
   created.session.subscribe(() => view.publish(project()));
@@ -112,8 +110,8 @@ export function createSandboxApplicationV1(input: {
   const lifecycleOperation = () =>
     created.runtimeControl.enqueueAuthoritative<SessionAnchorResultV1>(
       async () => {
-        const nextBootstrap = profile.createBootstrapInput(input.host.bootstrapEntropy);
-        const snapshot = createSandboxInitialSnapshotV1(profile, nextBootstrap);
+        const nextBootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
+        const snapshot = createSandboxInitialSnapshotV1(gameSimulation, nextBootstrap);
         return Object.freeze({
           kind: "replace" as const,
           snapshot,

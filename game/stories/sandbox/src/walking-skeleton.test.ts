@@ -15,8 +15,8 @@ describe("Sandbox walking skeleton", () => {
       seeds: [parseNonZeroUint32(0x0002_3049)],
     });
     const session = createSandboxSessionV1(
-      resolved.profile,
-      resolved.profile.createBootstrapInput(entropy),
+      resolved.gameSimulation,
+      resolved.gameSimulation.createBootstrapInput(entropy),
     );
     const pending = session.dispatch({ kind: "sandbox.counter.increment" });
     expect(session.getStatus()).toBe("busy");
@@ -24,7 +24,7 @@ describe("Sandbox walking skeleton", () => {
       kind: "executed",
       execution: { kind: "committed" },
     });
-    expect(session.getCurrentSnapshot().state.counter.value).toBe(1);
+    expect(session.getCurrentSnapshot().state.simulation.counter.value).toBe(1);
     expect(resolved.presentationProgram.textCatalogs.catalogs[0]?.entries).toContainEqual({
       textId: "text.sandbox.counter",
       text: "计数",

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
   createTransactionalRngV1,
-  defineGameModule,
-  defineGameProfile,
+  defineGameSimulation,
+  defineGameplayModule,
   parseModuleId,
   parseNonNegativeSafeInteger,
   parsePositiveSafeInteger,
@@ -11,8 +11,6 @@ import {
 import type {
   BootstrapEntropyV1,
   CommandExecutionAttemptEnvelopeV1,
-  GameModuleBindingV1,
-  GameProfileV1,
   NonNegativeSafeInteger,
   RuntimeSchemaV1,
   RuleRngV1,
@@ -26,10 +24,11 @@ import {
 import type {
   SandboxBootstrapInputV1,
   SandboxCommandV1,
+  SandboxDebugValidationErrorV1,
   SandboxFactV1,
   SandboxFaultV1,
-  SandboxProfileTypesV1,
   SandboxRejectionV1,
+  SandboxSimulationTypesV1,
   SandboxSnapshotV1,
   SandboxStateV1,
 } from "./contracts.js";
@@ -38,10 +37,20 @@ interface CounterOperationV1 {
   readonly kind: "set";
   readonly value: NonNegativeSafeInteger;
 }
+
 interface CounterProposalV1 {
   readonly payload: CounterOperationV1;
   readonly facts: readonly SandboxFactV1[];
 }
+
+type SandboxCommandAttemptV1 = CommandExecutionAttemptEnvelopeV1<
+  SandboxSnapshotV1,
+  SandboxFactV1,
+  SandboxRejectionV1,
+  SandboxFaultV1,
+  SandboxSimulationTypesV1["rngState"],
+  SandboxSimulationTypesV1["rngDrawTrace"]
+>;
 
 function diagnostics(snapshot: SandboxSnapshotV1, rng: RuleRngV1, committedAfter = snapshot.rng) {
   return Object.freeze({
@@ -55,14 +64,7 @@ function diagnostics(snapshot: SandboxSnapshotV1, rng: RuleRngV1, committedAfter
 export function createSandboxFaultAttemptV1(
   snapshot: SandboxSnapshotV1,
   fault: SandboxFaultV1,
-): CommandExecutionAttemptEnvelopeV1<
-  SandboxSnapshotV1,
-  SandboxFactV1,
-  SandboxRejectionV1,
-  SandboxFaultV1,
-  SandboxProfileTypesV1["rngState"],
-  SandboxProfileTypesV1["rngDrawTrace"]
-> {
+): SandboxCommandAttemptV1 {
   const rng = createTransactionalRngV1(snapshot.rng);
   return Object.freeze({
     result: Object.freeze({ kind: "faulted" as const, snapshot, fault }),
@@ -70,7 +72,30 @@ export function createSandboxFaultAttemptV1(
   });
 }
 
-const passthrough: RuntimeSchemaV1<unknown> = Object.freeze({ parse: (value: unknown) => value });
+function passthroughSchema<T>(): RuntimeSchemaV1<T> {
+  return Object.freeze({ parse: (value: unknown) => value as T });
+}
+
+const neverSchema: RuntimeSchemaV1<never> = Object.freeze({
+  parse() {
+    throw new TypeError("Sandbox does not support debug commands");
+  },
+});
+
+const debugValidationErrorSchema: RuntimeSchemaV1<SandboxDebugValidationErrorV1> = Object.freeze({
+  parse(value: unknown) {
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      Object.keys(value).join("\0") !== "code" ||
+      Reflect.get(value, "code") !== "sandbox.debug.unsupported"
+    ) {
+      throw new TypeError("invalid Sandbox debug validation error");
+    }
+    return Object.freeze({ code: "sandbox.debug.unsupported" as const });
+  },
+});
+
 const operationSchema: RuntimeSchemaV1<CounterOperationV1> = Object.freeze({
   parse(value: unknown) {
     if (
@@ -78,14 +103,16 @@ const operationSchema: RuntimeSchemaV1<CounterOperationV1> = Object.freeze({
       typeof value !== "object" ||
       Object.keys(value).sort().join("\0") !== "kind\0value" ||
       Reflect.get(value, "kind") !== "set"
-    )
+    ) {
       throw new TypeError("invalid counter operation");
+    }
     return Object.freeze({
       kind: "set" as const,
       value: parseNonNegativeSafeInteger(Reflect.get(value, "value")),
     });
   },
 });
+
 const proposalSchema: RuntimeSchemaV1<CounterProposalV1> = Object.freeze({
   parse(value: unknown) {
     if (value === null || typeof value !== "object") throw new TypeError("invalid proposal");
@@ -96,8 +123,8 @@ const proposalSchema: RuntimeSchemaV1<CounterProposalV1> = Object.freeze({
   },
 });
 
-function createModules(): readonly GameModuleBindingV1[] {
-  const counter = defineGameModule({
+function createGameplayModules(program: SandboxSimulationProgramV1) {
+  const counter = defineGameplayModule<SandboxSimulationTypesV1>()({
     bindingKind: "stateful" as const,
     descriptor: {
       id: parseModuleId("sandbox.counter"),
@@ -136,16 +163,14 @@ function createModules(): readonly GameModuleBindingV1[] {
       },
     },
     queries: null,
-    createInitialState(bootstrap: unknown) {
-      return Object.freeze({
-        value: parseNonNegativeSafeInteger(Reflect.get(bootstrap as object, "initialCount")),
-      });
+    createInitialState() {
+      return Object.freeze({ value: program.initialCount });
     },
     createReadPort(state: unknown) {
       return sandboxCounterStateSchemaV1.parse(state);
     },
   });
-  const parity = defineGameModule({
+  const parity = defineGameplayModule<SandboxSimulationTypesV1>()({
     bindingKind: "stateless" as const,
     descriptor: {
       id: parseModuleId("sandbox.parity"),
@@ -159,49 +184,29 @@ function createModules(): readonly GameModuleBindingV1[] {
     ownerOperationSchema: null,
     ownerProposalSchema: null,
     owner: null,
-    services: Object.freeze({
-      parity(value: number): "even" | "odd" {
+    capabilities: Object.freeze({
+      resolveParity(value: number): "even" | "odd" {
         return value % 2 === 0 ? "even" : "odd";
       },
     }),
   });
-  return Object.freeze([counter, parity]);
+  return Object.freeze([counter, parity] as const);
 }
 
 export interface SandboxSimulationProgramV1 {
   readonly initialCount: NonNegativeSafeInteger;
 }
 
-export interface SandboxProfileV1 extends GameProfileV1 {
-  readonly commandSchema: RuntimeSchemaV1<SandboxCommandV1>;
-  readonly coordinator: {
-    executeAttempt(
-      snapshot: SandboxSnapshotV1,
-      command: SandboxCommandV1,
-      context: undefined,
-    ): CommandExecutionAttemptEnvelopeV1<
-      SandboxSnapshotV1,
-      SandboxFactV1,
-      SandboxRejectionV1,
-      SandboxFaultV1,
-      SandboxProfileTypesV1["rngState"],
-      SandboxProfileTypesV1["rngDrawTrace"]
-    >;
-  } & GameProfileV1["coordinator"];
-  createBootstrapInput(entropy: BootstrapEntropyV1): SandboxBootstrapInputV1;
-  createInitialState(bootstrap: SandboxBootstrapInputV1): SandboxStateV1;
-}
-
-export function createSandboxProfileV1(program: SandboxSimulationProgramV1): SandboxProfileV1 {
-  const modules = createModules();
+export function createSandboxGameSimulationV1(program: SandboxSimulationProgramV1) {
+  const modules = createGameplayModules(program);
   const counter = modules[0];
   const parity = modules[1];
-  if (counter?.bindingKind !== "stateful" || parity?.bindingKind !== "stateless") {
-    throw new TypeError("invalid Sandbox Module composition");
-  }
-  const coordinator = {
-    executeAttempt(snapshotValue: unknown, commandValue: unknown) {
-      const snapshot = snapshotValue as SandboxSnapshotV1;
+  const commandExecutor = Object.freeze({
+    executeAttempt(
+      snapshot: SandboxSnapshotV1,
+      commandValue: SandboxCommandV1,
+      _context: undefined,
+    ): SandboxCommandAttemptV1 {
       const command = sandboxCommandSchemaV1.parse(commandValue);
       const rng = createTransactionalRngV1(snapshot.rng);
       if (command.kind === "sandbox.counter.reject") {
@@ -222,16 +227,20 @@ export function createSandboxProfileV1(program: SandboxSimulationProgramV1): San
       }
       const operation = operationSchema.parse({
         kind: "set",
-        value: snapshot.state.counter.value + 1,
+        value: snapshot.state.simulation.counter.value + 1,
       });
-      const proposed = counter.owner.propose(snapshot.state.counter, operation, Object.freeze({}));
+      const proposed = counter.owner.propose(
+        snapshot.state.simulation.counter,
+        operation,
+        Object.freeze({}),
+      );
       if (proposed.kind !== "proposed") throw new TypeError("counter proposal rejected");
       const proposal = proposalSchema.parse(proposed.proposal);
       const nextCounter = sandboxCounterStateSchemaV1.parse(
-        counter.owner.apply(snapshot.state.counter, proposal),
+        counter.owner.apply(snapshot.state.simulation.counter, proposal),
       );
       const next = Object.freeze({
-        state: Object.freeze({ counter: nextCounter }),
+        state: Object.freeze({ simulation: Object.freeze({ counter: nextCounter }) }),
         rng: rng.candidateState(),
         commandSequence: parseNonNegativeSafeInteger(snapshot.commandSequence + 1),
       });
@@ -244,32 +253,63 @@ export function createSandboxProfileV1(program: SandboxSimulationProgramV1): San
         diagnostics: diagnostics(snapshot, rng, next.rng),
       });
     },
-    createQueries(snapshotValue: unknown) {
-      const snapshot = snapshotValue as SandboxSnapshotV1;
-      const parityService = parity.services as { parity(value: number): "even" | "odd" };
+  });
+  const debugCommandExecutor = Object.freeze({
+    validate(
+      _snapshot: SandboxSnapshotV1,
+      _command: never,
+      _context: undefined,
+    ): {
+      readonly kind: "validation_failed";
+      readonly errors: readonly SandboxDebugValidationErrorV1[];
+    } {
       return Object.freeze({
-        count: snapshot.state.counter.value,
-        parity: parityService.parity(snapshot.state.counter.value),
+        kind: "validation_failed",
+        errors: Object.freeze([Object.freeze({ code: "sandbox.debug.unsupported" })]),
       });
     },
-  } as SandboxProfileV1["coordinator"];
-  return defineGameProfile({
+    executeAttempt(
+      _snapshot: SandboxSnapshotV1,
+      _command: never,
+      _context: undefined,
+    ): SandboxCommandAttemptV1 {
+      throw new TypeError("Sandbox does not support debug commands");
+    },
+  });
+
+  return defineGameSimulation<SandboxSimulationTypesV1>()({
     contractRevision: 1 as const,
     modules,
     stateSchema: sandboxStateSchemaV1,
     commandSchema: sandboxCommandSchemaV1,
-    factSchema: passthrough,
-    rejectionSchema: passthrough,
-    debugCommandSchema: passthrough,
-    coordinator,
-    createBootstrapInput(entropy: BootstrapEntropyV1) {
+    factSchema: passthroughSchema<SandboxFactV1>(),
+    rejectionSchema: passthroughSchema<SandboxRejectionV1>(),
+    debugCommandSchema: neverSchema,
+    debugValidationErrorSchema,
+    commandExecutor,
+    debugCommandExecutor,
+    createBootstrapInput(entropy: BootstrapEntropyV1): SandboxBootstrapInputV1 {
       return Object.freeze({ rngSeed: entropy.nextNonZeroUint32() });
     },
-    createInitialState() {
-      return Object.freeze({ counter: Object.freeze({ value: program.initialCount }) });
+    createInitialState(_bootstrap: SandboxBootstrapInputV1): SandboxStateV1 {
+      return Object.freeze({
+        simulation: Object.freeze({
+          counter: Object.freeze({ value: program.initialCount }),
+        }),
+      });
     },
-    projectView(snapshotValue: unknown) {
-      return coordinator.createQueries(snapshotValue);
+    createQueries(state: SandboxStateV1): SandboxSimulationTypesV1["queries"] {
+      return Object.freeze({
+        count: state.simulation.counter.value,
+        parity: parity.capabilities.resolveParity(state.simulation.counter.value),
+      });
     },
-  }) as SandboxProfileV1;
+    projectGameView(
+      queries: SandboxSimulationTypesV1["queries"],
+    ): SandboxSimulationTypesV1["viewModel"] {
+      return Object.freeze({ count: queries.count, parity: queries.parity });
+    },
+  });
 }
+
+export type SandboxGameSimulationV1 = ReturnType<typeof createSandboxGameSimulationV1>;

@@ -9,8 +9,10 @@ import { createSandboxSessionV1 } from "./session.js";
 import { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } from "./story-entry.js";
 
 async function run(seed: number, count: number): Promise<number> {
-  const { profile } = specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1));
-  const session = createSandboxSessionV1(profile, {
+  const { gameSimulation } = specializeSandboxResolvedStoryV1(
+    resolveStoryForTestV1(sandboxStoryEntryV1),
+  );
+  const session = createSandboxSessionV1(gameSimulation, {
     rngSeed: parseNonZeroUint32(seed),
   });
   for (let index = 0; index < count; index += 1) {
@@ -19,7 +21,7 @@ async function run(seed: number, count: number): Promise<number> {
       throw new TypeError("Sandbox increment did not commit");
     }
   }
-  return session.getCurrentSnapshot().state.counter.value;
+  return session.getCurrentSnapshot().state.simulation.counter.value;
 }
 
 describe("Sandbox deterministic counter properties", () => {

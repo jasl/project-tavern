@@ -12,11 +12,11 @@ import { sandboxCommandSchemaV1 } from "./contracts.js";
 import { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } from "./story-entry.js";
 
 describe("Sandbox Story contract", () => {
-  it("resolves a static Profile with one state owner and one stateless service", () => {
+  it("resolves a static GameSimulation with one state owner and one stateless capability", () => {
     expect(() => validateStoryV1(sandboxStoryEntryV1)).not.toThrow();
     const resolved = specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1));
-    expect(resolved.profile.modules).toHaveLength(2);
-    const [counter, parity] = resolved.profile.modules;
+    expect(resolved.gameSimulation.modules).toHaveLength(2);
+    const [counter, parity] = resolved.gameSimulation.modules;
     expect(counter?.bindingKind).toBe("stateful");
     expect(parity).toMatchObject({
       bindingKind: "stateless",
@@ -24,9 +24,11 @@ describe("Sandbox Story contract", () => {
       ownerOperationSchema: null,
       ownerProposalSchema: null,
     });
+    expect(parity).toHaveProperty("capabilities.resolveParity");
+    expect(parity).not.toHaveProperty("services");
     expect(parity).not.toHaveProperty("stateSchema");
     expect(parity).not.toHaveProperty("createInitialState");
-    expect(Object.isFrozen(resolved.profile)).toBe(true);
+    expect(Object.isFrozen(resolved.gameSimulation)).toBe(true);
   });
 
   it("keeps fixtures in the separate development entry", () => {

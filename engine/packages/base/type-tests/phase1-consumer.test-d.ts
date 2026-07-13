@@ -6,7 +6,13 @@ import type {
   GamePackageResolutionFailureCodeV1,
   GamePackageResolutionFailureV1,
   GamePackageResolutionResultV1,
-  GameProfileTypeMapV1,
+  GameCommandExecutorV1,
+  GameDebugCommandExecutorV1,
+  GameDebugCommandValidationResultV1,
+  GameSimulationTypeMapV1,
+  GameSimulationV1,
+  GameplayModuleBindingV1,
+  GameplayModuleTupleForSimulationV1,
   ModuleId,
   NonZeroUint32,
   PatchSetAdoptionDeclarationV1,
@@ -26,9 +32,9 @@ import {
   createGameSnapshotEnvelopeSchemaV1,
   createSaveRecordEnvelopeSchemaV1,
   createTransactionalRngV1,
-  defineGameModule,
+  defineGameplayModule,
   defineGamePackage,
-  defineGameProfile,
+  defineGameSimulation,
   defineStoryDevelopmentEntry,
   parseModuleId,
   parseNonZeroUint32,
@@ -54,7 +60,16 @@ export type Phase1ConsumerTypesV1 = {
   packageResolution: GamePackageResolutionResultV1<unknown>;
   packageResolutionFailure: GamePackageResolutionFailureV1;
   packageResolutionFailureCode: GamePackageResolutionFailureCodeV1;
-  profile: GameProfileTypeMapV1<GameBootstrapInputV1, unknown, unknown>;
+  commandExecutor: GameCommandExecutorV1<unknown, unknown, unknown, unknown>;
+  debugCommandExecutor: GameDebugCommandExecutorV1<unknown, unknown, unknown, unknown, unknown>;
+  debugValidation: GameDebugCommandValidationResultV1<unknown>;
+  simulation: GameSimulationTypeMapV1<GameBootstrapInputV1, unknown, unknown>;
+  simulationContract: GameSimulationV1<
+    GameSimulationTypeMapV1,
+    readonly GameplayModuleBindingV1[],
+    GameCommandExecutorV1<unknown, unknown, unknown, unknown>,
+    GameDebugCommandExecutorV1<unknown, unknown, unknown, unknown, unknown>
+  >;
   moduleId: ModuleId;
   seed: NonZeroUint32;
   adoption: PatchSetAdoptionDeclarationV1;
@@ -78,9 +93,9 @@ export type Phase1ConsumerValuesV1 = {
   createSaveRecordEnvelopeSchema: typeof createSaveRecordEnvelopeSchemaV1;
   createSyntheticCounterGamePackage: typeof createSyntheticCounterGamePackageV1;
   createTransactionalRng: typeof createTransactionalRngV1;
-  defineGameModule: typeof defineGameModule;
+  defineGameplayModule: typeof defineGameplayModule;
   defineGamePackage: typeof defineGamePackage;
-  defineGameProfile: typeof defineGameProfile;
+  defineGameSimulation: typeof defineGameSimulation;
   defineStoryDevelopmentEntry: typeof defineStoryDevelopmentEntry;
   parseModuleId: typeof parseModuleId;
   parseNonZeroUint32: typeof parseNonZeroUint32;
@@ -94,11 +109,57 @@ export type Phase1ConsumerValuesV1 = {
   validateStory: typeof validateStoryV1;
 };
 
+export type GameplayModuleDefinitionV1 = ReturnType<
+  typeof defineGameplayModule<GameSimulationTypeMapV1>
+>;
+export type GameSimulationDefinitionV1 = ReturnType<
+  typeof defineGameSimulation<GameSimulationTypeMapV1>
+>;
+
+interface WitnessTypesAV1 extends GameSimulationTypeMapV1<
+  GameBootstrapInputV1,
+  { readonly simulation: { readonly a: number } },
+  { readonly cursor: number }
+> {
+  readonly command: { readonly kind: "witness.a" };
+}
+
+interface WitnessTypesBV1 extends GameSimulationTypeMapV1<
+  GameBootstrapInputV1,
+  { readonly simulation: { readonly b: number } },
+  { readonly cursor: number }
+> {
+  readonly command: { readonly kind: "witness.b" };
+}
+
+type AssertNever<TValue extends never> = TValue;
+export type CrossWitnessModuleIsRejectedV1 = AssertNever<
+  GameplayModuleTupleForSimulationV1<
+    WitnessTypesAV1,
+    readonly [GameplayModuleBindingV1<WitnessTypesBV1>]
+  >[0]
+>;
+
+// @ts-expect-error the public helper requires defineGameplayModule<TTypes>()(binding)
+export type ForbiddenOneStageGameplayModuleInputV1 = Parameters<typeof defineGameplayModule>[0];
+// @ts-expect-error the public helper requires defineGameSimulation<TTypes>()(simulation)
+export type ForbiddenOneStageGameSimulationInputV1 = Parameters<typeof defineGameSimulation>[0];
+
 // @ts-expect-error parsers do not carry a V1 suffix
 export { parseModuleIdV1 } from "@sillymaker/base";
 // @ts-expect-error parsers do not carry a V1 suffix
 export { parseNonZeroUint32V1 } from "@sillymaker/base";
 // @ts-expect-error parsers do not carry a V1 suffix
 export { parseStateSlotIdV1 } from "@sillymaker/base";
+// @ts-expect-error removed after Phase 1
+export type OldProfile = import("@sillymaker/base").GameProfileV1;
+// @ts-expect-error removed after Phase 1
+export { defineGameProfile } from "@sillymaker/base";
+// @ts-expect-error removed after Phase 1
+export type OldModule = import("@sillymaker/base").GameModuleBindingV1;
+// @ts-expect-error removed after Phase 1
+export { defineGameModule } from "@sillymaker/base";
+// @ts-expect-error removed after Phase 1
+export type OldCoordinator = import("@sillymaker/base").CommandCoordinatorV1;
 // @ts-expect-error import closure belongs to scripts, never Base/testkit
 export { buildImportClosureV1 } from "@sillymaker/base/testkit";

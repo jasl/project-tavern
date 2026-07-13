@@ -10,8 +10,8 @@ import {
 } from "@sillymaker/base";
 import type { GamePackageV1, ResolvedStoryV1 } from "@sillymaker/base";
 
-import { createSandboxProfileV1 } from "./profile.js";
-import type { SandboxProfileV1, SandboxSimulationProgramV1 } from "./profile.js";
+import { createSandboxGameSimulationV1 } from "./profile.js";
+import type { SandboxGameSimulationV1, SandboxSimulationProgramV1 } from "./profile.js";
 import {
   materializeSandboxPresentationV1,
   sandboxAssetSlotsV1,
@@ -44,8 +44,8 @@ function createDefinition() {
       materializeProgram(values: { readonly initialCount: number }): SandboxSimulationProgramV1 {
         return Object.freeze({ initialCount: parseNonNegativeSafeInteger(values.initialCount) });
       },
-      createProfile(program: SandboxSimulationProgramV1) {
-        return createSandboxProfileV1(program);
+      createGameSimulation(program: SandboxSimulationProgramV1) {
+        return createSandboxGameSimulationV1(program);
       },
     }),
     presentation: Object.freeze({
@@ -72,9 +72,9 @@ export const sandboxStoryEntryV1: GamePackageV1<unknown, unknown> = defineGamePa
 
 export interface SandboxResolvedStoryV1 extends Omit<
   ResolvedStoryV1,
-  "profile" | "simulationProgram" | "presentationProgram"
+  "gameSimulation" | "simulationProgram" | "presentationProgram"
 > {
-  readonly profile: SandboxProfileV1;
+  readonly gameSimulation: SandboxGameSimulationV1;
   readonly simulationProgram: SandboxSimulationProgramV1;
   readonly presentationProgram: SandboxPresentationProgramV1;
 }
@@ -83,10 +83,10 @@ export function specializeSandboxResolvedStoryV1(
   resolved: ResolvedStoryV1,
 ): SandboxResolvedStoryV1 {
   if (
-    typeof (resolved.profile as { createBootstrapInput?: unknown }).createBootstrapInput !==
+    typeof (resolved.gameSimulation as { createBootstrapInput?: unknown }).createBootstrapInput !==
     "function"
   ) {
-    throw new TypeError("Sandbox Profile did not resolve");
+    throw new TypeError("Sandbox GameSimulation did not resolve");
   }
   return resolved as SandboxResolvedStoryV1;
 }

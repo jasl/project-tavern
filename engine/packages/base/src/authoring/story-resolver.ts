@@ -13,12 +13,12 @@ import { parsePositiveSafeInteger } from "../contracts/values.js";
 import type { BuildIdentityInputV1 } from "./build-identity.js";
 import { resolveBuildIdentityV1 } from "./build-identity.js";
 import { resolveAssetManifestV1 } from "./asset-resolver.js";
-import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
+import { deepFreezeAuthoringValueV1 } from "./define-gameplay-module.js";
 import { resolveHotfixesV1 } from "./hotfix-resolver.js";
 
 export interface ResolvedStoryV1 {
   readonly provenance: BuildProvenanceV1;
-  readonly profile: unknown;
+  readonly gameSimulation: unknown;
   readonly simulationProgram: unknown;
   readonly presentationProgram: unknown;
   readonly assets: ResolvedAssetManifestV1;
@@ -33,7 +33,7 @@ interface SourceDefinitionLike {
     readonly narrativeProgram: unknown;
     readonly patchSurface: unknown;
     materializeProgram(values: unknown): unknown;
-    createProfile(program: unknown): unknown;
+    createGameSimulation(program: unknown): unknown;
   };
   readonly presentation: {
     readonly uiSceneGraph: unknown;
@@ -160,9 +160,13 @@ export function resolveGamePackageV1(
         "Presentation materializer returned thenable",
       );
     }
-    const profile = first.simulation.createProfile(simulationProgram);
-    if (isThenable(profile)) {
-      return failure("story.profile_invalid", hotfixes, "Profile factory returned thenable");
+    const gameSimulation = first.simulation.createGameSimulation(simulationProgram);
+    if (isThenable(gameSimulation)) {
+      return failure(
+        "story.simulation_invalid",
+        hotfixes,
+        "GameSimulation factory returned thenable",
+      );
     }
     const slots = Array.isArray(first.presentation.assetSlots) ? first.presentation.assetSlots : [];
     const packs = Array.isArray(first.presentation.assetPacks) ? first.presentation.assetPacks : [];
@@ -207,7 +211,7 @@ export function resolveGamePackageV1(
       kind: "resolved",
       resolved: deepFreezeAuthoringValueV1({
         provenance,
-        profile,
+        gameSimulation,
         simulationProgram,
         presentationProgram,
         assets,

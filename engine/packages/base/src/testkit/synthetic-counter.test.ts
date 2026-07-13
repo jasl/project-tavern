@@ -13,13 +13,16 @@ describe("neutral synthetic counter", () => {
     const entry = createSyntheticCounterGamePackageV1();
     const definition = entry.define();
     const program = definition.simulation.materializeProgram({});
-    const profile = definition.simulation.createProfile(program);
+    const gameSimulation = definition.simulation.createGameSimulation(program);
     const entropy = createFixedBootstrapEntropyV1({
       uuids: ["00000000-0000-4000-8000-000000000001"],
       seeds: [143433],
     });
-    const bootstrap = profile.createBootstrapInput(entropy);
+    const bootstrap = gameSimulation.createBootstrapInput(entropy);
     expect(bootstrap.rngSeed).toBe(143433);
+    expect(gameSimulation.createInitialState(bootstrap)).toEqual({
+      simulation: { counter: { count: 0 } },
+    });
     expect(strictJsonRoundTripV1({ count: 0 }, syntheticCounterStateSchemaV1)).toEqual({
       count: 0,
     });

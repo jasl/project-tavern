@@ -6,7 +6,7 @@ import type {
   PatchSymbolKindV1,
 } from "../contracts/hotfix.js";
 import { parseDigest, parsePositiveSafeInteger } from "../contracts/values.js";
-import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
+import { deepFreezeAuthoringValueV1 } from "./define-gameplay-module.js";
 
 type SlotRecordV1 = Readonly<Record<string, PatchSlotDescriptorV1<PatchSymbolKindV1, unknown>>>;
 type ValuesForSlotsV1<TSlots extends SlotRecordV1> = {

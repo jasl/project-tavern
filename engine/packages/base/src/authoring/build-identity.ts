@@ -2,7 +2,7 @@
 import type { Digest } from "../contracts/values.js";
 import { digestCanonical } from "../contracts/digest.js";
 import { parseDigest } from "../contracts/values.js";
-import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
+import { deepFreezeAuthoringValueV1 } from "./define-gameplay-module.js";
 
 export type BuildIdentityFacetV1 =
   "engine" | "story_simulation" | "story_presentation" | "application";

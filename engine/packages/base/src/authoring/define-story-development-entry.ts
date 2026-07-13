@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { StoryDevelopmentEntryV1 } from "../contracts/game-package.js";
 import { parseModuleId, parsePositiveSafeInteger } from "../contracts/values.js";
-import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
+import { deepFreezeAuthoringValueV1 } from "./define-gameplay-module.js";
 
 export function defineStoryDevelopmentEntry<TEntry extends StoryDevelopmentEntryV1<unknown>>(
   entry: TEntry,

@@ -109,7 +109,7 @@ export type GamePackageResolutionFailureCodeV1 =
   | "story.materialization_thenable"
   | "story.program_invalid"
   | "story.presentation_invalid"
-  | "story.profile_invalid"
+  | "story.simulation_invalid"
   | "hotfix.duplicate_id"
   | "hotfix.target_mismatch"
   | "hotfix.requires_missing"

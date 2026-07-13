@@ -16,7 +16,7 @@ export type ResolvedPatchValuesV1<TSurface> =
   TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues> ? TValues : never;
 
 export interface StorySimulationFacetV1<
-  TProfile,
+  TGameSimulation,
   TData,
   TRules,
   TNarrativeProgram,
@@ -31,7 +31,7 @@ export interface StorySimulationFacetV1<
   materializeProgram(
     values: DeepReadonly<ResolvedPatchValuesV1<TSimulationPatchSurface>>,
   ): TSimulationProgram;
-  createProfile(program: DeepReadonly<TSimulationProgram>): TProfile;
+  createGameSimulation(program: DeepReadonly<TSimulationProgram>): TGameSimulation;
 }
 
 export interface StoryPresentationFacetV1<

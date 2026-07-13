@@ -12,7 +12,7 @@ import type {
 } from "../contracts/hotfix.js";
 import type { StorySourceIdentityV1 } from "../contracts/game-package.js";
 import { parsePositiveSafeInteger } from "../contracts/values.js";
-import { deepFreezeAuthoringValueV1 } from "./define-game-module.js";
+import { deepFreezeAuthoringValueV1 } from "./define-gameplay-module.js";
 
 type Slot = PatchSlotDescriptorV1<PatchSymbolKindV1, unknown>;
 interface NormalizedSurface {

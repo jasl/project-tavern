@@ -19,7 +19,7 @@ const { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } =
 
 async function run(seed: number): Promise<number> {
   const session = createSandboxSessionV1(
-    specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).profile,
+    specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).gameSimulation,
     {
       rngSeed: parseNonZeroUint32(seed),
     },
@@ -30,7 +30,7 @@ async function run(seed: number): Promise<number> {
       throw new TypeError(`seed ${seed} did not commit`);
     }
   }
-  return session.getCurrentSnapshot().state.counter.value;
+  return session.getCurrentSnapshot().state.simulation.counter.value;
 }
 
 for (let seed = 1; seed <= 1_000; seed += 1) {

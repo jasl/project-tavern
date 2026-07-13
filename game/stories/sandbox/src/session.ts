@@ -9,33 +9,33 @@ import type { EngineSessionV1 } from "@sillymaker/base/runtime";
 
 import type {
   SandboxBootstrapInputV1,
-  SandboxProfileTypesV1,
+  SandboxSimulationTypesV1,
   SandboxSnapshotV1,
 } from "./contracts.js";
 import { createSandboxFaultAttemptV1 } from "./profile.js";
-import type { SandboxProfileV1 } from "./profile.js";
+import type { SandboxGameSimulationV1 } from "./profile.js";
 
 export function createSandboxInitialSnapshotV1(
-  profile: SandboxProfileV1,
+  gameSimulation: SandboxGameSimulationV1,
   bootstrap: SandboxBootstrapInputV1,
 ): SandboxSnapshotV1 {
   return Object.freeze({
-    state: profile.createInitialState(bootstrap),
+    state: gameSimulation.createInitialState(bootstrap),
     rng: createTransactionalRngV1(parseNonZeroUint32(bootstrap.rngSeed)).candidateState(),
     commandSequence: parseNonNegativeSafeInteger(0),
   });
 }
 
 export function createSandboxSessionV1(
-  profile: SandboxProfileV1,
+  gameSimulation: SandboxGameSimulationV1,
   bootstrap: SandboxBootstrapInputV1,
-): EngineSessionV1<SandboxProfileTypesV1> {
-  const created = createEngineSessionV1<SandboxProfileTypesV1>({
-    initialSnapshot: createSandboxInitialSnapshotV1(profile, bootstrap),
-    commandSchema: profile.commandSchema,
+): EngineSessionV1<SandboxSimulationTypesV1> {
+  const created = createEngineSessionV1<SandboxSimulationTypesV1>({
+    initialSnapshot: createSandboxInitialSnapshotV1(gameSimulation, bootstrap),
+    commandSchema: gameSimulation.commandSchema,
     executionContext: undefined,
     executeAttempt(snapshot, command) {
-      return profile.coordinator.executeAttempt(snapshot, command, undefined);
+      return gameSimulation.commandExecutor.executeAttempt(snapshot, command, undefined);
     },
     normalizeUnexpectedDispatchFault(_error, snapshot) {
       return createSandboxFaultAttemptV1(

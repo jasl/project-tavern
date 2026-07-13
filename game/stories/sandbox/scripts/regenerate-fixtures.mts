@@ -23,7 +23,7 @@ const seed = parseNonZeroUint32(0x0002_3049);
 const fixture = {
   rngSeed: seed,
   snapshot: createSandboxInitialSnapshotV1(
-    specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).profile,
+    specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).gameSimulation,
     { rngSeed: seed },
   ),
 };

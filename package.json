@@ -41,6 +41,7 @@
     "update:materialization-lock": "node --experimental-strip-types scripts/preflight/materialization-contract.mts --write",
     "prepare:goal": "node --experimental-strip-types scripts/preflight/materialize-goal.mts",
     "verify:materialization": "node --experimental-strip-types scripts/preflight/verify-materialization.mts",
+    "verify:phase2:checkpoint": "node --experimental-strip-types scripts/verify-phase2-checkpoint.mts",
     "release:prepare": "pnpm build:player && node scripts/prepare-artifact.mjs",
     "regenerate:fixtures": "pnpm --filter @project-tavern/story-sandbox regenerate:fixtures",
     "update:golden": "pnpm --filter @project-tavern/story-sandbox update:golden",

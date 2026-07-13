@@ -3,14 +3,14 @@ import type {
   CommandExecutionAttemptEnvelopeV1,
   CommandExecutionResultEnvelopeV1,
 } from "../../contracts/execution.js";
-import type { GameProfileTypeMapV1 } from "../../contracts/module.js";
+import type { GameSimulationTypeMapV1 } from "../../contracts/gameplay-module.js";
 import type {
   RuntimeSessionStatusV1,
   SessionDispatchOperationResultV1,
 } from "../../contracts/presentation.js";
 import type { DeepReadonly, RuntimeSchemaV1 } from "../../contracts/values.js";
 
-export interface EngineSessionV1<TTypes extends GameProfileTypeMapV1> {
+export interface EngineSessionV1<TTypes extends GameSimulationTypeMapV1> {
   getStatus(): RuntimeSessionStatusV1;
   getCurrentSnapshot(): DeepReadonly<TTypes["snapshot"]>;
   subscribe(listener: () => void): () => void;
@@ -50,7 +50,7 @@ export interface EngineSessionRuntimeControlV1<TSnapshot> {
   };
 }
 
-type AttemptFor<TTypes extends GameProfileTypeMapV1> = CommandExecutionAttemptEnvelopeV1<
+type AttemptFor<TTypes extends GameSimulationTypeMapV1> = CommandExecutionAttemptEnvelopeV1<
   TTypes["snapshot"],
   TTypes["fact"],
   TTypes["rejection"],
@@ -59,7 +59,7 @@ type AttemptFor<TTypes extends GameProfileTypeMapV1> = CommandExecutionAttemptEn
   TTypes["rngDrawTrace"]
 >;
 
-export interface EngineSessionInputV1<TTypes extends GameProfileTypeMapV1> {
+export interface EngineSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
   readonly initialSnapshot: TTypes["snapshot"];
   readonly commandSchema: RuntimeSchemaV1<TTypes["command"]>;
   readonly executionContext: TTypes["executionContext"];
@@ -80,18 +80,18 @@ interface EngineSessionPrivateControlV1 {
   invalidateForHmr(): Promise<void>;
 }
 
-export interface EngineSessionCompositionV1<TTypes extends GameProfileTypeMapV1> {
+export interface EngineSessionCompositionV1<TTypes extends GameSimulationTypeMapV1> {
   readonly session: EngineSessionV1<TTypes>;
   readonly runtimeControl: EngineSessionRuntimeControlV1<TTypes["snapshot"]>;
 }
 
 interface InternalCompositionV1<
-  TTypes extends GameProfileTypeMapV1,
+  TTypes extends GameSimulationTypeMapV1,
 > extends EngineSessionCompositionV1<TTypes> {
   readonly privateControl: EngineSessionPrivateControlV1;
 }
 
-function createInternal<TTypes extends GameProfileTypeMapV1>(
+function createInternal<TTypes extends GameSimulationTypeMapV1>(
   input: EngineSessionInputV1<TTypes>,
 ): InternalCompositionV1<TTypes> {
   type DispatchResult = Awaited<ReturnType<EngineSessionV1<TTypes>["dispatch"]>>;
@@ -220,7 +220,7 @@ function createInternal<TTypes extends GameProfileTypeMapV1>(
   return Object.freeze({ session, runtimeControl, privateControl });
 }
 
-export function createEngineSessionV1<TTypes extends GameProfileTypeMapV1>(
+export function createEngineSessionV1<TTypes extends GameSimulationTypeMapV1>(
   input: EngineSessionInputV1<TTypes>,
 ): EngineSessionCompositionV1<TTypes> {
   const { session, runtimeControl } = createInternal(input);
@@ -228,7 +228,7 @@ export function createEngineSessionV1<TTypes extends GameProfileTypeMapV1>(
 }
 
 /** @internal Base-owned test and Developer composition seam; not exported by the runtime barrel. */
-export function createEngineSessionInternalV1<TTypes extends GameProfileTypeMapV1>(
+export function createEngineSessionInternalV1<TTypes extends GameSimulationTypeMapV1>(
   input: EngineSessionInputV1<TTypes>,
 ): InternalCompositionV1<TTypes> {
   return createInternal(input);

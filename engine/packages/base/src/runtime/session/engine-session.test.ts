@@ -2,13 +2,22 @@
 import { describe, expect, it } from "vitest";
 
 import type { CommandExecutionAttemptEnvelopeV1 } from "../../contracts/execution.js";
-import type { GameProfileTypeMapV1 } from "../../contracts/module.js";
+import type {
+  GameBootstrapInputV1,
+  GameSimulationTypeMapV1,
+} from "../../contracts/gameplay-module.js";
+import type { GameSnapshotEnvelopeV1 } from "../../contracts/snapshot.js";
 import type { RuntimeSchemaV1 } from "../../contracts/values.js";
+import { parseNonNegativeSafeInteger } from "../../contracts/values.js";
 import { createEngineSessionInternalV1, createEngineSessionV1 } from "./engine-session.js";
 
-interface Snapshot {
-  readonly state: { readonly count: number };
+interface State {
+  readonly count: number;
 }
+interface RngState {
+  readonly cursor: number;
+}
+type Snapshot = GameSnapshotEnvelopeV1<State, RngState>;
 type Command =
   { readonly kind: "increment" } | { readonly kind: "fault" } | { readonly kind: "throw" };
 type Attempt = CommandExecutionAttemptEnvelopeV1<
@@ -19,7 +28,7 @@ type Attempt = CommandExecutionAttemptEnvelopeV1<
   { readonly cursor: number },
   never
 >;
-interface Types extends GameProfileTypeMapV1 {
+interface Types extends GameSimulationTypeMapV1<GameBootstrapInputV1, State, RngState> {
   readonly snapshot: Snapshot;
   readonly command: Command;
   readonly fact: { readonly count: number };
@@ -40,12 +49,20 @@ const commandSchema: RuntimeSchemaV1<Command> = {
   },
 };
 
-const attempt = (snapshot: Snapshot, command: Command): Attempt => {
+function createSnapshot(count: number): Snapshot {
+  return Object.freeze({
+    state: Object.freeze({ count }),
+    rng: Object.freeze({ cursor: 0 }),
+    commandSequence: parseNonNegativeSafeInteger(count),
+  });
+}
+
+const attempt = (current: Snapshot, command: Command): Attempt => {
   if (command.kind === "fault") {
     return Object.freeze({
       result: Object.freeze({
         kind: "faulted" as const,
-        snapshot: Object.freeze({ state: Object.freeze({ count: 999 }) }),
+        snapshot: createSnapshot(999),
         fault: Object.freeze({ code: "synthetic.fault" }),
       }),
       diagnostics: Object.freeze({
@@ -58,10 +75,8 @@ const attempt = (snapshot: Snapshot, command: Command): Attempt => {
   return Object.freeze({
     result: Object.freeze({
       kind: "committed" as const,
-      snapshot: Object.freeze({
-        state: Object.freeze({ count: snapshot.state.count + 1 }),
-      }),
-      facts: Object.freeze([{ count: snapshot.state.count + 1 }]),
+      snapshot: createSnapshot(current.state.count + 1),
+      facts: Object.freeze([{ count: current.state.count + 1 }]),
     }),
     diagnostics: Object.freeze({
       committedRngBefore: Object.freeze({ cursor: 0 }),
@@ -83,12 +98,12 @@ function fixture(internal = false) {
   let calls = 0;
   const attempts: Attempt[] = [];
   const input = {
-    initialSnapshot: Object.freeze({ state: Object.freeze({ count: 0 }) }),
+    initialSnapshot: createSnapshot(0),
     commandSchema,
     executionContext: undefined,
     executeAttempt(snapshot: Snapshot, command: Command): Attempt {
       calls += 1;
-      if (command.kind === "throw") throw new Error("coordinator exploded");
+      if (command.kind === "throw") throw new Error("executor exploded");
       return attempt(snapshot, command);
     },
     normalizeUnexpectedDispatchFault(_error: unknown, snapshot: Snapshot): Attempt {
@@ -147,7 +162,7 @@ describe("EngineSession FIFO", () => {
     expect(calls()).toBe(0);
   });
 
-  it("normalizes a thrown coordinator once and permits an anchor recovery", async () => {
+  it("normalizes a thrown executor once and permits an anchor recovery", async () => {
     const { session, runtimeControl, calls, attempts } = fixture();
     await expect(session.dispatch({ kind: "throw" })).resolves.toMatchObject({
       kind: "executed",
@@ -159,7 +174,7 @@ describe("EngineSession FIFO", () => {
       runtimeControl.enqueueAuthoritative(
         async () => ({
           kind: "replace" as const,
-          snapshot: Object.freeze({ state: Object.freeze({ count: 40 }) }),
+          snapshot: createSnapshot(40),
           result: "anchored" as const,
           anchor: "replace_replay_base" as const,
         }),

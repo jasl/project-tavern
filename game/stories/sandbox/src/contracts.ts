@@ -6,9 +6,10 @@ import {
 } from "@sillymaker/base";
 import type {
   GameBootstrapInputV1,
-  GameProfileTypeMapV1,
+  GameSimulationTypeMapV1,
   GameSnapshotEnvelopeV1,
   NonNegativeSafeInteger,
+  NonZeroUint32,
   RngDrawTraceV1,
   RngStateV1,
   RuntimeSchemaV1,
@@ -19,7 +20,9 @@ export interface SandboxCounterStateV1 {
 }
 
 export interface SandboxStateV1 {
-  readonly counter: SandboxCounterStateV1;
+  readonly simulation: {
+    readonly counter: SandboxCounterStateV1;
+  };
 }
 
 export type SandboxCommandV1 =
@@ -41,13 +44,17 @@ export interface SandboxFaultV1 {
   readonly code: "sandbox.counter.fault" | "sandbox.runtime.unexpected";
 }
 
+export interface SandboxDebugValidationErrorV1 {
+  readonly code: "sandbox.debug.unsupported";
+}
+
 export interface SandboxBootstrapInputV1 extends GameBootstrapInputV1 {
-  readonly rngSeed: number;
+  readonly rngSeed: NonZeroUint32;
 }
 
 export type SandboxSnapshotV1 = GameSnapshotEnvelopeV1<SandboxStateV1, RngStateV1>;
 
-export interface SandboxProfileTypesV1 extends GameProfileTypeMapV1<
+export interface SandboxSimulationTypesV1 extends GameSimulationTypeMapV1<
   SandboxBootstrapInputV1,
   SandboxStateV1,
   RngStateV1
@@ -59,6 +66,7 @@ export interface SandboxProfileTypesV1 extends GameProfileTypeMapV1<
   readonly rejection: SandboxRejectionV1;
   readonly fault: SandboxFaultV1;
   readonly debugCommand: never;
+  readonly debugValidationError: SandboxDebugValidationErrorV1;
   readonly executionContext: undefined;
   readonly queries: {
     readonly count: NonNegativeSafeInteger;
@@ -93,8 +101,13 @@ export const sandboxCounterStateSchemaV1: RuntimeSchemaV1<SandboxCounterStateV1>
 
 export const sandboxStateSchemaV1: RuntimeSchemaV1<SandboxStateV1> = Object.freeze({
   parse(value: unknown) {
-    const parsed = exactObject(value, "counter");
-    return Object.freeze({ counter: sandboxCounterStateSchemaV1.parse(parsed.counter) });
+    const parsed = exactObject(value, "simulation");
+    const simulation = exactObject(parsed.simulation, "counter");
+    return Object.freeze({
+      simulation: Object.freeze({
+        counter: sandboxCounterStateSchemaV1.parse(simulation.counter),
+      }),
+    });
   },
 });
 
