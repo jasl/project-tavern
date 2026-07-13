@@ -2795,6 +2795,7 @@ Repair files:
 - Modify: engine/packages/base/src/testkit/resolver-fixtures.ts
 - Modify: engine/packages/web/src/loader/loader.test.tsx
 - Modify: game/stories/e2e/src/story-contract.test.ts
+- Modify: game/stories/e2e/src/application/entry.tsx
 
 Repair contract:
 
@@ -2809,6 +2810,9 @@ Repair contract:
 3. Add focused tests that fail first on the hard-coded version and `localeCompare`, then prove
    Application ownership and locale-independent sorting. Update only existing synthetic callers
    with an explicit test label; no Base testkit identity may be written to a tracked Story fixture.
+   Until the production collector lands later in this same task, the existing E2E entry supplies
+   only the exact reviewed current `@sillymaker/base` package version label (`0.0.0`) while leaving
+   its four temporary empty facets unchanged. It must not add another collector or fallback.
 4. Run Base authoring, Loader, E2E Story, public-export, boundary, typecheck and current Phase 2
    checkpoint gates, then commit only the repair files as
    `fix(base): accept application build metadata`.
