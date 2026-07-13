@@ -2987,6 +2987,8 @@ git commit -m "feat(web): render the resolved e2e game"
 - Delete: scripts/verify-phase2-checkpoint.mts
 - Delete: scripts/verify-phase2-checkpoint.test.mjs
 - Modify: scripts/run-script-tests.test.mjs
+- Modify: scripts/typescript-runtime.test.mjs
+- Modify: .prettierignore
 - Test: game/stories/e2e/src/runtime/hotfix-integration.test.ts
 - Test: game/stories/e2e/src/runtime/dependency-failures.test.ts
 - Test: scripts/verify-phase2-runtime.test.mjs
@@ -3090,7 +3092,7 @@ package scripts 精确为：
 }
 ```
 
-`scripts/verify.mjs` 的 core command list 同步把 `verify:balance` 替换为 `verify:determinism`。删除 root `verify:phase2:checkpoint` script 与两个临时 gate files；`scripts/run-script-tests.test.mjs` 移除临时 test、加入最终 phase gate test。不得让 final `pnpm verify` 继续引用已 rename 的 balance writer/verifier。
+`scripts/verify.mjs` 的 core command list 同步把 `verify:balance` 替换为 `verify:determinism`。删除 root `verify:phase2:checkpoint` script 与两个临时 gate files；`scripts/run-script-tests.test.mjs` 移除临时 test、加入最终 phase gate test，`scripts/typescript-runtime.test.mjs` 的 strip-only direct import 同步指向 final runtime gate。golden rename 同步更新 `.prettierignore` 的 canonical one-line owner。不得让 final `pnpm verify` 继续引用已 rename 的 balance writer/verifier。
 
 - [ ] **Step 4: Implement Hotfix safe mode and exact phase gate**
 
@@ -3133,7 +3135,7 @@ Expected: explicit writers update exactly the E2E fixture and semantic-flow gold
 - [ ] **Step 6: Commit Phase 2 evidence and gate**
 
 ```bash
-git add -A -- game/stories/e2e/fixtures game/stories/e2e/golden game/stories/e2e/scripts game/stories/e2e/src/runtime/hotfix-integration.test.ts game/stories/e2e/src/runtime/dependency-failures.test.ts game/stories/e2e/package.json package.json scripts/verify.mjs scripts/verify.test.mjs scripts/verify-phase2-runtime.mts scripts/verify-phase2-runtime.test.mjs scripts/verify-phase2-checkpoint.mts scripts/verify-phase2-checkpoint.test.mjs scripts/run-script-tests.test.mjs
+git add -A -- game/stories/e2e/fixtures game/stories/e2e/golden game/stories/e2e/scripts game/stories/e2e/src/runtime/hotfix-integration.test.ts game/stories/e2e/src/runtime/dependency-failures.test.ts game/stories/e2e/package.json package.json scripts/verify.mjs scripts/verify.test.mjs scripts/verify-phase2-runtime.mts scripts/verify-phase2-runtime.test.mjs scripts/verify-phase2-checkpoint.mts scripts/verify-phase2-checkpoint.test.mjs scripts/run-script-tests.test.mjs scripts/typescript-runtime.test.mjs .prettierignore
 git diff --cached --check
 git commit -m "test(e2e): freeze the phase two runtime harness"
 ```
