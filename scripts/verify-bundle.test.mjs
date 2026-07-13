@@ -7,15 +7,15 @@ test("rejects every Developer-only path from a Player manifest", () => {
   assert.deepEqual(
     verifyPlayerBundleFixtureV1({
       paths: [
-        "apps/web/src/developer/development-panel.tsx",
-        "stories/sandbox/src/development.ts",
-        "packages/base/src/testkit/index.ts",
+        "engine/packages/web/src/developer/development-panel.tsx",
+        "game/stories/sandbox/src/development.ts",
+        "engine/packages/base/src/testkit/index.ts",
       ],
     }),
     [
-      "Player closure reached Developer path: apps/web/src/developer/development-panel.tsx",
-      "Player closure reached Story development path: stories/sandbox/src/development.ts",
-      "Player closure reached Base testkit: packages/base/src/testkit/index.ts",
+      "Player closure reached Developer path: engine/packages/web/src/developer/development-panel.tsx",
+      "Player closure reached Story development path: game/stories/sandbox/src/development.ts",
+      "Player closure reached Base testkit: engine/packages/base/src/testkit/index.ts",
     ],
   );
 });

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { API } from "typescript/unstable/sync";
 
 export async function verifyPublicExportsV1(root) {
-  const base = join(root, "packages/base");
+  const base = join(root, "engine/packages/base");
   const inventory = JSON.parse(await readFile(join(base, "public-exports.v1.json"), "utf8"));
   const manifest = JSON.parse(await readFile(join(base, "package.json"), "utf8"));
   const errors = [];

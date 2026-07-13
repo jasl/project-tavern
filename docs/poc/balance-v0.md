@@ -359,11 +359,11 @@ interface PocCounterfactualScenarioV1 {
 }
 ```
 
-`overrides` 是上述 closed kind 对应的固定、按 `field` 排序的 before/after provenance；结果必须 deep-freeze、通过完整 Program schema，并在创建 `GameSessionV1` 之前完成。它只从 `stories/poc/src/testing/**` 导出，不进入 Story 默认入口、tooling、正式 Artifact、正式 Story simulation digest 或玩家存档；测试场景自身仍按其实际 Program 计算独立 simulation digest。counterfactual runner 仍提交相同 strategy compiler 生成的普通 Semantic invocation；床铺场景必须在 D6 因体力不足拒绝同一亲自营业 invocation，冷藏场景必须在 D5 日终腐败同一 D4 鲜肉批次。
+`overrides` 是上述 closed kind 对应的固定、按 `field` 排序的 before/after provenance；结果必须 deep-freeze、通过完整 Program schema，并在创建 `GameSessionV1` 之前完成。它只从 `game/stories/poc/src/testing/**` 导出，不进入 Story 默认入口、tooling、正式 Artifact、正式 Story simulation digest 或玩家存档；测试场景自身仍按其实际 Program 计算独立 simulation digest。counterfactual runner 仍提交相同 strategy compiler 生成的普通 Semantic invocation；床铺场景必须在 D6 因体力不足拒绝同一亲自营业 invocation，冷藏场景必须在 D5 日终腐败同一 D4 鲜肉批次。
 
 ### 14.4 Golden 冻结前的确定校准路径
 
-先完成 reference command fixture，再运行 1–1000 corpus，最后才允许生成 golden。若首轮阈值失败，agent 不暂停请求主观意见，也不改命令、算法、closed ID 或测试阈值；它输出完整 `PocBalanceMetricsV1`，按“现金/通过率 → 委托中位数 → 设施 counterfactual → Pareto”顺序定位，并且每轮只修改 `balance-v0.md` 与 `stories/poc/src/content/balance.ts` 中一个既有数值。每次修改都重跑 reference seed、1–1000 corpus 和 counterfactual，保留前后 metrics diff。
+先完成 reference command fixture，再运行 1–1000 corpus，最后才允许生成 golden。若首轮阈值失败，agent 不暂停请求主观意见，也不改命令、算法、closed ID 或测试阈值；它输出完整 `PocBalanceMetricsV1`，按“现金/通过率 → 委托中位数 → 设施 counterfactual → Pareto”顺序定位，并且每轮只修改 `balance-v0.md` 与 `game/stories/poc/src/content/balance.ts` 中一个既有数值。每次修改都重跑 reference seed、1–1000 corpus 和 counterfactual，保留前后 metrics diff。
 
 允许的 calibration field 按顺序固定为：`levy`、`openingFee`、`assistedWage`、`delegatedWage`、`manualGuestCapacity`、`manualPreparationBase`、`manualPreparationPerAction`、`assistedGuestCapacity`、`assistedPreparationBase`、`assistedPreparationPerAction`、`delegatedGuestCapacity`、`delegatedPreparationBase`、`delegatedPreparationPerAction`。每次整数步长为 1（`levy` 步长为 2）。manual/closed 工资、closed 容量、体力/AP、D4 设施成本和两项设施 modifier 都是固定合同，不进入自动校准。固定顺序是在当前点枚举上述字段的 `-step`、再 `+step` 邻居，丢弃负值/破坏静态 schema 的候选，选择使未满足阈值的总绝对缺口严格下降最多的候选；并列按本文字段顺序、再 `-step` 优先。总绝对缺口是每条上下界到最近合法边界的整数距离之和，delegation median 也按 0–35 计算；counterfactual/Pareto boolean 失败各计 1001。最多 12 轮。若没有邻居严格改善、出现本节不允许修改的合同冲突或 12 轮后仍失败，停止为 `balance_contract_unsatisfied`，附完整 metrics/候选差异，不生成或更新 golden；不得降低阈值或偷偷接受失败结果。
 

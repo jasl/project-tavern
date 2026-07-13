@@ -62,14 +62,30 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
-  apps/web:
+  engine/packages/base:
     dependencies:
-      "@project-tavern/base":
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  engine/packages/ui:
+    dependencies:
+      "@sillymaker/base":
         specifier: workspace:*
-        version: link:../../packages/base
-      "@project-tavern/ui":
+        version: link:../base
+    devDependencies:
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+
+  engine/packages/web:
+    dependencies:
+      "@sillymaker/base":
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../base
+      "@sillymaker/ui":
+        specifier: workspace:*
+        version: link:../ui
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -80,72 +96,56 @@ importers:
         specifier: 7.18.1
         version: 7.18.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
 
-  packages/assets:
+  game/packages/assets:
     dependencies:
-      "@project-tavern/base":
+      "@sillymaker/base":
         specifier: workspace:*
-        version: link:../base
+        version: link:../../../engine/packages/base
 
-  packages/base:
+  game/packages/modules:
     dependencies:
+      "@sillymaker/base":
+        specifier: workspace:*
+        version: link:../../../engine/packages/base
+      "@sillymaker/ui":
+        specifier: workspace:*
+        version: link:../../../engine/packages/ui
       zod:
         specifier: 4.4.3
         version: 4.4.3
 
-  packages/modules:
-    dependencies:
-      "@project-tavern/base":
-        specifier: workspace:*
-        version: link:../base
-      "@project-tavern/ui":
-        specifier: workspace:*
-        version: link:../ui
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-
-  packages/ui:
-    dependencies:
-      "@project-tavern/base":
-        specifier: workspace:*
-        version: link:../base
-    devDependencies:
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-
-  stories/demo:
+  game/stories/demo:
     dependencies:
       "@project-tavern/assets":
         specifier: workspace:*
         version: link:../../packages/assets
-      "@project-tavern/base":
-        specifier: workspace:*
-        version: link:../../packages/base
       "@project-tavern/modules":
         specifier: workspace:*
         version: link:../../packages/modules
-      "@project-tavern/ui":
+      "@sillymaker/base":
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../engine/packages/base
+      "@sillymaker/ui":
+        specifier: workspace:*
+        version: link:../../../engine/packages/ui
       zod:
         specifier: 4.4.3
         version: 4.4.3
 
-  stories/e2e:
+  game/stories/e2e:
     dependencies:
       "@project-tavern/assets":
         specifier: workspace:*
         version: link:../../packages/assets
-      "@project-tavern/base":
-        specifier: workspace:*
-        version: link:../../packages/base
       "@project-tavern/modules":
         specifier: workspace:*
         version: link:../../packages/modules
-      "@project-tavern/ui":
+      "@sillymaker/base":
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../engine/packages/base
+      "@sillymaker/ui":
+        specifier: workspace:*
+        version: link:../../../engine/packages/ui
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -153,20 +153,20 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
-  stories/sandbox:
+  game/stories/sandbox:
     dependencies:
       "@project-tavern/assets":
         specifier: workspace:*
         version: link:../../packages/assets
-      "@project-tavern/base":
+      "@sillymaker/base":
         specifier: workspace:*
-        version: link:../../packages/base
-      "@project-tavern/ui":
+        version: link:../../../engine/packages/base
+      "@sillymaker/ui":
         specifier: workspace:*
-        version: link:../../packages/ui
-      "@project-tavern/web":
+        version: link:../../../engine/packages/ui
+      "@sillymaker/web":
         specifier: workspace:*
-        version: link:../../apps/web
+        version: link:../../../engine/packages/web
       react:
         specifier: 19.2.7
         version: 19.2.7

@@ -2,9 +2,9 @@
 
 日期：2026-07-12
 
-状态：独立先行素材准备轨道；v2 视觉方向；v1 四张 OpenAI 概念图保留归档，尚无图片提升为运行时素材
+状态：独立先行素材准备轨道；当前视觉方向；尚无图片提升为运行时素材
 
-适用范围：React Harness 的 StageScene、角色呈现、HUD、VN、Workspace Overlay 与七日 PoC 视觉探索
+适用范围：React 运行时的 StageScene、角色呈现、HUD、VN、Workspace Overlay 与七日 PoC 视觉探索
 
 > 本文属于工程 Goal 之前的独立素材轨道。Image Gen、人工筛选、风格/一致性与采用决定不进入 Phase 2–6 Goal；Goal 只消费启动时已经批准并提升的 runtime assets，并对所有缺失槽位保留完整 code-native/static fallback。素材轨道可以先行但不要求一次完成全部槽位。
 
@@ -31,7 +31,7 @@ Image Gen 只负责栅格场景、人物、物件与整屏概念稿。React、CS
 - 色彩以低饱和自然色为底，日间使用清冷天光与暖木色，傍晚使用灯火和窗外蓝调形成冷暖对比；
 - 小镇可见战后重建痕迹，但常态氛围温暖、有生活秩序，不做糖果色童话或压抑黑暗奇幻；
 - 不出现 Logo、水印、现代物件、可读虚构文字或无法由代码替换的 UI 文案；
-- 基础运行时素材是 `standard` 内容：自然、非性化的日常服装与姿态；未来 `suggestive` 研究稿只进入 archive，不随当前 PoC 打包。
+- 基础运行时素材不要求任何受限内容 flag：自然、非性化的日常服装与姿态；未来 `suggestive` 研究稿只进入 archive，不随当前 PoC 打包。
 
 代码化 UI 的基准 token：
 
@@ -86,7 +86,7 @@ Image Gen 只负责栅格场景、人物、物件与整屏概念稿。React、CS
 
 当前角色锚点必须固定脸型、瞳色、发型轮廓、身高比例、手脚比例、主服装配色、画布、视角、光向和脚底 pivot。后续差分优先通过表情、手部动作、手持物和有限外观层修改，不能每张图重新设计一个“相似人物”。
 
-未来项目内部以“约 PG-17”描述的 `suggestive` 表现可以研究睡衣、雨后湿发、围裙差分、近距离害羞反应等不露骨内容；这不是任何商店或评级机构的正式分级承诺。它们必须有标准替代表现、独立内容等级和明确开关。当前批次只生成 standard 锚点。sexual/explicit 内容与独立成人玩法不属于本视觉包。
+未来项目内部以“约 PG-17”描述的 `suggestive` 表现可以研究睡衣、雨后湿发、围裙差分、近距离害羞反应等不露骨内容；这不是任何商店或评级机构的正式分级承诺。它们必须有零 requirement 的替代表现、独立内容 flag 和明确开关，不能假定与暴力、血腥等其他特征存在大小关系。当前批次只生成不要求受限 flag 的锚点。sexual/explicit 内容与独立成人玩法不属于本视觉包。
 
 ## 5. 混合纸娃娃与换装准备
 
@@ -157,22 +157,6 @@ foreground_effect
 
 市集与世界地图已经拥有上表中的稳定 code-fallback Asset ID，后续图片 provider 必须替换这些公开符号而不是再造别名。更多表情和招牌状态仍只是视觉角色需求，等 Story 实际登记时再由 Phase 4B 的后续修订命名。上表图片也只有在人工选择、复制到 runtime asset root、登记 manifest 并通过摘要/尺寸/构建验证后才成为实际 provider；当前均允许是 fallback-only manifest 项。
 
-v1 的四张 OpenAI 概念图继续保存在：
-
-```text
-art-source/aigc/openai/illustrations/
-  heroine-neutral.png
-  heroine-neutral.txt
-  tavern-main-day.png
-  tavern-main-day.txt
-  tavern-sign-damaged.png
-  tavern-sign-damaged.txt
-  ui-player-stage-overlay.png
-  ui-player-stage-overlay.txt
-```
-
-它们是被 v2 方向取代的研究档案，不删除、不进入 v2 生成输入，也不进入 presentation digest。新的 v2 结果使用独立目录或批次记录，避免覆盖后失去比较依据。
-
 ## 8. 代码 UI 与符号边界
 
 以下内容不得由 Image Gen 生成运行时位图：HUD 数字/文本/进度条、按钮、Dialog、Tabs、Tooltip、焦点环、保存/关闭/设置等系统图标、账本行、配方表、库存格、设施条件，以及需要在 16–32 px 清晰显示的世界语义符号。
@@ -202,19 +186,19 @@ symbol.poc.facility.comfortable_bed
 
 `art-source/aigc/**` 是 archive-only：生产代码、测试扫描、构建和 Web Artifact 都不读取它。概念图进入 Git 不代表已被运行时采用。
 
-被采用的图片由作者人工复制到 `packages/assets/**` 或 `stories/<story>/assets/**`。运行时记录只包含稳定 Asset ID、相对路径、媒体类型、尺寸、字节数和精确文件摘要，不保留生成服务、模型、prompt、审计或反向来源字段。
+被采用的图片由作者人工复制到 `game/packages/assets/**` 或 `game/stories/<story>/assets/**`。运行时记录只包含稳定 Asset ID、相对路径、媒体类型、尺寸、字节数和精确文件摘要，不保留生成服务、模型、prompt、审计或反向来源字段。
 
 本先行轨道必须在 Phase 0 之前提交一个版本化技术交接点：
-`packages/assets/src/approved-poc-pack.ts` 导出 `approvedPocAssetPacksV1`。没有图片获准时该只读数组为空；有图片获准时，它只登记已复制到 `packages/assets/runtime/poc/**` 的 provider，并使用本文和 Phase 4B 冻结的稳定 Asset ID。`packages/assets/src/index.ts` 公开该值；`packages/assets/src/approved-poc-pack.test.ts` 对非空 provider 的受控根路径、媒体 magic、字节数、尺寸和 SHA-256 做机械校验，并证明空数组合法。文件名中的 `approved` 只表示项目所有者已决定让它进入 runtime；许可/审美判断不进入引擎 schema。该模块、测试、provider 文件和 clean Git commit 是素材轨道交给工程 Goal 的唯一输入，工程 Goal 不扫描候选目录或等待新的人工决定。
+`game/packages/assets/src/approved-poc-pack.ts` 导出 `approvedPocAssetPacksV1`。没有图片获准时该只读数组为空；有图片获准时，它只登记已复制到 `game/packages/assets/runtime/poc/**` 的 provider，并使用本文和 Phase 4B 冻结的稳定 Asset ID。`game/packages/assets/src/index.ts` 公开该值；`game/packages/assets/src/approved-poc-pack.test.ts` 对非空 provider 的受控根路径、媒体 magic、字节数、尺寸和 SHA-256 做机械校验，并证明空数组合法。文件名中的 `approved` 只表示项目所有者已决定让它进入 runtime；许可/审美判断不进入引擎 schema。该模块、测试、provider 文件和 clean Git commit 是素材轨道交给工程 Goal 的唯一输入，工程 Goal 不扫描候选目录或等待新的人工决定。
 
-`RuntimePresentationView` 先根据当前 StageScene variant、角色层和内容等级求出精确、去重且保持首现顺序的 `requiredAssetIds`；AssetRegistry 只加载这些 ID。被当前内容等级过滤或当前画面未使用的素材不能先加载再隐藏。
+`RuntimePresentationView` 先根据当前 StageScene variant、角色层、素材 `requiredFlags` 与玩家 `allowedFlags` 求出精确、去重且保持首现顺序的 `requiredAssetIds`；AssetRegistry 只加载这些 ID。未通过当前 mask all-of 判断或当前画面未使用的素材不能先加载再隐藏。
 
 Asset Pack digest 自动覆盖 runtime manifest 的 canonical projection；provider 文件摘要绑定精确资源 bytes。未复制进运行时目录的概念图变化不得改变 presentation digest、Save compatibility 或 Web Artifact。
 
 ## 10. 验收
 
 - 一个锚点先通过角色身份、年龄、比例、服装、场景材质和色板审核，再生成七张屏幕稿；
-- 女主明确为 19 岁成年人，体现清纯、活泼、可爱、邻家感和轻微笨拙，standard 素材不以身体展示为中心；
+- 女主明确为 19 岁成年人，体现清纯、活泼、可爱、邻家感和轻微笨拙；零 requirement 的基础素材不以身体展示为中心；
 - 酒馆日间/傍晚保持相同几何，证明 variant 可以独立切换且不与游戏时间硬绑定；
 - 女主互动、市集、世界地图、Workspace Overlay 和人物资料/换装形成同一视觉系统；
 - 1600×1000、1024×768、768×1024 与等效 200% zoom 下核心舞台、HUD、Overlay 和 VN 可用；
@@ -222,10 +206,10 @@ Asset Pack digest 自动覆盖 runtime manifest 的 canonical projection；provi
 - 背景、人物和物件不含可读文字、Logo、水印或现代物件；
 - 代码 UI 保持语义 DOM、键盘可达、可见焦点和 code-native fallback；
 - `art-source/aigc/**` 不进入 Web Artifact，也不被 runtime 素材验证器扫描；
-- `approvedPocAssetPacksV1` 始终存在且可为空；每个非空 provider 只引用已提交的 `packages/assets/runtime/poc/**` 文件和既有 Asset ID；
-- `pnpm exec vitest run packages/assets/src/approved-poc-pack.test.ts`、`pnpm typecheck`、`pnpm verify:boundaries` 和当前 `pnpm verify` 在该素材 commit 上通过；
-- 当前 PoC 只登记 standard 内容；suggestive 研究稿如产生也保持 archive-only；
-- v1 四张和 v2 新稿都不因“已生成”自动进入 Asset Pack。
+- `approvedPocAssetPacksV1` 始终存在且可为空；每个非空 provider 只引用已提交的 `game/packages/assets/runtime/poc/**` 文件和既有 Asset ID；
+- `pnpm exec vitest run game/packages/assets/src/approved-poc-pack.test.ts`、`pnpm typecheck`、`pnpm verify:boundaries` 和当前 `pnpm verify` 在该素材 commit 上通过；
+- 当前 PoC 不登记任何受限内容 flag，所有 runtime requirement 为零；suggestive 研究稿如产生也保持 archive-only；
+- 新稿不因“已生成”自动进入 Asset Pack。
 
 ## 11. 明确延后
 

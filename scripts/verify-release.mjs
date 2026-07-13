@@ -46,7 +46,7 @@ async function buildRelease(root, artifactRoot) {
 
 export async function verifyReleaseReproducibilityV1(root) {
   const playerClosure = await collectManagedPaths(root, [
-    "stories/sandbox/src/application/player-entry.tsx",
+    "game/stories/sandbox/src/application/player-entry.tsx",
   ]);
   const closureErrors = verifyPlayerBundleFixtureV1({ paths: playerClosure });
   if (closureErrors.length > 0) return closureErrors;

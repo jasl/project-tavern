@@ -1,0 +1,22 @@
+{
+  "name": "@sillymaker/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "pnpm --workspace-root exec vitest run engine/packages/ui/src"
+  },
+  "dependencies": {
+    "@sillymaker/base": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "19.2.7"
+  },
+  "devDependencies": {
+    "react": "19.2.7"
+  }
+}

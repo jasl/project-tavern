@@ -6,14 +6,14 @@ import { collectManagedPaths } from "./collect-import-closure.mjs";
 export function verifyPlayerBundleFixtureV1(manifest) {
   const errors = [];
   for (const path of manifest.paths) {
-    if (path.startsWith("apps/web/src/developer/")) {
+    if (path.startsWith("engine/packages/web/src/developer/")) {
       errors.push(`Player closure reached Developer path: ${path}`);
     } else if (
-      path === "stories/sandbox/src/development.ts" ||
-      path === "stories/sandbox/src/application/developer-entry.tsx"
+      path === "game/stories/sandbox/src/development.ts" ||
+      path === "game/stories/sandbox/src/application/developer-entry.tsx"
     ) {
       errors.push(`Player closure reached Story development path: ${path}`);
-    } else if (path.startsWith("packages/base/src/testkit/")) {
+    } else if (path.startsWith("engine/packages/base/src/testkit/")) {
       errors.push(`Player closure reached Base testkit: ${path}`);
     } else if (path === "references" || path.startsWith("references/")) {
       errors.push(`Player closure reached references: ${path}`);
@@ -30,16 +30,16 @@ export function verifyPlayerBundleFixtureV1(manifest) {
 
 export async function verifyBrowserClosuresV1(root) {
   const player = await collectManagedPaths(root, [
-    "stories/sandbox/src/application/player-entry.tsx",
+    "game/stories/sandbox/src/application/player-entry.tsx",
   ]);
   const developer = await collectManagedPaths(root, [
-    "stories/sandbox/src/application/developer-entry.tsx",
+    "game/stories/sandbox/src/application/developer-entry.tsx",
   ]);
   const errors = verifyPlayerBundleFixtureV1({ paths: player });
   for (const required of [
-    "stories/sandbox/src/application/developer-entry.tsx",
-    "stories/sandbox/src/development.ts",
-    "apps/web/src/developer/index.ts",
+    "game/stories/sandbox/src/application/developer-entry.tsx",
+    "game/stories/sandbox/src/development.ts",
+    "engine/packages/web/src/developer/index.ts",
   ]) {
     if (!developer.includes(required)) errors.push(`Developer closure missing marker: ${required}`);
   }

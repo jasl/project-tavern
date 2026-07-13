@@ -5,9 +5,11 @@ import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyVitestProjectV1 } from "./classify-vitest-project.mjs";
+import { workspacePackages } from "./workspace-policy.mjs";
 
 export const coreVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["format:check"]],
+  ["pnpm", ["verify:docs"]],
   ["pnpm", ["lint"]],
   ["pnpm", ["verify:boundaries"]],
   ["pnpm", ["verify:cycles"]],
@@ -67,14 +69,9 @@ export function discoverVitestTestsV1(root) {
       }
     }
   };
-  for (const scope of ["packages", "stories", "apps"]) {
-    const parent = join(root, scope);
-    if (!existsSync(parent)) continue;
-    for (const entry of readdirSync(parent, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const source = join(parent, entry.name, "src");
-      if (existsSync(source)) walk(source);
-    }
+  for (const entry of workspacePackages) {
+    const source = join(root, entry.path, "src");
+    if (existsSync(source)) walk(source);
   }
   const scripts = join(root, "scripts");
   if (existsSync(scripts)) walk(scripts);

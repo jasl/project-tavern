@@ -3,7 +3,11 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { workspacePackageByName, workspacePackages } from "./workspace-policy.mjs";
+import {
+  workspacePackageByName,
+  workspacePackageParents,
+  workspacePackages,
+} from "./workspace-policy.mjs";
 
 const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/u;
 const IMPORT_PATTERN =
@@ -37,7 +41,9 @@ function packageForFile(root, file) {
 }
 
 function workspaceSpecifier(specifier) {
-  if (!specifier.startsWith("@project-tavern/")) return null;
+  if (!specifier.startsWith("@sillymaker/") && !specifier.startsWith("@project-tavern/")) {
+    return null;
+  }
   const segments = specifier.split("/");
   return {
     packageName: segments.slice(0, 2).join("/"),
@@ -53,11 +59,95 @@ async function packageManifest(root, entry) {
   }
 }
 
+async function discoverWorkspacePackagePaths(root) {
+  const paths = [];
+  for (const parent of workspacePackageParents) {
+    let entries;
+    try {
+      entries = await readdir(join(root, parent), { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const path = `${parent}/${entry.name}`;
+      try {
+        await readFile(join(root, path, "package.json"), "utf8");
+        paths.push(path);
+      } catch {}
+    }
+  }
+  return paths.sort();
+}
+
+function declaredWorkspaceDependencies(manifest) {
+  if (manifest === null) return [];
+  const sections = [
+    manifest.dependencies ?? {},
+    manifest.devDependencies ?? {},
+    manifest.optionalDependencies ?? {},
+  ];
+  return sections
+    .flatMap((section) =>
+      Object.entries(section)
+        .filter(([, version]) => version === "workspace:*")
+        .map(([name]) => name),
+    )
+    .toSorted();
+}
+
 export async function verifyBoundaries(root) {
   const errors = [];
   const manifests = new Map();
   for (const entry of workspacePackages) {
     manifests.set(entry.name, await packageManifest(root, entry));
+  }
+
+  const policyPaths = workspacePackages.map(({ path }) => path);
+  const policyNames = workspacePackages.map(({ name }) => name);
+  if (new Set(policyPaths).size !== policyPaths.length)
+    errors.push("duplicate workspace policy path");
+  if (new Set(policyNames).size !== policyNames.length)
+    errors.push("duplicate workspace policy name");
+
+  const discoveredPaths = await discoverWorkspacePackagePaths(root);
+  for (const path of discoveredPaths) {
+    if (!policyPaths.includes(path)) errors.push(`unregistered workspace package: ${path}`);
+  }
+  for (const entry of workspacePackages) {
+    const expectedPath =
+      entry.kind === "engine"
+        ? entry.path.startsWith("engine/packages/")
+        : entry.path.startsWith("game/packages/") ||
+          entry.path.startsWith("game/stories/") ||
+          entry.path.startsWith("game/apps/");
+    if (!expectedPath) errors.push(`${entry.name}: ${entry.kind} package path mismatch`);
+    if (entry.kind === "engine" && !entry.name.startsWith("@sillymaker/")) {
+      errors.push(`${entry.path}: engine package scope mismatch`);
+    }
+    if (entry.kind === "game" && !entry.name.startsWith("@project-tavern/")) {
+      errors.push(`${entry.path}: game package scope mismatch`);
+    }
+
+    const manifest = manifests.get(entry.name) ?? null;
+    if (manifest === null) {
+      errors.push(`${entry.path}: missing package.json`);
+      continue;
+    }
+    if (manifest.name !== entry.name) errors.push(`${entry.path}: package name mismatch`);
+    if (manifest.license !== entry.license) errors.push(`${entry.path}: package license mismatch`);
+    const declared = declaredWorkspaceDependencies(manifest);
+    const allowed = [...entry.edges].sort();
+    if (JSON.stringify(declared) !== JSON.stringify(allowed)) {
+      errors.push(`${entry.path}: workspace dependency policy mismatch`);
+    }
+    for (const dependencyName of entry.edges) {
+      const target = workspacePackageByName.get(dependencyName);
+      if (target === undefined) errors.push(`${entry.path}: unknown policy edge ${dependencyName}`);
+      else if (entry.kind === "engine" && target.kind === "game") {
+        errors.push(`${entry.path}: engine package may not depend on game package ${target.name}`);
+      }
+    }
   }
 
   for (const file of await sourceFiles(root)) {
@@ -91,7 +181,7 @@ export async function verifyBoundaries(root) {
       }
 
       if (
-        owner.name === "@project-tavern/base" &&
+        owner.name === "@sillymaker/base" &&
         (specifier === "react" ||
           specifier.startsWith("react/") ||
           specifier.startsWith("react-dom") ||
@@ -99,7 +189,7 @@ export async function verifyBoundaries(root) {
           specifier.startsWith("node:http") ||
           specifier === "idb")
       ) {
-        errors.push(`packages/base may not import ${specifier}`);
+        errors.push(`engine/packages/base may not import ${specifier}`);
       }
 
       const parsed = workspaceSpecifier(specifier);
@@ -108,6 +198,9 @@ export async function verifyBoundaries(root) {
       if (!target) {
         errors.push(`${relative(root, file)}: unknown workspace import ${specifier}`);
         continue;
+      }
+      if (owner.kind === "engine" && target.kind === "game") {
+        errors.push(`${owner.path}: engine package may not import game package ${target.name}`);
       }
       if (!owner.edges.includes(parsed.packageName)) {
         errors.push(`${owner.path} may not import ${parsed.packageName}`);

@@ -5,14 +5,14 @@ import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageTargets = Object.freeze({
-  "@project-tavern/base": "packages/base/src/index.ts",
-  "@project-tavern/base/runtime": "packages/base/src/runtime/index.ts",
-  "@project-tavern/base/testkit": "packages/base/src/testkit/index.ts",
-  "@project-tavern/ui": "packages/ui/src/index.ts",
-  "@project-tavern/web": "apps/web/src/index.ts",
-  "@project-tavern/web/developer": "apps/web/src/developer/index.ts",
-  "@project-tavern/story-sandbox": "stories/sandbox/src/index.ts",
-  "@project-tavern/story-sandbox/development": "stories/sandbox/src/development.ts",
+  "@sillymaker/base": "engine/packages/base/src/index.ts",
+  "@sillymaker/base/runtime": "engine/packages/base/src/runtime/index.ts",
+  "@sillymaker/base/testkit": "engine/packages/base/src/testkit/index.ts",
+  "@sillymaker/ui": "engine/packages/ui/src/index.ts",
+  "@sillymaker/web": "engine/packages/web/src/index.ts",
+  "@sillymaker/web/developer": "engine/packages/web/src/developer/index.ts",
+  "@project-tavern/story-sandbox": "game/stories/sandbox/src/index.ts",
+  "@project-tavern/story-sandbox/development": "game/stories/sandbox/src/development.ts",
 });
 
 const posix = (root, path) => relative(root, path).split(sep).join("/");

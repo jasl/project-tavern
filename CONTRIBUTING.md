@@ -2,15 +2,15 @@
 
 Project Tavern is a multi-license repository. Contribution terms depend on the target path and cannot be inferred from repository visibility alone.
 
-## MIT Engine areas
+## MIT SillyMaker engine areas
 
-Contributions to `packages/base`, `packages/ui`, and game-neutral `apps/web` code may be accepted under inbound=outbound MIT terms.
+Contributions to `engine/packages/base`, `engine/packages/ui`, and game-neutral `engine/packages/web` code may be accepted under inbound=outbound MIT terms.
 
 By submitting such a contribution, you represent that you have the right to license it and agree that the accepted contribution is available under the repository's MIT License. Preserve existing copyright, license, and attribution notices.
 
 ## Restricted game and content areas
 
-The project does not currently accept external contributions to PolyForm-covered game software or CC BY-NC-SA-covered original content. This includes shared or Story-local Gameplay software, `stories/**`, project narrative, localization, art, audio, game-design documents, Story Hotfixes, fixtures, and game-specific tests.
+The project does not currently accept external contributions to PolyForm-covered game software or CC BY-NC-SA-covered original content. This includes shared or Story-local Gameplay software, `game/stories/**`, project narrative, localization, art, audio, game-design documents, Story Hotfixes, fixtures, and game-specific tests.
 
 Restricted-area contributions may be accepted only after Jun Jiang has approved a written Contributor License Agreement or copyright assignment that permits copying, modification, distribution, sublicensing, and commercial use while preserving reasonable contributor attribution. No such general CLA is currently offered.
 

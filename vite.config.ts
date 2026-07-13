@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const repositoryRoot = import.meta.dirname;
-const storyRoot = resolve(repositoryRoot, "stories/sandbox");
+const storyRoot = resolve(repositoryRoot, "game/stories/sandbox");
 
 export default defineConfig(({ mode }) => {
   if (mode !== "player" && mode !== "developer") {

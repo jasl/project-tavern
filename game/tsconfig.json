@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/assets" },
+    { "path": "./packages/modules" },
+    { "path": "./stories/sandbox" },
+    { "path": "./stories/sandbox/tsconfig.application.json" },
+    { "path": "./stories/e2e" },
+    { "path": "./stories/demo" }
+  ]
+}

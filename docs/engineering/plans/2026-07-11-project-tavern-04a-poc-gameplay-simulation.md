@@ -1,0 +1,1658 @@
+# Project Tavern PoC Gameplay and GameSimulation Implementation Plan
+
+> **执行合同：** 本计划受 [`Goal Execution Protocol v1`](../execution-protocol.md) 约束；不依赖任何外部 workflow skill 或 plugin。按顺序执行任务；复选框是不可改写的验收步骤，持久进度只由 task commit、phase checkpoint 与验证证据表示。
+
+**Goal:** Implement the seven-day PoC Story's complete Story-local Gameplay contract, ten stateful GameplayModules, pure Rules/Resolvers, atomic normal and replayable-debug executors, `PocGameQueriesV1`, GameView projection, and one closed `PocGameSimulationV1` without introducing Story content or presentation.
+
+**Architecture:** All tavern-specific State, Commands, replayable DebugCommands, GameplayFacts, Effects, modules, rules, queries, and transaction orchestration live under `game/stories/poc/src/gameplay`; Base remains game-neutral and no shared Gameplay package is recreated. Each stateful module owns only its declared State Slice, pure Rules/Resolvers return validated values without writing state, the normal and debug executors are the only cross-owner mutation boundaries, and GameQueries remain independent of command execution. `debug.fixture.load` stays outside the simulation as a tooling-owned anchoring operation. Phase 4B later supplies the concrete seven-day content, Narrative program, StoryDefinition, presentation, assets, tooling, golden vectors, and persistence fixtures.
+
+**Tech Stack:** Phase 2–3 `@sillymaker/base`/`@sillymaker/base/runtime` public contracts, Node.js >=22.12.0, pnpm >=11.0.0, strict TypeScript 7.0.2, Zod 4.4.3, Vitest 4.1.10, and fast-check 4.9.0.
+
+## Global Constraints
+
+- Phase 2A/2B and Phase 3 gates are hard prerequisites. Consume the migrated `GameplayModule*`, `GameSimulation*`, `GameCommandExecutorV1`, `ResolvedGameV1`, `GameSessionV1`, `GameplayFact*`, and `StoryTooling*` public names; do not import or recreate any removed Phase 1 aliases.
+- The package is `@project-tavern/story-poc` at `game/stories/poc`. There is no Sandbox, separate preview Story, or shared gameplay package.
+- PoC Gameplay code may import only public Base contracts plus files inside `game/stories/poc/src/gameplay`; it must not import React, DOM, Web Host, Story presentation, application, tooling, `game/stories/e2e`, `references/`, or AIGC source archives.
+- Implement exactly ten stateful module bindings: Run, Calendar, Actors, Status, Inventory, Facilities, Tavern, Workflow, Progression, and Narrative. Demand, Settlement, Check, Ending, and Scheduling are Rules/Resolvers, not GameplayModules.
+- `PocGameCommandExecutorV1.executeAttempt` is the only normal Gameplay cross-owner execution entry. `PocGameDebugCommandExecutorV1.validate/executeAttempt` is the only replayable-debug cross-owner path. Neither executor exposes `createQueries`; `PocGameQueriesV1` is created separately by GameSimulation.
+- `PocDebugCommandV1` is the closed, PoC-prefixed specialization of the Contract Catalog's ten-kind `ReplayableDebugCommandV1`. It must not contain `debug.fixture.load`; fixture and DebugBundle anchoring remain Phase 4B tooling operations outside `GameSimulation` and outside replayable CommandLog entries.
+- The strict debug command/error schemas, queue-front semantic validation, owner proposal mapping, and replayable attempt semantics are owned by `PocGameSimulationV1`. Their implementation/source identity enters `simulationDigest`; tooling may only construct a declared command and may not replace these semantics.
+- State owners only propose/apply their own State Slice. They never receive a writable aggregate state, dispatch recursively, or listen to GameplayFacts to apply more state.
+- Rules and Resolvers accept deep-readonly validated inputs, use only an explicit transaction RNG where required, return strict validated outputs, and never read real time, environment randomness, storage, DOM, network, or platform globals.
+- Preserve the Contract Catalog's exact seven-day PoC v1 State, 17-command, GameplayFact, Rejection, Effect, Narrative, rule input/output, ledger, and invariant semantics, but use the mandatory `Poc*`, `Gameplay*`, `GameSimulation*`, and `GameSession*` names from the Phase 2+ runtime specification.
+- Every serializable Gameplay payload—State, Snapshot, Command, Fact, Effect, Rejection, rule input/output, and ledger data—is readonly, Strict JSON representable, safe-integer bounded, and validated by a strict Zod schema. `SimulationProgram`, Rule/Resolver capability objects, and module bindings are controlled, deeply frozen, non-serializable objects that may contain registered synchronous pure functions; they still forbid arbitrary callbacks, thenables, platform closures, script strings, and writable ambient state.
+- Gameplay randomness uses the serializable project PRNG only. `Math.random()` and retries/search over RNG results are forbidden.
+- Every task follows TDD: add a focused failing test, run it and observe the declared failure, implement the smallest complete slice, rerun focused tests, run `pnpm typecheck && pnpm verify`, and make a narrow commit.
+- No task may add Story identity, TextCatalog strings, Scene renderers, asset providers, application roots, tooling, tracked golden bytes, or Save fixtures. Those belong to Phase 4B or later phases.
+- R1 has already materialized every exact dependency and frozen `pnpm-lock.yaml`. Phase 4A adds no registry dependency, never runs `pnpm add`, and must leave `pnpm-lock.yaml` byte-identical; `game/stories/poc/package.json` changes in this plan are limited to scripts/metadata that do not alter dependency resolution.
+- `docs/poc/balance-v0.md` is the single numeric authority for the Narrative guard values. Both the Phase 4A fixture program and the later concrete Story carry `maxNarrativeStepsPerCommand = 128` and `maxNarrativeCallDepth = 8`; the interpreter consumes those program values and contains no private fallback literal.
+- Phase 4A tests remain a permanently closed gameplay-only leaf. `test:gameplay` enumerates only the Phase 4A files listed by Task 13; it must not expand to `src/test`, glob future Phase 4B tests, read tracked baselines, or invoke any writer.
+
+## Unattended prerequisite, resume, and staging contract
+
+Before Task 1, run this hard gate from a clean Phase 3 checkpoint:
+
+```bash
+test -z "$(git status --porcelain=v1)"
+pnpm verify:materialization
+pnpm verify:phase2
+pnpm verify:persistence-diagnostics
+pnpm verify
+git diff --exit-code -- pnpm-lock.yaml
+test -z "$(git status --porcelain=v1)"
+```
+
+Expected: every command exits 0. `verify:materialization` proves the tracked `scripts/preflight/materialization-lock.json` contract and ignored `.project-tavern/goal-materialization.json` attestation match; missing/stale materialization exits as `external_precondition.materialization_stale` before any edit. A missing script/public Phase 2–3 symbol, lockfile mutation, or dirty tree is a prerequisite failure; do not start Phase 4A by recreating an older ABI or installing a package. Diagnose and repair the owning earlier phase first.
+
+Every task is a resumable checkpoint. At task entry run `git status --short --branch` and inspect the task's exact paths. If an interruption left plan-owned unstaged files, resume at the first unproven step instead of deleting or blindly regenerating them. Before every commit, stage only the task's explicit `git add -- <paths...>` list, run `git diff --cached --name-only`, and fail if any staged path is outside that list; `git add -A`, wildcard staging, unrelated cleanup, amend, and opportunistic dependency changes are forbidden. After each commit run `git status --short --branch` and `git diff --exit-code -- pnpm-lock.yaml`; the expected status is clean.
+
+---
+
+## File Map
+
+```text
+game/stories/poc/
+  package.json
+  tsconfig.json
+  src/
+    gameplay/
+      contracts/
+        values.ts                     # PoC safe-integer values and strict parsers
+        ids.ts                        # PoC gameplay stable-ID brands and parsers
+        types.ts                      # complete PocGameSimulationTypesV1 spine
+        schemas.ts                    # aggregate strict schemas, completed in Task 12
+        module-catalog.ts             # ten module descriptors, slots, owners, order
+        define-poc-gameplay-module.ts # one curried type witness for every binding
+      modules/
+        run/{contract,module}.ts
+        calendar/{contract,module}.ts
+        actors/{contract,module}.ts
+        status/{contract,module}.ts
+        inventory/{contract,module}.ts
+        facilities/{contract,module}.ts
+        tavern/{contract,module}.ts
+        workflow/{contract,module}.ts
+        progression/{contract,module}.ts
+        narrative/{contract,interpreter,module}.ts
+      rules/
+        demand-rules.ts
+        relationship-transition-rule.ts
+        ending-rule.ts
+      resolvers/
+        tavern-settlement-resolver.ts
+        check-resolver.ts
+        scheduling-resolver.ts
+      transaction/
+        candidate.ts
+        effect-router.ts
+      game-command-executor.ts
+      game-debug-command-executor.ts
+      game-queries.ts
+      game-view-projector.ts
+      game-simulation.ts
+      index.ts
+    testing/
+      gameplay-fixture.ts             # test-only complete data/rule program
+    test/
+      gameplay-contract.test.ts
+      run-calendar.test.ts
+      actors-status.test.ts
+      inventory.test.ts
+      facilities-tavern.test.ts
+      workflow-progression.test.ts
+      narrative.test.ts
+      rules-resolvers.test.ts
+      transaction.test.ts
+      command-executor-core.test.ts
+      command-executor-workflows.test.ts
+      game-debug-command-executor.test.ts
+      game-queries.test.ts
+      game-simulation.test.ts
+      game-session-integration.test.ts
+```
+
+## Task 1: Freeze the PoC Gameplay Type Spine and Module Ownership Catalog
+
+**Files:**
+
+- Modify: `game/stories/poc/package.json`
+- Modify: `game/stories/poc/tsconfig.json`
+- Create: `game/stories/poc/src/gameplay/contracts/values.ts`
+- Create: `game/stories/poc/src/gameplay/contracts/ids.ts`
+- Create: `game/stories/poc/src/gameplay/contracts/types.ts`
+- Create: `game/stories/poc/src/gameplay/contracts/module-catalog.ts`
+- Create: `game/stories/poc/src/gameplay/contracts/define-poc-gameplay-module.ts`
+- Create: `game/stories/poc/src/gameplay/contracts/schemas.ts`
+- Create: `game/stories/poc/src/gameplay/index.ts`
+- Create: `game/stories/poc/src/testing/gameplay-fixture.ts`
+- Create: `game/stories/poc/src/test/gameplay-contract.test.ts`
+
+**Interfaces:**
+
+- Consumes: Base `Brand`, safe-integer parsers, `GameSimulationTypeMapV1`, `GameSnapshotEnvelopeV1`, `CommandExecutionAttemptEnvelopeV1`, `CommandExecutionDiagnosticsEnvelopeV1`, `RunIntegrityV1`, `RngStateV1`, `RngDrawTraceV1`, `GameplayModuleDescriptorV1`, `ModuleOwnerProposalEnvelopeV1`, `RuntimeSchemaV1`, `parseModuleId`, and `parseStateSlotId`.
+- Produces: `PocGameSimulationTypesV1`, `PocGameBootstrapInputV1`, `PocGameStateV1`, `PocGameSnapshotV1`, `PocGameCommandV1`, `PocGameplayFactV1`, `PocRejectionReasonV1`, `PocEngineFaultV1`, `PocDebugCommandV1`, `PocDebugCommandValidationErrorV1`, `PocReplayableDebugExecutionAttemptV1`, `PocCommandExecutionAttemptV1`, `PocSimulationProgramV1`, `PocGameQueriesV1`, `PocGameViewV1`, every PoC value/ID parser and schema, the single curried `definePocGameplayModuleV1`, `pocGameplayModuleKeysV1`, `pocGameplayModuleDescriptorsV1`, `descriptorForPocModuleV1`, `pocGameplayModuleDependenciesV1`, and `pocStateOwnerKeysV1`.
+
+- [ ] **Step 1: Write the failing ownership and type-closure test**
+
+```ts
+// game/stories/poc/src/test/gameplay-contract.test.ts
+import { describe, expect, expectTypeOf, it } from "vitest";
+import type {
+  CommandExecutionAttemptEnvelopeV1,
+  GameSimulationTypeMapV1,
+  RngDrawTraceV1,
+  RngStateV1,
+} from "@sillymaker/base";
+import {
+  pocGameplayModuleDependenciesV1,
+  pocGameplayModuleDescriptorsV1,
+  pocGameplayModuleKeysV1,
+  pocStateOwnerKeysV1,
+} from "../gameplay/contracts/module-catalog.js";
+import type {
+  PocCommandExecutionAttemptV1,
+  PocDebugCommandV1,
+  PocDebugCommandValidationErrorV1,
+  PocEngineFaultV1,
+  PocGameBootstrapInputV1,
+  PocGameCommandV1,
+  PocGameQueriesV1,
+  PocGameSimulationTypesV1,
+  PocGameSnapshotV1,
+  PocGameStateV1,
+  PocGameViewV1,
+  PocGameplayFactV1,
+  PocRejectionReasonV1,
+} from "../gameplay/contracts/types.js";
+
+describe("PoC gameplay contract", () => {
+  it("owns exactly ten stateful slices inside the PoC Story", () => {
+    expect(pocGameplayModuleKeysV1).toEqual([
+      "run",
+      "calendar",
+      "actors",
+      "status",
+      "inventory",
+      "facilities",
+      "tavern",
+      "workflow",
+      "progression",
+      "narrative",
+    ]);
+    expect(pocStateOwnerKeysV1).toEqual(pocGameplayModuleKeysV1);
+    expect(pocGameplayModuleDescriptorsV1.map((entry) => entry.stateSlots)).toEqual([
+      ["simulation.run"],
+      ["simulation.calendar"],
+      ["simulation.actors"],
+      ["simulation.status"],
+      ["simulation.inventory"],
+      ["simulation.facilities"],
+      ["simulation.tavern"],
+      ["simulation.activeWorkflow"],
+      ["story.facts", "story.quests", "story.outcomes", "story.resolvedChecks"],
+      ["story.narrative"],
+    ]);
+    expect(
+      Object.values(pocGameplayModuleDependenciesV1).every((value) => value.length === 0),
+    ).toBe(true);
+  });
+
+  it("closes one simulation type map", () => {
+    expectTypeOf<PocGameSimulationTypesV1>().toMatchTypeOf<GameSimulationTypeMapV1>();
+    expectTypeOf<
+      PocGameSimulationTypesV1["bootstrapInput"]
+    >().toEqualTypeOf<PocGameBootstrapInputV1>();
+    expectTypeOf<PocGameSimulationTypesV1["state"]>().toEqualTypeOf<PocGameStateV1>();
+    expectTypeOf<PocGameSimulationTypesV1["rngState"]>().toEqualTypeOf<RngStateV1>();
+    expectTypeOf<PocGameSimulationTypesV1["snapshot"]>().toEqualTypeOf<PocGameSnapshotV1>();
+    expectTypeOf<PocGameSimulationTypesV1["rngDrawTrace"]>().toEqualTypeOf<RngDrawTraceV1>();
+    expectTypeOf<PocGameSimulationTypesV1["command"]>().toEqualTypeOf<PocGameCommandV1>();
+    expectTypeOf<PocGameSimulationTypesV1["fact"]>().toEqualTypeOf<PocGameplayFactV1>();
+    expectTypeOf<PocGameSimulationTypesV1["rejection"]>().toEqualTypeOf<PocRejectionReasonV1>();
+    expectTypeOf<PocGameSimulationTypesV1["fault"]>().toEqualTypeOf<PocEngineFaultV1>();
+    expectTypeOf<PocGameSimulationTypesV1["debugCommand"]>().toEqualTypeOf<PocDebugCommandV1>();
+    expectTypeOf<
+      PocGameSimulationTypesV1["debugValidationError"]
+    >().toEqualTypeOf<PocDebugCommandValidationErrorV1>();
+    expectTypeOf<PocGameSimulationTypesV1["executionContext"]>().toEqualTypeOf<undefined>();
+    expectTypeOf<PocGameSimulationTypesV1["queries"]>().toEqualTypeOf<PocGameQueriesV1>();
+    expectTypeOf<PocGameSimulationTypesV1["viewModel"]>().toEqualTypeOf<PocGameViewV1>();
+    expectTypeOf<PocCommandExecutionAttemptV1>().toEqualTypeOf<
+      CommandExecutionAttemptEnvelopeV1<
+        PocGameSnapshotV1,
+        PocGameplayFactV1,
+        PocRejectionReasonV1,
+        PocEngineFaultV1,
+        RngStateV1,
+        RngDrawTraceV1
+      >
+    >();
+  });
+});
+```
+
+- [ ] **Step 2: Run the focused test and confirm the missing-contract failure**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/gameplay-contract.test.ts`
+
+Expected: FAIL only because the `gameplay/contracts` files do not exist. R1 already materialized the package's exact test dependencies; a missing dependency is an environment/prerequisite failure, not the expected TDD failure.
+
+- [ ] **Step 3: Add the exact module catalog and type witness**
+
+```ts
+// game/stories/poc/src/gameplay/contracts/module-catalog.ts
+import { parseModuleId, parsePositiveSafeInteger, parseStateSlotId } from "@sillymaker/base";
+
+export const pocGameplayModuleKeysV1 = Object.freeze([
+  "run",
+  "calendar",
+  "actors",
+  "status",
+  "inventory",
+  "facilities",
+  "tavern",
+  "workflow",
+  "progression",
+  "narrative",
+] as const);
+
+export const pocGameplayModuleDependenciesV1 = Object.freeze({
+  run: Object.freeze([]),
+  calendar: Object.freeze([]),
+  actors: Object.freeze([]),
+  status: Object.freeze([]),
+  inventory: Object.freeze([]),
+  facilities: Object.freeze([]),
+  tavern: Object.freeze([]),
+  workflow: Object.freeze([]),
+  progression: Object.freeze([]),
+  narrative: Object.freeze([]),
+} as const);
+
+const slots = {
+  run: ["simulation.run"],
+  calendar: ["simulation.calendar"],
+  actors: ["simulation.actors"],
+  status: ["simulation.status"],
+  inventory: ["simulation.inventory"],
+  facilities: ["simulation.facilities"],
+  tavern: ["simulation.tavern"],
+  workflow: ["simulation.activeWorkflow"],
+  progression: ["story.facts", "story.quests", "story.outcomes", "story.resolvedChecks"],
+  narrative: ["story.narrative"],
+} as const;
+
+export const pocGameplayModuleDescriptorsV1 = Object.freeze(
+  pocGameplayModuleKeysV1.map((key) =>
+    Object.freeze({
+      id: parseModuleId(`module.${key}`),
+      contractRevision: parsePositiveSafeInteger(1),
+      stateSlots: Object.freeze(slots[key].map(parseStateSlotId)),
+      dependencies: Object.freeze([]),
+    }),
+  ),
+);
+
+export const pocStateOwnerKeysV1 = pocGameplayModuleKeysV1;
+
+export function descriptorForPocModuleV1(key: (typeof pocGameplayModuleKeysV1)[number]) {
+  const descriptor = pocGameplayModuleDescriptorsV1.find(
+    (candidate) => candidate.id === `module.${key}`,
+  );
+  if (descriptor === undefined) throw new TypeError(`unknown PoC module: ${key}`);
+  return descriptor;
+}
+```
+
+`define-poc-gameplay-module.ts` exports exactly `definePocGameplayModuleV1 = defineGameplayModule<PocGameSimulationTypesV1>()`; every binding imports that one witness. `types.ts` must spell the complete closed unions from the Contract Catalog with `Poc`/`Gameplay` names and define `PocCommandExecutionAttemptV1` as the exact six-parameter Base `CommandExecutionAttemptEnvelopeV1` specialization shown by the type test. The replayable-debug union is also closed here rather than delegated to tooling:
+
+```ts
+export type PocDebugCommandV1 =
+  | {
+      readonly kind: "debug.calendar.set_ap";
+      readonly value: NonNegativeSafeInteger;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.actor.set_stamina";
+      readonly actorId: ActorId;
+      readonly value: NonNegativeSafeInteger;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.actor.set_mood";
+      readonly actorId: ActorId;
+      readonly value: MoodPoint;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.relationship.set";
+      readonly affection: SafeInteger;
+      readonly teamwork: NonNegativeSafeInteger;
+      readonly stage: RelationshipStage;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.inventory.adjust_cash";
+      readonly delta: SafeInteger;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.aura.apply";
+      readonly auraId: AuraId;
+      readonly target: AuraTargetV1;
+      readonly duration: AuraDurationV1;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.aura.clear";
+      readonly instanceId: AuraInstanceId;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.story.fact.set";
+      readonly factId: FactId;
+      readonly value: StoryValueV1;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.narrative.jump";
+      readonly cursor: NarrativeCursorV1;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "debug.rng.set";
+      readonly rng: RngStateV1;
+      readonly reasonId: ReasonId;
+    };
+
+export const pocDebugCommandKindsV1 = Object.freeze([
+  "debug.calendar.set_ap",
+  "debug.actor.set_stamina",
+  "debug.actor.set_mood",
+  "debug.relationship.set",
+  "debug.inventory.adjust_cash",
+  "debug.aura.apply",
+  "debug.aura.clear",
+  "debug.story.fact.set",
+  "debug.narrative.jump",
+  "debug.rng.set",
+] as const satisfies readonly PocDebugCommandV1["kind"][]);
+```
+
+`PocDebugCommandValidationErrorV1` is the PoC-prefixed closed specialization of the Catalog's replayable validation errors: unknown reason/actor/Aura/Aura-instance/fact/Narrative-node references; stamina, cash-result, and Aura-duration range errors; invalid Story values; disallowed Aura targets; Aura duration-policy mismatch; duplicate Aura state conflict; and inactive-Narrative jump conflict. Every variant carries the exact originating `commandKind`; there is no fixture-reference variant because `debug.fixture.load` is not a `PocDebugCommandV1`. `PocReplayableDebugExecutionAttemptV1` specializes Base diagnostics and has only `committed` or `faulted` results—never `rejected`. Task 1 implements the complete strict schemas for both closed debug unions plus the leaf/aggregate declarations needed by later modules; Task 12 completes the remaining State/normal-Command/Fact/Rejection aggregates and binds every schema into GameSimulation.
+
+`PocGameSnapshotV1` is `GameSnapshotEnvelopeV1<PocGameStateV1, RngStateV1>` and therefore includes Base-owned `integrity`; Gameplay State must not duplicate or read it. `PocSimulationProgramV1` is exactly `{ data: PocSimulationDataV1; rules: PocRulesV1 }`.
+
+- [ ] **Step 4: Add strict parsers and one complete test fixture factory**
+
+```ts
+// game/stories/poc/src/testing/gameplay-fixture.ts
+export interface PocGameplayFixtureV1 {
+  readonly program: PocSimulationProgramV1;
+  readonly bootstrap: PocGameBootstrapInputV1;
+  readonly snapshot: PocGameSnapshotV1;
+}
+
+export interface PocGameplayFixtureOptionsV1 {
+  readonly integrity?: "normal" | "modified";
+}
+
+export function createPocGameplayFixtureV1(
+  options: PocGameplayFixtureOptionsV1 = {},
+): PocGameplayFixtureV1 {
+  const bootstrap = Object.freeze({
+    rngSeed: parseNonZeroUint32(0x00023049),
+    runId: parseRunId("00000000-0000-4000-8000-000000000401"),
+  });
+  const program = createContractFixtureProgramV1();
+  return Object.freeze({
+    program,
+    bootstrap,
+    snapshot: createContractFixtureSnapshotV1(program, bootstrap, options.integrity ?? "normal"),
+  });
+}
+```
+
+The factory uses one minimal but referentially complete policy, recipe, ingredient, facility, action, event, check, ending, text-ID set, and Narrative scene. It is test-only, contains no player-facing prose, and every later task reuses it instead of constructing partial `as`-cast objects.
+
+The contract test also asserts that `pocDebugCommandKindsV1` equals the ten-item list above in order, that the strict schema rejects `{ kind: "debug.fixture.load" }`, and that `PocGameSimulationTypesV1["debugValidationError"]` is exactly `PocDebugCommandValidationErrorV1`. A missing or extra debug kind is therefore both a compile-time and runtime-contract failure.
+
+- [ ] **Step 5: Run focused and repository checks**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/gameplay-contract.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; the PoC package typechecks without React/DOM imports, exactly ten owner descriptors exist, all aggregate types are closed, and full verification leaves tracked files unchanged.
+
+- [ ] **Step 6: Commit the contract spine**
+
+```bash
+git add -- game/stories/poc/package.json game/stories/poc/tsconfig.json game/stories/poc/src/gameplay/contracts game/stories/poc/src/gameplay/index.ts game/stories/poc/src/testing/gameplay-fixture.ts game/stories/poc/src/test/gameplay-contract.test.ts
+git commit -m "feat(story-poc): define gameplay contract spine"
+```
+
+## Task 2: Implement Run and Calendar Ownership
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/modules/run/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/run/module.ts`
+- Create: `game/stories/poc/src/gameplay/modules/calendar/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/calendar/module.ts`
+- Create: `game/stories/poc/src/test/run-calendar.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: `PocGameBootstrapInputV1`, Run/Calendar State and Fact types, module descriptors, `defineGameplayModule<PocGameSimulationTypesV1>()`, and strict parsers from Task 1.
+- Produces: `pocRunGameplayModuleV1`, `pocCalendarGameplayModuleV1`, their strict owner operation/proposal schemas, read ports, initial-state functions, and local invariants.
+
+- [ ] **Step 1: Write failing ownership tests**
+
+```ts
+it("starts at setup without consuming an authored action", () => {
+  const fixture = createPocGameplayFixtureV1();
+  expect(pocRunGameplayModuleV1.createInitialState(fixture.bootstrap)).toMatchObject({
+    status: "setup",
+    runId: fixture.bootstrap.runId,
+    initialSeed: fixture.bootstrap.rngSeed,
+    completion: null,
+  });
+  expect(pocCalendarGameplayModuleV1.createInitialState(fixture.bootstrap)).toEqual({
+    day: 1,
+    phase: "morning",
+    lifePolicyId: null,
+    apRemaining: 0,
+    eveningResolved: false,
+  });
+});
+
+it("applies only the owned calendar slice", () => {
+  const state = pocCalendarGameplayModuleV1.createInitialState(
+    createPocGameplayFixtureV1().bootstrap,
+  );
+  const proposal = pocCalendarGameplayModuleV1.owner.propose(
+    state,
+    { kind: "calendar.policy.choose", policyId: parsePolicyId("policy.fixture") },
+    Object.freeze({ policyAp: parseNonNegativeSafeInteger(2) }),
+  );
+  expect(proposal.kind).toBe("proposed");
+  if (proposal.kind === "proposed") {
+    expect(pocCalendarGameplayModuleV1.owner.apply(state, proposal.proposal)).toMatchObject({
+      lifePolicyId: "policy.fixture",
+      apRemaining: 2,
+    });
+  }
+});
+```
+
+- [ ] **Step 2: Run and confirm missing module files**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/run-calendar.test.ts`
+
+Expected: FAIL with unresolved Run/Calendar module imports.
+
+- [ ] **Step 3: Implement strict owner capabilities and local invariants**
+
+```ts
+export const pocRunGameplayModuleV1 = definePocGameplayModuleV1({
+  bindingKind: "stateful",
+  descriptor: descriptorForPocModuleV1("run"),
+  stateSchema: pocRunStateSchemaV1,
+  commandSchema: null,
+  querySchema: null,
+  queryResultSchema: null,
+  ownerOperationSchema: pocRunOwnerOperationSchemaV1,
+  ownerProposalSchema: pocRunOwnerProposalSchemaV1,
+  localInvariants: Object.freeze([pocRunInvariantV1]),
+  owner: pocRunOwnerV1,
+  queries: null,
+  createInitialState: createInitialPocRunStateV1,
+  createReadPort: createPocRunReadPortV1,
+});
+```
+
+Calendar implements policy selection, AP adjustment, phase/day transition, evening-resolution marking, terminal locking, and an absolute `calendar.debug.set_ap` proposal as typed owner operations. The absolute operation is callable only by `PocGameDebugCommandExecutorV1`; it is not a player command. Run implements demand-seed/current-demand replacement, activation, and terminal completion. Neither owner reads or writes the other's State Slice; the executor supplies the exact dependency DTO.
+
+- [ ] **Step 4: Prove rejects preserve input and facts are ordered**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/run-calendar.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; invalid phase/AP/terminal operations reject without mutation, successful proposals emit only Run/Calendar facts, and repository verification stays green.
+
+- [ ] **Step 5: Commit Run and Calendar**
+
+```bash
+git add -- game/stories/poc/src/gameplay/modules/run game/stories/poc/src/gameplay/modules/calendar game/stories/poc/src/test/run-calendar.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add run and calendar modules"
+```
+
+## Task 3: Implement Actors and Status Ownership
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/modules/actors/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/actors/module.ts`
+- Create: `game/stories/poc/src/gameplay/modules/status/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/status/module.ts`
+- Create: `game/stories/poc/src/gameplay/rules/relationship-transition-rule.ts`
+- Create: `game/stories/poc/src/test/actors-status.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: Actors/Relationship/Aura types, exact range parsers, `PocGameplayFactV1`, authored Aura definitions, and Task 1 module helpers.
+- Produces: `pocActorsGameplayModuleV1`, `pocStatusGameplayModuleV1`, `resolvePocRelationshipTransitionV1`, actor/status read ports, owner operations/proposals, lifecycle invariants, and facts.
+
+- [ ] **Step 1: Write failing clamps, transition, and Aura lifecycle tests**
+
+```ts
+it("clamps actor values and derives relationship stage through one rule", () => {
+  const current = createPocGameplayFixtureV1().snapshot.state.simulation.actors;
+  const transition = resolvePocRelationshipTransitionV1({
+    relationship: current.relationship,
+    affectionDelta: -200,
+    teamworkDelta: 3,
+  });
+  expect(transition.relationship.affection).toBe(-100);
+  expect(transition.relationship.teamwork).toBe(3);
+  expect(transition.relationship.stage).toBe("disgust");
+});
+
+it("expires a timed aura only at its declared boundary", () => {
+  const fixture = createPocGameplayFixtureV1();
+  const state = withFixtureAuraV1(fixture.snapshot.state.simulation.status, {
+    auraId: parseAuraId("aura.fixture_timed"),
+    expiresAt: { day: 2, phase: "morning" },
+  });
+  expect(expirePocAurasV1(state, { day: 1, phase: "evening" }).expired).toEqual([]);
+  expect(expirePocAurasV1(state, { day: 2, phase: "morning" }).expired).toHaveLength(1);
+});
+```
+
+- [ ] **Step 2: Run and confirm missing actors/status implementations**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/actors-status.test.ts`
+
+Expected: FAIL because both module bindings and the relationship rule are absent.
+
+- [ ] **Step 3: Implement actors and Aura proposal/apply boundaries**
+
+```ts
+export type PocActorsOwnerOperationV1 =
+  | {
+      readonly kind: "actors.adjust_stamina";
+      readonly actorId: ActorId;
+      readonly delta: SafeInteger;
+    }
+  | { readonly kind: "actors.adjust_mood"; readonly actorId: ActorId; readonly delta: SafeInteger }
+  | {
+      readonly kind: "actors.adjust_relationship";
+      readonly affectionDelta: SafeInteger;
+      readonly teamworkDelta: SafeInteger;
+      readonly reason: ChangeReasonV1;
+    }
+  | {
+      readonly kind: "actors.debug.set_stamina";
+      readonly actorId: ActorId;
+      readonly value: NonNegativeSafeInteger;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "actors.debug.set_mood";
+      readonly actorId: ActorId;
+      readonly value: MoodPoint;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "actors.debug.set_relationship";
+      readonly affection: SafeInteger;
+      readonly teamwork: NonNegativeSafeInteger;
+      readonly stage: RelationshipStage;
+      readonly reasonId: ReasonId;
+    };
+
+export type PocStatusOwnerOperationV1 =
+  | { readonly kind: "status.apply"; readonly aura: AuraInstanceV1 }
+  | { readonly kind: "status.clear"; readonly auraId: AuraId; readonly reason: ChangeReasonV1 }
+  | { readonly kind: "status.expire"; readonly now: CalendarCursorV1 }
+  | {
+      readonly kind: "status.debug.apply";
+      readonly aura: AuraInstanceV1;
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "status.debug.clear_instance";
+      readonly instanceId: AuraInstanceId;
+      readonly reasonId: ReasonId;
+    };
+```
+
+The actors owner applies stamina/mood/relationship changes and appends matching change history once. The status owner enforces uniqueness, applicability, fixed-duration/condition/manual expiry policy, and authored source identity. Debug-prefixed owner operations remain inaccessible to the normal executor and still pass the same range, reference, and local-invariant checks. An angry Aura remains independent of mood, affection, teamwork, and relationship stage.
+
+- [ ] **Step 4: Run focused, property, and full checks**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/actors-status.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; all boundary values, invalid Aura sources, duplicate apply, condition clear, and expiry vectors pass without cross-slice writes.
+
+- [ ] **Step 5: Commit Actors and Status**
+
+```bash
+git add -- game/stories/poc/src/gameplay/modules/actors game/stories/poc/src/gameplay/modules/status game/stories/poc/src/gameplay/rules/relationship-transition-rule.ts game/stories/poc/src/test/actors-status.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add actors and status modules"
+```
+
+## Task 4: Implement Inventory FIFO Batches and the Authoritative Ledger
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/modules/inventory/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/inventory/module.ts`
+- Create: `game/stories/poc/src/test/inventory.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: Inventory/batch/item/ledger types, Money/Quantity parsers, ingredient definitions, authored reasons, and owner contracts.
+- Produces: `pocInventoryGameplayModuleV1`, FIFO consume/spoil/grant/purchase/ledger operations, `PocInventoryReadPortV1`, strict proposals, and cash/valuation invariants.
+
+- [ ] **Step 1: Write failing FIFO and ledger conservation tests**
+
+```ts
+it("consumes the earliest-expiry batch before a later batch", () => {
+  const state = inventoryFixtureV1({
+    cash: 20,
+    batches: [batchV1("batch.later", 3, 3), batchV1("batch.earlier", 1, 2)],
+  });
+  const result = proposeInventoryOperationV1(state, {
+    kind: "inventory.consume",
+    lines: [{ ingredientId: parseIngredientId("ingredient.fixture"), quantity: 2 }],
+    source: fixtureSourceV1(),
+  });
+  expect(result.kind).toBe("proposed");
+  if (result.kind === "proposed") {
+    const next = applyInventoryProposalV1(state, result.proposal);
+    expect(next.batches.find((batch) => batch.batchId === "batch.earlier")).toBeUndefined();
+    expect(next.batches.find((batch) => batch.batchId === "batch.later")?.quantity).toBe(2);
+    expect(next.cash).toBe(20);
+  }
+});
+
+it("records a purchase and cash movement in one proposal", () => {
+  const state = inventoryFixtureV1({ cash: 20, batches: [] });
+  const result = requireProposedV1(
+    proposeInventoryOperationV1(state, {
+      kind: "inventory.purchase",
+      lines: [{ ingredientId: parseIngredientId("ingredient.fixture"), quantity: 1 }],
+      reasonId: parseReasonId("reason.fixture_purchase"),
+    }),
+  );
+  const next = applyInventoryProposalV1(state, result);
+  expect(next.cash).toBe(19);
+  expect(next.ledger.at(-1)).toMatchObject({ cashDelta: -1, category: "purchase" });
+});
+```
+
+- [ ] **Step 2: Run and confirm the missing Inventory module**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/inventory.test.ts`
+
+Expected: FAIL with missing Inventory contract/module imports.
+
+- [ ] **Step 3: Implement the closed owner operation union**
+
+```ts
+export type PocInventoryOwnerOperationV1 =
+  | {
+      readonly kind: "inventory.purchase";
+      readonly lines: readonly PurchaseLineV1[];
+      readonly reasonId: ReasonId;
+    }
+  | {
+      readonly kind: "inventory.consume";
+      readonly lines: readonly IngredientQuantityV1[];
+      readonly source: ModifierSourceRefV1;
+    }
+  | {
+      readonly kind: "inventory.grant";
+      readonly lines: readonly IngredientQuantityV1[];
+      readonly source: ModifierSourceRefV1;
+    }
+  | {
+      readonly kind: "inventory.item.grant";
+      readonly itemId: ItemId;
+      readonly quantity: Quantity;
+      readonly source: ModifierSourceRefV1;
+    }
+  | {
+      readonly kind: "inventory.item.consume";
+      readonly itemId: ItemId;
+      readonly quantity: Quantity;
+      readonly source: ModifierSourceRefV1;
+    }
+  | {
+      readonly kind: "inventory.spoil";
+      readonly now: CalendarCursorV1;
+      readonly reasonId: ReasonId;
+    }
+  | { readonly kind: "inventory.ledger.append"; readonly entries: readonly LedgerEntryDraftV1[] }
+  | {
+      readonly kind: "inventory.debug.adjust_cash";
+      readonly delta: SafeInteger;
+      readonly reasonId: ReasonId;
+    };
+```
+
+The proposal materializes batch slices and ledger entries atomically. `inventory.debug.adjust_cash` creates the same authoritative ledger evidence as any other cash change and rejects a negative or unsafe resulting balance. `cash` must always equal `startingCash + sum(ledger.cashDelta)`; quantity/value conservation, unique batch/ledger IDs, expiry ordering, and exact reason/source references are local invariants.
+
+- [ ] **Step 4: Run FIFO, property, and repository tests**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/inventory.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; insufficient cash/stock rejects without mutation, FIFO is deterministic, spoilage has zero cash delta and nonzero valuation delta, and all ledger invariants pass.
+
+- [ ] **Step 5: Commit Inventory**
+
+```bash
+git add -- game/stories/poc/src/gameplay/modules/inventory game/stories/poc/src/test/inventory.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add inventory ledger module"
+```
+
+## Task 5: Implement Facilities and Tavern Ownership
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/modules/facilities/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/facilities/module.ts`
+- Create: `game/stories/poc/src/gameplay/modules/tavern/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/tavern/module.ts`
+- Create: `game/stories/poc/src/test/facilities-tavern.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: facility opportunity/build types, Tavern plan/demand/opening/history types, strict stable IDs, and module owner helpers.
+- Produces: `pocFacilitiesGameplayModuleV1`, `pocTavernGameplayModuleV1`, exact opportunity/plan/demand/opening/history operations, read ports, proposals, and invariants.
+
+- [ ] **Step 1: Write failing facility and Tavern lifecycle tests**
+
+```ts
+it("commits one facility choice and never reopens the opportunity", () => {
+  const state = facilitiesFixtureV1();
+  const operation = {
+    kind: "facilities.choose",
+    opportunityId: parseActionId("action.fixture_facility"),
+    choice: { kind: "build", facilityId: parseFacilityId("facility.fixture_bed") },
+  } as const;
+  const proposal = proposeFacilityChoiceV1(state, operation);
+  expect(proposal.kind).toBe("proposed");
+  if (proposal.kind === "proposed") {
+    const next = applyFacilitiesProposalV1(state, proposal.proposal);
+    expect(next.builtFacilityIds).toEqual(["facility.fixture_bed"]);
+    expect(proposeFacilityChoiceV1(next, operation)).toMatchObject({
+      kind: "rejected",
+    });
+  }
+});
+
+it("keeps one immutable opening baseline until finalize", () => {
+  const state = tavernFixtureV1();
+  const started = proposeTavernOperationV1(state, openingStartFixtureV1());
+  expect(started.kind).toBe("proposed");
+  if (started.kind === "proposed") {
+    const active = applyTavernProposalV1(state, started.proposal);
+    expect(active.activeOpening?.baseline).toEqual(
+      started.proposal.payload.activeOpening?.baseline,
+    );
+  }
+});
+```
+
+- [ ] **Step 2: Run and observe missing modules**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/facilities-tavern.test.ts`
+
+Expected: FAIL because Facilities and Tavern bindings do not exist.
+
+- [ ] **Step 3: Implement exact owner operations**
+
+Facilities owns opportunity publication, build/skip commitment, and built IDs. Tavern owns reputation, helper state, plan, demand, preparation count, active Opening baseline/session, and append-only service history. Starting/finalizing an Opening consumes only executor-prepared validated DTOs; Tavern never reads Inventory, Actors, Calendar, or Rules directly.
+
+```ts
+export type PocTavernOwnerOperationV1 =
+  | {
+      readonly kind: "tavern.reputation.adjust";
+      readonly delta: SafeInteger;
+      readonly reason: ChangeReasonV1;
+    }
+  | { readonly kind: "tavern.helper.set"; readonly hired: boolean; readonly reason: ChangeReasonV1 }
+  | { readonly kind: "tavern.plan.set"; readonly plan: TavernPlanV1 }
+  | { readonly kind: "tavern.demand.set"; readonly demand: MaterializedDemandV1 | null }
+  | { readonly kind: "tavern.preparation.increment" }
+  | { readonly kind: "tavern.opening.start"; readonly session: OpeningSessionV1 }
+  | { readonly kind: "tavern.opening.continue"; readonly sessionId: OpeningSessionId }
+  | { readonly kind: "tavern.opening.finalize"; readonly history: ServiceHistoryEntryV1 };
+```
+
+- [ ] **Step 4: Run all focused and full checks**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/facilities-tavern.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; duplicate choices, invalid plans, duplicate Opening cost/finalization, and history replacement reject; all proposals remain owner-local.
+
+- [ ] **Step 5: Commit Facilities and Tavern**
+
+```bash
+git add -- game/stories/poc/src/gameplay/modules/facilities game/stories/poc/src/gameplay/modules/tavern game/stories/poc/src/test/facilities-tavern.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add facilities and tavern modules"
+```
+
+## Task 6: Implement Workflow and Progression Ownership
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/modules/workflow/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/workflow/module.ts`
+- Create: `game/stories/poc/src/gameplay/modules/progression/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/progression/module.ts`
+- Create: `game/stories/poc/src/test/workflow-progression.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: active Workflow, WorldAction progress, Fact/Quest/Outcome/ResolvedCheck, Modifier, and Effect types.
+- Produces: `pocWorkflowGameplayModuleV1`, `pocProgressionGameplayModuleV1`, owner-local state machines, read ports, proposals, stable facts, and invariants.
+
+- [ ] **Step 1: Write failing workflow and idempotency tests**
+
+```ts
+it("advances one workflow through the closed progress order", () => {
+  const state = workflowIdleFixtureV1();
+  const started = requireProposedV1(
+    proposeWorkflowOperationV1(state, {
+      kind: "workflow.begin_world_action",
+      actionId: parseActionId("action.fixture_world"),
+      optionId: parseChoiceId("choice.fixture_world"),
+    }),
+  );
+  const active = applyWorkflowProposalV1(state, started);
+  expect(active?.progress).toBe("started");
+  expect(advanceFixtureWorkflowV1(active).progress).toBe("awaiting_check");
+});
+
+it("sets each progression key once unless the contract explicitly allows replacement", () => {
+  const state = progressionFixtureV1();
+  const first = requireProposedV1(proposeProgressionOperationV1(state, factSetFixtureV1(true)));
+  const next = applyProgressionProposalV1(state, first);
+  expect(proposeProgressionOperationV1(next, factSetFixtureV1(false))).toMatchObject({
+    kind: "rejected",
+  });
+});
+```
+
+- [ ] **Step 2: Run and confirm missing Workflow/Progression files**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/workflow-progression.test.ts`
+
+Expected: FAIL with unresolved module imports.
+
+- [ ] **Step 3: Implement closed state machines and stable references**
+
+Workflow owns the nullable `activeWorkflow` slice, exactly one Opening interruption or WorldAction at a time, stable progress values, and transient modifiers. Progression owns facts, quests, outcomes, and resolved checks; it validates every authored reference and prevents duplicate check resolution or incompatible terminal outcomes.
+
+```ts
+export type PocWorkflowProgressV1 =
+  "started" | "awaiting_narrative" | "awaiting_check" | "awaiting_completion";
+
+export type PocProgressionOwnerOperationV1 =
+  | { readonly kind: "progression.fact.set"; readonly entry: FactEntryV1 }
+  | { readonly kind: "progression.quest.set"; readonly entry: QuestEntryV1 }
+  | { readonly kind: "progression.outcome.set"; readonly entry: OutcomeEntryV1 }
+  | { readonly kind: "progression.check.record"; readonly check: ResolvedCheckV1 };
+```
+
+`progression.fact.set` is the sole owner operation used by both normal Story effects and `debug.story.fact.set`; the caller supplies the validated authored Fact entry and the owner applies the same stable-reference/value invariants. It does not inspect whether the caller is normal or debug code.
+
+- [ ] **Step 4: Run focused and full verification**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/workflow-progression.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; illegal skips, duplicate completion/checks, missing references, and concurrent workflows reject without mutation.
+
+- [ ] **Step 5: Commit Workflow and Progression**
+
+```bash
+git add -- game/stories/poc/src/gameplay/modules/workflow game/stories/poc/src/gameplay/modules/progression game/stories/poc/src/test/workflow-progression.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add workflow and progression modules"
+```
+
+## Task 7: Implement Narrative IR Interpretation and Ownership
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/modules/narrative/contract.ts`
+- Create: `game/stories/poc/src/gameplay/modules/narrative/interpreter.ts`
+- Create: `game/stories/poc/src/gameplay/modules/narrative/module.ts`
+- Create: `game/stories/poc/src/test/narrative.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: Contract Catalog Narrative node/scene/source/cursor/stage/condition/check/effect IR, strict stable IDs, and test fixture program.
+- Produces: `pocNarrativeGameplayModuleV1`, `interpretPocNarrativeStepV1`, start/advance/choose/complete operations, a read port, stable stage/cursor projection, and interpreter limit errors.
+
+- [ ] **Step 1: Write failing branch/rejoin, call-stack, and limit tests**
+
+```ts
+it("branches by stable choice and rejoins one shared node", () => {
+  const fixture = narrativeBranchFixtureV1();
+  const left = runNarrativeCommandsV1(fixture, [
+    { kind: "narrative.advance" },
+    {
+      kind: "narrative.choose",
+      sceneId: fixture.sceneId,
+      nodeId: fixture.choiceNodeId,
+      choiceId: fixture.leftChoiceId,
+    },
+  ]);
+  const right = runNarrativeCommandsV1(fixture, [
+    { kind: "narrative.advance" },
+    {
+      kind: "narrative.choose",
+      sceneId: fixture.sceneId,
+      nodeId: fixture.choiceNodeId,
+      choiceId: fixture.rightChoiceId,
+    },
+  ]);
+  expect(left.state.cursor?.nodeId).toBe(fixture.sharedNodeId);
+  expect(right.state.cursor?.nodeId).toBe(fixture.sharedNodeId);
+  expect(left.effects).not.toEqual(right.effects);
+});
+```
+
+- [ ] **Step 2: Run and confirm the missing interpreter**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/narrative.test.ts`
+
+Expected: FAIL because Narrative contract/interpreter/module files are absent.
+
+- [ ] **Step 3: Implement the closed interpreter**
+
+```ts
+export interface PocNarrativeStepResultV1 {
+  readonly state: NarrativeStateV1;
+  readonly effects: readonly PocEffectIntentV1[];
+  readonly checkpoints: readonly CheckpointId[];
+  readonly gameplayFacts: readonly PocGameplayFactV1[];
+}
+
+export function interpretPocNarrativeStepV1(
+  program: DeepReadonly<PocNarrativeProgramV1>,
+  state: DeepReadonly<NarrativeStateV1>,
+  input: DeepReadonly<PocNarrativeInterpreterInputV1>,
+): PocNarrativeStepResultV1;
+```
+
+Implement all Catalog node kinds, stale cursor checks, jump/call/return, branch choice, effect/checkpoint atomicity, and one blocking request. The interpreter reads `maxNarrativeStepsPerCommand` and `maxNarrativeCallDepth` from the validated immutable Simulation Program; the Phase 4A fixture values are exactly `128` and `8`. Crossing either value produces the Catalog's stable fault and rolls back the whole outer command. There is no hard-coded `64`/`4`, environment override, or hidden fallback. The module writes only Narrative State; returned effects are applied later by the executor's effect router.
+
+The Narrative owner additionally exposes an absolute `narrative.debug.jump` proposal that validates the target scene/node and active-Narrative state without interpreting intervening effects. It is callable only from `PocGameDebugCommandExecutorV1`. Transaction candidate owns the corresponding debug-only RNG replacement primitive for `debug.rng.set`; RNG is not a Gameplay State Slice and no GameplayModule may claim it.
+
+- [ ] **Step 4: Run interpreter and repository checks**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/narrative.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; all node kinds, the exact program-owned `128`/`8` limits (including boundary and one-past-boundary vectors), invalid references, branch/rejoin, and strict JSON round-trip pass.
+
+- [ ] **Step 5: Commit Narrative**
+
+```bash
+git add -- game/stories/poc/src/gameplay/modules/narrative game/stories/poc/src/test/narrative.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add narrative gameplay module"
+```
+
+## Task 8: Implement Pure Demand, Settlement, Check, Ending, and Scheduling Rules/Resolvers
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/rules/demand-rules.ts`
+- Create: `game/stories/poc/src/gameplay/rules/ending-rule.ts`
+- Create: `game/stories/poc/src/gameplay/resolvers/tavern-settlement-resolver.ts`
+- Create: `game/stories/poc/src/gameplay/resolvers/check-resolver.ts`
+- Create: `game/stories/poc/src/gameplay/resolvers/scheduling-resolver.ts`
+- Create: `game/stories/poc/src/test/rules-resolvers.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: Task 1 `PocRulesV1` input/output contracts, explicit `RuleRngV1`, the minimal fixture program, modifier order, event triggers, and authored balance/data.
+- Produces: `createPocDemandRulesV1`, `createPocTavernSettlementResolverV1`, `createPocCheckResolverV1`, `createPocEndingRuleV1`, `createPocSchedulingResolverV1`, and one deeply frozen `createPocRulesV1(programData)` aggregate.
+
+- [ ] **Step 1: Write failing deterministic vectors and purity tests**
+
+```ts
+it("resolves the fixed demand and 2d6 vectors without mutating input", () => {
+  const fixture = createPocGameplayFixtureV1();
+  const rules = createPocRulesV1(fixture.program.data);
+  const demandInput = demandSeedInputFixtureV1();
+  const demandBefore = structuredClone(demandInput);
+  const demand = rules.demand.resolve(demandInput, fixedRuleRngV1([2]));
+  expect(demand.lines.map((line) => line.randomOffset)).toEqual([1]);
+  expect(demandInput).toEqual(demandBefore);
+
+  const check = rules.check.resolve(checkInputFixtureV1(), fixedRuleRngV1([3, 2]));
+  expect(check.dice).toEqual([4, 3]);
+  expect(check.total).toBe(8);
+});
+
+it("schedules events in authored order without writing state", () => {
+  const resolver = createPocSchedulingResolverV1(schedulingDataFixtureV1());
+  expect(resolver.resolve(schedulingInputFixtureV1()).map((entry) => entry.eventId)).toEqual([
+    "event.fixture_first",
+    "event.fixture_second",
+  ]);
+});
+```
+
+- [ ] **Step 2: Run and confirm missing rule/resolver implementations**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/rules-resolvers.test.ts`
+
+Expected: FAIL with missing rules/resolvers.
+
+- [ ] **Step 3: Implement exact pure factories**
+
+```ts
+export interface PocRulesV1 {
+  readonly demand: PocDemandRulesV1;
+  readonly settlement: PocTavernSettlementResolverV1;
+  readonly check: PocCheckResolverV1;
+  readonly ending: PocEndingRuleV1;
+  readonly scheduling: PocSchedulingResolverV1;
+}
+
+export function createPocRulesV1(
+  data: DeepReadonly<PocSimulationDataV1>,
+): DeepReadonly<PocRulesV1> {
+  return deepFreeze({
+    demand: createPocDemandRulesV1(data),
+    settlement: createPocTavernSettlementResolverV1(data),
+    check: createPocCheckResolverV1(data),
+    ending: createPocEndingRuleV1(data),
+    scheduling: createPocSchedulingResolverV1(data),
+  });
+}
+```
+
+Demand materializes stable per-day/segment offsets and previews ranges. Settlement calculates capacity, sales, ingredient cost, revenue, discard, modifiers, and effect/ledger drafts. Check describes and resolves threshold/2D6 outcomes. Ending returns only progression effects. Scheduling evaluates the frozen trigger order and returns event requests; it never dispatches or mutates.
+
+- [ ] **Step 4: Run deterministic, mutation, and schema tests**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/rules-resolvers.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; same seed/input returns identical output and draw trace, invalid outputs/thenables are rejected by strict schemas, inputs remain byte-identical, and no rule accesses platform globals.
+
+- [ ] **Step 5: Commit Rules and Resolvers**
+
+```bash
+git add -- game/stories/poc/src/gameplay/rules game/stories/poc/src/gameplay/resolvers game/stories/poc/src/test/rules-resolvers.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add gameplay rules and resolvers"
+```
+
+## Task 9: Implement the Candidate Transaction and Exhaustive Effect Router
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/transaction/candidate.ts`
+- Create: `game/stories/poc/src/gameplay/transaction/effect-router.ts`
+- Create: `game/stories/poc/src/test/transaction.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: ten module bindings, `PocEffectIntentV1`, owner operations/proposals, transactional RNG, aggregate State schema, and stable reference validators.
+- Produces: `PocTransactionCandidateV1`, `createPocTransactionCandidateV1`, `routePocEffectBatchV1`, exact effect-owner table, ordered GameplayFact/ledger accumulation, `commitPocCandidateV1`, and rollback diagnostics.
+
+- [ ] **Step 1: Write failing atomicity and exhaustive-owner tests**
+
+```ts
+it("maps every effect kind to exactly one owner", () => {
+  expect(Object.keys(pocEffectOwnerByKindV1).sort()).toEqual([...pocEffectIntentKindsV1].sort());
+});
+
+it("rolls back an earlier valid effect when a later effect rejects", () => {
+  const fixture = createPocGameplayFixtureV1();
+  const candidate = createPocTransactionCandidateV1(fixture.snapshot, fixture.program);
+  const result = routePocEffectBatchV1(candidate, [
+    { kind: "calendar.ap.adjust", delta: 1, reason: fixtureReasonV1() },
+    { kind: "inventory.consume", lines: impossibleConsumeFixtureV1(), source: fixtureSourceV1() },
+  ]);
+  expect(result.kind).toBe("rejected");
+  expect(candidate.snapshot()).toBe(fixture.snapshot);
+  expect(candidate.gameplayFacts()).toEqual([]);
+});
+```
+
+- [ ] **Step 2: Run and confirm missing transaction files**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/transaction.test.ts`
+
+Expected: FAIL because candidate/effect router do not exist.
+
+- [ ] **Step 3: Implement the non-public writable candidate**
+
+```ts
+export interface PocEffectBatchResultV1 {
+  readonly kind: "applied" | "rejected";
+  readonly rejection?: PocRejectionReasonV1;
+}
+
+export function routePocEffectBatchV1(
+  candidate: PocTransactionCandidateV1,
+  effects: readonly DeepReadonly<PocEffectIntentV1>[],
+): PocEffectBatchResultV1;
+```
+
+The candidate clones State/RNG once, retains RunIntegrity only as an opaque reference for the final envelope, exposes only owner-scoped internal methods, applies effects in authored order, validates source/reference before semantic proposal, accumulates facts once, and commits only after complete aggregate schema/invariant validation. It never passes integrity to a Rule, Resolver, owner, Query, or projector, and normal Gameplay can only reattach the exact input reference. No candidate or owner capability is exported from the Story default entry, GameSimulation, GameQueries, SemanticGamePort, or UI.
+
+- [ ] **Step 4: Run transaction and property checks**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/transaction.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; all effect kinds are exhaustive, later failure rolls back all prior effects/RNG/facts, and success preserves authored fact/ledger order.
+
+- [ ] **Step 5: Commit the transaction layer**
+
+```bash
+git add -- game/stories/poc/src/gameplay/transaction game/stories/poc/src/test/transaction.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): add atomic effect transactions"
+```
+
+## Task 10: Implement Core Lifecycle, Action, Calendar, and Narrative Commands
+
+**Files:**
+
+- Create: `game/stories/poc/src/gameplay/game-command-executor.ts`
+- Create: `game/stories/poc/src/test/command-executor-core.test.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/types.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: transaction candidate/router, ten module bindings, Rules/Resolvers, `PocGameCommandV1`, execution-attempt envelopes, and aggregate invariants.
+- Produces: `PocGameCommandExecutorV1`, `createPocGameCommandExecutorV1(program)`, and complete handling for `run.start`, `policy.choose`, `inventory.buy`, `actor.prepare_food`, `actor.rest`, `story.action.start`, `facility.choose`, `tavern.plan.set`, `narrative.advance`, `narrative.choose`, and `calendar.advance_phase`.
+
+- [ ] **Step 1: Write failing same-attempt and core-command tests**
+
+```ts
+it("executes each admitted command exactly once and commits one sequence", () => {
+  const fixture = createPocGameplayFixtureV1();
+  const executor = createPocGameCommandExecutorV1(fixture.program);
+  const attempt = executor.executeAttempt(fixture.snapshot, { kind: "run.start" }, undefined);
+  expect(attempt.result).toMatchObject({ kind: "committed" });
+  if (attempt.result.kind === "committed") {
+    expect(attempt.result.snapshot.commandSequence).toBe(fixture.snapshot.commandSequence + 1);
+    expect(attempt.result.snapshot.state.simulation.run.status).toBe("setup");
+    expect(attempt.result.snapshot.state.story.narrative.source?.kind).toBe("manifest_start");
+  }
+});
+
+it("preserves the exact input Snapshot for rejection", () => {
+  const fixture = createPocGameplayFixtureV1();
+  const executor = createPocGameCommandExecutorV1(fixture.program);
+  const attempt = executor.executeAttempt(
+    fixture.snapshot,
+    { kind: "policy.choose", policyId: parsePolicyId("policy.fixture") },
+    undefined,
+  );
+  expect(attempt.result.kind).toBe("rejected");
+  expect(attempt.result.snapshot).toBe(fixture.snapshot);
+  expect(attempt.diagnostics.candidateRngAfter).toEqual(fixture.snapshot.rng);
+  expect(attempt.diagnostics.committedRngAfter).toBe(fixture.snapshot.rng);
+});
+
+it("treats modified RunIntegrity as opaque during normal gameplay", () => {
+  const fixture = createPocGameplayFixtureV1({ integrity: "modified" });
+  const executor = createPocGameCommandExecutorV1(fixture.program);
+  const attempt = executor.executeAttempt(fixture.snapshot, { kind: "actor.rest" }, undefined);
+  expect(attempt.result.kind).toBe("committed");
+  if (attempt.result.kind === "committed") {
+    expect(attempt.result.snapshot.integrity).toBe(fixture.snapshot.integrity);
+  }
+});
+```
+
+- [ ] **Step 2: Run and confirm the missing executor**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/command-executor-core.test.ts`
+
+Expected: FAIL because `game-command-executor.ts` does not exist.
+
+- [ ] **Step 3: Implement one exhaustive command switch and core handlers**
+
+```ts
+export interface PocGameCommandExecutorV1 extends GameCommandExecutorV1<
+  PocGameSnapshotV1,
+  PocGameCommandV1,
+  undefined,
+  PocCommandExecutionAttemptV1
+> {}
+
+export function createPocGameCommandExecutorV1(
+  program: DeepReadonly<PocSimulationProgramV1>,
+): PocGameCommandExecutorV1 {
+  return Object.freeze({
+    executeAttempt(snapshot, command, context) {
+      if (context !== undefined) throw new TypeError("PoC execution context must be undefined");
+      const parsed = pocGameCommandSchemaV1.parse(command);
+      return executePocCommandAttemptV1(snapshot, parsed, program);
+    },
+  });
+}
+```
+
+Implement the eleven named command handlers through the candidate. `run.start` consumes the exact demand RNG draws once and opens the manifest Narrative; policy selection follows that Narrative; calendar transition orders spoilage, Aura expiry, recovery, phase/day mutation, demand materialization, then scheduled events. Narrative effects route atomically. Preview logic is not duplicated here; Task 12 builds it from the same calculators and Rules.
+
+- [ ] **Step 4: Run all command vectors and repository checks**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/command-executor-core.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; committed/rejected/faulted attempts preserve exact Snapshot/RNG/sequence semantics, all eleven command kinds are handled, and no executor method exposes queries.
+
+- [ ] **Step 5: Commit the core executor**
+
+```bash
+git add -- game/stories/poc/src/gameplay/game-command-executor.ts game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/test/command-executor-core.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): execute core gameplay commands"
+```
+
+## Task 11: Complete Opening, WorldAction, and Levy Transactions
+
+**Files:**
+
+- Modify: `game/stories/poc/src/gameplay/game-command-executor.ts`
+- Create: `game/stories/poc/src/test/command-executor-workflows.test.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
+
+**Interfaces:**
+
+- Consumes: Task 10 executor, Opening/WorldAction/Ending inputs, Settlement/Check/Ending/Scheduling outputs, and all owner capabilities.
+- Produces: complete handling for `tavern.opening.start`, `tavern.opening.continue`, `tavern.opening.finalize`, `world.action.begin`, `world.action.complete`, and `levy.pay`; all 17 PoC command kinds are then exhaustive.
+
+- [ ] **Step 1: Write failing interruption, continuation, and terminal tests**
+
+```ts
+it("charges Opening costs once across a blocking interruption", () => {
+  const harness = createExecutorWorkflowFixtureV1();
+  const started = harness.commit({ kind: "tavern.opening.start" });
+  const baseline = started.state.simulation.tavern.activeOpening?.baseline;
+  const cashAfterStart = started.state.simulation.inventory.cash;
+  expect(started.state.story.narrative.source?.kind).toBe("opening_interrupt");
+
+  const continued = harness.from(started).commit({ kind: "tavern.opening.continue" });
+  expect(continued.state.simulation.inventory.cash).toBe(cashAfterStart);
+  expect(continued.state.simulation.tavern.activeOpening?.baseline).toEqual(baseline);
+});
+
+it("pays or records arrears and materializes one terminal completion", () => {
+  const paid = createLevyFixtureV1({ cash: 10 }).commit({ kind: "levy.pay" });
+  expect(paid.state.simulation.run.status).toBe("completed_stable");
+  expect(paid.state.simulation.run.completion?.levy.kind).toBe("paid");
+
+  const arrears = createLevyFixtureV1({ cash: 0 }).commit({ kind: "levy.pay" });
+  expect(arrears.state.simulation.run.status).toBe("failed_arrears");
+  expect(arrears.state.simulation.run.completion?.levy.kind).toBe("arrears");
+});
+```
+
+- [ ] **Step 2: Run and observe unhandled-command failures**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/command-executor-workflows.test.ts`
+
+Expected: FAIL with the stable unhandled command fault for the six remaining kinds.
+
+- [ ] **Step 3: Implement the six cross-owner transactions**
+
+Opening start validates plan/demand/Actors/Inventory, calls the Settlement preview, commits costs and immutable baseline, then arbitrates at most one blocking event. Continue only clears the explicit gap. Finalize calls settlement once, consumes prepared portions, applies revenue/discard/relationship/progression effects, appends one history row, and clears the workflow. WorldAction moves through exactly four stored progress values and records one check/effect set. Levy first proposes Inventory paid/arrears, then Ending/Progression, and finally Run completion; any failure rolls back all owners.
+
+```ts
+const assertNeverCommandV1 = (value: never): never => {
+  throw new TypeError(`unhandled PoC command: ${JSON.stringify(value)}`);
+};
+```
+
+The final switch ends in `assertNeverCommandV1(parsed)` so adding a command kind fails typecheck until it has a handler and vectors.
+
+- [ ] **Step 4: Run all executor, transaction, and full checks**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/command-executor-core.test.ts src/test/command-executor-workflows.test.ts src/test/transaction.test.ts && pnpm typecheck && pnpm verify`
+
+Expected: PASS; all 17 command kinds have commit/rejection vectors, applicable faults roll back, and Opening/WorldAction/terminal invariants pass strict JSON round-trip.
+
+- [ ] **Step 5: Commit workflow commands**
+
+```bash
+git add -- game/stories/poc/src/gameplay/game-command-executor.ts game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/test/command-executor-workflows.test.ts
+git commit -m "feat(story-poc): complete workflow transactions"
+```
+
+## Task 12: Assemble GameQueries, Replayable Debug Execution, GameView, and GameSimulation
+
+**Files:**
+
+- Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/types.ts`
+- Create: `game/stories/poc/src/gameplay/game-debug-command-executor.ts`
+- Create: `game/stories/poc/src/gameplay/game-queries.ts`
+- Create: `game/stories/poc/src/gameplay/game-view-projector.ts`
+- Create: `game/stories/poc/src/gameplay/game-simulation.ts`
+- Create: `game/stories/poc/src/test/game-debug-command-executor.test.ts`
+- Create: `game/stories/poc/src/test/game-queries.test.ts`
+- Create: `game/stories/poc/src/test/game-simulation.test.ts`
+- Create: `game/stories/poc/src/test/game-session-integration.test.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+
+**Interfaces:**
+
+- Consumes: all ten module bindings, complete State/Command/Fact/Rejection/replayable-Debug schemas, normal executor, transaction candidate, post-Hotfix `program.rules`, Rules/Resolvers, Base `BootstrapEntropyV1`, `GameDebugCommandExecutorV1`, `defineGameSimulation<PocGameSimulationTypesV1>()`, and test-only `createGameSessionV1` from `@sillymaker/base/runtime`.
+- Produces: fixed `pocGameplayModuleTupleV1`, `createPocGameBootstrapInputV1(entropy)`, `createInitialPocGameStateV1(program, bootstrap)`, `PocGameDebugCommandExecutorV1`, `createPocGameDebugCommandExecutorV1(program)`, `createPocGameQueriesV1(state, program)`, `projectPocGameViewV1(queries)`, `createPocGameSimulationV1(program)`, exact `PocGameQueriesV1`, `PocGameViewV1`, `PocGameSimulationV1`, and real-session integrity-preservation tests.
+
+- [ ] **Step 1: Write failing query/executor orthogonality tests**
+
+```ts
+it("creates queries separately from command execution", () => {
+  const fixture = createPocGameplayFixtureV1();
+  const simulation = createPocGameSimulationV1(fixture.program);
+  expect("createQueries" in simulation.commandExecutor).toBe(false);
+  expect("createQueries" in simulation.debugCommandExecutor).toBe(false);
+  const queries = simulation.createQueries(fixture.snapshot.state);
+  expect(queries.previewCommand({ kind: "actor.rest" })).toMatchObject({
+    allowed: true,
+  });
+  expect(simulation.projectGameView(queries)).toMatchObject({
+    hud: { day: 1, phase: "morning" },
+  });
+});
+
+it("owns exactly the ten replayable debug kinds and excludes anchors", () => {
+  expect(pocDebugCommandKindsV1).toEqual([
+    "debug.calendar.set_ap",
+    "debug.actor.set_stamina",
+    "debug.actor.set_mood",
+    "debug.relationship.set",
+    "debug.inventory.adjust_cash",
+    "debug.aura.apply",
+    "debug.aura.clear",
+    "debug.story.fact.set",
+    "debug.narrative.jump",
+    "debug.rng.set",
+  ]);
+  expect(
+    pocDebugCommandSchemaV1.safeParse({
+      kind: "debug.fixture.load",
+      fixtureId: "fixture.poc_contract",
+      seed: 1,
+    }).success,
+  ).toBe(false);
+});
+
+it("rejects a foreign binding and duplicate state owner", () => {
+  expect(() => createSimulationWithDuplicateRunV1()).toThrow(/state slot owner/u);
+  expect(() => createSimulationWithE2eBindingV1()).toThrow(/simulation type witness/u);
+});
+
+it("keeps engine-owned integrity out of Story queries and projections", () => {
+  expectTypeOf(createPocGameQueriesV1).parameter(0).toEqualTypeOf<DeepReadonly<PocGameStateV1>>();
+  expectTypeOf(createPocGameSimulationV1(createPocGameplayFixtureV1().program).projectGameView)
+    .parameter(0)
+    .toEqualTypeOf<PocGameQueriesV1>();
+  const fixture = createPocGameplayFixtureV1({ integrity: "modified" });
+  const queries = createPocGameQueriesV1(fixture.snapshot.state, fixture.program);
+  expect(projectPocGameViewV1(queries)).not.toHaveProperty("integrity");
+});
+
+it("draws bootstrap entropy exactly once in the frozen order", () => {
+  const entropy = createCountingBootstrapEntropyV1();
+  expect(createPocGameBootstrapInputV1(entropy.port)).toEqual({
+    rngSeed: entropy.expectedSeed,
+    runId: entropy.expectedRunId,
+  });
+  expect(entropy.calls()).toEqual(["nextNonZeroUint32", "nextUuidV4"]);
+});
+
+it("runs normal gameplay through a real GameSession without changing integrity", async () => {
+  const fixture = createPocGameplayFixtureV1({ integrity: "modified" });
+  const composition = createPocGameSessionFixtureV1(fixture);
+  await composition.session.dispatch({ kind: "actor.rest" });
+  expect(composition.executeAttemptCalls()).toBe(1);
+  expect(composition.session.getCurrentSnapshot().integrity).toBe(fixture.snapshot.integrity);
+});
+
+it.each(pocReplayableDebugCommandVectorsV1)(
+  "validates and executes $kind through its declared owner path",
+  ({ command, expectedOwner }) => {
+    const fixture = createPocGameplayFixtureV1();
+    const executor = createPocGameDebugCommandExecutorV1(fixture.program);
+    expect(executor.validate(fixture.snapshot, command, undefined)).toEqual({ kind: "allowed" });
+    const attempt = executor.executeAttempt(fixture.snapshot, command, undefined);
+    expect(attempt.result.kind).toBe("committed");
+    expect(attempt).not.toHaveProperty("result.reasons");
+    expect(ownerEvidenceFromDebugAttemptV1(attempt)).toEqual([expectedOwner]);
+    expect(attempt.result.snapshot.integrity).toBe(fixture.snapshot.integrity);
+  },
+);
+
+it("returns stable queue-front validation errors without opening an attempt", () => {
+  const fixture = createPocGameplayFixtureV1();
+  const executor = createCountingPocDebugExecutorV1(fixture.program);
+  const result = executor.validate(fixture.snapshot, unknownReasonDebugCommandV1(), undefined);
+  expect(result).toMatchObject({
+    kind: "validation_failed",
+    errors: [{ code: "debug.unknown_reference" }],
+  });
+  expect(executor.executeAttemptCalls()).toBe(0);
+});
+```
+
+- [ ] **Step 2: Run and confirm missing query/simulation files**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/game-debug-command-executor.test.ts src/test/game-queries.test.ts src/test/game-simulation.test.ts`
+
+Expected: FAIL because the replayable DebugCommand executor, GameQueries, projector, and GameSimulation are absent.
+
+- [ ] **Step 3: Implement immutable queries and preview parity**
+
+```ts
+export interface PocGameQueriesV1 {
+  previewCommand(command: DeepReadonly<PocGameCommandV1>): PocCommandPreviewV1;
+  availableActions(): readonly DeepReadonly<PocActionViewV1>[];
+  relationship(): DeepReadonly<PocRelationshipViewV1>;
+  inventory(): DeepReadonly<PocInventoryViewV1>;
+  tavern(): DeepReadonly<PocTavernViewV1>;
+  narrative(): DeepReadonly<PocNarrativeProjectionV1> | null;
+  completion(): DeepReadonly<RunCompletionV1> | null;
+}
+
+export function createPocGameQueriesV1(
+  state: DeepReadonly<PocGameStateV1>,
+  program: DeepReadonly<PocSimulationProgramV1>,
+): PocGameQueriesV1;
+```
+
+Every preview reuses the same guards, cost calculators, Rules/Resolvers, stable references, and confirmation metadata as execution without consuming RNG or mutating. Hidden actual demand/check results never appear before resolution. The Story-local query factory accepts Gameplay State rather than the full Snapshot, so it cannot inspect engine-owned RunIntegrity. The Story-local projector accepts only the already-created query object; it never receives Snapshot or creates a second query source.
+
+- [ ] **Step 4: Implement queue-front debug validation and owner-routed attempts**
+
+`createPocGameDebugCommandExecutorV1(program)` implements `GameDebugCommandExecutorV1` and exhaustively switches over the exact ten-kind `PocDebugCommandV1`. `validate` parses no structural input—that already happened at admission—but checks the latest queued Snapshot for reason/actor/Aura/Aura-instance/fact/Narrative references, range policies, Aura target/duration/conflict rules, and active-Narrative requirements. It returns all deterministic errors in authored validation order. A validation failure creates no candidate, consumes no RNG/sequence, and cannot enter CommandLog.
+
+```ts
+export interface PocGameDebugCommandExecutorV1 extends GameDebugCommandExecutorV1<
+  PocGameSnapshotV1,
+  PocDebugCommandV1,
+  undefined,
+  PocDebugCommandValidationErrorV1,
+  PocReplayableDebugExecutionAttemptV1
+> {}
+
+export function createPocGameDebugCommandExecutorV1(
+  program: DeepReadonly<PocSimulationProgramV1>,
+): PocGameDebugCommandExecutorV1;
+```
+
+Only an `allowed` command reaches `executeAttempt`, exactly once. The executor clones the same transaction candidate used by normal Gameplay and maps the command to Calendar, Actors, Status, Inventory, Progression, or Narrative owner proposals; `debug.rng.set` uses the candidate's debug-only RNG replacement primitive. It validates every proposal and aggregate invariant before commit. The result is only `committed` or `faulted`; an owner-level domain rejection after `allowed` is normalized to a stable engine contract fault, never exposed as a debug rejection. The executor reattaches the exact opaque input `integrity` reference and never calls `markRunModifiedV1`; `GameSession` owns that outer atomic mark after a committed replayable debug attempt.
+
+`pocReplayableDebugCommandVectorsV1` supplies one referentially complete allowed vector and at least one semantic validation-failure vector for each kind. Tests prove owner routing, no rejected result, no extra execution, rollback/RNG diagnostics on fault, and that `debug.fixture.load` is absent from the schema, executor, and vectors.
+
+- [ ] **Step 5: Define one closed GameSimulation**
+
+```ts
+export function createPocGameSimulationV1(
+  program: DeepReadonly<PocSimulationProgramV1>,
+): PocGameSimulationV1 {
+  const commandExecutor = createPocGameCommandExecutorV1(program);
+  const debugCommandExecutor = createPocGameDebugCommandExecutorV1(program);
+  return defineGameSimulation<PocGameSimulationTypesV1>()({
+    contractRevision: 1,
+    modules: pocGameplayModuleTupleV1,
+    stateSchema: pocGameStateSchemaV1,
+    commandSchema: pocGameCommandSchemaV1,
+    factSchema: pocGameplayFactSchemaV1,
+    rejectionSchema: pocRejectionReasonSchemaV1,
+    debugCommandSchema: pocDebugCommandSchemaV1,
+    debugValidationErrorSchema: pocDebugCommandValidationErrorSchemaV1,
+    commandExecutor,
+    debugCommandExecutor,
+    createBootstrapInput: createPocGameBootstrapInputV1,
+    createInitialState: (bootstrap) => createInitialPocGameStateV1(program, bootstrap),
+    createQueries: (state) => createPocGameQueriesV1(state, program),
+    projectGameView: (queries) => projectPocGameViewV1(queries),
+  });
+}
+```
+
+`pocGameplayModuleTupleV1` is the frozen ten-binding tuple in the exact ownership-catalog order; the bindings are static, so it accepts no `program`. `createPocGameBootstrapInputV1` calls `nextNonZeroUint32()` and then `nextUuidV4()` exactly once each, validates both values, and freezes the result. `createInitialPocGameStateV1` calls each binding's bootstrap-only `createInitialState` in that same fixed order, then applies any Story-data initialization through explicit owner initialization proposals derived from `program.data`; it never passes the complete program into a module or writes a slice directly. Finally it assembles the aggregate State and runs all aggregate schemas/invariants. GameSimulation validation also proves the program's Narrative limits are positive safe integers and the Narrative interpreter observes the exact `128`/`8` fixture values.
+
+The tuple is assembled only here; no module, Rule, Resolver, query, or executor imports `story-definition.ts`. `createPocRulesV1(data)` is used only by the default Story materializer and test fixtures. `createPocGameSimulationV1(program)` consumes the supplied, already frozen `program.rules` and must never regenerate Rules from data, otherwise a resolved Hotfix could be silently bypassed. GameSimulation validation proves descriptor/slot uniqueness, dependency closure/DAG, owner triads, aggregate schemas, both executors, and the same type witness. The debug command schema, validation-error schema, executor provider, owner-routing tables, and rule inputs are part of the simulation source projection; changing any of them must change `simulationDigest`, while fixture/tooling adapters must not enter it. Phase 4B's resolved-Story contract test verifies that split. The integration test composes the public GameSession factory around this exact simulation; test helpers may read Snapshot, but production Gameplay exports no Session or integrity mutation capability.
+
+- [ ] **Step 6: Run complete Phase 4A focused tests and full verification**
+
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test && pnpm typecheck && pnpm verify`
+
+Expected: PASS; all Gameplay tests pass, preview/execute rejection codes agree, the ten replayable debug kinds validate/route atomically without a rejected result, queries consume no RNG, and no old runtime ABI name or cross-layer import is present.
+
+- [ ] **Step 7: Commit GameSimulation**
+
+```bash
+git add -- game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/game-debug-command-executor.ts game/stories/poc/src/gameplay/game-queries.ts game/stories/poc/src/gameplay/game-view-projector.ts game/stories/poc/src/gameplay/game-simulation.ts game/stories/poc/src/test/game-debug-command-executor.test.ts game/stories/poc/src/test/game-queries.test.ts game/stories/poc/src/test/game-simulation.test.ts game/stories/poc/src/test/game-session-integration.test.ts game/stories/poc/src/gameplay/index.ts
+git commit -m "feat(story-poc): compose gameplay simulation"
+```
+
+## Task 13: Add the Read-Only Phase 4A Verification Gate
+
+**Files:**
+
+- Create: `scripts/verify-poc-gameplay.mts`
+- Create: `scripts/verify-poc-gameplay.test.mjs`
+- Modify: `package.json`
+- Modify: `game/stories/poc/package.json`
+
+**Interfaces:**
+
+- Consumes: all Phase 4A tests, Phase 2/3 gates, public-export/boundary/cycle/type checks, and the PoC package build.
+- Produces: `pnpm verify:poc-gameplay`, package script `test:gameplay`, and a deterministic read-only Phase 4A gate.
+
+- [ ] **Step 1: Write the failing exact-command-list test**
+
+```js
+// scripts/verify-poc-gameplay.test.mjs
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+test("owns a read-only Phase 4A command list", async () => {
+  const { pocGameplayVerificationCommandsV1 } = await import("./verify-poc-gameplay.mts");
+  assert.deepEqual(pocGameplayVerificationCommandsV1, [
+    ["pnpm", ["--filter", "@project-tavern/story-poc", "run", "test:gameplay"]],
+    ["pnpm", ["typecheck"]],
+    ["pnpm", ["verify:boundaries"]],
+    ["pnpm", ["verify:cycles"]],
+    ["pnpm", ["build"]],
+  ]);
+  assert(!JSON.stringify(pocGameplayVerificationCommandsV1).match(/update|regenerate/u));
+});
+
+test("keeps test:gameplay closed to Phase 4A files", async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../game/stories/poc/package.json", import.meta.url), "utf8"),
+  );
+  assert.equal(
+    packageJson.scripts["test:gameplay"],
+    "vitest run src/test/gameplay-contract.test.ts src/test/run-calendar.test.ts src/test/actors-status.test.ts src/test/inventory.test.ts src/test/facilities-tavern.test.ts src/test/workflow-progression.test.ts src/test/narrative.test.ts src/test/rules-resolvers.test.ts src/test/transaction.test.ts src/test/command-executor-core.test.ts src/test/command-executor-workflows.test.ts src/test/game-debug-command-executor.test.ts src/test/game-queries.test.ts src/test/game-simulation.test.ts src/test/game-session-integration.test.ts",
+  );
+});
+```
+
+- [ ] **Step 2: Run and confirm the missing verifier**
+
+Run: `node --test scripts/verify-poc-gameplay.test.mjs`
+
+Expected: FAIL because `verify-poc-gameplay.mts` and package scripts do not exist.
+
+- [ ] **Step 3: Implement the exact read-only gate**
+
+```ts
+const commandV1 = (args: readonly string[]) =>
+  Object.freeze(["pnpm", Object.freeze(args)] as const);
+
+export const pocGameplayVerificationCommandsV1 = Object.freeze([
+  commandV1(["--filter", "@project-tavern/story-poc", "run", "test:gameplay"]),
+  commandV1(["typecheck"]),
+  commandV1(["verify:boundaries"]),
+  commandV1(["verify:cycles"]),
+  commandV1(["build"]),
+] as const);
+```
+
+The runner executes sequentially, stops on first nonzero status, and never invokes a baseline writer. Set `test:gameplay` to the exact fifteen-file command frozen by the test above—never `vitest run src/test` or a glob—and root `verify:poc-gameplay` to the strip-only Node invocation.
+
+- [ ] **Step 4: Run the gate twice and prove no tracked mutation**
+
+Run:
+
+```bash
+before="$(git status --porcelain=v1)"
+pnpm verify:poc-gameplay
+pnpm verify
+pnpm verify:poc-gameplay
+after="$(git status --porcelain=v1)"
+test "$before" = "$after"
+git diff --check
+```
+
+Expected: all commands exit 0; the status comparison exits 0; no fixture, golden, lockfile, manifest, or source file is rewritten.
+
+- [ ] **Step 5: Commit only the Phase 4A gate**
+
+```bash
+git add -- scripts/verify-poc-gameplay.mts scripts/verify-poc-gameplay.test.mjs package.json game/stories/poc/package.json
+git commit -m "test(story-poc): add gameplay verification gate"
+```
+
+## Phase 4A Acceptance
+
+- [ ] All tavern-specific software in this phase is under `game/stories/poc/src/gameplay`; Base/UI/Web/E2E contain no PoC state, ID, rule, relationship, or tavern semantics.
+- [ ] Exactly ten stateful PoC GameplayModule bindings exist, with unique IDs/State Slots, one owner per non-empty slot, strict schemas, owner-local proposal/apply, and no writable aggregate state exposure.
+- [ ] Demand, Settlement, Check, Ending, Relationship transition, and Scheduling are named Rules/Resolvers; no wide Gameplay Service directory exists.
+- [ ] `PocGameCommandExecutorV1` handles all 17 commands through one candidate transaction and never owns or constructs GameQueries.
+- [ ] `PocDebugCommandV1` contains exactly the Contract Catalog's ten replayable kinds with PoC-local value/reference types; `debug.fixture.load` is absent. `PocGameDebugCommandExecutorV1` owns strict schemas, queue-front validation, owner routing, and committed/faulted-only attempts, and those sources enter simulation identity.
+- [ ] Replayable debug validation failure creates no candidate, RNG/sequence change, or log; allowed execution calls one attempt, preserves opaque RunIntegrity inside the Story executor, and leaves the Session to apply any successful modified-run mark.
+- [ ] Rejected/faulted attempts preserve the exact input Snapshot, RNG, integrity, and sequence; committed normal Gameplay applies once, preserves the exact opaque input integrity reference, and returns ordered GameplayFacts/ledger evidence from the same attempt. A real GameSession integration test proves the same behavior from dispatch through commit.
+- [ ] Opening interruption, WorldAction progress/check, phase scheduling, and levy terminal materialization are atomic and strict-JSON round-trippable.
+- [ ] `PocGameQueriesV1` is immutable, consumes no RNG, exposes no hidden results or Snapshot, and preview/execute use the same guards, calculators, and rejection codes.
+- [ ] `PocGameSimulationV1` closes the ten-module tuple, aggregate schemas, normal/debug executors, state-only query factory, query-only projector, bootstrap, and initial-state factory from one `PocGameSimulationTypesV1` witness.
+- [ ] No Story identity, SceneGraph, React, TextCatalog, asset, tooling, application, golden, or Save fixture is introduced before Phase 4B.
+- [ ] Phase 2 and Phase 3 prerequisite gates passed before Task 1, every task used exact-path staging/resume rules, and `pnpm-lock.yaml` remained byte-identical with no mid-Goal registry operation.
+- [ ] Narrative limits are program-owned and exactly `128` automatic nodes / `8` call frames in both fixture and concrete-program contracts; boundary tests prove the interpreter has no stale `64`/`4` literal.
+- [ ] `test:gameplay` is the exact fifteen-file Phase 4A leaf and remains unchanged when Phase 4B tests are later added.
+- [ ] `pnpm --filter @project-tavern/story-poc test:gameplay`, `pnpm verify:poc-gameplay`, and `pnpm verify` pass without changing tracked files.

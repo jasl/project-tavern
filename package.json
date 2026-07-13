@@ -10,7 +10,8 @@
   },
   "scripts": {
     "format:check": "prettier --check .",
-    "lint": "oxlint --type-aware --deny-warnings --react-plugin --import-plugin packages stories apps scripts",
+    "verify:docs": "node scripts/docs/verify-docs.mjs",
+    "lint": "oxlint --type-aware --deny-warnings --react-plugin --import-plugin engine game scripts",
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
     "verify:boundaries": "node scripts/verify-boundaries.mjs",
@@ -24,7 +25,7 @@
     "verify:bundle": "node scripts/verify-bundle.mjs",
     "verify:artifact": "node scripts/verify-artifact.mjs",
     "verify:release": "node scripts/verify-release.mjs",
-    "verify:ui": "pnpm --filter @project-tavern/ui test",
+    "verify:ui": "pnpm --filter @sillymaker/ui test",
     "test:unit": "vitest run --project unit",
     "test:contract": "vitest run --project contract",
     "test:property": "vitest run --project property",

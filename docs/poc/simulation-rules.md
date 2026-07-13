@@ -1,6 +1,6 @@
 # 七日 PoC 模拟规则与结算顺序
 
-> 本文负责七日 Story 的玩法语义、结算顺序和固定验收向量。Phase 2+ 术语、运行时所有权和命令边界以 `docs/superpowers/specs/2026-07-12-post-phase1-game-runtime-design.md` 为准，未被修订的通用原则继续来自 `docs/superpowers/specs/2026-07-10-react-game-harness-design.md`；`GameState`、Story 状态、GameplayFact、Snapshot/DebugBundle 等字段级 ABI 以 `docs/superpowers/specs/2026-07-10-engine-contract-catalog.md` 为准。本文的玩法描述不得重新定义 envelope 或全局合同。
+> 本文负责七日 Story 的玩法语义、结算顺序和固定验收向量。运行时所有权、Loader/Host、Hotfix、命令、持久化和诊断边界以 `docs/engineering/specs/2026-07-12-game-runtime-design.md` 为准；`GameState`、Story 状态、GameplayFact、Snapshot/DebugBundle 等字段级 ABI 以 `docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md` 为准。本文的玩法描述不得重新定义 envelope 或全局合同。
 
 状态：v0，待实现验证
 原则：所有规则必须确定、可保存、可解释、可测试

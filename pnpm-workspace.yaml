@@ -1,5 +1,6 @@
 packages:
-  - "packages/*"
-  - "stories/*"
-  - "apps/*"
+  - "engine/packages/*"
+  - "game/packages/*"
+  - "game/stories/*"
+  - "game/apps/*"
 onlyBuiltDependencies: []

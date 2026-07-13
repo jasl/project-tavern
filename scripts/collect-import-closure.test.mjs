@@ -8,12 +8,12 @@ import { collectManagedPaths } from "./collect-import-closure.mjs";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 test("keeps Developer code out of the Player closure", async () => {
   const player = await collectManagedPaths(root, [
-    "stories/sandbox/src/application/player-entry.tsx",
+    "game/stories/sandbox/src/application/player-entry.tsx",
   ]);
   const developer = await collectManagedPaths(root, [
-    "stories/sandbox/src/application/developer-entry.tsx",
+    "game/stories/sandbox/src/application/developer-entry.tsx",
   ]);
-  assert(!player.some((path) => path.startsWith("apps/web/src/developer/")));
-  assert(developer.includes("apps/web/src/developer/index.ts"));
+  assert(!player.some((path) => path.startsWith("engine/packages/web/src/developer/")));
+  assert(developer.includes("engine/packages/web/src/developer/index.ts"));
   assert(!player.some((path) => path.includes("/testkit/")));
 });

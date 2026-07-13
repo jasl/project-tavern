@@ -1,0 +1,99 @@
+{
+  "schemaRevision": 1,
+  "contractId": "project-tavern.goal-plan-set.v1",
+  "operatorEntrypoint": "docs/engineering/GOAL.md",
+  "executionProtocol": "docs/engineering/execution-protocol.md",
+  "roadmap": "docs/engineering/plans/2026-07-11-project-tavern-poc-roadmap.md",
+  "predecessorHandoffs": [
+    {
+      "id": "approved-poc-asset-pack",
+      "paths": [
+        "game/packages/assets/src/approved-poc-pack.ts",
+        "game/packages/assets/src/approved-poc-pack.test.ts"
+      ],
+      "verification": "pnpm exec vitest run game/packages/assets/src/approved-poc-pack.test.ts",
+      "mayBeEmpty": true
+    }
+  ],
+  "preGoal": [
+    {
+      "id": "phase0",
+      "path": "docs/engineering/plans/2026-07-12-project-tavern-00-goal-materialization.md",
+      "requires": ["approved-poc-asset-pack"],
+      "taskCount": 3,
+      "acceptanceHeading": "Materialization Acceptance"
+    }
+  ],
+  "mainGoal": [
+    {
+      "id": "phase2",
+      "path": "docs/engineering/plans/2026-07-11-project-tavern-02-modules-e2e-story.md",
+      "requires": ["phase0"],
+      "taskCount": 12,
+      "acceptanceHeading": "Phase 2 Acceptance"
+    },
+    {
+      "id": "phase3",
+      "path": "docs/engineering/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md",
+      "requires": ["phase2"],
+      "taskCount": 11,
+      "acceptanceHeading": "Phase 3 Acceptance"
+    },
+    {
+      "id": "phase4a",
+      "path": "docs/engineering/plans/2026-07-11-project-tavern-04a-poc-gameplay-simulation.md",
+      "requires": ["phase3"],
+      "taskCount": 13,
+      "acceptanceHeading": "Phase 4A Acceptance"
+    },
+    {
+      "id": "phase4b",
+      "path": "docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md",
+      "requires": ["phase4a"],
+      "taskCount": 13,
+      "acceptanceHeading": "Phase 4B Acceptance"
+    },
+    {
+      "id": "phase5a",
+      "path": "docs/engineering/plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md",
+      "requires": ["phase4b"],
+      "taskCount": 7,
+      "acceptanceHeading": "Phase 5A Acceptance"
+    },
+    {
+      "id": "phase5b",
+      "path": "docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md",
+      "requires": ["phase5a"],
+      "taskCount": 12,
+      "acceptanceHeading": "Phase 5B Acceptance"
+    },
+    {
+      "id": "phase5c",
+      "path": "docs/engineering/plans/2026-07-12-project-tavern-05c-tooling-automation-acceptance.md",
+      "requires": ["phase5b"],
+      "taskCount": 9,
+      "acceptanceHeading": "Phase 5C Acceptance"
+    },
+    {
+      "id": "phase6",
+      "path": "docs/engineering/plans/2026-07-11-project-tavern-06-local-artifact.md",
+      "requires": ["phase5c"],
+      "taskCount": 5,
+      "acceptanceHeading": "Phase 6 Acceptance"
+    }
+  ],
+  "postGoal": [
+    {
+      "id": "final-human-review",
+      "path": "docs/engineering/plans/2026-07-12-project-tavern-final-human-review.md",
+      "requires": ["phase6"]
+    }
+  ],
+  "deferred": [
+    {
+      "id": "remote-distribution",
+      "path": "docs/engineering/plans/2026-07-12-project-tavern-remote-distribution-deferred.md",
+      "requires": ["phase6"]
+    }
+  ]
+}

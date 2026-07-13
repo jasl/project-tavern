@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test-d.ts", "src/application/**"],
+  "references": [
+    { "path": "../../../engine/packages/base" },
+    { "path": "../../../engine/packages/ui" },
+    { "path": "../../packages/assets" },
+    { "path": "../../../engine/packages/web" }
+  ]
+}

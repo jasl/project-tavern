@@ -12,6 +12,7 @@ import {
 
 test("keeps the ordered core gate read-only", () => {
   assert.equal(coreVerificationCommandsV1[0]?.[1]?.[0], "format:check");
+  assert.equal(coreVerificationCommandsV1[1]?.[1]?.[0], "verify:docs");
   assert.equal(coreVerificationCommandsV1.at(-6)?.[1]?.[0], "build");
   assert(!coreVerificationCommandsV1.flat(2).some((value) => /update|regenerate/u.test(value)));
   assert(!coreVerificationCommandsV1.flat(2).includes("verify:toolchain"));
@@ -35,23 +36,23 @@ test("appends the five final browser owners in order", () => {
 test("discovers source tests without traversing workspace node_modules", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "tavern-vitest-discovery-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(join(root, "packages/example/src"), { recursive: true });
-  await mkdir(join(root, "packages/example/node_modules"), { recursive: true });
+  await mkdir(join(root, "engine/packages/base/src"), { recursive: true });
+  await mkdir(join(root, "engine/packages/base/node_modules"), { recursive: true });
   await mkdir(join(root, "scripts"), { recursive: true });
-  await writeFile(join(root, "packages/example/src/example.test.ts"), "export {};\n");
-  await symlink(root, join(root, "packages/example/node_modules/loop"));
-  assert.deepEqual(discoverVitestTestsV1(root), ["packages/example/src/example.test.ts"]);
+  await writeFile(join(root, "engine/packages/base/src/example.test.ts"), "export {};\n");
+  await symlink(root, join(root, "engine/packages/base/node_modules/loop"));
+  assert.deepEqual(discoverVitestTestsV1(root), ["engine/packages/base/src/example.test.ts"]);
 });
 
 test("rejects zero-owner and duplicate-list workspace tests", () => {
   assert.throws(
-    () => assertVitestOwnershipV1(["packages/x/src/a.test.ts"], { unit: [] }),
+    () => assertVitestOwnershipV1(["game/packages/x/src/a.test.ts"], { unit: [] }),
     /missing/u,
   );
   assert.throws(
     () =>
-      assertVitestOwnershipV1(["packages/x/src/a.test.ts"], {
-        unit: ["packages/x/src/a.test.ts", "packages/x/src/a.test.ts"],
+      assertVitestOwnershipV1(["game/packages/x/src/a.test.ts"], {
+        unit: ["game/packages/x/src/a.test.ts", "game/packages/x/src/a.test.ts"],
       }),
     /duplicate/u,
   );
