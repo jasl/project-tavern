@@ -2821,6 +2821,7 @@ Repair contract:
 
 - Modify: engine/packages/ui/src/shell/game-shell.tsx
 - Modify: engine/packages/ui/src/shell/game-shell.test.tsx
+- Create: engine/packages/ui/src/shell/styles.d.ts
 - Modify: engine/packages/ui/src/contributions/registry.ts
 - Modify: engine/packages/ui/src/contributions/registry.test.ts
 - Create: game/stories/e2e/src/application/e2e-application-root.tsx
