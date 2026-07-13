@@ -78,7 +78,10 @@ game/stories/e2e/src/
 - Create: engine/packages/base/src/runtime/session/run-integrity.test.ts
 - Modify: engine/packages/base/src/runtime/session/game-session.ts
 - Modify: engine/packages/base/src/runtime/session/game-session.test.ts
+- Modify: engine/packages/base/src/authoring/game-simulation-validation.test.ts
 - Modify: engine/packages/base/src/testkit/synthetic-counter.ts
+- Modify: game/stories/e2e/src/profile.ts
+- Modify: game/stories/e2e/src/property.test.ts
 - Modify: game/stories/e2e/src/gameplay/contracts/state.ts
 - Modify: game/stories/e2e/src/gameplay/game-command-executor.ts
 - Modify: game/stories/e2e/src/gameplay/game-command-executor.test.ts
@@ -239,7 +242,7 @@ Expected: fixture 与 semantic-flow golden 只增加 pristine integrity 和相�
 - [ ] **Step 6: Commit RunIntegrity**
 
 ```bash
-git add -- engine/packages/base/src/contracts/snapshot.ts engine/packages/base/src/contracts/snapshot.test.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/src/runtime/session engine/packages/base/src/testkit/synthetic-counter.ts engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/gameplay/contracts/state.ts game/stories/e2e/src/gameplay/game-command-executor.ts game/stories/e2e/src/gameplay/game-command-executor.test.ts game/stories/e2e/src/gameplay/game-debug-command-executor.ts game/stories/e2e/src/gameplay/game-debug-command-executor.test.ts game/stories/e2e/src/session.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json game/stories/e2e/scripts/update-golden.mts
+git add -- engine/packages/base/src/contracts/snapshot.ts engine/packages/base/src/contracts/snapshot.test.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/src/runtime/session engine/packages/base/src/authoring/game-simulation-validation.test.ts engine/packages/base/src/testkit/synthetic-counter.ts engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/profile.ts game/stories/e2e/src/property.test.ts game/stories/e2e/src/gameplay/contracts/state.ts game/stories/e2e/src/gameplay/game-command-executor.ts game/stories/e2e/src/gameplay/game-command-executor.test.ts game/stories/e2e/src/gameplay/game-debug-command-executor.ts game/stories/e2e/src/gameplay/game-debug-command-executor.test.ts game/stories/e2e/src/session.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json game/stories/e2e/scripts/update-golden.mts
 git diff --cached --check
 git commit -m "feat(base): track run integrity in snapshots"
 ```
