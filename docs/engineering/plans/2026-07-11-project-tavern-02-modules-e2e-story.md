@@ -2223,7 +2223,13 @@ export interface E2eSimulationProgramV1 extends E2eSimulationProgramInputV1 {
 }
 ```
 
-默认 provider 精确返回 left→1/right→2。官方 `choiceDeltaHotfixV1` 用 `supersedes` 替换同一公开 rule symbol，精确返回 left→1/right→3；Resolver capability 必须委托 resolved Program provider，不能保留另一个 hard-coded switch。这样 Hotfix 后右分支 counter 为 3、simulation digest 改变而 state-contract digest 不变。
+默认 provider 精确返回 left→1/right→2。官方 `choiceDeltaHotfixV1` 以默认 provider digest
+作为 target 的 `expectedProviderDigest` 替换同一公开 rule symbol，精确返回
+left→1/right→3；因为它替换的是 default provider 而不是先前 Hotfix，manifest 的
+`supersedes=[]`。只有后续 Hotfix 覆盖已经应用的 Hotfix 时才在 `supersedes` 中列出前一
+Hotfix ID。Resolver capability 必须委托 resolved Program provider，不能保留另一个
+hard-coded switch。这样 Hotfix 后右分支 counter 为 3、simulation digest 改变而
+state-contract digest 不变。
 
 Presentation PatchSurface 只提供一个 symbol 精确为 `text.catalogs` 的强类型 Text slot；其
 default/replacement value 都是完整 `TextCatalogSetV1`，替换后重新运行完整 catalog/fallback/
