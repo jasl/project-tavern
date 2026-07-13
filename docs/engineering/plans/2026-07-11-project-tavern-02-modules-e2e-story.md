@@ -367,6 +367,10 @@ git commit -m "refactor(base): replace profile with game simulation"
 
 **Files:**
 
+- Modify: docs/engineering/specs/2026-07-12-game-runtime-design.md
+- Modify: docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md
+- Modify: docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md
+- Inspect unchanged: engine/packages/base/src/contracts/canonical-json.ts
 - Modify: engine/packages/base/src/contracts/presentation.ts
 - Modify: engine/packages/base/src/contracts/presentation.test.ts
 - Modify: engine/packages/base/src/contracts/game-package.ts
@@ -555,6 +559,10 @@ it("keeps bit 31 and mixed masks as canonical positive uint32 values", () => {
 
 增加 type test，证明 resolver 返回值能够从具体 GamePackage 推断 gameSimulation、program、presentation 和 sceneGraph，而不需要 `specializeSandboxResolvedStoryV1` 这类 Story-owned 类型断言。该 type test 还必须从 public root 导入全部新增品牌 ID、descriptor、schema/parser 和 content-policy helper，证明 Base API 不要求 Story 导入内部文件。再加两组 determinism case：模块级 named Rule/Resolver 在两次 define 中保持同一引用时通过；重新创建的函数引用、冲突的 provider ID 或不同 source digest 必须返回稳定 determinism failure。SceneGraph 本身只是 Strict JSON data，不参与 executable-reference 比较。
 
+增加 Presentation 数值边界 tests：运行时 `NormalizedCoordinateV1`、`NormalizedExtentV1` 与 `PositiveFiniteNumber` 使用 ECMAScript binary64 `number`；拒绝 `NaN`、正负 Infinity 与 `-0`。Presentation canonical projection 将每个有限数值编码为带类型区分的 ECMAScript `Number::toString` shortest-round-trip 十进制字符串，再交给现有整数-only `canonicalJsonBytes`；`0.1`、`0.5`、`0.65`、普通整数和指数表示必须有冻结 reference vectors，对象键顺序不得改变 bytes，数值 `1` 与文本 `"1"` 不得碰撞。全局 `canonicalJsonBytes({ value: 0.5 })` 继续稳定抛 `number.not_integer`。
+
+resolver tests 还必须证明相同含小数 SceneGraph 的两次 define 可稳定通过；仅改变 SceneGraph 坐标或 Presentation Program 会改变 `presentationDigest`，但保持 `stateContractDigest` 与 `simulationDigest` 不变。resolved Presentation 与 SceneGraph 的 canonical projection 都进入 `presentationDigest`，不得只依赖 source/import-closure digest。
+
 - [ ] **Step 2: Run focused tests and confirm the Phase 1 composition gap**
 
 Run:
@@ -565,7 +573,7 @@ pnpm --filter @sillymaker/base exec vitest run src/contracts/presentation.test.t
 pnpm typecheck
 ```
 
-Expected: FAIL because ResolvedStoryV1 still drops uiSceneGraph, createProfile remains on the source facet, StoryTooling names do not exist, and the neutral presentation contracts are absent。
+Expected: FAIL because ResolvedStoryV1 still drops the SceneGraph, StoryTooling names do not exist, the resolver erases concrete facet types, and the neutral presentation/canonical-projection contracts are absent。
 
 - [ ] **Step 3: Implement the complete ResolvedGame lifecycle**
 
@@ -608,11 +616,15 @@ export interface ResolvedGameV1<
 }
 ```
 
-Resolver 顺序必须保持 define 两次确定性检查 → fresh patch registries → Hotfix → revoke → 两个 materializer 各一次 → validate/deep-freeze Programs → createGameSimulation 一次 → resolve assets/identities → freeze ResolvedGame。failure code story.profile_invalid 改为 story.simulation_invalid。
+Resolver 顺序必须保持 define 两次确定性检查 → fresh patch registries → Hotfix → revoke → 两个 materializer 各一次 → validate/deep-freeze Programs → createGameSimulation 一次 → resolve assets/identities → freeze ResolvedGame。Task 1 已冻结的 failure code `story.simulation_invalid` 保持不变，不得恢复任何 profile alias。
 
 define-twice 比较必须区分 data 与 executable provider：canonical JSON 只处理可序列化 data 和经 schema 验证的 provider descriptor，不得对函数 stringify。Rule/Resolver/lifecycle 等受控可执行值必须是具有 stable symbol ID 和 build source/import-closure digest 的 module-level named reference，两次 define 以 allowed descriptor keys、引用恒等与 digest 三重检查；最终 ResolvedGame 保留这些 Gameplay executable 并深冻结容器，不把函数替换为 JSON 占位符。ResolvedGame 只持有 data-only SceneGraph；Web renderer registry 不属于 default Story resolver/import closure。
 
 SceneGraph 只能取自第一次已验证 source definition 的 presentation facet，并随 ResolvedGame 深冻结；Application 不允许再次调用 Story define 或自行创建第二份 registry。
+
+Presentation 是全局整数-only Strict/Canonical JSON 的唯一有界数值例外。SceneGraph 的 normalized geometry 与 scale 保持 JS `number`，因为它们只服务于 Presentation、HitMap 与 DOM renderer，不进入 Gameplay State、Save、CommandLog 或 Replay。专用 canonical projection 递归验证 plain object/array、禁止 accessor、稀疏数组、循环、`undefined`、symbol、function、自定义 prototype、`NaN`、Infinity 与 `-0`；所有有限 number 先转换为带类型 tag 的 ECMAScript shortest-round-trip 十进制字符串，再通过现有 `canonicalJsonBytes`。`layout: StrictJsonObjectV1` 仍遵守普通整数限制；不得放宽 Save/Simulation/Hotfix/State 的 parser 或 digest 合同，不得增加 Decimal 依赖。
+
+`presentationDigest` 的规范投影必须包含 Story/source identity、presentation PatchSet、resolved Presentation Program、完整 SceneGraph 与 resolved Asset Pack identities。改变纯 Presentation 数据必须改变该 digest；同一变化不得改变 state-contract 或 simulation digest。
 
 同一 checkpoint 在 `contracts/presentation.ts` 冻结以下中性 ABI；全部 ID 使用现有 `Brand<string, ...>` 风格 parser，所有坐标必须是有限的 `[0, 1]` 数值，所有 descriptor 都是 Strict JSON 且不允许函数、JSX、DOM、Story Command、Narrative ID 或任意 callback：
 
@@ -889,7 +901,7 @@ Expected: 所有命令退出 0；ResolvedGame 类型无需强制 cast；SceneGra
 - [ ] **Step 5: Commit the resolved composition root**
 
 ```bash
-git add -- engine/packages/base/src/contracts/presentation.ts engine/packages/base/src/contracts/presentation.test.ts engine/packages/base/src/contracts/game-package.ts engine/packages/base/src/contracts/hotfix.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/authoring engine/packages/base/src/index.ts engine/packages/base/src/testkit engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/loader game/stories/sandbox
+git add -- docs/engineering/specs/2026-07-12-game-runtime-design.md docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md engine/packages/base/src/contracts/presentation.ts engine/packages/base/src/contracts/presentation.test.ts engine/packages/base/src/contracts/game-package.ts engine/packages/base/src/contracts/hotfix.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/authoring engine/packages/base/src/index.ts engine/packages/base/src/testkit engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/loader game/stories/sandbox
 git diff --cached --check
 git commit -m "refactor(base): resolve complete frozen games"
 ```
