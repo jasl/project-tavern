@@ -374,6 +374,8 @@ git commit -m "refactor(base): replace profile with game simulation"
 - Modify: engine/packages/base/src/authoring/define-game-package.ts
 - Rename: engine/packages/base/src/authoring/define-story-development-entry.ts → engine/packages/base/src/authoring/define-story-tooling-entry.ts
 - Rename: engine/packages/base/src/authoring/define-story-development-entry.test.ts → engine/packages/base/src/authoring/define-story-tooling-entry.test.ts
+- Modify: engine/packages/base/src/authoring/hotfix-resolver.ts
+- Modify: engine/packages/base/src/authoring/hotfix-resolver.test.ts
 - Modify: engine/packages/base/src/authoring/story-resolver.ts
 - Modify: engine/packages/base/src/authoring/story-resolver.test.ts
 - Modify: engine/packages/base/src/authoring/index.ts
