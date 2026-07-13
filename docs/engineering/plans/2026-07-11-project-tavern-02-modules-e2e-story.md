@@ -88,6 +88,7 @@ scripts/                         # updated story/build/fixture/artifact gates
 - Modify: engine/packages/base/src/authoring/patch-surface.ts
 - Modify: engine/packages/base/src/authoring/story-resolver.ts
 - Modify: engine/packages/base/src/contracts/game-package.ts
+- Modify: engine/packages/base/src/contracts/host.ts
 - Modify: engine/packages/base/src/contracts/hotfix.ts
 - Modify: engine/packages/base/src/contracts/index.ts
 - Modify: engine/packages/base/src/authoring/index.ts
@@ -96,6 +97,7 @@ scripts/                         # updated story/build/fixture/artifact gates
 - Modify: engine/packages/base/src/runtime/session/engine-session.test.ts
 - Modify: engine/packages/base/src/testkit/synthetic-counter.ts
 - Modify: engine/packages/base/src/testkit/synthetic-counter.test.ts
+- Modify: engine/packages/base/src/testkit/fixed-bootstrap-entropy.ts
 - Modify: engine/packages/base/src/testkit/story-contracts.ts
 - Modify: engine/packages/base/type-tests/phase1-consumer.test-d.ts
 - Modify: engine/packages/base/type-tests/public-exports.test-d.ts
@@ -355,7 +357,7 @@ Expected: 所有命令退出 0；public inventory 没有旧 ABI；synthetic coun
 - [ ] **Step 5: Commit the ABI migration**
 
 ```bash
-git add -- engine/packages/base/src/contracts engine/packages/base/src/authoring engine/packages/base/src/index.ts engine/packages/base/src/runtime/session/engine-session.ts engine/packages/base/src/runtime/session/engine-session.test.ts engine/packages/base/src/testkit/synthetic-counter.ts engine/packages/base/src/testkit/synthetic-counter.test.ts engine/packages/base/src/testkit/story-contracts.ts engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/loader/loader.tsx engine/packages/web/src/loader/loader.test.tsx game/stories/sandbox/scripts game/stories/sandbox/src/application/create-sandbox-application.ts game/stories/sandbox/src/application/create-sandbox-application.test.ts game/stories/sandbox/src/application/player-entry.tsx game/stories/sandbox/src/contracts.ts game/stories/sandbox/src/profile.ts game/stories/sandbox/src/session.ts game/stories/sandbox/src/property.test.ts game/stories/sandbox/src/story-contract.test.ts game/stories/sandbox/src/story-entry.ts game/stories/sandbox/src/walking-skeleton.test.ts package.json scripts/verify-phase2-checkpoint.mts scripts/verify-phase2-checkpoint.test.mjs scripts/run-script-tests.test.mjs
+git add -- engine/packages/base/src/contracts engine/packages/base/src/authoring engine/packages/base/src/index.ts engine/packages/base/src/runtime/session/engine-session.ts engine/packages/base/src/runtime/session/engine-session.test.ts engine/packages/base/src/testkit/fixed-bootstrap-entropy.ts engine/packages/base/src/testkit/synthetic-counter.ts engine/packages/base/src/testkit/synthetic-counter.test.ts engine/packages/base/src/testkit/story-contracts.ts engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/loader/loader.tsx engine/packages/web/src/loader/loader.test.tsx game/stories/sandbox/scripts game/stories/sandbox/src/application/create-sandbox-application.ts game/stories/sandbox/src/application/create-sandbox-application.test.ts game/stories/sandbox/src/application/player-entry.tsx game/stories/sandbox/src/contracts.ts game/stories/sandbox/src/profile.ts game/stories/sandbox/src/session.ts game/stories/sandbox/src/property.test.ts game/stories/sandbox/src/story-contract.test.ts game/stories/sandbox/src/story-entry.ts game/stories/sandbox/src/walking-skeleton.test.ts package.json scripts/verify-phase2-checkpoint.mts scripts/verify-phase2-checkpoint.test.mjs scripts/run-script-tests.test.mjs
 git diff --cached --name-status
 git diff --cached --check
 git commit -m "refactor(base): replace profile with game simulation"

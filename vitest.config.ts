@@ -8,6 +8,7 @@ import {
 
 const commonExclude = ["**/node_modules/**", "**/dist*/**", "**/*.test-d.ts"];
 export default defineConfig({
+  root: import.meta.dirname,
   test: {
     projects: [
       {
