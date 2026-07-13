@@ -6,12 +6,10 @@ import { parseNonZeroUint32 } from "@sillymaker/base";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 
 import { createSandboxSessionV1 } from "./session.js";
-import { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } from "./story-entry.js";
+import { sandboxStoryEntryV1 } from "./story-entry.js";
 
 async function run(seed: number, count: number): Promise<number> {
-  const { gameSimulation } = specializeSandboxResolvedStoryV1(
-    resolveStoryForTestV1(sandboxStoryEntryV1),
-  );
+  const { gameSimulation } = resolveStoryForTestV1(sandboxStoryEntryV1);
   const session = createSandboxSessionV1(gameSimulation, {
     rngSeed: parseNonZeroUint32(seed),
   });

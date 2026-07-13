@@ -13,14 +13,21 @@ type ValuesForSlotsV1<TSlots extends SlotRecordV1> = {
   readonly [TKey in keyof TSlots]: TSlots[TKey]["defaultValue"];
 };
 
-export interface PatchSurfaceV1<TValues> extends PatchSurfaceValueMapWitnessV1<TValues> {
+export interface PatchSurfaceV1<
+  TValues,
+  TSlots extends SlotRecordV1 = SlotRecordV1,
+> extends PatchSurfaceValueMapWitnessV1<TValues> {
   readonly surface: PatchSurfaceKindV1;
-  readonly slots: SlotRecordV1;
+  readonly slots: TSlots;
 }
 
-export function definePatchSlot<TKind extends PatchSymbolKindV1, TValue>(
-  slot: Omit<PatchSlotDescriptorV1<TKind, TValue>, "replaceable">,
-): PatchSlotDescriptorV1<TKind, TValue> {
+export function definePatchSlot<
+  const TSymbolId extends string,
+  TKind extends PatchSymbolKindV1,
+  TValue,
+>(
+  slot: Omit<PatchSlotDescriptorV1<TKind, TValue, TSymbolId>, "replaceable">,
+): PatchSlotDescriptorV1<TKind, TValue, TSymbolId> {
   if (!/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$/u.test(slot.symbolId)) {
     throw new TypeError("invalid Patch symbol ID");
   }
@@ -32,7 +39,7 @@ export function definePatchSlot<TKind extends PatchSymbolKindV1, TValue>(
 function defineSurface<TSlots extends SlotRecordV1>(
   surface: PatchSurfaceKindV1,
   slots: TSlots,
-): PatchSurfaceV1<ValuesForSlotsV1<TSlots>> & { readonly slots: TSlots } {
+): PatchSurfaceV1<ValuesForSlotsV1<TSlots>, TSlots> {
   const ids = Object.values(slots).map((slot) => slot.symbolId);
   if (new Set(ids).size !== ids.length) {
     throw new TypeError("duplicate Patch symbol ID");
@@ -55,12 +62,12 @@ function defineSurface<TSlots extends SlotRecordV1>(
 
 export function defineSimulationPatchSurface<TSlots extends SlotRecordV1>(
   slots: TSlots,
-): PatchSurfaceV1<ValuesForSlotsV1<TSlots>> & { readonly slots: TSlots } {
+): PatchSurfaceV1<ValuesForSlotsV1<TSlots>, TSlots> {
   return defineSurface("simulation", slots);
 }
 
 export function definePresentationPatchSurface<TSlots extends SlotRecordV1>(
   slots: TSlots,
-): PatchSurfaceV1<ValuesForSlotsV1<TSlots>> & { readonly slots: TSlots } {
+): PatchSurfaceV1<ValuesForSlotsV1<TSlots>, TSlots> {
   return defineSurface("presentation", slots);
 }

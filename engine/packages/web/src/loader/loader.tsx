@@ -1,33 +1,50 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from "react";
 import type {
+  BuildProvenanceV1,
   GameHostV1,
   GameBootstrapResolutionResultV1,
   GamePackageV1,
   HotfixEntryV1,
 } from "@sillymaker/base";
 import { canonicalJsonBytes, resolveGamePackageV1 } from "@sillymaker/base";
-import type { ResolvedStoryV1 } from "@sillymaker/base";
 import type { HostRecordMutationV1 } from "@sillymaker/base";
 
 export type { GameBootstrapResolutionResultV1 } from "@sillymaker/base";
 
 type BuildIdentity = Parameters<typeof resolveGamePackageV1>[2];
+type ResolvedGameForPackageV1<TSimulationFacet, TPresentationFacet> = Extract<
+  ReturnType<typeof resolveGamePackageV1<TSimulationFacet, TPresentationFacet>>,
+  { readonly kind: "resolved" }
+>["resolved"];
+type PatchSurfaceForFacetV1<TFacet> = TFacet extends {
+  readonly patchSurface: infer TPatchSurface;
+}
+  ? TPatchSurface
+  : unknown;
 const identityKey = "bootstrap.last-success" as HostRecordMutationV1["key"];
 
 export function createGameBootstrapControllerV1(input: {
   readonly host: GameHostV1;
   readonly buildIdentity: BuildIdentity;
 }) {
-  return async function bootstrap(
-    entry: GamePackageV1<unknown, unknown>,
-    hotfixes: readonly HotfixEntryV1[],
-  ): Promise<GameBootstrapResolutionResultV1<ResolvedStoryV1, ResolvedStoryV1["provenance"]>> {
+  return async function bootstrap<TSimulationFacet, TPresentationFacet>(
+    entry: GamePackageV1<TSimulationFacet, TPresentationFacet>,
+    hotfixes: readonly HotfixEntryV1<
+      PatchSurfaceForFacetV1<TSimulationFacet>,
+      PatchSurfaceForFacetV1<TPresentationFacet>
+    >[],
+  ): Promise<
+    GameBootstrapResolutionResultV1<
+      ResolvedGameForPackageV1<TSimulationFacet, TPresentationFacet>,
+      BuildProvenanceV1
+    >
+  > {
     const previous = await input.host.records.read("settings", identityKey);
     const last =
       previous === null
         ? null
-        : (JSON.parse(new TextDecoder().decode(previous.bytes)) as ResolvedStoryV1["provenance"]);
+        : (JSON.parse(new TextDecoder().decode(previous.bytes)) as BuildProvenanceV1);
     const baseResult = resolveGamePackageV1(entry, [], input.buildIdentity);
     if (baseResult.kind === "failed") {
       return Object.freeze({

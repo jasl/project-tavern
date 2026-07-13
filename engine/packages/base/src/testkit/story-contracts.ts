@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { GamePackageV1 } from "../contracts/game-package.js";
-import type { ResolvedStoryV1 } from "../authoring/story-resolver.js";
 import { resolveGamePackageV1 } from "../authoring/story-resolver.js";
 import { deterministicBuildIdentityInputV1 } from "./resolver-fixtures.js";
 
-export function resolveStoryForTestV1(entry: GamePackageV1<unknown, unknown>): ResolvedStoryV1 {
+export function resolveStoryForTestV1<TSimulationFacet, TPresentationFacet>(
+  entry: GamePackageV1<TSimulationFacet, TPresentationFacet>,
+) {
   const result = resolveGamePackageV1(entry, [], deterministicBuildIdentityInputV1);
   if (result.kind === "failed") {
     throw new TypeError(`${result.failure.code}: ${String(result.failure.details.message)}`);
@@ -12,6 +13,8 @@ export function resolveStoryForTestV1(entry: GamePackageV1<unknown, unknown>): R
   return result.resolved;
 }
 
-export function validateStoryV1(entry: GamePackageV1<unknown, unknown>): void {
+export function validateStoryV1<TSimulationFacet, TPresentationFacet>(
+  entry: GamePackageV1<TSimulationFacet, TPresentationFacet>,
+): void {
   resolveStoryForTestV1(entry);
 }

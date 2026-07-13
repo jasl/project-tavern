@@ -2,11 +2,16 @@
 import { defineGamePackage } from "../authoring/define-game-package.js";
 import { defineGameSimulation } from "../authoring/define-game-simulation.js";
 import { defineGameplayModule } from "../authoring/define-gameplay-module.js";
+import {
+  definePresentationPatchSurface,
+  defineSimulationPatchSurface,
+} from "../authoring/patch-surface.js";
+import type { AssetSlotDefinitionV1 } from "../contracts/assets.js";
 import { commitAttemptV1, faultAttemptV1, rejectAttemptV1 } from "../contracts/execution.js";
 import type { CommandExecutionAttemptEnvelopeV1 } from "../contracts/execution.js";
 import type {
   GamePackageV1,
-  PatchSurfaceValueMapWitnessV1,
+  StateContractManifestV1,
   StoryDefinitionV1,
 } from "../contracts/game-package.js";
 import type {
@@ -18,6 +23,8 @@ import type {
 import { createTransactionalRngV1, rngStateV1Schema } from "../contracts/rng.js";
 import type { RngDrawTraceV1, RngStateV1 } from "../contracts/rng.js";
 import type { GameSnapshotEnvelopeV1 } from "../contracts/snapshot.js";
+import { parseStageSceneGraphV1 } from "../contracts/presentation.js";
+import type { StageSceneGraphV1 } from "../contracts/presentation.js";
 import type { RuntimeSchemaV1 } from "../contracts/values.js";
 import {
   parseModuleId,
@@ -375,28 +382,140 @@ function createGameSimulation(): SyntheticGameSimulationV1 {
   });
 }
 
-interface EmptyPatchSurfaceV1 extends PatchSurfaceValueMapWitnessV1<Record<never, never>> {}
+const emptySimulationPatchSurfaceV1 = defineSimulationPatchSurface({});
+const emptyPresentationPatchSurfaceV1 = definePresentationPatchSurface({});
 
 interface SyntheticSimulationProgramV1 {
   readonly kind: "synthetic-counter";
 }
 
+export function createSyntheticStageSceneGraphV1(): StageSceneGraphV1 {
+  return parseStageSceneGraphV1({
+    stageScenes: [
+      {
+        stageSceneId: "stage_scene.synthetic.counter",
+        variantIds: ["stage_scene_variant.synthetic.counter.default"],
+        defaultVariantId: "stage_scene_variant.synthetic.counter.default",
+      },
+    ],
+    variants: [
+      {
+        stageSceneId: "stage_scene.synthetic.counter",
+        variantId: "stage_scene_variant.synthetic.counter.default",
+        rendererId: "renderer.synthetic.stage",
+        accessibleNameTextId: "text.synthetic.stage.name",
+        backgroundAssetId: "asset.synthetic.stage.background",
+        layout: { kind: "synthetic_stage" },
+        actors: [
+          {
+            characterId: "character.synthetic.figure",
+            anchor: { x: 0.5, y: 0.75 },
+            scale: 1,
+          },
+        ],
+        interactionSurfaces: [],
+        content: { requiredFlags: 0 },
+      },
+    ],
+    characters: [
+      {
+        characterId: "character.synthetic.figure",
+        accessibleNameTextId: "text.synthetic.character.name",
+        defaultRigId: "character_rig.synthetic.figure",
+      },
+    ],
+    characterRigs: [
+      {
+        rigId: "character_rig.synthetic.figure",
+        rendererId: "renderer.synthetic.character",
+        poseIds: ["character_pose.synthetic.idle"],
+        expressionIds: ["character_expression.synthetic.neutral"],
+        activityIds: [],
+        appearanceLayerOrder: [],
+        defaultHitMapId: null,
+        poseHitMapOverrides: [],
+        staticFallbackAssetId: "asset.synthetic.character.fallback",
+        fallbackHitMapCompatibility: "incompatible",
+      },
+    ],
+    hitMaps: [],
+    interactionSurfaces: [],
+    interactionTargets: [],
+    interactionBehaviors: [],
+    contentMaturityPolicy: {
+      policyRevision: 1,
+      flags: [],
+      presets: [],
+      defaultAllowedFlags: 0,
+    },
+  });
+}
+
+const syntheticAssetSlotsV1 = Object.freeze([
+  Object.freeze({
+    assetId: "asset.synthetic.stage.background",
+    kind: "background" as const,
+    usage: "scene_background" as const,
+    overridePolicy: "replaceable" as const,
+    fallbackToken: "fallback.synthetic.stage.background",
+    width: parsePositiveSafeInteger(1),
+    height: parsePositiveSafeInteger(1),
+    loadGroup: "bootstrap" as const,
+    safeArea: null,
+    pivot: null,
+  }),
+  Object.freeze({
+    assetId: "asset.synthetic.character.fallback",
+    kind: "character" as const,
+    usage: "character_pose" as const,
+    overridePolicy: "replaceable" as const,
+    fallbackToken: "fallback.synthetic.character",
+    width: parsePositiveSafeInteger(1),
+    height: parsePositiveSafeInteger(1),
+    loadGroup: "scene" as const,
+    safeArea: null,
+    pivot: null,
+  }),
+]) satisfies readonly AssetSlotDefinitionV1[];
+
+const syntheticStateContractManifestV1 = Object.freeze({
+  contractRevision: 1 as const,
+  aggregateStateSchema: Object.freeze({
+    schemaId: "schema.synthetic.game-state",
+    revision: parsePositiveSafeInteger(1),
+  }),
+  moduleStateSchemas: Object.freeze([
+    Object.freeze({
+      moduleId: parseModuleId("synthetic.counter"),
+      moduleContractRevision: parsePositiveSafeInteger(1),
+      stateSlots: Object.freeze([parseStateSlotId("simulation.counter")]),
+      stateSchema: Object.freeze({
+        schemaId: "schema.synthetic.counter-state",
+        revision: parsePositiveSafeInteger(1),
+      }),
+    }),
+  ]),
+  persistentIrSchemas: Object.freeze([]),
+  stableReferenceSets: Object.freeze([]),
+}) satisfies StateContractManifestV1;
+
 type SyntheticDefinitionV1 = StoryDefinitionV1<
   {
     readonly stateContractRevision: ReturnType<typeof parsePositiveSafeInteger>;
+    readonly stateContractManifest: typeof syntheticStateContractManifestV1;
     readonly data: Readonly<Record<never, never>>;
     readonly rules: Readonly<Record<never, never>>;
     readonly narrativeProgram: null;
-    readonly patchSurface: EmptyPatchSurfaceV1;
+    readonly patchSurface: typeof emptySimulationPatchSurfaceV1;
     materializeProgram(values: Readonly<Record<never, never>>): SyntheticSimulationProgramV1;
     createGameSimulation(program: SyntheticSimulationProgramV1): SyntheticGameSimulationV1;
   },
   {
-    readonly uiSceneGraph: null;
+    readonly uiSceneGraph: StageSceneGraphV1;
     readonly textCatalogs: readonly [];
-    readonly assetSlots: readonly [];
+    readonly assetSlots: typeof syntheticAssetSlotsV1;
     readonly assetPacks: readonly [];
-    readonly patchSurface: EmptyPatchSurfaceV1;
+    readonly patchSurface: typeof emptyPresentationPatchSurfaceV1;
     materializePresentation(values: Readonly<Record<never, never>>): {
       readonly kind: "synthetic-presentation";
     };
@@ -407,23 +526,23 @@ export function createSyntheticCounterGamePackageV1(): GamePackageV1<
   SyntheticDefinitionV1["simulation"],
   SyntheticDefinitionV1["presentation"]
 > {
-  const emptySurface: EmptyPatchSurfaceV1 = Object.freeze({});
   const definition: SyntheticDefinitionV1 = Object.freeze({
     simulation: Object.freeze({
       stateContractRevision: parsePositiveSafeInteger(1),
+      stateContractManifest: syntheticStateContractManifestV1,
       data: Object.freeze({}),
       rules: Object.freeze({}),
       narrativeProgram: null,
-      patchSurface: emptySurface,
+      patchSurface: emptySimulationPatchSurfaceV1,
       materializeProgram: () => Object.freeze({ kind: "synthetic-counter" }),
       createGameSimulation: () => createGameSimulation(),
     }),
     presentation: Object.freeze({
-      uiSceneGraph: null,
+      uiSceneGraph: createSyntheticStageSceneGraphV1(),
       textCatalogs: Object.freeze([]) as readonly [],
-      assetSlots: Object.freeze([]) as readonly [],
+      assetSlots: syntheticAssetSlotsV1,
       assetPacks: Object.freeze([]) as readonly [],
-      patchSurface: emptySurface,
+      patchSurface: emptyPresentationPatchSurfaceV1,
       materializePresentation: () => Object.freeze({ kind: "synthetic-presentation" }),
     }),
   });

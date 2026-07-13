@@ -5,8 +5,12 @@ import type { Digest, PositiveSafeInteger } from "./values.js";
 export type PatchSurfaceKindV1 = "simulation" | "presentation";
 export type PatchSymbolKindV1 = "rule" | "value" | "text" | "asset";
 
-export interface PatchSlotDescriptorV1<TKind extends PatchSymbolKindV1, TValue> {
-  readonly symbolId: string;
+export interface PatchSlotDescriptorV1<
+  TKind extends PatchSymbolKindV1,
+  TValue,
+  TSymbolId extends string = string,
+> {
+  readonly symbolId: TSymbolId;
   readonly kind: TKind;
   readonly replaceable: true;
   readonly contractRevision: PositiveSafeInteger;
@@ -36,17 +40,51 @@ export interface HotfixManifestV1 {
   readonly supersedes: readonly string[];
 }
 
-export interface HotfixEntryV1 {
-  readonly manifest: HotfixManifestV1;
-  readonly sourceDigest: Digest;
-  install(context: {
-    readonly simulation: PatchReplacementPortV1;
-    readonly presentation: PatchReplacementPortV1;
-  }): void;
+export type PatchReplacementValuesV1<TPatchSurface> =
+  TPatchSurface extends Readonly<{ readonly slots: infer TSlots }>
+    ? TSlots extends Readonly<Record<string, unknown>>
+      ? {
+          readonly [
+            TKey in keyof TSlots as TSlots[TKey] extends Readonly<{
+              readonly symbolId: infer TSymbolId extends string;
+            }>
+              ? TSymbolId
+              : never
+          ]: TSlots[TKey] extends Readonly<{ readonly defaultValue: infer TValue }>
+            ? TValue
+            : never;
+        }
+      : Readonly<Record<string, unknown>>
+    : Readonly<Record<string, unknown>>;
+
+export interface PatchReplacementPortV1<
+  TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
+> {
+  replace<TSymbolId extends Extract<keyof TValues, string>>(
+    symbolId: TSymbolId,
+    value: TValues[TSymbolId],
+  ): void;
 }
 
-export interface PatchReplacementPortV1 {
-  replace(symbolId: string, value: unknown): void;
+export interface HotfixInstallContextV1<
+  TSimulationPatchSurface = unknown,
+  TPresentationPatchSurface = unknown,
+> {
+  readonly simulation: PatchReplacementPortV1<PatchReplacementValuesV1<TSimulationPatchSurface>>;
+  readonly presentation: PatchReplacementPortV1<
+    PatchReplacementValuesV1<TPresentationPatchSurface>
+  >;
+}
+
+export interface HotfixEntryV1<
+  TSimulationPatchSurface = unknown,
+  TPresentationPatchSurface = unknown,
+> {
+  readonly manifest: HotfixManifestV1;
+  readonly sourceDigest: Digest;
+  install(
+    context: HotfixInstallContextV1<TSimulationPatchSurface, TPresentationPatchSurface>,
+  ): void;
 }
 
 export interface AppliedHotfixV1 {

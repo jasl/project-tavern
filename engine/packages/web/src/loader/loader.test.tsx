@@ -116,6 +116,10 @@ describe("Loader", () => {
     expect(ready.kind).toBe("ready");
     if (ready.kind !== "ready") throw new TypeError("expected ready");
     expect(ready.base).toBe(ready.resolved);
+    expect(ready.resolved.presentation).toEqual({ kind: "synthetic-presentation" });
+    expect(ready.resolved.sceneGraph.stageScenes).toEqual([
+      expect.objectContaining({ stageSceneId: "stage_scene.synthetic.counter" }),
+    ]);
     expect(await host.records.list("settings")).toHaveLength(1);
   });
 });

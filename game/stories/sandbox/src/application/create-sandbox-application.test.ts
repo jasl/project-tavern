@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { createWebHostV1 } from "@sillymaker/web";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import { createSandboxApplicationV1 } from "./create-sandbox-application.js";
-import { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } from "../story-entry.js";
+import { sandboxStoryEntryV1 } from "../story-entry.js";
 
 describe("Sandbox Player application", () => {
   it("composes five narrow ports with storage unavailable and rescue export", async () => {
     const application = createSandboxApplicationV1({
-      resolved: specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)),
+      resolved: resolveStoryForTestV1(sandboxStoryEntryV1),
       host: createWebHostV1({
         seeds: [0x0002_3049],
         uuids: ["00000000-0000-4000-8000-000000000001"],

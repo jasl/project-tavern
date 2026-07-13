@@ -114,7 +114,11 @@ interface BeforeAfterV1<T> {
 
 ### 2.1 数值、摘要与时间
 
-所有 JSON number 必须是 `Number.isSafeInteger` 为真的整数。状态资源不能借由负数表达欠款；变化量单独使用有符号整数。
+除本节后述的 Presentation-only 数值投影外，所有 `StrictJsonValueV1` 与全局 Canonical JSON 中的 number 必须是 `Number.isSafeInteger` 为真的整数。状态资源不能借由负数表达欠款；变化量单独使用有符号整数。
+
+StageScene/Character/HitMap 等 Presentation descriptor 的归一化坐标、尺寸和 scale 使用 ECMAScript binary64 `number`，不引入十进制定点或 Decimal 运行时。归一化坐标范围为 `[0,1]`，归一化尺寸范围为 `(0,1]`，scale 必须为正有限数；所有 Presentation 数值均拒绝 `NaN`、正负 Infinity 和 `-0`。这些 typed Presentation 字段不是 `StrictJsonValueV1` 的整数逃逸口；例如 `layout`、`details` 等显式声明为 `StrictJsonObjectV1` 的字段仍只允许 safe integer。
+
+resolved Presentation Program 与完整 SceneGraph 使用独立的 Presentation canonical projection：递归地以 value-kind tag 区分 null、boolean、string、number、array 与 object；每个有限 number 由 ECMAScript `Number::toString` 的 shortest-round-trip 十进制结果编码为 string，再把整个 tagged tree 交给既有整数-only Canonical JSON encoder。对象键按既有 UTF-8 规则排序，因此 source property order 不影响 bytes，number `1` 与 string `"1"` 不碰撞。该投影只用于 define-twice Presentation data 比较及 `presentationDigest`；不能用于 Snapshot、State、Command、GameplayFact、Save、DebugBundle 或任何 simulation/state-contract identity。
 
 ```ts
 type SafeInteger = Brand<number, "SafeInteger">;
@@ -2878,6 +2882,31 @@ interface PatchSurfaceValueMapWitnessV1<TValues> {
 type ResolvedPatchValuesV1<TSurface> =
   TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues> ? TValues : never;
 
+interface StateContractSchemaManifestV1 {
+  readonly schemaId: string;
+  readonly revision: PositiveSafeInteger;
+}
+
+interface StateContractModuleManifestV1 {
+  readonly moduleId: ModuleId;
+  readonly moduleContractRevision: PositiveSafeInteger;
+  readonly stateSlots: readonly StateSlotId[];
+  readonly stateSchema: StateContractSchemaManifestV1;
+}
+
+interface StateContractStableReferenceSetV1 {
+  readonly setId: string;
+  readonly ids: readonly string[];
+}
+
+interface StateContractManifestV1 {
+  readonly contractRevision: 1;
+  readonly aggregateStateSchema: StateContractSchemaManifestV1;
+  readonly moduleStateSchemas: readonly StateContractModuleManifestV1[];
+  readonly persistentIrSchemas: readonly StateContractSchemaManifestV1[];
+  readonly stableReferenceSets: readonly StateContractStableReferenceSetV1[];
+}
+
 interface StorySimulationFacetV1<
   TGameSimulation,
   TData,
@@ -2887,6 +2916,7 @@ interface StorySimulationFacetV1<
   TSimulationProgram,
 > {
   readonly stateContractRevision: PositiveSafeInteger;
+  readonly stateContractManifest: StateContractManifestV1;
   readonly data: TData;
   readonly rules: TRules;
   readonly narrativeProgram: TNarrativeProgram;
@@ -2963,15 +2993,23 @@ interface ResolvedGameV1<
 
 `parseModuleId` 使用第 2.2 节的 stable-ID 字节长度与小写命名规则。`parseStateSlotId` 表示真实 State 对象路径：接受以 `simulation.` 或 `story.` 开头的点分 TypeScript 属性段，允许 `activeWorkflow`、`resolvedChecks` 等既有 camelCase 字段，但拒绝空段、索引、转义、`__proto__`、`prototype` 和 `constructor`。`defineGameSimulation` 仍必须确认每个解析后的路径确实存在于组合 State Schema、非空 slot 恰有一个 owner，不能把“语法可解析”当作“路径已注册”。两者都是 Base 根入口的无后缀公开构造函数；不得用 `as ModuleId`、`as StateSlotId` 或未定义的本地 `moduleId(...)` 绕过。
 
+`StateContractManifestV1` 是 Story-owned State/持久 IR 合同的显式权威投影，不是通用 Schema DSL。所有对象必须是 exact plain data；`schemaId`、`setId` 与 reference `ids` 使用相同 stable-ID 字节合同，revision 为正整数，Schema ID 在 aggregate/module/persistent IR 三类中全局唯一。`moduleStateSchemas`、`persistentIrSchemas`、`stableReferenceSets` 分别按 moduleId/schemaId/setId 的 Unicode code-point order 严格递增，每个 reference set 的 `ids` 也唯一且严格递增；Resolver 拒绝 accessor、稀疏数组、重复项和非规范顺序，不自动排序。`moduleStateSchemas` 必须与实际 GameSimulation 的全部且仅有 stateful bindings 逐项匹配 `moduleId + moduleContractRevision + stateSlots`，stateless bindings 不得登记。manifest shape/data 错误归一化为 `story.contract_invalid`；一个自身合法但与已验证 GameSimulation 不一致的 manifest 归一化为 `story.simulation_invalid`。
+
 `GameplayModuleBindingV1`、`GameSimulationV1` 与 `ResolvedGameV1` 是 Base 的泛型合同；PoC State/Command/Fact/Query 只是它们的一次具体化。`GameSimulationTypeMapV1<TBootstrapInput,TState,TRngState>` 使 Snapshot 必然是 `GameSnapshotEnvelopeV1<TState,TRngState>`，并用 invariant phantom witness 把 Module tuple、GameSimulation Schema、GameCommandExecutor、Query surface、RNG trace 与 ViewModel 绑定为同一组类型；`GameplayModuleTupleForSimulationV1` 使异构 tuple 中任何来自另一 GameSimulation 的 Binding 在编译期退化为 `never`。Stateful Binding 必须同时携带局部 State/Command/Query/Proposal Schema、局部 invariants、只读 port 和 owner-scoped proposal/apply capability，不能只注册一个 State Schema。Stateless Binding 只允许用于 World/Scheduling 这类由 GameCommandExecutor 调用的纯服务：`stateSlots=[]`，`ownerOperationSchema/ownerProposalSchema/owner=null`，只暴露强类型 `capabilities`；它在类型和运行时都没有 State Schema、初始 slice、read port、local invariant 或写能力。服务函数和输入输出 Schema 仍进入 simulation digest。
 
 Owner `propose` 只读取自己的 State slice 和显式 dependency ports，返回经过 Schema 校验的 `ModuleOwnerProposalEnvelopeV1 { payload, facts }`；`apply` 只接收该 proposal 并返回该 owner 的 State slice。proposal 的 payload 只能描述本 owner 的变化，现金账本行等 owner-owned 记录也随 payload 一次物化；Facts 只解释该 proposal，不能被重新应用。GameCommandExecutor 按 authored order 把返回 slice 装回唯一候选 Snapshot、汇总 proposal Facts/账本并运行全量 invariants，最后才一次提交 sequence/RNG/state，因此 Module 不会取得可写的全局 State。上述函数以及 stateless capabilities/dependency-port composition 都进入 simulation manifest/digest。`defineGameSimulation` 还必须运行无法仅靠泛型表达的 invariants：Module ID/state slot 唯一、每个非空 slot 恰有一个 stateful owner、stateless Binding 必须 `stateSlots=[]` 且三个 owner 字段为 null、stateful Binding 必须至少一个 state slot 且拥有完整 owner 字段、依赖存在且无环、dependency ports 与声明一致、组合 Schema 封闭、GameCommandExecutor 和 ViewModel projection 与该 GameSimulation 同源。
 
-Story npm 包的默认入口只暴露一个 `GamePackageV1`，即 StoryEntry；`define()` 必须同步、无参数且顶层无平台 I/O。source simulation facet 不携带预先闭合的 GameSimulation：它声明不可由 Hotfix 修改的 `stateContractRevision`、基础 data/rules/Narrative、PatchSurface、纯同步 `materializeProgram` 和 `createGameSimulation`；source presentation facet 对称地声明 `materializePresentation`。Resolver 在 fresh candidate registries 上完成全部 Hotfix 后，为两个 surface 分别生成按 symbol 精确键控且深冻结的 `ResolvedPatchValuesV1<TSurface>`，各调用 materializer 一次；两个返回值必须先通过 Story/contract validation 并 runtime deep-freeze，随后才以该不可变 SimulationProgram 调用 `createGameSimulation` 一次。返回的 GameSimulation 必须闭合这份 post-Hotfix SimulationProgram，Presentation 必须包含 post-Hotfix text/value 和 data-only SceneGraph，asset symbols 则由同一 candidate 直接进入独立的 `ResolvedGame.assets` provider resolution；Resolver 随后从该 revision、实际 GameSimulation 的规范 manifest、两个 Program 的规范投影、函数/import-closure provider digests 和 Patch traces 计算 state-contract/simulation/presentation identities，校验后才冻结 `ResolvedGame`。摘要不包含摘要自身，GameSimulation/Program 也没有运行中重新物化入口。fixtures、notes 和 form adapters 由同一 Artifact 的固定 `./tooling`/`./tooling-ui` exports 按 runtime capability 延迟加载；不存在 `./development`、Player/Developer build split 或静态 alias 选择。
+Story npm 包的默认入口只暴露一个 `GamePackageV1`，即 StoryEntry；`define()` 必须同步、无参数且顶层无平台 I/O。source simulation facet 不携带预先闭合的 GameSimulation：它声明不可由 Hotfix 修改的 `stateContractRevision` 与 `stateContractManifest`、基础 data/rules/Narrative、PatchSurface、纯同步 `materializeProgram` 和 `createGameSimulation`；source presentation facet 对称地声明 `materializePresentation`。Resolver 在 fresh candidate registries 上完成全部 Hotfix 后，为两个 surface 分别生成按 symbol 精确键控且深冻结的 `ResolvedPatchValuesV1<TSurface>`，各调用 materializer 一次；两个返回值必须先通过 Story/contract validation 并 runtime deep-freeze，随后才以该不可变 SimulationProgram 调用 `createGameSimulation` 一次。返回的 GameSimulation 必须闭合这份 post-Hotfix SimulationProgram，Presentation 必须包含 post-Hotfix text/value 和 data-only SceneGraph，asset symbols 则由同一 candidate 直接进入独立的 `ResolvedGame.assets` provider resolution；Resolver 随后从 Story identity、revision 与已验证显式 state-contract manifest 计算 `stateContractDigest`，从 GameSimulation manifest、两个 Program 的规范投影、函数/import-closure provider digests 和 Patch traces 计算 simulation/presentation identities，校验后才冻结 `ResolvedGame`。摘要不包含摘要自身，GameSimulation/Program 也没有运行中重新物化入口。fixtures、notes 和 form adapters 由同一 Artifact 的固定 `./tooling`/`./tooling-ui` exports 按 runtime capability 延迟加载；不存在 `./development`、Player/Developer build split 或静态 alias 选择。
+
+`stateContractDigest` 精确使用 `digestCanonical("sillymaker:state-contract:v1", { story: storyIdentity, revision: stateContractRevision, manifest: validatedStateContractManifest })`。它不包含整个 simulation source/import closure、Rule provider、公式、平衡、Patch provider 或 Presentation；实际 GameSimulation bindings 用于交叉验证该显式 manifest，完整 GameSimulation manifest 则继续进入 `simulationDigest`。`RuntimeSchemaV1.parse` 是 opaque executable，Resolver 不反射其结构：任何 State/持久 IR Schema 语义变化都必须由 Story 作者提升对应 schema descriptor revision，可持久稳定引用集合变化必须更新对应 reference set。
+
+`presentationDigest` 必须覆盖 post-Hotfix resolved Presentation Program 与从同一 validated source presentation facet 取得的完整 SceneGraph 的上述 tagged canonical bytes；不能只依赖 Story/source import-closure digest。只改变 Presentation Program、SceneGraph 的 decimal geometry、文本、素材或布局必须改变 `presentationDigest`，同时保持 `stateContractDigest` 与 `simulationDigest` 不变。SceneGraph 不进入 Snapshot、Save、CommandLog、Replay anchor 或 authoritative replay 比较。
+
+combined `story.digest` 只用于 source provenance 诊断，不作为两个 resolved root 的共同父摘要。`simulationDigest` 直接覆盖 Story identity、simulation source digest、define-twice executable/provider 投影、post-Hotfix SimulationProgram、validated GameSimulation manifest、state-contract digest 与 simulation PatchSet；`presentationDigest` 直接覆盖 Story identity、presentation source digest、post-Hotfix Presentation Program、完整 SceneGraph、resolved Asset Pack identities 与 presentation PatchSet。这样只改变任一 build source facet 时，另一个 resolved root 的 digest 必须保持不变。
 
 `@sillymaker/base/testkit` 的 `resolveStoryForTestV1(entry)` 只为测试 driver 提供一个未打补丁的 `ResolvedGameV1`：它仍调用真实 `resolveGamePackageV1`、运行全部 Schema/reference/invariant 校验，并使用确定性的测试专用 build/governance 输入。其摘要只用于测试稳定性，不得写入生产 Save/Debug provenance。source `StoryDefinitionV1.simulation` 不含可运行 GameSimulation 或 `simulationDigest`；测试 Session 必须先取得 `resolved.gameSimulation`。Resolved identity 由 GameSession/Save/Replay 边界绑定，不作为 PoC 玩法 GameCommandExecutor 的输入。
 
-ResolvedGame 的 simulation root 包含 post-Hotfix GameSimulation、SimulationProgram、规则、Balance、State definitions，以及 Narrative 的稳定 scene/node/cursor、分支、condition、check、command 和 Effect 控制流；source simulation facet 只声明 revision、基础内容、PatchSurface 和 materializer/GameSimulation factory。这些进入 state-contract/simulation manifests。Presentation root 包含 React `UiSceneGraph`、真实文本、视觉 cue 映射、素材和布局；它不能作为 simulation root 的依赖。这样“Scene”不会被粗略归入 presentation：authoring `NarrativeSceneV1`/`StoryContentV1` 可以混合书写，但 validator 必须把它编译成无表现值的 NarrativeProgram 与按稳定 ID 索引的 NarrativePresentationMap，再分别摘要；同一源文件可以贡献两个 canonical projections。
+ResolvedGame 的 simulation root 包含 post-Hotfix GameSimulation、SimulationProgram、规则、Balance、State definitions，以及 Narrative 的分支、condition、check、command、Effect 和完整控制流。可持久 cursor/IR 的 Schema descriptor 与 Gameplay State/持久 IR 可以引用的封闭 authored scene/node 等稳定 ID 集合同时进入 state-contract manifest；完整 Narrative 语义进入 simulation manifest。Presentation root 包含 React `UiSceneGraph`、真实文本、视觉 cue 映射、素材和布局；它不能作为 simulation root 的依赖。这样“Scene”不会被粗略归入 presentation：authoring `NarrativeSceneV1`/`StoryContentV1` 可以混合书写，但 validator 必须把它编译成无表现值的 NarrativeProgram 与按稳定 ID 索引的 NarrativePresentationMap，再分别摘要；同一源文件可以贡献多个 canonical projections。
 
 `StoryContentV1.texts` 只声明稳定 TextId；真实字符串位于 `TextCatalogSetV1`。Locale ID 必须是规范化 BCP 47、深值唯一；default locale 的 catalog 必须覆盖全部 TextId。非默认 catalog 可以是部分翻译，但 fallback 链必须存在、无环并最终到达 default；走完整条链仍缺失是 Story validation error，不把 TextId 本身显示给 Player。v1 的 Presentation PatchSurface 暴露一个强类型 `text.catalogs` slot，替换值是完整 `TextCatalogSetV1`；不做隐式对象 merge。Hotfix 可以通过替换整套 catalog 添加语言或覆盖部分文本，但解析后仍重新验证完整 fallback 合同。
 
@@ -4071,7 +4109,7 @@ Story、Engine 与 ResolvedGame provenance 永远分开；不得合并为一个 
 
 `story.revision` 表示存档/状态合同代际，不是每次内容发布的版本号。只修改 TextCatalog、Asset Pack、data-only SceneGraph、Web renderer registry 或纯布局时必须保持 revision；这些变化由 story/presentation/application digests 区分。只有状态/稳定引用合同发生有意的粗粒度断代时才递增 revision。
 
-`stateContractRevision` 是该 Story 代际内具体 Snapshot 与可持久 IR Schema 的正整数 revision，用于在解析前选择精确 decoder；`stateContractDigest` 则对该合同的 canonical manifest 做机器校验，防止忘记递增 revision。首版不实现 migrator，因此两者都必须与当前 ResolvedGame 精确相等。任何 State Schema 或可持久稳定引用结构变化都必须递增 `stateContractRevision`，并在不再接受旧存档时同时递增 `story.revision`；公式、数值、文本、素材和纯表现变化不得改变前者。
+`stateContractRevision` 是该 Story 代际内具体 Snapshot 与可持久 IR Schema 的正整数 revision，用于在解析前选择精确 decoder；`stateContractDigest` 则对 Story-owned `StateContractManifestV1` 做机器校验。首版不实现 migrator，因此两者都必须与当前 ResolvedGame 精确相等。任何 State/持久 IR Schema 语义变化都必须同时提升对应 schema descriptor revision 与外层 `stateContractRevision`；任何可持久稳定引用集合变化都必须更新 reference set 并提升外层 revision；不再接受旧存档时还要递增 `story.revision`。即使作者错误遗漏外层 revision，正确更新的内层 descriptor/reference set 仍会令 digest 漂移并阻止普通读档；Rule provider、公式、平衡数值、文本、素材和纯表现变化不得改变 manifest 或 `stateContractDigest`。
 
 authoritative simulation replay 要求 `engine.digest + resolved.stateContractRevision/digest + resolved.simulationDigest` 精确匹配，并且 Story ID/revision 相同。精确视觉复现另外要求 `presentationDigest` 与 `appBuildId` 匹配。
 
@@ -4919,8 +4957,8 @@ type ImportCompatibilityOutcomeV1 =
 29. 每个 `IntegerRangeV1` 都满足 `min <= max`；数量/客流/销量范围还必须满足 `min >= 0`。Story integer definition 的 defaultValue 必须落在其 range 内；Demand actual 必须落在 preview range，Tavern actual sales 必须落在对应 expectedSales range，Obligation 的 lower/upper 也不得倒置。Obligation policy 的 reason/text/action 引用必须存在，recommendation appliesTo 非空、唯一且按 Forecast kind 顺序规范化。
 30. Aura countdown policy 满足 `defaultRemaining <= maximumRemaining`。initial 与普通 authored `aura.apply` 必须使用 definition 的 kind/unit/defaultRemaining；`debug.aura.apply` 可以在同一 countdown unit 内选择 `1..maximumRemaining`，但不能换 unit，until-cleared definition 也只能创建 until-cleared instance。持久实例的 kind/unit 必须匹配 definition，remaining 不超过 maximum；因此 PoC 的 angry/sign/strain 生命周期不会被合法但错误的 Effect payload 改写。
 31. Aura allowedTargets 按 `kind`、actorId 规范化且深值唯一，instance target 必须精确命中一项，不能只因同为 actor 就把 heroine Aura 加给 player。所有 collector 的适用 Modifier 使用同一全序：base component（若有）最先；随后 source-kind 为 `story < facility < aura < event`。story 以 sourceId、rule-output index 排序；facility 以 facilityId、definition index 排序；aura 以 appliedAtSequence、instanceId、definition index 排序；event/session 以 triggeredEventIds 的既有因果次序、append index 排序。筛选不改变相对顺序；AppliedModifier、OpeningBaseline、OpeningLedger、Demand explanation 与 stamina components 都保留该序，不能按 target/kind/数值重新排序。
-32. 每个 ResolvedGame 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；GameSimulation 的 State/Command/Fact/Rejection/DebugCommand schemas、normal/debug executors、queries 和 ViewModel projection 必须来自同一 type witness。Base generic contract tests 使用 synthetic GamePackage，不能以 PoC 联合类型代替泛型边界。
-33. Resolved simulation root 只能依赖 Base、Module core 和自身 simulation sources；source presentation facet 及 resolved presentation root 可以消费只读 GameView/SemanticGamePort，但 GameSimulation/GameCommandExecutor 不得导入它们。Narrative 稳定 scene/node/cursor、conditions/checks/commands/effects 同时进入 state-contract/simulation manifests；TextCatalog、UiSceneGraph renderer、视觉 cue、CSS 和 Asset providers 进入 presentation manifest。
+32. 每个 ResolvedGame 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；GameSimulation 的 State/Command/Fact/Rejection/DebugCommand schemas、normal/debug executors、queries 和 ViewModel projection 必须来自同一 type witness。显式 State-contract manifest 必须与全部且仅有 stateful binding 的 module ID/revision/state slots 精确匹配，stateless binding 不得登记。Base generic contract tests 使用 synthetic GamePackage，不能以 PoC 联合类型代替泛型边界。
+33. Resolved simulation root 只能依赖 Base、Module core 和自身 simulation sources；source presentation facet 及 resolved presentation root 可以消费只读 GameView/SemanticGamePort，但 GameSimulation/GameCommandExecutor 不得导入它们。Narrative 可持久 cursor/IR Schema descriptor 与持久状态可引用的稳定 scene/node 等 ID 集进入 state-contract manifest；conditions/checks/commands/effects 和完整控制流进入 simulation manifest；TextCatalog、UiSceneGraph renderer、视觉 cue、CSS 和 Asset providers 进入 presentation manifest。
 34. Simulation Patch Registry 只接受 `rule | value`，Presentation Registry 只接受 `value | text | asset`；slot surface 不能由 Hotfix 改写。Provider/Hotfix/PatchSet digest 必须使用 §7.3 和 §10 的冻结算法；安装完成立即撤销写权限。TextCatalog default 完整、Locale/fallback 无环且最终到达 default。Asset slot definition 不可被 provider 覆盖；packs 后才应用 asset Hotfix，sealed slot 不暴露 patch slot；Resolved assets 与 slots 一一对应。
 35. PatchSet adoption declaration 必须精确匹配 Story ID/revision、stateContractRevision/digest、from/to simulation digests 和当前 simulationPatchSetDigest；不得由其中任一 Hotfix 泛化授权，纯 presentation PatchSet 差异不阻断。新局 lineage 为空，exact load 保留，adoption 只追加；当前 DebugBundle 的 replay base/log/current Snapshot 始终属于同一 simulation digest。
 

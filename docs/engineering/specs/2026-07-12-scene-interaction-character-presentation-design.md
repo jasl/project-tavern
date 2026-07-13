@@ -26,7 +26,7 @@
 
 本文延续下列既有决定：
 
-- `ResolvedGameV1.sceneGraph` 是由 resolved Presentation 产生的 Strict JSON 数据描述，不包含 JSX、函数或浏览器对象；
+- `ResolvedGameV1.sceneGraph` 是由 resolved Presentation 产生的可验证纯数据描述，不包含 JSX、函数或浏览器对象；显式 `StrictJsonObjectV1` 字段保持整数-only，而 typed geometry/scale 使用有限 binary64；
 - Web-only renderer/contribution registry 位于 Story application closure；
 - Gameplay State、规则、关系、Aura、Narrative 和命令属于 Story，不属于 Base/UI；
 - UI 只消费不可变投影，通过 Story-specialized `SemanticGamePortV1` 提交正常玩法操作；
@@ -231,7 +231,7 @@ interface CharacterPresentationV1 {
 }
 ```
 
-`rendererId` 决定由静态图片、纸娃娃或未来 Live2D renderer 解释这些稳定 ID。SceneGraph 不包含组件、模型实例或动画回调。
+`rendererId` 决定由静态图片、纸娃娃或未来 Live2D renderer 解释这些稳定 ID。SceneGraph 不包含组件、模型实例或动画回调。`NormalizedCoordinateV1`、`NormalizedExtentV1` 与 `PositiveFiniteNumber` 使用 ECMAScript binary64 `number`：坐标为 `[0,1]`，尺寸为 `(0,1]`，scale 为正有限值，并统一拒绝 `NaN`、正负 Infinity 与 `-0`。它们的稳定 identity 由 Presentation-only tagged canonical projection 提供，不改变全局 Strict/Canonical JSON 的 safe-integer 合同。
 
 ### 6.2 第一版混合纸娃娃
 
@@ -296,7 +296,7 @@ interface HitAreaDescriptorV1 {
 }
 ```
 
-- 坐标位于 renderer 的归一化局部空间，不进入 Gameplay；
+- 坐标位于 renderer 的归一化局部空间，不进入 Gameplay、Snapshot、Save、CommandLog 或 Replay；
 - 重叠区域中较大的 priority 先匹配；priority 相同时，descriptor catalog 中较早声明的区域先匹配；
 - HitMap 默认绑定 rig + pose，服装共用；改变轮廓或姿态时可以显式覆盖；
 - 第一版只支持矩形、圆形和有界多边形，不使用像素遮罩或任意脚本；
@@ -388,7 +388,7 @@ SemanticGamePort 从同一次 GameQueries 原子发布 GameView 和 action catal
 - direct/choose/open_surface 提示；
 - 受控的 Presentation intent 或 Story-specialized Semantic invocation。
 
-Gameplay 行为的 enabled、reasons、preview 和 invocation 必须直接复用同一 Semantic action catalog 中的 descriptor，不能由 Interaction projector 重新读取 GameQueries 或重算 gate。Story application/presentation registry 中的稳定 provider 不能作为函数塞进 Strict JSON SceneGraph，也不能读取 Snapshot、Owner capability 或任意 State path。
+Gameplay 行为的 enabled、reasons、preview 和 invocation 必须直接复用同一 Semantic action catalog 中的 descriptor，不能由 Interaction projector 重新读取 GameQueries 或重算 gate。Story application/presentation registry 中的稳定 provider 不能作为函数塞进 data-only SceneGraph，也不能读取 Snapshot、Owner capability 或任意 State path。
 
 ### 8.3 Presentation-only 行为
 
@@ -662,7 +662,7 @@ Phase 4B 登记 PoC StageScene/variant/rig/HitMap/behavior catalog，并保证 `
 
 1. frozen catalog 与动态选择分离；StageSceneVariant 可以由任意 Story GameView 投影选择，Calendar 不是引擎依赖；
 2. 运行时 variant 切换不重建 GameSession、不推进 RNG/commandSequence、不改变 Artifact identity；catalog 内容修改只改变 presentation/application identity；
-3. SceneGraph、HitMap 和角色描述保持 Strict JSON，默认/Headless closure 不导入 `.tsx`、DOM 或 Live2D；
+3. SceneGraph、HitMap 和角色描述保持可验证纯数据；只有 typed geometry/scale 可以使用有限 binary64 小数，显式 Strict JSON 字段仍为 safe integer，默认/Headless closure 不导入 `.tsx`、DOM 或 Live2D；
 4. Web-only provider 不读取 GameQueries、不重算 Gameplay gate，renderer 只收到允许的 view slice、semantic 和 presentation；
 5. 静态与纸娃娃 renderer 使用同一 Character/target ID；outfit 切换不改变默认 HitMap，pose override 可以显式替换；
 6. rect、circle、polygon 命中成立；较大 priority 优先，同值时较早声明者优先；

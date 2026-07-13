@@ -3,11 +3,13 @@ import type {
   AssetPackDigestProjectionV1,
   AssetPackResolvedIdentityV1,
   AssetPackV1,
+  AssetProviderEntryV1,
   AssetProviderRefV1,
   AssetSlotDefinitionV1,
   ResolvedAssetEntryV1,
   ResolvedAssetManifestV1,
 } from "../contracts/assets.js";
+import type { AssetHotfixReplacementV1 } from "./hotfix-resolver.js";
 import { digestCanonical } from "../contracts/digest.js";
 import { parseDigest, parsePositiveSafeInteger } from "../contracts/values.js";
 import { deepFreezeAuthoringValueV1 } from "./define-gameplay-module.js";
@@ -40,6 +42,7 @@ function fallback(slot: AssetSlotDefinitionV1): ResolvedAssetEntryV1 {
 export function resolveAssetManifestV1(
   authoredSlots: readonly AssetSlotDefinitionV1[],
   authoredPacks: readonly AssetPackV1[],
+  assetHotfixes: readonly AssetHotfixReplacementV1[] = [],
 ): ResolvedAssetManifestV1 {
   const slots = authoredSlots.map((slot) => {
     parsePositiveSafeInteger(slot.width);
@@ -113,6 +116,55 @@ export function resolveAssetManifestV1(
         }),
       );
     }
+  }
+
+  const hotfixedAssetIds = new Set<string>();
+  for (const hotfix of assetHotfixes) {
+    if (hotfixedAssetIds.has(hotfix.assetId)) {
+      throw new TypeError(`duplicate asset Hotfix: ${hotfix.assetId}`);
+    }
+    hotfixedAssetIds.add(hotfix.assetId);
+    const slot = slotsById.get(hotfix.assetId);
+    if (!slot) throw new TypeError(`asset slot unknown: ${hotfix.assetId}`);
+    if (slot.overridePolicy === "sealed") {
+      throw new TypeError(`asset slot sealed: ${hotfix.assetId}`);
+    }
+    if (
+      hotfix.provider === null ||
+      typeof hotfix.provider !== "object" ||
+      Array.isArray(hotfix.provider) ||
+      Object.getPrototypeOf(hotfix.provider) !== Object.prototype
+    ) {
+      throw new TypeError(`invalid asset Hotfix provider: ${hotfix.assetId}`);
+    }
+    const provider = hotfix.provider as AssetProviderEntryV1;
+    if (provider.assetId !== hotfix.assetId) {
+      throw new TypeError(`asset Hotfix provider mismatch: ${hotfix.assetId}`);
+    }
+    validateRuntimePath(provider.runtimePath);
+    parsePositiveSafeInteger(provider.byteLength);
+    parsePositiveSafeInteger(provider.width);
+    parsePositiveSafeInteger(provider.height);
+    parseDigest(provider.sha256);
+    if (provider.width !== slot.width || provider.height !== slot.height) {
+      throw new TypeError(`asset dimensions mismatch: ${hotfix.assetId}`);
+    }
+    const current = resolvedById.get(hotfix.assetId);
+    if (!current) throw new TypeError(`asset slot unknown: ${hotfix.assetId}`);
+    const providerRef: AssetProviderRefV1 = Object.freeze({
+      kind: "hotfix",
+      identity: hotfix.hotfixIdentity,
+    });
+    resolvedById.set(
+      hotfix.assetId,
+      Object.freeze({
+        ...slot,
+        ...provider,
+        delivery: "runtime_image" as const,
+        provider: providerRef,
+        overrideChain: Object.freeze([...current.overrideChain, providerRef]),
+      }),
+    );
   }
 
   return deepFreezeAuthoringValueV1({

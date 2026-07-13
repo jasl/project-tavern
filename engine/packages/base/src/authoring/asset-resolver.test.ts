@@ -15,6 +15,11 @@ const provider = Object.freeze({
   height: parsePositiveSafeInteger(1),
   sha256: digestBytes(bytes),
 });
+const hotfixProvider = Object.freeze({
+  ...provider,
+  runtimePath: "images/synthetic-hotfix.png",
+  sha256: digestBytes(new TextEncoder().encode("synthetic-hotfix-image")),
+});
 const pack = Object.freeze({
   identity: Object.freeze({
     id: "assets.synthetic",
@@ -51,6 +56,54 @@ describe("Asset resolver", () => {
     const resolved = resolveAssetManifestV1([slot], []);
     expect(resolved.assets).toHaveLength(1);
     expect(resolved.assets[0]?.delivery).toBe("code_fallback");
+  });
+
+  it("applies an asset Hotfix after authored packs", () => {
+    const hotfixIdentity = Object.freeze({
+      id: "hotfix.synthetic.asset",
+      revision: parsePositiveSafeInteger(1),
+      digest: digestBytes(new TextEncoder().encode("synthetic-asset-hotfix")),
+    });
+    const resolved = resolveAssetManifestV1(
+      [slot],
+      [pack],
+      [
+        {
+          assetId: slot.assetId,
+          provider: hotfixProvider,
+          hotfixIdentity,
+        },
+      ],
+    );
+
+    expect(resolved.assets[0]).toMatchObject({
+      runtimePath: hotfixProvider.runtimePath,
+      provider: { kind: "hotfix", identity: hotfixIdentity },
+      overrideChain: [
+        { kind: "asset_pack", identity: resolved.packs[0] },
+        { kind: "hotfix", identity: hotfixIdentity },
+      ],
+    });
+  });
+
+  it("rejects an asset Hotfix for a sealed slot", () => {
+    expect(() =>
+      resolveAssetManifestV1(
+        [{ ...slot, overridePolicy: "sealed" }],
+        [],
+        [
+          {
+            assetId: slot.assetId,
+            provider: hotfixProvider,
+            hotfixIdentity: {
+              id: "hotfix.synthetic.asset",
+              revision: parsePositiveSafeInteger(1),
+              digest: digestBytes(new TextEncoder().encode("synthetic-asset-hotfix")),
+            },
+          },
+        ],
+      ),
+    ).toThrow("asset slot sealed");
   });
 
   it("rejects unsafe runtime paths", () => {

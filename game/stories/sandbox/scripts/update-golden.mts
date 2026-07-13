@@ -18,8 +18,7 @@ const { canonicalJsonBytes, digestCanonical, parseNonZeroUint32 } =
   await import("@sillymaker/base");
 const { createSandboxSessionV1 } = await import("../src/session.ts");
 const { resolveStoryForTestV1 } = await import("@sillymaker/base/testkit");
-const { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } =
-  await import("../src/story-entry.ts");
+const { sandboxStoryEntryV1 } = await import("../src/story-entry.ts");
 
 const commands: readonly SandboxCommandV1[] = Object.freeze([
   { kind: "sandbox.counter.increment" },
@@ -28,10 +27,8 @@ const commands: readonly SandboxCommandV1[] = Object.freeze([
   { kind: "sandbox.counter.reject" },
 ]);
 const seed = parseNonZeroUint32(0x0002_3049);
-const session = createSandboxSessionV1(
-  specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).gameSimulation,
-  { rngSeed: seed },
-);
+const gameSimulation = resolveStoryForTestV1(sandboxStoryEntryV1).gameSimulation;
+const session = createSandboxSessionV1(gameSimulation, { rngSeed: seed });
 const outcomes: string[] = [];
 for (const command of commands) {
   const outcome = await session.dispatch(command);

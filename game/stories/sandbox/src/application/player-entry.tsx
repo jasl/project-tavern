@@ -11,7 +11,6 @@ import type {
   SandboxPlayerApplicationV1,
 } from "./create-sandbox-application.js";
 import { sandboxStoryEntryV1 } from "../index.js";
-import type { SandboxResolvedStoryV1 } from "../story-entry.js";
 
 const root = document.querySelector("#root");
 if (root === null) throw new TypeError("missing application root");
@@ -34,7 +33,7 @@ if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
   const bootstrapped = await bootstrap(sandboxStoryEntryV1, []);
   if (bootstrapped.kind !== "ready")
     throw new TypeError(`Sandbox bootstrap failed: ${bootstrapped.code}`);
-  const resolved = bootstrapped.resolved as SandboxResolvedStoryV1;
+  const resolved = bootstrapped.resolved;
   const player = createSandboxApplicationV1({ resolved, host });
   const presentation = Object.freeze({ label: "计数" });
   const contributions = createUiContributionRegistryV1<

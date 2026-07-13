@@ -26,7 +26,7 @@ import type {
   SaveSlotHealthV1,
   SaveSlotSummaryV1,
   StateSlotId,
-  StoryDevelopmentEntryV1,
+  StoryToolingEntryV1,
 } from "@sillymaker/base";
 import {
   createGameSnapshotEnvelopeSchemaV1,
@@ -35,7 +35,7 @@ import {
   defineGameplayModule,
   defineGamePackage,
   defineGameSimulation,
-  defineStoryDevelopmentEntry,
+  defineStoryToolingEntry,
   parseModuleId,
   parseNonZeroUint32,
   parseRunId,
@@ -49,7 +49,7 @@ import {
   createSyntheticCounterGamePackageV1,
   resolveStoryForTestV1,
   strictJsonRoundTripV1,
-  validateDevelopmentFixturesV1,
+  validateToolingFixturesV1,
   validateStoryV1,
 } from "@sillymaker/base/testkit";
 
@@ -83,7 +83,7 @@ export type Phase1ConsumerTypesV1 = {
   saveSlotHealth: SaveSlotHealthV1;
   saveSlotSummary: SaveSlotSummaryV1;
   stateSlotId: StateSlotId;
-  development: StoryDevelopmentEntryV1<unknown>;
+  tooling: StoryToolingEntryV1<unknown>;
 };
 
 export type Phase1ConsumerValuesV1 = {
@@ -96,7 +96,7 @@ export type Phase1ConsumerValuesV1 = {
   defineGameplayModule: typeof defineGameplayModule;
   defineGamePackage: typeof defineGamePackage;
   defineGameSimulation: typeof defineGameSimulation;
-  defineStoryDevelopmentEntry: typeof defineStoryDevelopmentEntry;
+  defineStoryToolingEntry: typeof defineStoryToolingEntry;
   parseModuleId: typeof parseModuleId;
   parseNonZeroUint32: typeof parseNonZeroUint32;
   parseRunId: typeof parseRunId;
@@ -105,7 +105,7 @@ export type Phase1ConsumerValuesV1 = {
   resolveStoryForTest: typeof resolveStoryForTestV1;
   rngStateSchema: typeof rngStateV1Schema;
   strictJsonRoundTrip: typeof strictJsonRoundTripV1;
-  validateDevelopmentFixtures: typeof validateDevelopmentFixturesV1;
+  validateToolingFixtures: typeof validateToolingFixturesV1;
   validateStory: typeof validateStoryV1;
 };
 
@@ -140,6 +140,16 @@ export type CrossWitnessModuleIsRejectedV1 = AssertNever<
   >[0]
 >;
 
+export const inferredResolvedGameV1 = resolveStoryForTestV1(createSyntheticCounterGamePackageV1());
+export const inferredSyntheticProgramKindV1: "synthetic-counter" =
+  inferredResolvedGameV1.simulationProgram.kind;
+export const inferredSyntheticPresentationKindV1: "synthetic-presentation" =
+  inferredResolvedGameV1.presentation.kind;
+export const inferredSyntheticStageSceneIdV1: import("@sillymaker/base").StageSceneId =
+  inferredResolvedGameV1.sceneGraph.stageScenes[0]!.stageSceneId;
+export const inferredSyntheticGameProjectionV1 =
+  inferredResolvedGameV1.gameSimulation.projectGameView;
+
 // @ts-expect-error the public helper requires defineGameplayModule<TTypes>()(binding)
 export type ForbiddenOneStageGameplayModuleInputV1 = Parameters<typeof defineGameplayModule>[0];
 // @ts-expect-error the public helper requires defineGameSimulation<TTypes>()(simulation)
@@ -161,5 +171,13 @@ export type OldModule = import("@sillymaker/base").GameModuleBindingV1;
 export { defineGameModule } from "@sillymaker/base";
 // @ts-expect-error removed after Phase 1
 export type OldCoordinator = import("@sillymaker/base").CommandCoordinatorV1;
+// @ts-expect-error removed after the Story tooling rename
+export type OldDevelopmentEntry = import("@sillymaker/base").StoryDevelopmentEntryV1<unknown>;
+// @ts-expect-error removed after the Story tooling rename
+export { defineStoryDevelopmentEntry } from "@sillymaker/base";
+// @ts-expect-error removed after the Story tooling rename
+export { validateDevelopmentFixturesV1 } from "@sillymaker/base/testkit";
+// @ts-expect-error replaced by ResolvedGameV1
+export type OldResolvedStory = import("@sillymaker/base").ResolvedStoryV1;
 // @ts-expect-error import closure belongs to scripts, never Base/testkit
 export { buildImportClosureV1 } from "@sillymaker/base/testkit";

@@ -24,7 +24,7 @@ import { createViewSourceV1 } from "@sillymaker/ui";
 import type { SandboxCommandV1, SandboxSimulationTypesV1 } from "../contracts.js";
 import { createSandboxInitialSnapshotV1 } from "../session.js";
 import { createSandboxFaultAttemptV1 } from "../profile.js";
-import type { SandboxResolvedStoryV1 } from "../story-entry.js";
+import type { SandboxResolvedGameV1 } from "../story-entry.js";
 
 export interface SandboxApplicationViewV1 {
   readonly count: number;
@@ -79,7 +79,7 @@ const unavailableLease = (): SessionLeaseOperationResultV1 =>
   Object.freeze({ kind: "rejected", code: "unavailable" });
 
 export function createSandboxApplicationV1(input: {
-  readonly resolved: SandboxResolvedStoryV1;
+  readonly resolved: SandboxResolvedGameV1;
   readonly host: GameHostV1;
 }): SandboxPlayerApplicationV1 {
   const gameSimulation = input.resolved.gameSimulation;

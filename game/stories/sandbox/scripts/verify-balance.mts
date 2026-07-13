@@ -14,16 +14,13 @@ registerHooks({
 const { parseNonZeroUint32 } = await import("@sillymaker/base");
 const { createSandboxSessionV1 } = await import("../src/session.ts");
 const { resolveStoryForTestV1 } = await import("@sillymaker/base/testkit");
-const { sandboxStoryEntryV1, specializeSandboxResolvedStoryV1 } =
-  await import("../src/story-entry.ts");
+const { sandboxStoryEntryV1 } = await import("../src/story-entry.ts");
+const gameSimulation = resolveStoryForTestV1(sandboxStoryEntryV1).gameSimulation;
 
 async function run(seed: number): Promise<number> {
-  const session = createSandboxSessionV1(
-    specializeSandboxResolvedStoryV1(resolveStoryForTestV1(sandboxStoryEntryV1)).gameSimulation,
-    {
-      rngSeed: parseNonZeroUint32(seed),
-    },
-  );
+  const session = createSandboxSessionV1(gameSimulation, {
+    rngSeed: parseNonZeroUint32(seed),
+  });
   for (let count = 0; count < 3; count += 1) {
     const outcome = await session.dispatch({ kind: "sandbox.counter.increment" });
     if (outcome.kind !== "executed" || outcome.execution.kind !== "committed") {

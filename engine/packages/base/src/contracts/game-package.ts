@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { DeepReadonly, PositiveSafeInteger } from "./values.js";
+import type { BuildProvenanceV1 } from "./provenance.js";
+import type { DeepReadonly, ModuleId, PositiveSafeInteger, StateSlotId } from "./values.js";
 
 export interface StorySourceIdentityV1 {
   readonly id: string;
@@ -15,6 +16,31 @@ export interface PatchSurfaceValueMapWitnessV1<TValues> {
 export type ResolvedPatchValuesV1<TSurface> =
   TSurface extends PatchSurfaceValueMapWitnessV1<infer TValues> ? TValues : never;
 
+export interface StateContractSchemaManifestV1 {
+  readonly schemaId: string;
+  readonly revision: PositiveSafeInteger;
+}
+
+export interface StateContractModuleManifestV1 {
+  readonly moduleId: ModuleId;
+  readonly moduleContractRevision: PositiveSafeInteger;
+  readonly stateSlots: readonly StateSlotId[];
+  readonly stateSchema: StateContractSchemaManifestV1;
+}
+
+export interface StateContractStableReferenceSetV1 {
+  readonly setId: string;
+  readonly ids: readonly string[];
+}
+
+export interface StateContractManifestV1 {
+  readonly contractRevision: 1;
+  readonly aggregateStateSchema: StateContractSchemaManifestV1;
+  readonly moduleStateSchemas: readonly StateContractModuleManifestV1[];
+  readonly persistentIrSchemas: readonly StateContractSchemaManifestV1[];
+  readonly stableReferenceSets: readonly StateContractStableReferenceSetV1[];
+}
+
 export interface StorySimulationFacetV1<
   TGameSimulation,
   TData,
@@ -24,6 +50,7 @@ export interface StorySimulationFacetV1<
   TSimulationProgram,
 > {
   readonly stateContractRevision: PositiveSafeInteger;
+  readonly stateContractManifest: StateContractManifestV1;
   readonly data: TData;
   readonly rules: TRules;
   readonly narrativeProgram: TNarrativeProgram;
@@ -63,16 +90,29 @@ export interface GamePackageV1<TSimulationFacet, TPresentationFacet> {
   define(): StoryDefinitionV1<TSimulationFacet, TPresentationFacet>;
 }
 
-export interface StoryDevelopmentEntryV1<TDevelopmentSupport> {
-  readonly contractRevision: 1;
-  readonly storyIdentity: StorySourceIdentityV1;
-  defineDevelopmentSupport(): TDevelopmentSupport;
+export interface ResolvedGameV1<
+  TGameSimulation,
+  TSimulationProgram,
+  TPresentation,
+  TSceneGraph,
+  TAssets,
+> {
+  readonly provenance: BuildProvenanceV1;
+  readonly gameSimulation: TGameSimulation;
+  readonly simulationProgram: TSimulationProgram;
+  readonly presentation: TPresentation;
+  readonly sceneGraph: TSceneGraph;
+  readonly assets: TAssets;
+  readonly frozen: true;
 }
 
-export interface StoryDevelopmentSupportV1<TFixtureId, TCommand> {
-  readonly fixtures: readonly {
-    readonly fixtureId: TFixtureId;
-    readonly seed: number;
-    readonly commands: readonly TCommand[];
-  }[];
+export interface StoryToolingEntryV1<TToolingSupport> {
+  readonly contractRevision: 1;
+  readonly storyIdentity: StorySourceIdentityV1;
+  defineToolingSupport(): TToolingSupport;
+}
+
+export interface StoryToolingSupportV1<TFixture, TNote> {
+  readonly fixtures: readonly TFixture[];
+  readonly notes: readonly TNote[];
 }
