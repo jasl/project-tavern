@@ -39,6 +39,7 @@ type E2eHotfixV1 = HotfixEntryV1<
 >;
 
 const emptyBuildIdentityV1 = Object.freeze({
+  engineVersion: "SillyMaker E2E contract-test",
   engine: Object.freeze([]),
   storySimulation: Object.freeze([]),
   storyPresentation: Object.freeze([]),

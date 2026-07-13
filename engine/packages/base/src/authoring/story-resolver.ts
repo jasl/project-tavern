@@ -1393,7 +1393,7 @@ export function resolveGamePackageV1<TSimulationFacet, TPresentationFacet>(
         revision: entry.identity.revision,
         digest: storyDigest,
       },
-      engine: { version: "0.0.0", digest: build.engine.digest },
+      engine: { version: build.engineVersion, digest: build.engine.digest },
       resolved: {
         stateContractRevision,
         stateContractDigest,

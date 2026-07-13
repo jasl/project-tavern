@@ -39,6 +39,7 @@ describe("Loader", () => {
     const bootstrap = createGameBootstrapControllerV1({
       host,
       buildIdentity: {
+        engineVersion: "SillyMaker loader-test",
         engine: [
           {
             path: "engine/packages/base/src/index.ts",

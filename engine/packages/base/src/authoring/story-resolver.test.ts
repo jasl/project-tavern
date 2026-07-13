@@ -543,6 +543,38 @@ describe("Story resolver", () => {
     expect(Object.isFrozen(result.resolved.sceneGraph)).toBe(true);
   });
 
+  it("copies the Application-owned engine display label without changing identity digests", () => {
+    const baseline = resolveGamePackageV1(
+      createSyntheticCounterGamePackageV1(),
+      [],
+      deterministicBuildIdentityInputV1,
+    );
+    const relabeled = resolveGamePackageV1(createSyntheticCounterGamePackageV1(), [], {
+      ...deterministicBuildIdentityInputV1,
+      engineVersion: "SillyMaker application-test+relabeled",
+    });
+
+    expect(baseline.kind).toBe("resolved");
+    expect(relabeled.kind).toBe("resolved");
+    if (baseline.kind !== "resolved" || relabeled.kind !== "resolved") return;
+
+    expect(relabeled.resolved.provenance.engine.version).toBe(
+      "SillyMaker application-test+relabeled",
+    );
+    expect(relabeled.resolved.provenance.engine.digest).toBe(
+      baseline.resolved.provenance.engine.digest,
+    );
+    expect(relabeled.resolved.provenance.story.digest).toBe(
+      baseline.resolved.provenance.story.digest,
+    );
+    expect(relabeled.resolved.provenance.resolved.simulationDigest).toBe(
+      baseline.resolved.provenance.resolved.simulationDigest,
+    );
+    expect(relabeled.resolved.provenance.resolved.presentationDigest).toBe(
+      baseline.resolved.provenance.resolved.presentationDigest,
+    );
+  });
+
   it("calls each materializer and the simulation factory once", () => {
     const fixture = createCountingGamePackage();
     const result = resolveGamePackageV1(fixture.entry, [], deterministicBuildIdentityInputV1);

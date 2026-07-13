@@ -24,6 +24,7 @@ if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
   const bootstrap = createGameBootstrapControllerV1({
     host,
     buildIdentity: Object.freeze({
+      engineVersion: "0.0.0",
       engine: Object.freeze([]),
       storySimulation: Object.freeze([]),
       storyPresentation: Object.freeze([]),

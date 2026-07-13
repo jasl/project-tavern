@@ -5,6 +5,7 @@ import type { BuildIdentityInputV1 } from "../authoring/build-identity.js";
 const sourceDigest = digestBytes(Uint8Array.of(0x73, 0x72, 0x63));
 
 export const deterministicBuildIdentityInputV1: BuildIdentityInputV1 = Object.freeze({
+  engineVersion: "SillyMaker synthetic-test",
   engine: Object.freeze([
     Object.freeze({
       path: "engine/packages/base/src/index.ts",
