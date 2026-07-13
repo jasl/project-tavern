@@ -2297,7 +2297,7 @@ Expected: 所有命令退出 0；Story resolve 无 cast；Hotfix digest 分区�
 - [ ] **Step 6: Commit the E2E Story composition**
 
 ```bash
-git add -- game/stories/e2e/src/simulation game/stories/e2e/src/presentation game/stories/e2e/src/story-definition.ts game/stories/e2e/src/story-entry.ts game/stories/e2e/src/story-contract.test.ts game/stories/e2e/src/tooling.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/property.test.ts game/stories/e2e/src/index.ts game/stories/e2e/package.json game/stories/e2e/tsconfig.json
+git add -- game/stories/e2e/src/simulation game/stories/e2e/src/presentation game/stories/e2e/src/story-definition.ts game/stories/e2e/src/story-entry.ts game/stories/e2e/src/story-contract.test.ts game/stories/e2e/src/development.ts game/stories/e2e/src/tooling.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/property.test.ts game/stories/e2e/src/index.ts game/stories/e2e/package.json game/stories/e2e/tsconfig.json
 git diff --cached --check
 git commit -m "feat(e2e): resolve the minimal fixture story"
 ```
