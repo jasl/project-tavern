@@ -38,6 +38,7 @@
     "build:player": "vite build --mode player",
     "build:developer": "vite build --mode developer",
     "update:screenshots": "playwright test --project=chromium --grep @visual --update-snapshots",
+    "update:materialization-lock": "node --experimental-strip-types scripts/preflight/materialization-contract.mts --write",
     "release:prepare": "pnpm build:player && node scripts/prepare-artifact.mjs",
     "regenerate:fixtures": "pnpm --filter @project-tavern/story-sandbox regenerate:fixtures",
     "update:golden": "pnpm --filter @project-tavern/story-sandbox update:golden",
