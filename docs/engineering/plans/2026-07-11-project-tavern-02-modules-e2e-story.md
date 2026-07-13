@@ -2245,6 +2245,17 @@ workspace-relative POSIX path 与文件 SHA-256 运行对应的 domain-separated
 bytes。value/text slot 的默认 provider digest 必须直接绑定 canonical default value；相同值的
 无语义源码重排不需要改变该 digest。
 
+在 source roots 完成并保持格式化后显式运行一次 writer，再审查其唯一机械输出：
+
+```bash
+pnpm --filter @project-tavern/story-e2e update:source-digests
+git diff -- game/stories/e2e/src/simulation/source-digests.generated.ts
+```
+
+`update:source-digests` 不得被任何 test/verify/build 命令调用；随后 read-only verifier 必须从
+live bytes 独立重算并通过。恢复时若 source root 未变而 generated diff 不同，按 foreign writer
+bytes 停止，不覆盖。
+
 Presentation PatchSurface 只提供一个 symbol 精确为 `text.catalogs` 的强类型 Text slot；其
 default/replacement value 都是完整 `TextCatalogSetV1`，替换后重新运行完整 catalog/fallback/
 SceneGraph TextId validation，不做隐式对象 merge。Asset 使用 code fallback。SceneGraph 含：
