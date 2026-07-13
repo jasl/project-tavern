@@ -1102,6 +1102,7 @@ git commit -m "refactor(base): rename engine session to game session"
 - Delete: game/packages/modules/package.json
 - Delete: game/packages/modules/tsconfig.json
 - Delete: game/packages/modules/src/index.ts
+- Modify: .prettierignore
 - Modify: pnpm-workspace.yaml
 - Modify: tsconfig.json
 - Modify: tsconfig.check.json
@@ -1233,6 +1234,8 @@ game/stories/sandbox/tsconfig.json
 - 删除旧空 game/stories/e2e stub；
 - 当前 fixture/golden 保持只读直到 Task 12 显式重生成。
 
+同时只将 `.prettierignore` 中受保护 fixture/golden 的两条旧 Sandbox 路径机械迁移到 E2E 路径；不得格式化或重写这两个 reviewed one-line JSON baseline。
+
 Vite 在本任务仍暂时保留 Player/Developer 两个 mode，但两者都必须指向新的 E2E paths；Task 5 才原子删除 flavor split。同步更新 import-closure、TypeScript runtime、asset/bundle/release/story/fixture/golden verifiers、browser spec 和 reviewed screenshot，使任何脚本都不再访问已移动的 Sandbox package。这个兼容 checkpoint 只服务安全迁移，不新增 public alias 或新玩法。
 
 将空 game/stories/demo 原样迁移为 game/stories/poc，package name 改为 @project-tavern/story-poc，默认 export 暂时仍为空。
@@ -1309,7 +1312,7 @@ Expected: 所有命令退出 0；只有 E2E 和 PoC Story；两个 Story manifes
 - [ ] **Step 6: Commit the workspace migration**
 
 ```bash
-git add -A -- game/packages/modules game/stories/sandbox game/stories/e2e game/stories/demo game/stories/poc game/tsconfig.json engine/packages/web/e2e vite.config.ts pnpm-workspace.yaml tsconfig.json tsconfig.check.json scripts package.json pnpm-lock.yaml LICENSE.md README.md AGENTS.md
+git add -A -- .prettierignore game/packages/modules game/stories/sandbox game/stories/e2e game/stories/demo game/stories/poc game/tsconfig.json engine/packages/web/e2e vite.config.ts pnpm-workspace.yaml tsconfig.json tsconfig.check.json scripts package.json pnpm-lock.yaml LICENSE.md README.md AGENTS.md
 git diff --exit-code -- engine/tsconfig.json
 git diff --exit-code -- CONTRIBUTING.md
 git diff --cached --check
