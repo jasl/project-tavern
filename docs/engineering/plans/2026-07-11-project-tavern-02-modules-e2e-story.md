@@ -1778,6 +1778,10 @@ export interface E2eGameQueriesV1 {
   readonly flowStatus: E2eGameStateV1["simulation"]["flow"]["status"];
   readonly visibleNodeId: E2eGameStateV1["simulation"]["flow"]["nodeId"];
   readonly runStatus: E2eGameStateV1["simulation"]["run"]["status"];
+  readonly choiceDeltas: {
+    readonly left: PositiveSafeInteger;
+    readonly right: PositiveSafeInteger;
+  };
   readonly canStart: boolean;
   readonly canComplete: boolean;
 }
@@ -2002,7 +2006,7 @@ E2eGameDebugCommandExecutorV1 是 GameSimulation-owned replayable executor：str
 
 - [ ] **Step 4: Keep Queries and projection separate from execution**
 
-`E2eGameQueriesV1`/`E2eGameViewV1` 已由 Task 7 的 `gameplay/contracts/simulation.ts` 冻结；本任务实现并 re-export 对应 createQueries/projector。createQueries 只读 Gameplay State；projectGameView 只接收已经创建的 Queries。`canStart` 恰好表示 active run 的 idle/intro flow 可以接受 `e2e.flow.start`；`canComplete` 使用 Step 3 的唯一 terminal helper。Normal/Debug Executor 都不拥有 createQueries；UI 不自行重复 canStart、canComplete 或 action availability 公式。`createE2eGameSimulationV1(program)` 必须同时绑定 `commandExecutor`、`debugCommandSchema`、`debugValidationErrorSchema` 与 `debugCommandExecutor`，它们都进入 simulation source closure/digest。
+`E2eGameQueriesV1`/`E2eGameViewV1` 已由 Task 7 的 `gameplay/contracts/simulation.ts` 冻结；本任务实现并 re-export 对应 createQueries/projector。GameSimulation 的 public `createQueries` 仍只接收 Gameplay State，但其静态 closure 必须通过已采用的 `modules[3].capabilities.resolveChoiceDelta` 投影 exact frozen `choiceDeltas.left/right`；不得重新调用 raw Program provider、硬编码 default/Hotfix 数值或把 Resolver function 放入 Queries。projectGameView 只接收已经创建的 Queries，并且不暴露 choice delta。`canStart` 恰好表示 active run 的 idle/intro flow 可以接受 `e2e.flow.start`；`canComplete` 使用 Step 3 的唯一 terminal helper。Normal/Debug Executor 都不拥有 createQueries；UI 不自行重复 canStart、canComplete 或 action availability 公式。`createE2eGameSimulationV1(program)` 必须同时绑定 `commandExecutor`、`debugCommandSchema`、`debugValidationErrorSchema` 与 `debugCommandExecutor`，它们都进入 simulation source closure/digest。
 
 - [ ] **Step 5: Add property tests and run complete verification**
 
@@ -2377,6 +2381,39 @@ Repair TDD and contract:
    git commit -m "fix(tooling): run script tests with strip types"
    ```
 
+**Accepted-owner repair before the Task 10 implementation commit:** Task 7 froze Queries before
+Task 10 introduced option-specific Semantic preview. The original Query spine omitted the adopted
+choice Resolver output, while Task 10 also prohibited direct Module access and hard-coded rule
+values. That combination cannot make preview match queue-front dispatch near the Counter safe
+integer boundary: with the default right delta, `MAX_SAFE_INTEGER - 1` is a valid choosing State
+where right must reject and left may still commit. Per the execution protocol's unique-answer
+earlier-owner rule, repair the Task 7/8 Query owner before accepting Task 10.
+
+Repair files:
+
+- Modify: docs/engineering/plans/2026-07-11-project-tavern-02-modules-e2e-story.md
+- Modify: game/stories/e2e/src/gameplay/contracts/simulation.ts
+- Modify: game/stories/e2e/src/gameplay/game-queries.ts
+- Modify: game/stories/e2e/src/gameplay/game-queries.test.ts
+- Modify: game/stories/e2e/src/gameplay/game-simulation.ts
+- Modify: game/stories/e2e/src/gameplay/game-simulation.test.ts
+- Modify: game/stories/e2e/src/gameplay/game-view-projector.test.ts
+
+Repair TDD and contract:
+
+1. Add failing Query/Simulation tests proving a custom adopted Resolver's exact positive left/right
+   deltas are projected into a frozen `choiceDeltas` value and that GameView exposes neither those
+   values nor a Resolver function.
+2. Extend `E2eGameQueriesV1` with only
+   `choiceDeltas: { left: PositiveSafeInteger; right: PositiveSafeInteger }`. Keep the public
+   `GameSimulation.createQueries(state)` signature state-only; its static closure passes the adopted
+   `modules[3].capabilities.resolveChoiceDelta` port into the Story-local Query implementation.
+   Never import the default provider, inspect a Hotfix, add functions to Queries, or read Snapshot,
+   RNG, sequence, integrity, storage, UI or time.
+3. Re-run the Task 8 Gameplay/Simulation suites, Story verification, typecheck and current Phase 2
+   checkpoint, then commit only the repair files as
+   `fix(e2e): project adopted choice deltas`.
+
 ### Task 10: Implement SemanticGamePort over the real GameSession
 
 **Mechanical Files repair before the Task 10 GREEN:** Task 6 correctly migrated the production
@@ -2678,7 +2715,7 @@ export type E2eSemanticActionResultV1 =
   | { readonly kind: "faulted"; readonly code: "gameplay_fault" };
 ```
 
-Action descriptor 包含 stable actionId、textId、enabled、按 authored order 排列的 reasons 和受控 options；mapped union 保持 descriptor actionId 与每个 option invocation actionId 一致。`action.e2e.start` 显式映射 `e2e.flow.start`，其 availability 只读取 Task 8 的 `canStart`；不得要求 headless/golden 绕过 Semantic ABI 直接 dispatch raw Command。`createE2eSemanticActionCatalogV1(queries)` 只读取 Task 8 已冻结的 `E2eGameQueriesV1` 字段并返回 authored-order visible descriptors；它不是 GameQueries 的新成员，也不修改 Task 8 ABI。`previewE2eSemanticInvocationV1(queries, invocation)` 使用同一 Queries 字段和共享 guard/rule helper。preview 在 FIFO read 到达队首后重新创建 Queries；dispatch 由 executor 在自己的 queue front 执行最终 guard。不存在 arbitrary command passthrough。Strict parser 对 `E2eNoSemanticParametersV1` 拒绝任意额外 key，并对 choice parameters 拒绝缺失/额外字段。
+Action descriptor 包含 stable actionId、textId、enabled、按 authored order 排列的 reasons 和受控 options；mapped union 保持 descriptor actionId 与每个 option invocation actionId 一致。`action.e2e.start` 显式映射 `e2e.flow.start`，其 availability 只读取 Task 8 的 `canStart`；不得要求 headless/golden 绕过 Semantic ABI 直接 dispatch raw Command。`createE2eSemanticActionCatalogV1(queries)` 只读取 repaired Task 8 `E2eGameQueriesV1` 字段并返回 authored-order visible descriptors；它不是 GameQueries 的新成员，也不直接访问 Module/Resolver。`previewE2eSemanticInvocationV1(queries, invocation)` 使用同一 Queries 字段和共享 guard/rule helper。Choose preview 必须用 `queries.choiceDeltas[invocation.parameters.choice]` 检查 safe-integer Counter addition；descriptor 在至少一个 authored option 可用时 enabled，只有全部 options 都不可用时才以共同的 `counter.value_out_of_range` reason disabled。preview 在 FIFO read 到达队首后重新创建 Queries；dispatch 由 executor 在自己的 queue front 执行最终 guard。不存在 arbitrary command passthrough。Strict parser 对 `E2eNoSemanticParametersV1` 拒绝任意额外 key，并对 choice parameters 拒绝缺失/额外字段。
 
 `createE2eSemanticGamePortV1` 必须把 `gameSimulation.createQueries`、`gameSimulation.projectGameView`、`createE2eSemanticActionCatalogV1` 和 `previewE2eSemanticInvocationV1` 直接交给 Base factory；不得新增 `projectE2eSemanticGameViewV1`、另一个 State reader 或另一个 Gameplay view model。每个 authoritative token 只创建一个 Queries，并由它同时生成 GameView 与 action catalog。`queryWitness` 只存在于 test fixture，用来证明 publication 的 game/actions 同源，不进入 production descriptor。
 
