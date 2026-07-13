@@ -7,6 +7,6 @@ test-results/
 art-source/aigc/**/*.png
 art-source/aigc/**/*.webp
 references/
-game/stories/sandbox/fixtures/session-zero.json
-game/stories/sandbox/golden/counter-walk.json
+game/stories/e2e/fixtures/session-zero.json
+game/stories/e2e/golden/counter-walk.json
 *.tsbuildinfo

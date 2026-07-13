@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
 
-import type { SandboxCommandV1 } from "../src/contracts.ts";
+import type { E2eCommandV1 } from "../src/contracts.ts";
 registerHooks({
   resolve(specifier, context, nextResolve) {
     try {
@@ -16,19 +16,19 @@ registerHooks({
 });
 const { canonicalJsonBytes, digestCanonical, parseNonZeroUint32 } =
   await import("@sillymaker/base");
-const { createSandboxSessionV1 } = await import("../src/session.ts");
+const { createE2eSessionV1 } = await import("../src/session.ts");
 const { resolveStoryForTestV1 } = await import("@sillymaker/base/testkit");
-const { sandboxStoryEntryV1 } = await import("../src/story-entry.ts");
+const { e2eStoryEntryV1 } = await import("../src/story-entry.ts");
 
-const commands: readonly SandboxCommandV1[] = Object.freeze([
-  { kind: "sandbox.counter.increment" },
-  { kind: "sandbox.counter.increment" },
-  { kind: "sandbox.counter.increment" },
-  { kind: "sandbox.counter.reject" },
+const commands: readonly E2eCommandV1[] = Object.freeze([
+  { kind: "e2e.counter.increment" },
+  { kind: "e2e.counter.increment" },
+  { kind: "e2e.counter.increment" },
+  { kind: "e2e.counter.reject" },
 ]);
 const seed = parseNonZeroUint32(0x0002_3049);
-const gameSimulation = resolveStoryForTestV1(sandboxStoryEntryV1).gameSimulation;
-const session = createSandboxSessionV1(gameSimulation, { rngSeed: seed });
+const gameSimulation = resolveStoryForTestV1(e2eStoryEntryV1).gameSimulation;
+const session = createE2eSessionV1(gameSimulation, { rngSeed: seed });
 const outcomes: string[] = [];
 for (const command of commands) {
   const outcome = await session.dispatch(command);
@@ -46,6 +46,6 @@ const expected = {
 const path = fileURLToPath(new URL("../golden/counter-walk.json", import.meta.url));
 const bytes = await readFile(path);
 if (!bytes.equals(Buffer.concat([Buffer.from(canonicalJsonBytes(expected)), Buffer.from("\n")]))) {
-  throw new TypeError("Sandbox golden bytes differ from deterministic execution");
+  throw new TypeError("E2e golden bytes differ from deterministic execution");
 }
-console.log("sandbox golden verification passed");
+console.log("e2e golden verification passed");

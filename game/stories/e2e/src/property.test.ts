@@ -5,24 +5,24 @@ import fc from "fast-check";
 import { parseNonZeroUint32 } from "@sillymaker/base";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 
-import { createSandboxSessionV1 } from "./session.js";
-import { sandboxStoryEntryV1 } from "./story-entry.js";
+import { createE2eSessionV1 } from "./session.js";
+import { e2eStoryEntryV1 } from "./story-entry.js";
 
 async function run(seed: number, count: number): Promise<number> {
-  const { gameSimulation } = resolveStoryForTestV1(sandboxStoryEntryV1);
-  const session = createSandboxSessionV1(gameSimulation, {
+  const { gameSimulation } = resolveStoryForTestV1(e2eStoryEntryV1);
+  const session = createE2eSessionV1(gameSimulation, {
     rngSeed: parseNonZeroUint32(seed),
   });
   for (let index = 0; index < count; index += 1) {
-    const result = await session.dispatch({ kind: "sandbox.counter.increment" });
+    const result = await session.dispatch({ kind: "e2e.counter.increment" });
     if (result.kind !== "executed" || result.execution.kind !== "committed") {
-      throw new TypeError("Sandbox increment did not commit");
+      throw new TypeError("E2e increment did not commit");
     }
   }
   return session.getCurrentSnapshot().state.simulation.counter.value;
 }
 
-describe("Sandbox deterministic counter properties", () => {
+describe("E2e deterministic counter properties", () => {
   it("returns the same bounded count for every valid seed", async () => {
     await fc.assert(
       fc.asyncProperty(

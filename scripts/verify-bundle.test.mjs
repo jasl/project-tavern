@@ -8,13 +8,13 @@ test("rejects every Developer-only path from a Player manifest", () => {
     verifyPlayerBundleFixtureV1({
       paths: [
         "engine/packages/web/src/developer/development-panel.tsx",
-        "game/stories/sandbox/src/development.ts",
+        "game/stories/e2e/src/development.ts",
         "engine/packages/base/src/testkit/index.ts",
       ],
     }),
     [
       "Player closure reached Developer path: engine/packages/web/src/developer/development-panel.tsx",
-      "Player closure reached Story development path: game/stories/sandbox/src/development.ts",
+      "Player closure reached Story development path: game/stories/e2e/src/development.ts",
       "Player closure reached Base testkit: engine/packages/base/src/testkit/index.ts",
     ],
   );

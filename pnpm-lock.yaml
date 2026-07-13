@@ -133,50 +133,20 @@ importers:
         specifier: workspace:*
         version: link:../../../engine/packages/base
 
-  game/packages/modules:
-    dependencies:
-      "@sillymaker/base":
-        specifier: workspace:*
-        version: link:../../../engine/packages/base
-      "@sillymaker/ui":
-        specifier: workspace:*
-        version: link:../../../engine/packages/ui
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-
-  game/stories/demo:
-    dependencies:
-      "@project-tavern/assets":
-        specifier: workspace:*
-        version: link:../../packages/assets
-      "@project-tavern/modules":
-        specifier: workspace:*
-        version: link:../../packages/modules
-      "@sillymaker/base":
-        specifier: workspace:*
-        version: link:../../../engine/packages/base
-      "@sillymaker/ui":
-        specifier: workspace:*
-        version: link:../../../engine/packages/ui
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-
   game/stories/e2e:
     dependencies:
       "@project-tavern/assets":
         specifier: workspace:*
         version: link:../../packages/assets
-      "@project-tavern/modules":
-        specifier: workspace:*
-        version: link:../../packages/modules
       "@sillymaker/base":
         specifier: workspace:*
         version: link:../../../engine/packages/base
       "@sillymaker/ui":
         specifier: workspace:*
         version: link:../../../engine/packages/ui
+      "@sillymaker/web":
+        specifier: workspace:*
+        version: link:../../../engine/packages/web
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -184,7 +154,7 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
-  game/stories/sandbox:
+  game/stories/poc:
     dependencies:
       "@project-tavern/assets":
         specifier: workspace:*

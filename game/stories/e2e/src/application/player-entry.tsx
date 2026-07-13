@@ -5,12 +5,9 @@ import {
   createWebHostV1,
   mountGameApplicationV1,
 } from "@sillymaker/web";
-import { createSandboxApplicationV1 } from "./create-sandbox-application.js";
-import type {
-  SandboxApplicationViewV1,
-  SandboxPlayerApplicationV1,
-} from "./create-sandbox-application.js";
-import { sandboxStoryEntryV1 } from "../index.js";
+import { createE2eApplicationV1 } from "./create-e2e-application.js";
+import type { E2eApplicationViewV1, E2ePlayerApplicationV1 } from "./create-e2e-application.js";
+import { e2eStoryEntryV1 } from "../index.js";
 
 const root = document.querySelector("#root");
 if (root === null) throw new TypeError("missing application root");
@@ -30,20 +27,20 @@ if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
       application: Object.freeze([]),
     }),
   });
-  const bootstrapped = await bootstrap(sandboxStoryEntryV1, []);
+  const bootstrapped = await bootstrap(e2eStoryEntryV1, []);
   if (bootstrapped.kind !== "ready")
-    throw new TypeError(`Sandbox bootstrap failed: ${bootstrapped.code}`);
+    throw new TypeError(`E2e bootstrap failed: ${bootstrapped.code}`);
   const resolved = bootstrapped.resolved;
-  const player = createSandboxApplicationV1({ resolved, host });
+  const player = createE2eApplicationV1({ resolved, host });
   const presentation = Object.freeze({ label: "计数" });
   const contributions = createUiContributionRegistryV1<
-    SandboxApplicationViewV1,
-    SandboxPlayerApplicationV1,
+    E2eApplicationViewV1,
+    E2ePlayerApplicationV1,
     typeof presentation
   >({
-    scenes: [{ id: "scene.sandbox.counter", render: ({ view }) => <p>计数：{view.count}</p> }],
+    scenes: [{ id: "scene.e2e.counter", render: ({ view }) => <p>计数：{view.count}</p> }],
     overlays: [],
-    hud: [{ id: "hud.sandbox.counter", render: () => null }],
+    hud: [{ id: "hud.e2e.counter", render: () => null }],
     gameSymbols: [],
   });
   mountGameApplicationV1(
@@ -53,9 +50,9 @@ if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
       playerPort={player}
       presentation={presentation}
       contributions={contributions}
-      sceneId="scene.sandbox.counter"
-      hudId="hud.sandbox.counter"
-      incrementCommand={{ kind: "sandbox.counter.increment" }}
+      sceneId="scene.e2e.counter"
+      hudId="hud.e2e.counter"
+      incrementCommand={{ kind: "e2e.counter.increment" }}
       incrementLabel="增加计数"
     />,
   );

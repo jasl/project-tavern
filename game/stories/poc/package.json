@@ -1,5 +1,5 @@
 {
-  "name": "@project-tavern/modules",
+  "name": "@project-tavern/story-poc",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,15 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "pnpm --workspace-root exec vitest run game/stories/poc/src --passWithNoTests"
+  },
   "dependencies": {
     "@sillymaker/base": "workspace:*",
     "@sillymaker/ui": "workspace:*",
+    "@project-tavern/assets": "workspace:*",
+    "@sillymaker/web": "workspace:*",
+    "react": "19.2.7",
     "zod": "4.4.3"
   }
 }

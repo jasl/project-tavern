@@ -10,6 +10,7 @@ import {
 } from "./workspace-policy.mjs";
 
 const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/u;
+const HTML_REFERENCE_PATTERN = /\b(?:href|src)=["']([^"']+)["']/gu;
 const IMPORT_PATTERN =
   /(?:import|export)\s+(?:type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/gu;
 
@@ -30,6 +31,25 @@ async function sourceFiles(root) {
     }
   }
   for (const entry of workspacePackages) await walk(join(root, entry.path, "src"));
+  return files.sort();
+}
+
+async function storyHtmlFiles(root) {
+  const files = [];
+  for (const entry of workspacePackages) {
+    if (!entry.path.startsWith("game/stories/")) continue;
+    let entries;
+    try {
+      entries = await readdir(join(root, entry.path), { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const candidate of entries) {
+      if (candidate.isFile() && candidate.name.endsWith(".html")) {
+        files.push(join(root, entry.path, candidate.name));
+      }
+    }
+  }
   return files.sort();
 }
 
@@ -146,6 +166,23 @@ export async function verifyBoundaries(root) {
       if (target === undefined) errors.push(`${entry.path}: unknown policy edge ${dependencyName}`);
       else if (entry.kind === "engine" && target.kind === "game") {
         errors.push(`${entry.path}: engine package may not depend on game package ${target.name}`);
+      }
+    }
+  }
+
+  for (const file of await storyHtmlFiles(root)) {
+    const owner = packageForFile(root, file);
+    if (!owner) continue;
+    const ownerRoot = resolve(root, owner.path);
+    const text = await readFile(file, "utf8");
+    for (const match of text.matchAll(HTML_REFERENCE_PATTERN)) {
+      const reference = match[1];
+      if (!reference?.startsWith(".")) continue;
+      const pathReference = reference.split(/[?#]/u, 1)[0];
+      if (!pathReference) continue;
+      const target = resolve(dirname(file), pathReference);
+      if (target !== ownerRoot && !target.startsWith(`${ownerRoot}${sep}`)) {
+        errors.push(`${relative(root, file)}: relative reference escapes ${owner.path}`);
       }
     }
   }

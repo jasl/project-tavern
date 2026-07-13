@@ -12,17 +12,17 @@ registerHooks({
   },
 });
 const { parseNonZeroUint32 } = await import("@sillymaker/base");
-const { createSandboxSessionV1 } = await import("../src/session.ts");
+const { createE2eSessionV1 } = await import("../src/session.ts");
 const { resolveStoryForTestV1 } = await import("@sillymaker/base/testkit");
-const { sandboxStoryEntryV1 } = await import("../src/story-entry.ts");
-const gameSimulation = resolveStoryForTestV1(sandboxStoryEntryV1).gameSimulation;
+const { e2eStoryEntryV1 } = await import("../src/story-entry.ts");
+const gameSimulation = resolveStoryForTestV1(e2eStoryEntryV1).gameSimulation;
 
 async function run(seed: number): Promise<number> {
-  const session = createSandboxSessionV1(gameSimulation, {
+  const session = createE2eSessionV1(gameSimulation, {
     rngSeed: parseNonZeroUint32(seed),
   });
   for (let count = 0; count < 3; count += 1) {
-    const outcome = await session.dispatch({ kind: "sandbox.counter.increment" });
+    const outcome = await session.dispatch({ kind: "e2e.counter.increment" });
     if (outcome.kind !== "executed" || outcome.execution.kind !== "committed") {
       throw new TypeError(`seed ${seed} did not commit`);
     }
@@ -37,4 +37,4 @@ for (let seed = 1; seed <= 1_000; seed += 1) {
     throw new TypeError(`seed ${seed} is not deterministic`);
   }
 }
-console.log("sandbox 1..1000 deterministic mechanics verification passed");
+console.log("e2e 1..1000 deterministic mechanics verification passed");

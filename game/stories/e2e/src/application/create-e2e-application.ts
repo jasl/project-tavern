@@ -21,18 +21,18 @@ import type {
 import { createGameSessionV1 } from "@sillymaker/base/runtime";
 import { createViewSourceV1 } from "@sillymaker/ui";
 
-import type { SandboxCommandV1, SandboxSimulationTypesV1 } from "../contracts.js";
-import { createSandboxInitialSnapshotV1 } from "../session.js";
-import { createSandboxFaultAttemptV1 } from "../profile.js";
-import type { SandboxResolvedGameV1 } from "../story-entry.js";
+import type { E2eCommandV1, E2eSimulationTypesV1 } from "../contracts.js";
+import { createE2eInitialSnapshotV1 } from "../session.js";
+import { createE2eFaultAttemptV1 } from "../profile.js";
+import type { E2eResolvedGameV1 } from "../story-entry.js";
 
-export interface SandboxApplicationViewV1 {
+export interface E2eApplicationViewV1 {
   readonly count: number;
   readonly parity: "even" | "odd";
   readonly status: "ready" | "busy" | "fault_paused" | "hmr_invalidated";
 }
 
-type SandboxPersistencePortV1 = {
+type E2ePersistencePortV1 = {
   readonly lease: {
     getStatus(): Promise<SessionLeaseStatusV1>;
     requestHandoff(): Promise<SessionLeaseOperationResultV1>;
@@ -56,20 +56,20 @@ type SandboxPersistencePortV1 = {
   importSave(bytes: Uint8Array): Promise<PersistenceOperationResultV1>;
 };
 
-export type SandboxPlayerApplicationV1 = PlayerApplicationPortV1<
-  SandboxApplicationViewV1,
+export type E2ePlayerApplicationV1 = PlayerApplicationPortV1<
+  E2eApplicationViewV1,
   {
     dispatch(
-      command: SandboxCommandV1,
+      command: E2eCommandV1,
     ): ReturnType<
-      ReturnType<typeof createGameSessionV1<SandboxSimulationTypesV1>>["session"]["dispatch"]
+      ReturnType<typeof createGameSessionV1<E2eSimulationTypesV1>>["session"]["dispatch"]
     >;
   },
   {
     createNewSession(): Promise<SessionAnchorResultV1>;
     restartSession(): Promise<SessionAnchorResultV1>;
   },
-  SandboxPersistencePortV1,
+  E2ePersistencePortV1,
   { exportDebugBundle(): Promise<{ readonly kind: "unavailable"; readonly code: string }> }
 >;
 
@@ -78,27 +78,24 @@ const unavailablePersistence = (): PersistenceOperationResultV1 =>
 const unavailableLease = (): SessionLeaseOperationResultV1 =>
   Object.freeze({ kind: "rejected", code: "unavailable" });
 
-export function createSandboxApplicationV1(input: {
-  readonly resolved: SandboxResolvedGameV1;
+export function createE2eApplicationV1(input: {
+  readonly resolved: E2eResolvedGameV1;
   readonly host: GameHostV1;
-}): SandboxPlayerApplicationV1 {
+}): E2ePlayerApplicationV1 {
   const gameSimulation = input.resolved.gameSimulation;
   const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
-  const created = createGameSessionV1<SandboxSimulationTypesV1>({
-    initialSnapshot: createSandboxInitialSnapshotV1(gameSimulation, bootstrap),
+  const created = createGameSessionV1<E2eSimulationTypesV1>({
+    initialSnapshot: createE2eInitialSnapshotV1(gameSimulation, bootstrap),
     commandSchema: gameSimulation.commandSchema,
     executionContext: undefined,
     executeAttempt(snapshot, command) {
       return gameSimulation.commandExecutor.executeAttempt(snapshot, command, undefined);
     },
     normalizeUnexpectedDispatchFault(_error, snapshot) {
-      return createSandboxFaultAttemptV1(
-        snapshot,
-        Object.freeze({ code: "sandbox.runtime.unexpected" }),
-      );
+      return createE2eFaultAttemptV1(snapshot, Object.freeze({ code: "e2e.runtime.unexpected" }));
     },
   });
-  const project = (): SandboxApplicationViewV1 => {
+  const project = (): E2eApplicationViewV1 => {
     const snapshot = created.session.getCurrentSnapshot();
     const queries = gameSimulation.createQueries(snapshot.state);
     const projected = gameSimulation.projectGameView(queries);
@@ -111,7 +108,7 @@ export function createSandboxApplicationV1(input: {
     created.runtimeControl.enqueueAuthoritative<SessionAnchorResultV1>(
       async () => {
         const nextBootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
-        const snapshot = createSandboxInitialSnapshotV1(gameSimulation, nextBootstrap);
+        const snapshot = createE2eInitialSnapshotV1(gameSimulation, nextBootstrap);
         return Object.freeze({
           kind: "replace" as const,
           snapshot,
@@ -146,7 +143,7 @@ export function createSandboxApplicationV1(input: {
         });
         const bytes = canonicalJsonBytes(record);
         const file: ExportedSaveV1 = Object.freeze({
-          filename: "project-tavern-sandbox-current.json",
+          filename: "project-tavern-e2e-current.json",
           mediaType: "application/json",
           digest: digestBytes(bytes),
           bytes,
@@ -156,7 +153,7 @@ export function createSandboxApplicationV1(input: {
       () => {
         const bytes = canonicalJsonBytes({ kind: "faulted" });
         return Object.freeze({
-          filename: "project-tavern-sandbox-current.json",
+          filename: "project-tavern-e2e-current.json",
           mediaType: "application/json" as const,
           digest: digestBytes(bytes),
           bytes,
@@ -170,7 +167,7 @@ export function createSandboxApplicationV1(input: {
     fencingToken: null,
     code: "persistence.unavailable",
   });
-  const persistence: SandboxPersistencePortV1 = Object.freeze({
+  const persistence: E2ePersistencePortV1 = Object.freeze({
     lease: Object.freeze({
       getStatus: async () => leaseStatus,
       requestHandoff: async () => unavailableLease(),
@@ -197,7 +194,7 @@ export function createSandboxApplicationV1(input: {
   return Object.freeze({
     view,
     commands: Object.freeze({
-      dispatch: (command: SandboxCommandV1) => created.session.dispatch(command),
+      dispatch: (command: E2eCommandV1) => created.session.dispatch(command),
     }),
     lifecycle: Object.freeze({
       createNewSession: lifecycleOperation,

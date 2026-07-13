@@ -11,8 +11,8 @@ const packageTargets = Object.freeze({
   "@sillymaker/ui": "engine/packages/ui/src/index.ts",
   "@sillymaker/web": "engine/packages/web/src/index.ts",
   "@sillymaker/web/developer": "engine/packages/web/src/developer/index.ts",
-  "@project-tavern/story-sandbox": "game/stories/sandbox/src/index.ts",
-  "@project-tavern/story-sandbox/development": "game/stories/sandbox/src/development.ts",
+  "@project-tavern/story-e2e": "game/stories/e2e/src/index.ts",
+  "@project-tavern/story-e2e/development": "game/stories/e2e/src/development.ts",
 });
 
 const posix = (root, path) => relative(root, path).split(sep).join("/");

@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { parsePositiveSafeInteger } from "@sillymaker/base";
 
-export const sandboxTextCatalogsV1 = Object.freeze({
+export const e2eTextCatalogsV1 = Object.freeze({
   defaultLocale: "zh-CN" as const,
   catalogs: Object.freeze([
     Object.freeze({
       locale: "zh-CN" as const,
       entries: Object.freeze([
-        Object.freeze({ textId: "text.sandbox.counter", text: "计数" }),
-        Object.freeze({ textId: "text.sandbox.increment", text: "增加计数" }),
+        Object.freeze({ textId: "text.e2e.counter", text: "计数" }),
+        Object.freeze({ textId: "text.e2e.increment", text: "增加计数" }),
       ]),
     }),
   ]),
 });
 
-export const sandboxAssetSlotsV1 = Object.freeze([
+export const e2eAssetSlotsV1 = Object.freeze([
   Object.freeze({
-    assetId: "asset.sandbox.counter",
+    assetId: "asset.e2e.counter",
     kind: "ui" as const,
     usage: "ui_decoration" as const,
     overridePolicy: "replaceable" as const,
@@ -29,14 +29,14 @@ export const sandboxAssetSlotsV1 = Object.freeze([
   }),
 ]);
 
-export interface SandboxPresentationProgramV1 {
-  readonly sceneId: "scene.sandbox.counter";
-  readonly textCatalogs: typeof sandboxTextCatalogsV1;
+export interface E2ePresentationProgramV1 {
+  readonly sceneId: "scene.e2e.counter";
+  readonly textCatalogs: typeof e2eTextCatalogsV1;
 }
 
-export function materializeSandboxPresentationV1(): SandboxPresentationProgramV1 {
+export function materializeE2ePresentationV1(): E2ePresentationProgramV1 {
   return Object.freeze({
-    sceneId: "scene.sandbox.counter",
-    textCatalogs: sandboxTextCatalogsV1,
+    sceneId: "scene.e2e.counter",
+    textCatalogs: e2eTextCatalogsV1,
   });
 }

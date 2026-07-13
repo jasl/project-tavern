@@ -16,21 +16,17 @@ import type {
   RuleRngV1,
 } from "@sillymaker/base";
 
-import {
-  sandboxCommandSchemaV1,
-  sandboxCounterStateSchemaV1,
-  sandboxStateSchemaV1,
-} from "./contracts.js";
+import { e2eCommandSchemaV1, e2eCounterStateSchemaV1, e2eStateSchemaV1 } from "./contracts.js";
 import type {
-  SandboxBootstrapInputV1,
-  SandboxCommandV1,
-  SandboxDebugValidationErrorV1,
-  SandboxFactV1,
-  SandboxFaultV1,
-  SandboxRejectionV1,
-  SandboxSimulationTypesV1,
-  SandboxSnapshotV1,
-  SandboxStateV1,
+  E2eBootstrapInputV1,
+  E2eCommandV1,
+  E2eDebugValidationErrorV1,
+  E2eFactV1,
+  E2eFaultV1,
+  E2eRejectionV1,
+  E2eSimulationTypesV1,
+  E2eSnapshotV1,
+  E2eStateV1,
 } from "./contracts.js";
 
 interface CounterOperationV1 {
@@ -40,19 +36,19 @@ interface CounterOperationV1 {
 
 interface CounterProposalV1 {
   readonly payload: CounterOperationV1;
-  readonly facts: readonly SandboxFactV1[];
+  readonly facts: readonly E2eFactV1[];
 }
 
-type SandboxCommandAttemptV1 = CommandExecutionAttemptEnvelopeV1<
-  SandboxSnapshotV1,
-  SandboxFactV1,
-  SandboxRejectionV1,
-  SandboxFaultV1,
-  SandboxSimulationTypesV1["rngState"],
-  SandboxSimulationTypesV1["rngDrawTrace"]
+type E2eCommandAttemptV1 = CommandExecutionAttemptEnvelopeV1<
+  E2eSnapshotV1,
+  E2eFactV1,
+  E2eRejectionV1,
+  E2eFaultV1,
+  E2eSimulationTypesV1["rngState"],
+  E2eSimulationTypesV1["rngDrawTrace"]
 >;
 
-function diagnostics(snapshot: SandboxSnapshotV1, rng: RuleRngV1, committedAfter = snapshot.rng) {
+function diagnostics(snapshot: E2eSnapshotV1, rng: RuleRngV1, committedAfter = snapshot.rng) {
   return Object.freeze({
     committedRngBefore: snapshot.rng,
     attemptedDraws: rng.attemptedDraws(),
@@ -61,10 +57,10 @@ function diagnostics(snapshot: SandboxSnapshotV1, rng: RuleRngV1, committedAfter
   });
 }
 
-export function createSandboxFaultAttemptV1(
-  snapshot: SandboxSnapshotV1,
-  fault: SandboxFaultV1,
-): SandboxCommandAttemptV1 {
+export function createE2eFaultAttemptV1(
+  snapshot: E2eSnapshotV1,
+  fault: E2eFaultV1,
+): E2eCommandAttemptV1 {
   const rng = createTransactionalRngV1(snapshot.rng);
   return Object.freeze({
     result: Object.freeze({ kind: "faulted" as const, snapshot, fault }),
@@ -78,21 +74,21 @@ function passthroughSchema<T>(): RuntimeSchemaV1<T> {
 
 const neverSchema: RuntimeSchemaV1<never> = Object.freeze({
   parse() {
-    throw new TypeError("Sandbox does not support debug commands");
+    throw new TypeError("E2e does not support debug commands");
   },
 });
 
-const debugValidationErrorSchema: RuntimeSchemaV1<SandboxDebugValidationErrorV1> = Object.freeze({
+const debugValidationErrorSchema: RuntimeSchemaV1<E2eDebugValidationErrorV1> = Object.freeze({
   parse(value: unknown) {
     if (
       value === null ||
       typeof value !== "object" ||
       Object.keys(value).join("\0") !== "code" ||
-      Reflect.get(value, "code") !== "sandbox.debug.unsupported"
+      Reflect.get(value, "code") !== "e2e.debug.unsupported"
     ) {
-      throw new TypeError("invalid Sandbox debug validation error");
+      throw new TypeError("invalid E2e debug validation error");
     }
-    return Object.freeze({ code: "sandbox.debug.unsupported" as const });
+    return Object.freeze({ code: "e2e.debug.unsupported" as const });
   },
 });
 
@@ -119,29 +115,29 @@ const proposalSchema: RuntimeSchemaV1<CounterProposalV1> = Object.freeze({
     const payload = operationSchema.parse(Reflect.get(value, "payload"));
     const facts = Reflect.get(value, "facts");
     if (!Array.isArray(facts) || facts.length !== 1) throw new TypeError("invalid facts");
-    return Object.freeze({ payload, facts: Object.freeze([...facts]) as readonly SandboxFactV1[] });
+    return Object.freeze({ payload, facts: Object.freeze([...facts]) as readonly E2eFactV1[] });
   },
 });
 
-function createGameplayModules(program: SandboxSimulationProgramV1) {
-  const counter = defineGameplayModule<SandboxSimulationTypesV1>()({
+function createGameplayModules(program: E2eSimulationProgramV1) {
+  const counter = defineGameplayModule<E2eSimulationTypesV1>()({
     bindingKind: "stateful" as const,
     descriptor: {
-      id: parseModuleId("sandbox.counter"),
+      id: parseModuleId("e2e.counter"),
       contractRevision: parsePositiveSafeInteger(1),
       stateSlots: [parseStateSlotId("simulation.counter")],
       dependencies: [],
     },
-    commandSchema: sandboxCommandSchemaV1,
+    commandSchema: e2eCommandSchemaV1,
     querySchema: null,
     queryResultSchema: null,
-    stateSchema: sandboxCounterStateSchemaV1,
+    stateSchema: e2eCounterStateSchemaV1,
     ownerOperationSchema: operationSchema,
     ownerProposalSchema: proposalSchema,
     localInvariants: [],
     owner: {
       propose(stateValue: unknown, operationValue: unknown) {
-        const state = sandboxCounterStateSchemaV1.parse(stateValue);
+        const state = e2eCounterStateSchemaV1.parse(stateValue);
         const operation = operationSchema.parse(operationValue);
         return Object.freeze({
           kind: "proposed" as const,
@@ -149,7 +145,7 @@ function createGameplayModules(program: SandboxSimulationProgramV1) {
             payload: operation,
             facts: Object.freeze([
               Object.freeze({
-                kind: "sandbox.counter.changed" as const,
+                kind: "e2e.counter.changed" as const,
                 before: state.value,
                 after: operation.value,
               }),
@@ -167,16 +163,16 @@ function createGameplayModules(program: SandboxSimulationProgramV1) {
       return Object.freeze({ value: program.initialCount });
     },
     createReadPort(state: unknown) {
-      return sandboxCounterStateSchemaV1.parse(state);
+      return e2eCounterStateSchemaV1.parse(state);
     },
   });
-  const parity = defineGameplayModule<SandboxSimulationTypesV1>()({
+  const parity = defineGameplayModule<E2eSimulationTypesV1>()({
     bindingKind: "stateless" as const,
     descriptor: {
-      id: parseModuleId("sandbox.parity"),
+      id: parseModuleId("e2e.parity"),
       contractRevision: parsePositiveSafeInteger(1),
       stateSlots: [],
-      dependencies: [parseModuleId("sandbox.counter")],
+      dependencies: [parseModuleId("e2e.counter")],
     },
     commandSchema: null,
     querySchema: null,
@@ -193,36 +189,36 @@ function createGameplayModules(program: SandboxSimulationProgramV1) {
   return Object.freeze([counter, parity] as const);
 }
 
-export interface SandboxSimulationProgramV1 {
+export interface E2eSimulationProgramV1 {
   readonly initialCount: NonNegativeSafeInteger;
 }
 
-export function createSandboxGameSimulationV1(program: SandboxSimulationProgramV1) {
+export function createE2eGameSimulationV1(program: E2eSimulationProgramV1) {
   const modules = createGameplayModules(program);
   const counter = modules[0];
   const parity = modules[1];
   const commandExecutor = Object.freeze({
     executeAttempt(
-      snapshot: SandboxSnapshotV1,
-      commandValue: SandboxCommandV1,
+      snapshot: E2eSnapshotV1,
+      commandValue: E2eCommandV1,
       _context: undefined,
-    ): SandboxCommandAttemptV1 {
-      const command = sandboxCommandSchemaV1.parse(commandValue);
+    ): E2eCommandAttemptV1 {
+      const command = e2eCommandSchemaV1.parse(commandValue);
       const rng = createTransactionalRngV1(snapshot.rng);
-      if (command.kind === "sandbox.counter.reject") {
+      if (command.kind === "e2e.counter.reject") {
         return Object.freeze({
           result: Object.freeze({
             kind: "rejected" as const,
             snapshot,
-            reasons: Object.freeze([Object.freeze({ code: "sandbox.counter.rejected" as const })]),
+            reasons: Object.freeze([Object.freeze({ code: "e2e.counter.rejected" as const })]),
           }),
           diagnostics: diagnostics(snapshot, rng),
         });
       }
-      if (command.kind === "sandbox.counter.fault") {
-        return createSandboxFaultAttemptV1(
+      if (command.kind === "e2e.counter.fault") {
+        return createE2eFaultAttemptV1(
           snapshot,
-          Object.freeze({ code: "sandbox.counter.fault" as const }),
+          Object.freeze({ code: "e2e.counter.fault" as const }),
         );
       }
       const operation = operationSchema.parse({
@@ -236,7 +232,7 @@ export function createSandboxGameSimulationV1(program: SandboxSimulationProgramV
       );
       if (proposed.kind !== "proposed") throw new TypeError("counter proposal rejected");
       const proposal = proposalSchema.parse(proposed.proposal);
-      const nextCounter = sandboxCounterStateSchemaV1.parse(
+      const nextCounter = e2eCounterStateSchemaV1.parse(
         counter.owner.apply(snapshot.state.simulation.counter, proposal),
       );
       const next = Object.freeze({
@@ -256,60 +252,58 @@ export function createSandboxGameSimulationV1(program: SandboxSimulationProgramV
   });
   const debugCommandExecutor = Object.freeze({
     validate(
-      _snapshot: SandboxSnapshotV1,
+      _snapshot: E2eSnapshotV1,
       _command: never,
       _context: undefined,
     ): {
       readonly kind: "validation_failed";
-      readonly errors: readonly SandboxDebugValidationErrorV1[];
+      readonly errors: readonly E2eDebugValidationErrorV1[];
     } {
       return Object.freeze({
         kind: "validation_failed",
-        errors: Object.freeze([Object.freeze({ code: "sandbox.debug.unsupported" })]),
+        errors: Object.freeze([Object.freeze({ code: "e2e.debug.unsupported" })]),
       });
     },
     executeAttempt(
-      _snapshot: SandboxSnapshotV1,
+      _snapshot: E2eSnapshotV1,
       _command: never,
       _context: undefined,
-    ): SandboxCommandAttemptV1 {
-      throw new TypeError("Sandbox does not support debug commands");
+    ): E2eCommandAttemptV1 {
+      throw new TypeError("E2e does not support debug commands");
     },
   });
 
-  return defineGameSimulation<SandboxSimulationTypesV1>()({
+  return defineGameSimulation<E2eSimulationTypesV1>()({
     contractRevision: 1 as const,
     modules,
-    stateSchema: sandboxStateSchemaV1,
-    commandSchema: sandboxCommandSchemaV1,
-    factSchema: passthroughSchema<SandboxFactV1>(),
-    rejectionSchema: passthroughSchema<SandboxRejectionV1>(),
+    stateSchema: e2eStateSchemaV1,
+    commandSchema: e2eCommandSchemaV1,
+    factSchema: passthroughSchema<E2eFactV1>(),
+    rejectionSchema: passthroughSchema<E2eRejectionV1>(),
     debugCommandSchema: neverSchema,
     debugValidationErrorSchema,
     commandExecutor,
     debugCommandExecutor,
-    createBootstrapInput(entropy: BootstrapEntropyV1): SandboxBootstrapInputV1 {
+    createBootstrapInput(entropy: BootstrapEntropyV1): E2eBootstrapInputV1 {
       return Object.freeze({ rngSeed: entropy.nextNonZeroUint32() });
     },
-    createInitialState(_bootstrap: SandboxBootstrapInputV1): SandboxStateV1 {
+    createInitialState(_bootstrap: E2eBootstrapInputV1): E2eStateV1 {
       return Object.freeze({
         simulation: Object.freeze({
           counter: Object.freeze({ value: program.initialCount }),
         }),
       });
     },
-    createQueries(state: SandboxStateV1): SandboxSimulationTypesV1["queries"] {
+    createQueries(state: E2eStateV1): E2eSimulationTypesV1["queries"] {
       return Object.freeze({
         count: state.simulation.counter.value,
         parity: parity.capabilities.resolveParity(state.simulation.counter.value),
       });
     },
-    projectGameView(
-      queries: SandboxSimulationTypesV1["queries"],
-    ): SandboxSimulationTypesV1["viewModel"] {
+    projectGameView(queries: E2eSimulationTypesV1["queries"]): E2eSimulationTypesV1["viewModel"] {
       return Object.freeze({ count: queries.count, parity: queries.parity });
     },
   });
 }
 
-export type SandboxGameSimulationV1 = ReturnType<typeof createSandboxGameSimulationV1>;
+export type E2eGameSimulationV1 = ReturnType<typeof createE2eGameSimulationV1>;

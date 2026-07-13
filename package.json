@@ -21,7 +21,7 @@
     "verify:stories": "node scripts/verify-stories.mjs",
     "verify:fixtures": "node scripts/verify-fixtures.mjs",
     "verify:golden": "node scripts/verify-golden.mjs",
-    "verify:balance": "pnpm --filter @project-tavern/story-sandbox verify:balance",
+    "verify:balance": "pnpm --filter @project-tavern/story-e2e verify:balance",
     "verify:assets": "node scripts/verify-assets.mjs",
     "verify:bundle": "node scripts/verify-bundle.mjs",
     "verify:artifact": "node scripts/verify-artifact.mjs",
@@ -43,8 +43,8 @@
     "verify:materialization": "node --experimental-strip-types scripts/preflight/verify-materialization.mts",
     "verify:phase2:checkpoint": "node --experimental-strip-types scripts/verify-phase2-checkpoint.mts",
     "release:prepare": "pnpm build:player && node scripts/prepare-artifact.mjs",
-    "regenerate:fixtures": "pnpm --filter @project-tavern/story-sandbox regenerate:fixtures",
-    "update:golden": "pnpm --filter @project-tavern/story-sandbox update:golden",
+    "regenerate:fixtures": "pnpm --filter @project-tavern/story-e2e regenerate:fixtures",
+    "update:golden": "pnpm --filter @project-tavern/story-e2e update:golden",
     "verify": "node scripts/verify.mjs"
   },
   "devDependencies": {

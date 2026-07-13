@@ -37,42 +37,18 @@ export const workspacePackages = Object.freeze([
     edges: ["@sillymaker/base"],
   }),
   Object.freeze({
-    path: "game/packages/modules",
-    name: "@project-tavern/modules",
-    kind: "game",
-    license: "PolyForm-Noncommercial-1.0.0",
-    edges: ["@sillymaker/base", "@sillymaker/ui"],
-  }),
-  Object.freeze({
-    path: "game/stories/sandbox",
-    name: "@project-tavern/story-sandbox",
+    path: "game/stories/e2e",
+    name: "@project-tavern/story-e2e",
     kind: "game",
     license: "PolyForm-Noncommercial-1.0.0",
     edges: ["@sillymaker/base", "@sillymaker/ui", "@project-tavern/assets", "@sillymaker/web"],
   }),
   Object.freeze({
-    path: "game/stories/e2e",
-    name: "@project-tavern/story-e2e",
+    path: "game/stories/poc",
+    name: "@project-tavern/story-poc",
     kind: "game",
     license: "PolyForm-Noncommercial-1.0.0",
-    edges: [
-      "@sillymaker/base",
-      "@sillymaker/ui",
-      "@project-tavern/modules",
-      "@project-tavern/assets",
-    ],
-  }),
-  Object.freeze({
-    path: "game/stories/demo",
-    name: "@project-tavern/story-demo",
-    kind: "game",
-    license: "PolyForm-Noncommercial-1.0.0",
-    edges: [
-      "@sillymaker/base",
-      "@sillymaker/ui",
-      "@project-tavern/modules",
-      "@project-tavern/assets",
-    ],
+    edges: ["@sillymaker/base", "@sillymaker/ui", "@project-tavern/assets", "@sillymaker/web"],
   }),
 ]);
 

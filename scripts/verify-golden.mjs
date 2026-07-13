@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export const goldenVerificationCommandV1 = Object.freeze([
   "pnpm",
   "--filter",
-  "@project-tavern/story-sandbox",
+  "@project-tavern/story-e2e",
   "verify:golden",
 ]);
 export function verifyGoldenV1(root) {

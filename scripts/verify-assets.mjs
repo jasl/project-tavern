@@ -9,7 +9,7 @@ export const assetVerificationCommandV1 = Object.freeze([
   "run",
   "--project",
   "contract",
-  "game/stories/sandbox/src/story-contract.test.ts",
+  "game/stories/e2e/src/story-contract.test.ts",
 ]);
 export function verifyAssetsV1(root) {
   const [command, ...args] = assetVerificationCommandV1;

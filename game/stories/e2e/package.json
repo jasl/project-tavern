@@ -5,13 +5,22 @@
   "type": "module",
   "license": "PolyForm-Noncommercial-1.0.0",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./development": "./src/development.ts"
+  },
+  "scripts": {
+    "test": "pnpm --workspace-root exec vitest run game/stories/e2e/src",
+    "verify:fixtures": "node --experimental-strip-types scripts/verify-fixtures.mts",
+    "regenerate:fixtures": "node --experimental-strip-types scripts/regenerate-fixtures.mts",
+    "verify:golden": "node --experimental-strip-types scripts/verify-golden.mts",
+    "update:golden": "node --experimental-strip-types scripts/update-golden.mts",
+    "verify:balance": "node --experimental-strip-types scripts/verify-balance.mts"
   },
   "dependencies": {
     "@sillymaker/base": "workspace:*",
     "@sillymaker/ui": "workspace:*",
-    "@project-tavern/modules": "workspace:*",
     "@project-tavern/assets": "workspace:*",
+    "@sillymaker/web": "workspace:*",
     "react": "19.2.7",
     "zod": "4.4.3"
   }

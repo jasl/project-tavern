@@ -2,13 +2,13 @@
 import { describe, expect, it } from "vitest";
 import { createWebHostV1 } from "@sillymaker/web";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
-import { createSandboxApplicationV1 } from "./create-sandbox-application.js";
-import { sandboxStoryEntryV1 } from "../story-entry.js";
+import { createE2eApplicationV1 } from "./create-e2e-application.js";
+import { e2eStoryEntryV1 } from "../story-entry.js";
 
-describe("Sandbox Player application", () => {
+describe("E2e Player application", () => {
   it("composes five narrow ports with storage unavailable and rescue export", async () => {
-    const application = createSandboxApplicationV1({
-      resolved: resolveStoryForTestV1(sandboxStoryEntryV1),
+    const application = createE2eApplicationV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
       host: createWebHostV1({
         seeds: [0x0002_3049],
         uuids: ["00000000-0000-4000-8000-000000000001"],
@@ -31,7 +31,7 @@ describe("Sandbox Player application", () => {
     });
     await expect(application.persistence.exportCurrentSave()).resolves.toMatchObject({
       mediaType: "application/json",
-      filename: "project-tavern-sandbox-current.json",
+      filename: "project-tavern-e2e-current.json",
     });
   });
 });

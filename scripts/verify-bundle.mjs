@@ -9,8 +9,8 @@ export function verifyPlayerBundleFixtureV1(manifest) {
     if (path.startsWith("engine/packages/web/src/developer/")) {
       errors.push(`Player closure reached Developer path: ${path}`);
     } else if (
-      path === "game/stories/sandbox/src/development.ts" ||
-      path === "game/stories/sandbox/src/application/developer-entry.tsx"
+      path === "game/stories/e2e/src/development.ts" ||
+      path === "game/stories/e2e/src/application/developer-entry.tsx"
     ) {
       errors.push(`Player closure reached Story development path: ${path}`);
     } else if (path.startsWith("engine/packages/base/src/testkit/")) {
@@ -30,15 +30,15 @@ export function verifyPlayerBundleFixtureV1(manifest) {
 
 export async function verifyBrowserClosuresV1(root) {
   const player = await collectManagedPaths(root, [
-    "game/stories/sandbox/src/application/player-entry.tsx",
+    "game/stories/e2e/src/application/player-entry.tsx",
   ]);
   const developer = await collectManagedPaths(root, [
-    "game/stories/sandbox/src/application/developer-entry.tsx",
+    "game/stories/e2e/src/application/developer-entry.tsx",
   ]);
   const errors = verifyPlayerBundleFixtureV1({ paths: player });
   for (const required of [
-    "game/stories/sandbox/src/application/developer-entry.tsx",
-    "game/stories/sandbox/src/development.ts",
+    "game/stories/e2e/src/application/developer-entry.tsx",
+    "game/stories/e2e/src/development.ts",
     "engine/packages/web/src/developer/index.ts",
   ]) {
     if (!developer.includes(required)) errors.push(`Developer closure missing marker: ${required}`);

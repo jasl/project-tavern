@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export const fixtureVerificationCommandV1 = Object.freeze([
   "pnpm",
   "--filter",
-  "@project-tavern/story-sandbox",
+  "@project-tavern/story-e2e",
   "verify:fixtures",
 ]);
 export function verifyFixturesV1(root) {
