@@ -11,12 +11,17 @@
     "test": "pnpm --workspace-root exec vitest run engine/packages/ui/src"
   },
   "dependencies": {
-    "@sillymaker/base": "workspace:*"
+    "@fontsource/noto-sans-sc": "5.2.9",
+    "@radix-ui/react-dialog": "1.1.19",
+    "@sillymaker/base": "workspace:*",
+    "lucide-react": "1.24.0"
   },
   "peerDependencies": {
-    "react": "19.2.7"
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
-    "react": "19.2.7"
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   }
 }

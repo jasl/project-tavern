@@ -14,8 +14,12 @@
   "dependencies": {
     "@sillymaker/base": "workspace:*",
     "@sillymaker/ui": "workspace:*",
+    "idb": "8.0.3",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-router-dom": "7.18.1"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.5"
   }
 }

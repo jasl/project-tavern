@@ -15,6 +15,7 @@
 /art-source/**/candidates/
 /art-source/**/work/
 /.superpowers/
+/.project-tavern/
 
 # Dependencies and package-manager caches.
 node_modules/
