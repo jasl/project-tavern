@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { createReadonlyViewSourceV1 } from "./application.js";
 import { canonicalJsonBytes } from "./canonical-json.js";
+import * as presentationContracts from "./presentation.js";
 import {
   canonicalPresentationJsonBytesV1,
   combineContentMaturityFlagsV1,
@@ -16,6 +17,58 @@ import {
   stageSceneGraphSchemaV1,
 } from "./presentation.js";
 import type { ContentMaturityFlagBitV1, ContentMaturityFlagsV1 } from "./presentation.js";
+
+type PendingLocaleParserV1 = (value: unknown) => string;
+type PendingTextCatalogParserV1 = (value: unknown) => Readonly<Record<string, unknown>>;
+
+function parsePendingLocaleIdV1(value: unknown): string {
+  const parser = (presentationContracts as { readonly parseLocaleId?: PendingLocaleParserV1 })
+    .parseLocaleId;
+  if (typeof parser !== "function") {
+    expect(parser, "Base must export parseLocaleId").toBeTypeOf("function");
+    throw new TypeError("parseLocaleId is missing");
+  }
+  return parser(value);
+}
+
+function parsePendingTextCatalogSetV1(value: unknown): Readonly<Record<string, unknown>> {
+  const parser = (
+    presentationContracts as unknown as {
+      readonly parseTextCatalogSetV1?: PendingTextCatalogParserV1;
+    }
+  ).parseTextCatalogSetV1;
+  if (typeof parser !== "function") {
+    expect(parser, "Base must export parseTextCatalogSetV1").toBeTypeOf("function");
+    throw new TypeError("parseTextCatalogSetV1 is missing");
+  }
+  return parser(value);
+}
+
+function createRawTextCatalogSetV1() {
+  return {
+    defaultLocale: "zh-CN",
+    catalogs: [
+      {
+        locale: "fr-CA",
+        fallbackLocale: "fr-FR",
+        entries: [{ textId: "text.synthetic.second", text: "Deuxième (Canada)" }],
+      },
+      {
+        locale: "zh-CN",
+        fallbackLocale: null,
+        entries: [
+          { textId: "text.synthetic.second", text: "第二" },
+          { textId: "text.synthetic.first", text: "第一" },
+        ],
+      },
+      {
+        locale: "fr-FR",
+        fallbackLocale: "zh-CN",
+        entries: [{ textId: "text.synthetic.first", text: "Premier" }],
+      },
+    ],
+  };
+}
 
 function createEmptyContentMaturityPolicyV1() {
   return {
@@ -469,6 +522,118 @@ function createHighestBitPolicyV1() {
     ],
   };
 }
+
+describe("TextCatalogSetV1 contracts", () => {
+  it("accepts canonical BCP 47 Locale IDs and rejects non-canonical or invalid forms", () => {
+    expect(parsePendingLocaleIdV1("zh-CN")).toBe("zh-CN");
+    expect(parsePendingLocaleIdV1("fr-CA")).toBe("fr-CA");
+    expect(parsePendingLocaleIdV1("zh-Hant-TW")).toBe("zh-Hant-TW");
+
+    for (const invalid of ["zh-cn", "en_US", "not a locale", "", 42]) {
+      expect(() => parsePendingLocaleIdV1(invalid)).toThrow();
+    }
+  });
+
+  it("preserves authored catalog and entry order and deeply freezes cloned plain data", () => {
+    const source = createRawTextCatalogSetV1();
+    const parsed = parsePendingTextCatalogSetV1(source) as {
+      readonly defaultLocale: string;
+      readonly catalogs: readonly {
+        readonly locale: string;
+        readonly fallbackLocale: string | null;
+        readonly entries: readonly { readonly textId: string; readonly text: string }[];
+      }[];
+    };
+
+    expect(parsed).toEqual(source);
+    expect(parsed).not.toBe(source);
+    expect(parsed.catalogs.map((catalog) => catalog.locale)).toEqual(["fr-CA", "zh-CN", "fr-FR"]);
+    expect(parsed.catalogs[1]?.entries.map((entry) => entry.textId)).toEqual([
+      "text.synthetic.second",
+      "text.synthetic.first",
+    ]);
+    expect(Object.isFrozen(parsed)).toBe(true);
+    expect(Object.isFrozen(parsed.catalogs)).toBe(true);
+    for (const catalog of parsed.catalogs) {
+      expect(Object.isFrozen(catalog)).toBe(true);
+      expect(Object.isFrozen(catalog.entries)).toBe(true);
+      for (const entry of catalog.entries) expect(Object.isFrozen(entry)).toBe(true);
+    }
+  });
+
+  it("requires exact plain-data catalog, locale, and entry records without invoking accessors", () => {
+    let getterCalls = 0;
+    const accessorCatalog = createRawTextCatalogSetV1();
+    Object.defineProperty(accessorCatalog, "defaultLocale", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return "zh-CN";
+      },
+    });
+    const extraSetField = { ...createRawTextCatalogSetV1(), extra: true };
+    const extraCatalogField = createRawTextCatalogSetV1();
+    extraCatalogField.catalogs[0] = { ...extraCatalogField.catalogs[0]!, extra: true } as never;
+    const extraEntryField = createRawTextCatalogSetV1();
+    extraEntryField.catalogs[1]!.entries[0] = {
+      ...extraEntryField.catalogs[1]!.entries[0]!,
+      extra: true,
+    } as never;
+
+    for (const invalid of [
+      Object.assign(Object.create(null), createRawTextCatalogSetV1()),
+      extraSetField,
+      extraCatalogField,
+      extraEntryField,
+      accessorCatalog,
+    ]) {
+      expect(() => parsePendingTextCatalogSetV1(invalid)).toThrow();
+    }
+    expect(getterCalls).toBe(0);
+  });
+
+  it("rejects duplicate locales and duplicate TextIds within one locale", () => {
+    const duplicateLocale = createRawTextCatalogSetV1();
+    duplicateLocale.catalogs.push({
+      locale: "zh-CN",
+      fallbackLocale: null,
+      entries: [],
+    });
+    const duplicateTextId = createRawTextCatalogSetV1();
+    duplicateTextId.catalogs[1]!.entries.push({
+      textId: "text.synthetic.second",
+      text: "重复",
+    });
+
+    expect(() => parsePendingTextCatalogSetV1(duplicateLocale)).toThrow();
+    expect(() => parsePendingTextCatalogSetV1(duplicateTextId)).toThrow();
+  });
+
+  it("requires the default catalog to exist and have fallbackLocale=null", () => {
+    const missingDefault = createRawTextCatalogSetV1();
+    missingDefault.defaultLocale = "en-US";
+    const defaultWithFallback = createRawTextCatalogSetV1();
+    defaultWithFallback.catalogs[1]!.fallbackLocale = "fr-FR";
+
+    expect(() => parsePendingTextCatalogSetV1(missingDefault)).toThrow();
+    expect(() => parsePendingTextCatalogSetV1(defaultWithFallback)).toThrow();
+  });
+
+  it("requires every non-default fallback chain to exist, remain acyclic, and terminate at default", () => {
+    expect(() => parsePendingTextCatalogSetV1(createRawTextCatalogSetV1())).not.toThrow();
+
+    const nullNonDefaultFallback = createRawTextCatalogSetV1();
+    nullNonDefaultFallback.catalogs[0]!.fallbackLocale = null;
+    const missingFallback = createRawTextCatalogSetV1();
+    missingFallback.catalogs[0]!.fallbackLocale = "en-US";
+    const cyclicFallback = createRawTextCatalogSetV1();
+    cyclicFallback.catalogs[2]!.fallbackLocale = "fr-CA";
+
+    for (const invalid of [nullNonDefaultFallback, missingFallback, cyclicFallback]) {
+      expect(() => parsePendingTextCatalogSetV1(invalid)).toThrow();
+    }
+  });
+});
 
 describe("readonly view source", () => {
   it("publishes immutable current values without a setter", () => {

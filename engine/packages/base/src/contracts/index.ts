@@ -128,6 +128,7 @@ export {
   parseInteractionBehaviorId,
   parseInteractionSurfaceId,
   parseInteractionTargetId,
+  parseLocaleId,
   parseNormalizedCoordinateV1,
   parseNormalizedExtentV1,
   parsePositiveFiniteNumber,
@@ -135,6 +136,7 @@ export {
   parseStageSceneGraphV1,
   parseStageSceneId,
   parseStageSceneVariantId,
+  parseTextCatalogSetV1,
   parseTextId,
   requireContentPreferencePresetV1,
   setContentMaturityFlagV1,
@@ -177,6 +179,8 @@ export type {
   InteractionSurfaceTargetBindingV1,
   InteractionTargetDescriptorV1,
   InteractionTargetId,
+  LocaleId,
+  LocalizedTextCatalogV1,
   NormalizedCoordinateV1,
   NormalizedExtentV1,
   NormalizedPointV1,
@@ -197,6 +201,7 @@ export type {
   StageSceneId,
   StageScenePresentationV1,
   StageSceneVariantId,
+  TextCatalogSetV1,
   TextId,
 } from "./presentation.js";
 export {

@@ -446,8 +446,7 @@ export function resolveHotfixesV1<TSimulationPatchSurface, TPresentationPatchSur
           }
           if (
             (state.slot.kind === "rule" && typeof value !== "function") ||
-            (state.slot.kind !== "rule" && typeof value === "function") ||
-            (state.slot.kind === "text" && typeof value !== "string")
+            (state.slot.kind !== "rule" && typeof value === "function")
           ) {
             hotfixFailure(
               "hotfix.output_invalid",

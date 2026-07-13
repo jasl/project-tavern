@@ -30,8 +30,9 @@ import type {
 import {
   canonicalPresentationJsonBytesV1,
   parseStageSceneGraphV1,
+  parseTextCatalogSetV1,
 } from "../contracts/presentation.js";
-import type { StageSceneGraphV1 } from "../contracts/presentation.js";
+import type { StageSceneGraphV1, TextCatalogSetV1, TextId } from "../contracts/presentation.js";
 import {
   parseDigest,
   parseModuleId,
@@ -85,7 +86,7 @@ interface SourceSimulationFacetLikeV1 {
 interface SourcePresentationFacetLikeV1 {
   readonly record: Record<string, unknown>;
   readonly uiSceneGraph: unknown;
-  readonly textCatalogs: unknown;
+  readonly textCatalogs: TextCatalogSetV1;
   readonly assetSlots: unknown;
   readonly assetPacks: unknown;
   readonly patchSurface: unknown;
@@ -322,7 +323,9 @@ function validateSourceDefinition(value: unknown): SourceDefinitionLikeV1 {
     presentation: {
       record: presentation,
       uiSceneGraph: ownDataValue(presentation, "uiSceneGraph", "Story presentation facet"),
-      textCatalogs: ownDataValue(presentation, "textCatalogs", "Story presentation facet"),
+      textCatalogs: parseTextCatalogSetV1(
+        ownDataValue(presentation, "textCatalogs", "Story presentation facet"),
+      ),
       assetSlots: ownDataValue(presentation, "assetSlots", "Story presentation facet"),
       assetPacks: ownDataValue(presentation, "assetPacks", "Story presentation facet"),
       patchSurface: ownDataValue(presentation, "patchSurface", "Story presentation facet"),
@@ -977,9 +980,66 @@ function digestPresentationProjectionV1(value: unknown): ReturnType<typeof diges
 class StoryPresentationCatalogErrorV1 extends TypeError {
   readonly code = "presentation.catalog.missing_reference";
 
-  constructor(assetId: string, path: string) {
-    super(`presentation.catalog.missing_reference at ${path}: ${assetId}`);
+  constructor(reference: string, path: string) {
+    super(`presentation.catalog.missing_reference at ${path}: ${reference}`);
   }
+}
+
+function validateSceneGraphTextReferencesV1(
+  sceneGraph: StageSceneGraphV1,
+  textCatalogs: TextCatalogSetV1,
+): void {
+  const defaultCatalog = textCatalogs.catalogs.find(
+    (catalog) => catalog.locale === textCatalogs.defaultLocale,
+  );
+  if (defaultCatalog === undefined) {
+    throw new StoryPresentationCatalogErrorV1(
+      textCatalogs.defaultLocale,
+      "/presentation/textCatalogs/defaultLocale",
+    );
+  }
+  const textIds = new Set(defaultCatalog.entries.map((entry) => entry.textId));
+  const requireTextId = (textId: TextId, path: string): void => {
+    if (!textIds.has(textId)) {
+      throw new StoryPresentationCatalogErrorV1(textId, path);
+    }
+  };
+
+  sceneGraph.variants.forEach((variant, index) =>
+    requireTextId(variant.accessibleNameTextId, `/variants/${index}/accessibleNameTextId`),
+  );
+  sceneGraph.characters.forEach((character, index) =>
+    requireTextId(character.accessibleNameTextId, `/characters/${index}/accessibleNameTextId`),
+  );
+  sceneGraph.interactionSurfaces.forEach((surface, index) =>
+    requireTextId(
+      surface.accessibleNameTextId,
+      `/interactionSurfaces/${index}/accessibleNameTextId`,
+    ),
+  );
+  sceneGraph.interactionTargets.forEach((target, index) =>
+    requireTextId(target.accessibleNameTextId, `/interactionTargets/${index}/accessibleNameTextId`),
+  );
+  sceneGraph.interactionBehaviors.forEach((behavior, index) => {
+    requireTextId(behavior.nameTextId, `/interactionBehaviors/${index}/nameTextId`);
+    if (behavior.descriptionTextId !== null) {
+      requireTextId(behavior.descriptionTextId, `/interactionBehaviors/${index}/descriptionTextId`);
+    }
+  });
+  sceneGraph.contentMaturityPolicy.flags.forEach((flag, index) => {
+    requireTextId(flag.nameTextId, `/contentMaturityPolicy/flags/${index}/nameTextId`);
+    requireTextId(
+      flag.descriptionTextId,
+      `/contentMaturityPolicy/flags/${index}/descriptionTextId`,
+    );
+  });
+  sceneGraph.contentMaturityPolicy.presets.forEach((preset, index) => {
+    requireTextId(preset.nameTextId, `/contentMaturityPolicy/presets/${index}/nameTextId`);
+    requireTextId(
+      preset.descriptionTextId,
+      `/contentMaturityPolicy/presets/${index}/descriptionTextId`,
+    );
+  });
 }
 
 function validateSceneGraphAssetReferencesV1(
@@ -1195,6 +1255,7 @@ export function resolveGamePackageV1<TSimulationFacet, TPresentationFacet>(
   }
 
   let sceneGraph: StageSceneGraphV1;
+  let activeTextCatalogs: TextCatalogSetV1;
   let simulationProgramDigest: ReturnType<typeof digestBytes>;
   try {
     deepFreezeAuthoringValueV1(simulationProgram);
@@ -1207,12 +1268,34 @@ export function resolveGamePackageV1<TSimulationFacet, TPresentationFacet>(
   }
   try {
     canonicalPresentationJsonBytesV1(presentation);
-    deepFreezeAuthoringValueV1(presentation);
+    const presentationRecord = requirePlainRecord(presentation, "materialized Presentation");
+    activeTextCatalogs = parseTextCatalogSetV1(
+      ownDataValue(presentationRecord, "textCatalogs", "materialized Presentation"),
+    );
+    const normalizedPresentation: Record<string, unknown> = {};
+    for (const key of Object.keys(Object.getOwnPropertyDescriptors(presentationRecord))) {
+      if (key === "textCatalogs") continue;
+      Object.defineProperty(normalizedPresentation, key, {
+        value: ownDataValue(presentationRecord, key, "materialized Presentation"),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    }
+    Object.defineProperty(normalizedPresentation, "textCatalogs", {
+      value: activeTextCatalogs,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+    presentation = deepFreezeAuthoringValueV1(normalizedPresentation);
+    canonicalPresentationJsonBytesV1(presentation);
   } catch (error) {
     return failure<TResolved>("story.presentation_invalid", hotfixes, errorMessage(error));
   }
   try {
     sceneGraph = parseStageSceneGraphV1(first.presentation.uiSceneGraph);
+    validateSceneGraphTextReferencesV1(sceneGraph, activeTextCatalogs);
   } catch (error) {
     return failure<TResolved>("story.presentation_invalid", hotfixes, errorMessage(error));
   }

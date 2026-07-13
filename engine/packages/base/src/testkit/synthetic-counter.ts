@@ -23,7 +23,7 @@ import type {
 import { createTransactionalRngV1, rngStateV1Schema } from "../contracts/rng.js";
 import type { RngDrawTraceV1, RngStateV1 } from "../contracts/rng.js";
 import type { GameSnapshotEnvelopeV1 } from "../contracts/snapshot.js";
-import { parseStageSceneGraphV1 } from "../contracts/presentation.js";
+import { parseStageSceneGraphV1, parseTextCatalogSetV1 } from "../contracts/presentation.js";
 import type { StageSceneGraphV1 } from "../contracts/presentation.js";
 import type { RuntimeSchemaV1 } from "../contracts/values.js";
 import {
@@ -451,6 +451,20 @@ export function createSyntheticStageSceneGraphV1(): StageSceneGraphV1 {
   });
 }
 
+const syntheticTextCatalogsV1 = parseTextCatalogSetV1({
+  defaultLocale: "zh-CN",
+  catalogs: [
+    {
+      locale: "zh-CN",
+      fallbackLocale: null,
+      entries: [
+        { textId: "text.synthetic.stage.name", text: "合成测试舞台" },
+        { textId: "text.synthetic.character.name", text: "合成测试角色" },
+      ],
+    },
+  ],
+});
+
 const syntheticAssetSlotsV1 = Object.freeze([
   Object.freeze({
     assetId: "asset.synthetic.stage.background",
@@ -512,12 +526,13 @@ type SyntheticDefinitionV1 = StoryDefinitionV1<
   },
   {
     readonly uiSceneGraph: StageSceneGraphV1;
-    readonly textCatalogs: readonly [];
+    readonly textCatalogs: typeof syntheticTextCatalogsV1;
     readonly assetSlots: typeof syntheticAssetSlotsV1;
     readonly assetPacks: readonly [];
     readonly patchSurface: typeof emptyPresentationPatchSurfaceV1;
     materializePresentation(values: Readonly<Record<never, never>>): {
       readonly kind: "synthetic-presentation";
+      readonly textCatalogs: typeof syntheticTextCatalogsV1;
     };
   }
 >;
@@ -539,11 +554,12 @@ export function createSyntheticCounterGamePackageV1(): GamePackageV1<
     }),
     presentation: Object.freeze({
       uiSceneGraph: createSyntheticStageSceneGraphV1(),
-      textCatalogs: Object.freeze([]) as readonly [],
+      textCatalogs: syntheticTextCatalogsV1,
       assetSlots: syntheticAssetSlotsV1,
       assetPacks: Object.freeze([]) as readonly [],
       patchSurface: emptyPresentationPatchSurfaceV1,
-      materializePresentation: () => Object.freeze({ kind: "synthetic-presentation" }),
+      materializePresentation: () =>
+        Object.freeze({ kind: "synthetic-presentation", textCatalogs: syntheticTextCatalogsV1 }),
     }),
   });
   return defineGamePackage({

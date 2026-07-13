@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { digestBytes } from "../contracts/digest.js";
+import { parseTextCatalogSetV1 } from "../contracts/presentation.js";
 import { parsePositiveSafeInteger } from "../contracts/values.js";
 import {
   definePatchSlot,
@@ -14,6 +15,70 @@ const emptySimulationSurface = defineSimulationPatchSurface({});
 const emptyPresentationSurface = definePresentationPatchSurface({});
 
 describe("Hotfix resolution", () => {
+  it("accepts a complete canonical TextCatalogSetV1 object in a text slot", () => {
+    const sourceDigest = digestBytes(new TextEncoder().encode("default-catalogs"));
+    const before = parseTextCatalogSetV1({
+      defaultLocale: "zh-CN",
+      catalogs: [
+        {
+          locale: "zh-CN",
+          fallbackLocale: null,
+          entries: [{ textId: "text.synthetic.title", text: "之前" }],
+        },
+      ],
+    });
+    const after = parseTextCatalogSetV1({
+      defaultLocale: "zh-CN",
+      catalogs: [
+        {
+          locale: "zh-CN",
+          fallbackLocale: null,
+          entries: [{ textId: "text.synthetic.title", text: "之后" }],
+        },
+      ],
+    });
+    const surface = definePresentationPatchSurface({
+      catalogs: definePatchSlot({
+        symbolId: "text.catalogs",
+        kind: "text",
+        contractRevision: parsePositiveSafeInteger(1),
+        defaultProviderSourceDigest: sourceDigest,
+        defaultValue: before,
+      }),
+    });
+
+    const resolved = resolveHotfixesV1(
+      emptySimulationSurface,
+      surface,
+      [
+        {
+          manifest: {
+            identity: { id: "hotfix.catalogs", revision: parsePositiveSafeInteger(1) },
+            targetStoryId: "story.synthetic-counter",
+            targetStoryRevision: parsePositiveSafeInteger(1),
+            targets: [
+              {
+                surface: "presentation" as const,
+                symbolId: "text.catalogs",
+                expectedProviderDigest: sourceDigest,
+              },
+            ],
+            requires: [],
+            conflicts: [],
+            supersedes: [],
+          },
+          sourceDigest: digestBytes(new TextEncoder().encode("catalog-hotfix")),
+          install(context) {
+            context.presentation.replace("text.catalogs", after);
+          },
+        },
+      ],
+      { id: "story.synthetic-counter", revision: parsePositiveSafeInteger(1) },
+    );
+
+    expect(resolved.presentationValues.catalogs).toBe(after);
+  });
+
   it("keeps presentation replacement out of simulation PatchSet identity", () => {
     const sourceDigest = digestBytes(new TextEncoder().encode("default"));
     const surface = definePresentationPatchSurface({

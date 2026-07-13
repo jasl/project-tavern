@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { parsePositiveSafeInteger } from "@sillymaker/base";
+import { parsePositiveSafeInteger, parseTextCatalogSetV1 } from "@sillymaker/base";
 
-export const e2eTextCatalogsV1 = Object.freeze({
+export const e2eTextCatalogsV1 = parseTextCatalogSetV1({
   defaultLocale: "zh-CN" as const,
-  catalogs: Object.freeze([
-    Object.freeze({
+  catalogs: [
+    {
       locale: "zh-CN" as const,
-      entries: Object.freeze([
-        Object.freeze({ textId: "text.e2e.counter", text: "计数" }),
-        Object.freeze({ textId: "text.e2e.increment", text: "增加计数" }),
-      ]),
-    }),
-  ]),
+      fallbackLocale: null,
+      entries: [
+        { textId: "text.e2e.counter", text: "计数" },
+        { textId: "text.e2e.increment", text: "增加计数" },
+      ],
+    },
+  ],
 });
 
 export const e2eAssetSlotsV1 = Object.freeze([

@@ -49,6 +49,8 @@ import type {
   InteractionSurfaceTargetBindingV1,
   InteractionTargetDescriptorV1,
   InteractionTargetId,
+  LocaleId,
+  LocalizedTextCatalogV1,
   ModuleId,
   NormalizedCoordinateV1,
   NormalizedExtentV1,
@@ -76,6 +78,7 @@ import type {
   StateSlotId,
   StoryToolingEntryV1,
   StoryToolingSupportV1,
+  TextCatalogSetV1,
   TextId,
 } from "@sillymaker/base";
 import {
@@ -107,6 +110,7 @@ import {
   parseInteractionBehaviorId,
   parseInteractionSurfaceId,
   parseInteractionTargetId,
+  parseLocaleId,
   parseModuleId,
   parseNormalizedCoordinateV1,
   parseNormalizedExtentV1,
@@ -117,6 +121,7 @@ import {
   parseStageSceneId,
   parseStageSceneVariantId,
   parseStateSlotId,
+  parseTextCatalogSetV1,
   parseTextId,
   requireContentPreferencePresetV1,
   setContentMaturityFlagV1,
@@ -126,6 +131,17 @@ import {
 export declare const publicSnapshot: GameSnapshotEnvelopeV1<unknown, unknown>;
 export const publicModuleId: ModuleId = parseModuleId("synthetic.parity");
 export const publicStateSlotId: StateSlotId = parseStateSlotId("simulation.counter");
+export const publicLocaleId: LocaleId = parseLocaleId("zh-CN");
+export const publicTextCatalogSetV1: TextCatalogSetV1 = parseTextCatalogSetV1({
+  defaultLocale: "zh-CN",
+  catalogs: [
+    {
+      locale: "zh-CN",
+      fallbackLocale: null,
+      entries: [{ textId: "text.synthetic.title", text: "标题" }],
+    },
+  ],
+});
 export declare const publicDefineGameSimulation: typeof defineGameSimulation;
 export declare const publicDefineGameplayModule: typeof defineGameplayModule;
 
@@ -196,6 +212,7 @@ export const publicPresentationValuesV1 = {
   parseInteractionBehaviorId,
   parseInteractionSurfaceId,
   parseInteractionTargetId,
+  parseLocaleId,
   parseNormalizedCoordinateV1,
   parseNormalizedExtentV1,
   parsePositiveFiniteNumber,
@@ -203,6 +220,7 @@ export const publicPresentationValuesV1 = {
   parseStageSceneGraphV1,
   parseStageSceneId,
   parseStageSceneVariantId,
+  parseTextCatalogSetV1,
   parseTextId,
   requireContentPreferencePresetV1,
   setContentMaturityFlagV1,
@@ -282,6 +300,8 @@ export type PublicPresentationTypesV1 = {
   interactionSurfaceTargetBinding: InteractionSurfaceTargetBindingV1;
   interactionTarget: InteractionTargetDescriptorV1;
   interactionTargetId: InteractionTargetId;
+  localeId: LocaleId;
+  localizedTextCatalog: LocalizedTextCatalogV1;
   normalizedCoordinate: NormalizedCoordinateV1;
   normalizedExtent: NormalizedExtentV1;
   normalizedPoint: NormalizedPointV1;
@@ -310,6 +330,7 @@ export type PublicPresentationTypesV1 = {
   stateContractStableReferenceSet: StateContractStableReferenceSetV1;
   toolingEntry: StoryToolingEntryV1<unknown>;
   toolingSupport: StoryToolingSupportV1<unknown, unknown>;
+  textCatalogSet: TextCatalogSetV1;
   textId: TextId;
 };
 

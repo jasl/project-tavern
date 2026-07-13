@@ -250,13 +250,154 @@ function createPackageWithPresentationValues(
 ) {
   const source = createSyntheticCounterGamePackageV1();
   const sourceDefinition = source.define();
-  const materializePresentation = () => presentation;
+  const materializePresentation = () =>
+    Object.freeze({ textCatalogs: sourceDefinition.presentation.textCatalogs, ...presentation });
   const definition = Object.freeze({
     ...sourceDefinition,
     presentation: Object.freeze({
       ...sourceDefinition.presentation,
       uiSceneGraph: sceneGraph,
       materializePresentation,
+    }),
+  });
+  return Object.freeze({ ...source, define: () => definition });
+}
+
+const textJoinReferencesV1 = Object.freeze([
+  "text.synthetic.stage.name",
+  "text.synthetic.character.name",
+  "text.synthetic.surface.name",
+  "text.synthetic.target.name",
+  "text.synthetic.behavior.name",
+  "text.synthetic.behavior.description",
+  "text.synthetic.content_flag.name",
+  "text.synthetic.content_flag.description",
+  "text.synthetic.content_preset.name",
+  "text.synthetic.content_preset.description",
+] as const);
+
+function createTextJoinCatalogSetV1(excludedTextId?: (typeof textJoinReferencesV1)[number]) {
+  return {
+    defaultLocale: "zh-CN",
+    catalogs: [
+      {
+        locale: "zh-CN",
+        fallbackLocale: null,
+        entries: textJoinReferencesV1
+          .filter((textId) => textId !== excludedTextId)
+          .map((textId) => ({ textId, text: `resolved:${textId}` })),
+      },
+    ],
+  };
+}
+
+function createTextJoinSceneGraphV1() {
+  const base = createSyntheticStageSceneGraphV1();
+  return parseStageSceneGraphV1({
+    ...base,
+    variants: base.variants.map((variant) => ({
+      ...variant,
+      interactionSurfaces: [
+        {
+          surfaceId: "surface.synthetic.stage",
+          anchor: { x: 0.5, y: 0.5 },
+        },
+      ],
+    })),
+    characterRigs: base.characterRigs.map((rig) => ({
+      ...rig,
+      defaultHitMapId: "hit_map.synthetic.figure",
+      poseHitMapOverrides: [
+        {
+          poseId: "character_pose.synthetic.idle",
+          hitMapId: "hit_map.synthetic.figure",
+        },
+      ],
+    })),
+    hitMaps: [
+      {
+        hitMapId: "hit_map.synthetic.figure",
+        rigId: "character_rig.synthetic.figure",
+        poseId: "character_pose.synthetic.idle",
+        targets: [
+          {
+            areaId: "hit_area.synthetic.figure",
+            targetId: "target.synthetic.figure",
+            shape: { kind: "rect", x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
+            priority: 1,
+          },
+        ],
+      },
+    ],
+    interactionSurfaces: [
+      {
+        surfaceId: "surface.synthetic.stage",
+        accessibleNameTextId: "text.synthetic.surface.name",
+        allowedEntryModes: ["surface_activation"],
+        targetBindings: [
+          {
+            targetId: "target.synthetic.figure",
+            allowedResolutionModes: ["direct"],
+            openSurfaceId: null,
+          },
+        ],
+      },
+    ],
+    interactionTargets: [
+      {
+        targetId: "target.synthetic.figure",
+        accessibleNameTextId: "text.synthetic.target.name",
+        behaviorIds: ["behavior.synthetic.inspect"],
+      },
+    ],
+    interactionBehaviors: [
+      {
+        behaviorId: "behavior.synthetic.inspect",
+        nameTextId: "text.synthetic.behavior.name",
+        descriptionTextId: "text.synthetic.behavior.description",
+        providerId: "provider.synthetic.inspect",
+        content: { requiredFlags: 0 },
+      },
+    ],
+    contentMaturityPolicy: {
+      policyRevision: 1,
+      flags: [
+        {
+          id: "content_flag.synthetic.alpha",
+          flag: 1,
+          nameTextId: "text.synthetic.content_flag.name",
+          descriptionTextId: "text.synthetic.content_flag.description",
+        },
+      ],
+      presets: [
+        {
+          presetId: "content_preset.synthetic.alpha",
+          allowedFlags: 1,
+          nameTextId: "text.synthetic.content_preset.name",
+          descriptionTextId: "text.synthetic.content_preset.description",
+        },
+      ],
+      defaultAllowedFlags: 0,
+    },
+  });
+}
+
+function createPackageWithTextCatalogsV1(
+  sourceTextCatalogs: unknown,
+  materializedTextCatalogs: unknown,
+) {
+  const source = createSyntheticCounterGamePackageV1();
+  const sourceDefinition = source.define();
+  const definition = Object.freeze({
+    ...sourceDefinition,
+    presentation: Object.freeze({
+      ...sourceDefinition.presentation,
+      uiSceneGraph: createTextJoinSceneGraphV1(),
+      textCatalogs: sourceTextCatalogs,
+      materializePresentation: () => ({
+        kind: "synthetic-presentation" as const,
+        textCatalogs: materializedTextCatalogs,
+      }),
     }),
   });
   return Object.freeze({ ...source, define: () => definition });
@@ -317,7 +458,11 @@ function createPackageWithAssetPatchSurface() {
     presentation: Object.freeze({
       ...sourceDefinition.presentation,
       patchSurface,
-      materializePresentation: () => Object.freeze({ kind: "synthetic-presentation" as const }),
+      materializePresentation: () =>
+        Object.freeze({
+          kind: "synthetic-presentation" as const,
+          textCatalogs: sourceDefinition.presentation.textCatalogs,
+        }),
     }),
   });
   return {
@@ -684,6 +829,87 @@ describe("Story resolver", () => {
     expect(result).toMatchObject({
       kind: "failed",
       failure: { code: "story.contract_invalid" },
+    });
+  });
+
+  it("uses and freezes the active materialized TextCatalog instead of the source catalog for TextId joins", () => {
+    const sourceCatalogMissingOneTextId = createTextJoinCatalogSetV1(
+      "text.synthetic.behavior.name",
+    );
+    const activeCatalog = createTextJoinCatalogSetV1();
+    const result = resolveGamePackageV1(
+      createPackageWithTextCatalogsV1(sourceCatalogMissingOneTextId, activeCatalog),
+      [],
+      deterministicBuildIdentityInputV1,
+    );
+
+    expect(result.kind).toBe("resolved");
+    if (result.kind !== "resolved") return;
+    expect(result.resolved.presentation).toMatchObject({ textCatalogs: activeCatalog });
+    const resolvedCatalogs = (result.resolved.presentation as { readonly textCatalogs: unknown })
+      .textCatalogs as {
+      readonly catalogs: readonly { readonly entries: readonly unknown[] }[];
+    };
+    expect(resolvedCatalogs).not.toBe(activeCatalog);
+    expect(Object.isFrozen(resolvedCatalogs)).toBe(true);
+    expect(Object.isFrozen(resolvedCatalogs.catalogs)).toBe(true);
+    expect(Object.isFrozen(resolvedCatalogs.catalogs[0]?.entries)).toBe(true);
+  });
+
+  it.each(textJoinReferencesV1)(
+    "rejects resolved SceneGraph TextId %s when it is absent from the active catalog",
+    (missingTextId) => {
+      const result = resolveGamePackageV1(
+        createPackageWithTextCatalogsV1(
+          createTextJoinCatalogSetV1(),
+          createTextJoinCatalogSetV1(missingTextId),
+        ),
+        [],
+        deterministicBuildIdentityInputV1,
+      );
+
+      expect(result).toMatchObject({
+        kind: "failed",
+        failure: {
+          code: "story.presentation_invalid",
+          details: { message: expect.stringContaining("presentation.catalog.missing_reference") },
+        },
+      });
+      if (result.kind === "failed") {
+        const message = result.failure.details.message;
+        expect(typeof message).toBe("string");
+        if (typeof message === "string") expect(message.length).toBeLessThanOrEqual(4_096);
+      }
+    },
+  );
+
+  it("validates both source and active materialized TextCatalogSet data", () => {
+    const malformedSource = {
+      defaultLocale: "zh-CN",
+      catalogs: [{ locale: "zh-CN", entries: [] }],
+    };
+    const malformedActive = {
+      defaultLocale: "zh-CN",
+      catalogs: [{ locale: "zh-CN", entries: [] }],
+    };
+    const sourceFailure = resolveGamePackageV1(
+      createPackageWithTextCatalogsV1(malformedSource, createTextJoinCatalogSetV1()),
+      [],
+      deterministicBuildIdentityInputV1,
+    );
+    const activeFailure = resolveGamePackageV1(
+      createPackageWithTextCatalogsV1(createTextJoinCatalogSetV1(), malformedActive),
+      [],
+      deterministicBuildIdentityInputV1,
+    );
+
+    expect(sourceFailure).toMatchObject({
+      kind: "failed",
+      failure: { code: "story.contract_invalid" },
+    });
+    expect(activeFailure).toMatchObject({
+      kind: "failed",
+      failure: { code: "story.presentation_invalid" },
     });
   });
 

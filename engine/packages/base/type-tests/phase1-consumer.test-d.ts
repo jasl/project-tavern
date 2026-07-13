@@ -14,6 +14,8 @@ import type {
   GameSimulationV1,
   GameplayModuleBindingV1,
   GameplayModuleTupleForSimulationV1,
+  LocaleId,
+  LocalizedTextCatalogV1,
   ModuleId,
   NonZeroUint32,
   PatchSetAdoptionDeclarationV1,
@@ -28,6 +30,7 @@ import type {
   SaveSlotSummaryV1,
   StateSlotId,
   StoryToolingEntryV1,
+  TextCatalogSetV1,
 } from "@sillymaker/base";
 import {
   createGameSnapshotEnvelopeSchemaV1,
@@ -39,8 +42,10 @@ import {
   defineStoryToolingEntry,
   parseModuleId,
   parseNonZeroUint32,
+  parseLocaleId,
   parseRunId,
   parseStateSlotId,
+  parseTextCatalogSetV1,
   resolveGamePackageV1,
   rngStateV1Schema,
 } from "@sillymaker/base";
@@ -83,12 +88,15 @@ export type Phase1ConsumerTypesV1 = {
     GameDebugCommandExecutorV1<unknown, unknown, unknown, unknown, unknown>
   >;
   moduleId: ModuleId;
+  localeId: LocaleId;
+  localizedTextCatalog: LocalizedTextCatalogV1;
   seed: NonZeroUint32;
   adoption: PatchSetAdoptionDeclarationV1;
   persistenceStatus: PersistenceStatusV1;
   assetPresentation: ResolvedAssetPresentationV1<unknown, unknown, unknown>;
   patchValues: ResolvedPatchValuesV1<unknown>;
   textPresentation: ResolvedTextPresentationV1<unknown, unknown>;
+  textCatalogSet: TextCatalogSetV1;
   runId: RunId;
   runtimeFaultBase: RuntimeFaultBaseV1;
   runtimeOperationFault: RuntimeOperationFaultV1;
@@ -111,8 +119,10 @@ export type Phase1ConsumerValuesV1 = {
   defineStoryToolingEntry: typeof defineStoryToolingEntry;
   parseModuleId: typeof parseModuleId;
   parseNonZeroUint32: typeof parseNonZeroUint32;
+  parseLocaleId: typeof parseLocaleId;
   parseRunId: typeof parseRunId;
   parseStateSlotId: typeof parseStateSlotId;
+  parseTextCatalogSet: typeof parseTextCatalogSetV1;
   resolveGamePackage: typeof resolveGamePackageV1;
   resolveStoryForTest: typeof resolveStoryForTestV1;
   rngStateSchema: typeof rngStateV1Schema;
