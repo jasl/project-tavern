@@ -13,7 +13,7 @@ import {
 test("keeps the ordered core gate read-only", () => {
   assert.equal(coreVerificationCommandsV1[0]?.[1]?.[0], "format:check");
   assert.equal(coreVerificationCommandsV1[1]?.[1]?.[0], "verify:docs");
-  assert.equal(coreVerificationCommandsV1.at(-6)?.[1]?.[0], "build");
+  assert.equal(coreVerificationCommandsV1.at(-5)?.[1]?.[0], "build");
   assert(!coreVerificationCommandsV1.flat(2).some((value) => /update|regenerate/u.test(value)));
   assert(!coreVerificationCommandsV1.flat(2).includes("verify:toolchain"));
   assert(!coreVerificationCommandsV1.flat(2).includes("verify:licensing"));
@@ -23,14 +23,15 @@ test("keeps the ordered core gate read-only", () => {
   assert.equal(new Set(commandLines).size, commandLines.length);
 });
 
-test("appends the five final browser owners in order", () => {
-  assert.deepEqual(coreVerificationCommandsV1.slice(-5), [
-    ["pnpm", ["build:player"]],
-    ["pnpm", ["build:developer"]],
+test("appends the four final browser owners in order", () => {
+  assert.deepEqual(coreVerificationCommandsV1.slice(-4), [
+    ["pnpm", ["build:e2e"]],
     ["pnpm", ["verify:bundle"]],
     ["pnpm", ["verify:artifact"]],
     ["pnpm", ["test:e2e:smoke"]],
   ]);
+  assert(!coreVerificationCommandsV1.flat(2).includes("build:player"));
+  assert(!coreVerificationCommandsV1.flat(2).includes("build:developer"));
 });
 
 test("discovers source tests without traversing workspace node_modules", async (t) => {

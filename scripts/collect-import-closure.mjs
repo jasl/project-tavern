@@ -10,7 +10,6 @@ const packageTargets = Object.freeze({
   "@sillymaker/base/testkit": "engine/packages/base/src/testkit/index.ts",
   "@sillymaker/ui": "engine/packages/ui/src/index.ts",
   "@sillymaker/web": "engine/packages/web/src/index.ts",
-  "@sillymaker/web/developer": "engine/packages/web/src/developer/index.ts",
   "@project-tavern/story-e2e": "game/stories/e2e/src/index.ts",
   "@project-tavern/story-e2e/development": "game/stories/e2e/src/development.ts",
 });

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { compareReleaseManifestsV1 } from "./verify-release.mjs";
+
+test("builds releases from the fixed E2E output without an outDir override", async () => {
+  const source = await readFile(new URL("./verify-release.mjs", import.meta.url), "utf8");
+  assert.match(source, /spawnSync\("pnpm", \["build:e2e"\]/u);
+  assert.match(source, /cp\(join\(root, "dist\/e2e"\), artifactRoot/u);
+  assert.doesNotMatch(source, /TAVERN_OUT_DIR/u);
+});
 
 test("rejects reordered paths and changed release bytes", () => {
   const first = {

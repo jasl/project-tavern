@@ -5,8 +5,7 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.ts",
-    "./developer": "./src/developer/index.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "test": "pnpm --workspace-root exec vitest run engine/packages/web/src"

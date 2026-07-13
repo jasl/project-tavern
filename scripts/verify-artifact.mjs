@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -145,32 +145,33 @@ export async function verifyArtifactDirectoryV1(root, options = {}) {
   return errors;
 }
 
-export async function verifyTemporaryPlayerArtifactV1(repositoryRoot) {
-  const artifactRoot = await mkdtemp(join(tmpdir(), "tavern-player-artifact-"));
+export async function verifyTemporaryE2eArtifactV1(repositoryRoot) {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "tavern-e2e-artifact-"));
+  const artifactRoot = join(temporaryRoot, "artifact");
   try {
-    const result = spawnSync("pnpm", ["build:player"], {
+    const result = spawnSync("pnpm", ["build:e2e"], {
       cwd: repositoryRoot,
-      env: { ...process.env, TAVERN_OUT_DIR: artifactRoot },
       encoding: "utf8",
     });
     if (result.status !== 0) {
-      throw new TypeError(`temporary Player build failed\n${result.stdout}${result.stderr}`);
+      throw new TypeError(`temporary E2E build failed\n${result.stdout}${result.stderr}`);
     }
+    await cp(join(repositoryRoot, "dist/e2e"), artifactRoot, { recursive: true });
     await prepareArtifactDirectoryV1(repositoryRoot, artifactRoot);
     return await verifyArtifactDirectoryV1(artifactRoot);
   } finally {
-    await rm(artifactRoot, { recursive: true, force: true });
+    await rm(temporaryRoot, { recursive: true, force: true });
   }
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-  const errors = await verifyTemporaryPlayerArtifactV1(repositoryRoot);
+  const errors = await verifyTemporaryE2eArtifactV1(repositoryRoot);
   if (errors.length > 0) {
     console.error(errors.join("\n"));
     process.exitCode = 1;
   } else {
-    console.log("temporary Player artifact verified");
+    console.log("temporary E2E Game Artifact verified");
   }
 }

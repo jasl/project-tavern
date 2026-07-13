@@ -79,12 +79,12 @@ test("rejects a Story HTML reference that escapes its package", async (t) => {
     }),
   );
   await writeFile(
-    join(root, "game", "stories", "e2e", "player.html"),
+    join(root, "game", "stories", "e2e", "index.html"),
     '<link rel="stylesheet" href="../../../engine/packages/web/src/styles.css" />\n',
   );
   assert(
     (await verifyBoundaries(root)).includes(
-      "game/stories/e2e/player.html: relative reference escapes game/stories/e2e",
+      "game/stories/e2e/index.html: relative reference escapes game/stories/e2e",
     ),
   );
 });

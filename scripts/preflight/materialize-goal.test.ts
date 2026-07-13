@@ -121,7 +121,7 @@ function createAdapter(failure?: MaterializerFailure): {
       if (key === "pnpm\0install\0--offline\0--frozen-lockfile\0--frozen-store") {
         return commandResult("", failure === "offlineInstall" ? 1 : 0);
       }
-      if (key === "pnpm\0build:player") {
+      if (key === "pnpm\0build:e2e") {
         return commandResult("", failure === "offlineBuild" ? 1 : 0);
       }
       throw new Error(`unexpected command ${JSON.stringify(command)}`);
@@ -343,7 +343,7 @@ describe("goal materializer", () => {
       },
       {
         executable: "pnpm",
-        args: ["build:player"],
+        args: ["build:e2e"],
         cwd: disposableRoot,
         network: "forbidden",
       },

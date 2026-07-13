@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectManagedPaths } from "./collect-import-closure.mjs";
 import { prepareArtifactDirectoryV1 } from "./prepare-artifact.mjs";
 import { verifyArtifactDirectoryV1 } from "./verify-artifact.mjs";
-import { verifyPlayerBundleFixtureV1 } from "./verify-bundle.mjs";
+import { verifyGameArtifactClosureV1 } from "./verify-bundle.mjs";
 
 export function compareReleaseManifestsV1(first, second) {
   const firstPaths = first.files.map((entry) => entry.path);
@@ -34,24 +34,26 @@ export function compareReleaseManifestsV1(first, second) {
 }
 
 async function buildRelease(root, artifactRoot) {
-  const result = spawnSync("pnpm", ["build:player"], {
+  const result = spawnSync("pnpm", ["build:e2e"], {
     cwd: root,
-    env: { ...process.env, TAVERN_OUT_DIR: artifactRoot },
     encoding: "utf8",
   });
   if (result.status !== 0)
-    throw new TypeError(`Player build failed\n${result.stdout}${result.stderr}`);
+    throw new TypeError(`E2E build failed\n${result.stdout}${result.stderr}`);
+  await cp(join(root, "dist/e2e"), artifactRoot, { recursive: true });
   return prepareArtifactDirectoryV1(root, artifactRoot);
 }
 
 export async function verifyReleaseReproducibilityV1(root) {
-  const playerClosure = await collectManagedPaths(root, [
-    "game/stories/e2e/src/application/player-entry.tsx",
+  const artifactClosure = await collectManagedPaths(root, [
+    "game/stories/e2e/src/application/entry.tsx",
   ]);
-  const closureErrors = verifyPlayerBundleFixtureV1({ paths: playerClosure });
+  const closureErrors = verifyGameArtifactClosureV1({ paths: artifactClosure });
   if (closureErrors.length > 0) return closureErrors;
-  const firstRoot = await mkdtemp(join(tmpdir(), "tavern-release-a-"));
-  const secondRoot = await mkdtemp(join(tmpdir(), "tavern-release-b-"));
+  const firstTemporaryRoot = await mkdtemp(join(tmpdir(), "tavern-release-a-"));
+  const secondTemporaryRoot = await mkdtemp(join(tmpdir(), "tavern-release-b-"));
+  const firstRoot = join(firstTemporaryRoot, "artifact");
+  const secondRoot = join(secondTemporaryRoot, "artifact");
   try {
     const first = await buildRelease(root, firstRoot);
     const second = await buildRelease(root, secondRoot);
@@ -67,8 +69,8 @@ export async function verifyReleaseReproducibilityV1(root) {
     return firstBytes.equals(secondBytes) ? [] : ["release manifest bytes differ"];
   } finally {
     await Promise.all([
-      rm(firstRoot, { recursive: true, force: true }),
-      rm(secondRoot, { recursive: true, force: true }),
+      rm(firstTemporaryRoot, { recursive: true, force: true }),
+      rm(secondTemporaryRoot, { recursive: true, force: true }),
     ]);
   }
 }
@@ -81,6 +83,6 @@ if (isMain) {
     console.error(errors.join("\n"));
     process.exitCode = 1;
   } else {
-    console.log("clean Player release builds are reproducible");
+    console.log("clean E2E Game Artifact builds are reproducible");
   }
 }

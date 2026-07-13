@@ -66,7 +66,7 @@ export async function prepareArtifactDirectoryV1(repositoryRoot, artifactRoot) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-  const artifactRoot = resolve(process.argv[2] ?? join(repositoryRoot, "dist/player"));
+  const artifactRoot = resolve(process.argv[2] ?? join(repositoryRoot, "dist/e2e"));
   await prepareArtifactDirectoryV1(repositoryRoot, artifactRoot);
-  console.log(`prepared Player artifact: ${artifactRoot}`);
+  console.log(`prepared E2E Game Artifact: ${artifactRoot}`);
 }

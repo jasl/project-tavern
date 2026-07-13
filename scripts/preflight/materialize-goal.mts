@@ -104,7 +104,7 @@ export async function runMaterializeGoalV1(
   if (fontPaths.length < 4) {
     support.fail("external_precondition.visual_font_missing", "host font inspection is incomplete");
   }
-  await support.assertDisposableVerificationV1(root, adapter, "build:player", browsers);
+  await support.assertDisposableVerificationV1(root, adapter, "build:e2e", browsers);
 
   const attestation: GoalMaterializationAttestationV1 = {
     arch: adapter.arch,

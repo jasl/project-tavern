@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { projectLegalFilesV1 } from "./prepare-artifact.mjs";
-import { verifyArtifactDirectoryV1 } from "./verify-artifact.mjs";
+import { verifyArtifactDirectoryV1, verifyTemporaryE2eArtifactV1 } from "./verify-artifact.mjs";
+
+test("exports the temporary E2E Artifact verifier", () => {
+  assert.equal(typeof verifyTemporaryE2eArtifactV1, "function");
+});
 
 test("carries only project release statements", () => {
   assert.deepEqual(projectLegalFilesV1, [

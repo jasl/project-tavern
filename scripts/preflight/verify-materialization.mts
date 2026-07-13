@@ -667,7 +667,7 @@ async function readAttestationV1(
 async function assertDisposableVerificationV1(
   root: string,
   adapter: GoalMaterializationAdapterV1,
-  buildScript: "build" | "build:player",
+  buildScript: "build" | "build:e2e",
   browsers: Awaited<ReturnType<typeof inspectBrowsersV1>>,
 ): Promise<void> {
   let disposable: string | undefined;
