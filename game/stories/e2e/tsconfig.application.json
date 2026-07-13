@@ -7,7 +7,11 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx"
   },
-  "include": ["src/application/**/*.ts", "src/application/**/*.tsx"],
+  "include": [
+    "src/application/**/*.ts",
+    "src/application/**/*.tsx",
+    "src/presentation/e2e-renderers.tsx"
+  ],
   "exclude": ["src/application/**/*.test.ts", "src/application/**/*.test.tsx"],
   "references": [
     { "path": "." },

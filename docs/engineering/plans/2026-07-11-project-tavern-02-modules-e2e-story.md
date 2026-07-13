@@ -2833,6 +2833,7 @@ Repair contract:
 - Modify: game/stories/e2e/src/presentation/scene-graph.ts
 - Create: game/stories/e2e/src/presentation/e2e-renderers.tsx
 - Create: game/stories/e2e/src/presentation/e2e-renderers.test.tsx
+- Modify: game/stories/e2e/tsconfig.application.json
 - Modify: scripts/collect-import-closure.mjs
 - Modify: scripts/collect-import-closure.test.mjs
 - Create: scripts/build-e2e-identity.mjs
@@ -2956,7 +2957,7 @@ Expected: 所有命令退出 0；DOM 与 Semantic invocation log 一致；UI rec
 pnpm update:screenshots
 git diff -- engine/packages/web/e2e/__screenshots__/e2e-shell.png
 pnpm test:e2e:full
-git add -- engine/packages/ui/src/shell engine/packages/ui/src/contributions game/stories/e2e/src/application game/stories/e2e/src/simulation/story-simulation-facet.ts game/stories/e2e/src/presentation/story-presentation-facet.ts game/stories/e2e/src/story-definition.ts game/stories/e2e/src/presentation/scene-graph.ts game/stories/e2e/src/presentation/e2e-renderers.tsx game/stories/e2e/src/presentation/e2e-renderers.test.tsx scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/build-e2e-identity.mjs scripts/build-e2e-identity.test.mjs vite.config.ts engine/packages/web/e2e/walking-skeleton.spec.ts engine/packages/web/e2e/__screenshots__/e2e-shell.png
+git add -- engine/packages/ui/src/shell engine/packages/ui/src/contributions game/stories/e2e/src/application game/stories/e2e/src/simulation/story-simulation-facet.ts game/stories/e2e/src/presentation/story-presentation-facet.ts game/stories/e2e/src/story-definition.ts game/stories/e2e/src/presentation/scene-graph.ts game/stories/e2e/src/presentation/e2e-renderers.tsx game/stories/e2e/src/presentation/e2e-renderers.test.tsx game/stories/e2e/tsconfig.application.json scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/build-e2e-identity.mjs scripts/build-e2e-identity.test.mjs vite.config.ts engine/packages/web/e2e/walking-skeleton.spec.ts engine/packages/web/e2e/__screenshots__/e2e-shell.png
 git diff --cached --check
 git commit -m "feat(web): render the resolved e2e game"
 ```
