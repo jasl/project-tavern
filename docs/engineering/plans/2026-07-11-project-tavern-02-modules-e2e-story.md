@@ -419,6 +419,7 @@ git commit -m "refactor(base): replace profile with game simulation"
 
 - Consumes: GamePackageV1、StoryDefinitionV1、PatchSurface、BuildProvenance、Asset resolver 和 Task 1 GameSimulation。
 - Produces: StoryToolingEntryV1、StoryToolingSupportV1、ResolvedGameV1、StorySimulationFacetV1.createGameSimulation、类型保持的 resolveGamePackageV1，以及不含任何 Story/React 语义的 StageScene、Character、HitMap、Interaction 和内容成熟度 Base contracts。
+- Produces: StateContractManifestV1 及其 schema/module/stable-reference descriptors；Resolver 对该显式纯数据 manifest 做严格解析、GameSimulation 交叉验证和 state-contract identity 摘要。
 
 - [ ] **Step 1: Write failing SceneGraph retention and type inference tests**
 
@@ -460,6 +461,39 @@ it("keeps executable providers out of canonical JSON while checking stable ident
   expect(result.kind).toBe("resolved");
   expect(namedRuleCalls()).toBe(0);
   expect(namedResolverCalls()).toBe(0);
+});
+
+it("changes state identity only for explicit State-contract manifest changes", () => {
+  const baseline = resolveSyntheticWithManifest(syntheticStateContractManifestV1);
+  const schemaChanged = resolveSyntheticWithManifest(
+    withAggregateStateSchemaRevision(syntheticStateContractManifestV1, 2),
+  );
+  const formulaChanged = resolveSyntheticWithFormulaRevision(2);
+
+  expect(schemaChanged.stateContractDigest).not.toBe(baseline.stateContractDigest);
+  expect(formulaChanged.stateContractDigest).toBe(baseline.stateContractDigest);
+  expect(formulaChanged.simulationDigest).not.toBe(baseline.simulationDigest);
+});
+
+it.each([
+  createManifestWithDuplicateSchemaIdV1(),
+  createManifestWithUnsortedStableReferencesV1(),
+] as const)("rejects invalid State-contract manifest data %#", (manifest) => {
+  expect(resolveSyntheticWithManifest(manifest)).toMatchObject({
+    kind: "failed",
+    failure: { code: "story.contract_invalid" },
+  });
+});
+
+it.each([
+  createManifestMissingOneStatefulModuleV1(),
+  createManifestWithWrongModuleRevisionV1(),
+  createManifestWithWrongStateSlotsV1(),
+] as const)("rejects State-contract manifests that disagree with GameSimulation %#", (manifest) => {
+  expect(resolveSyntheticWithManifest(manifest)).toMatchObject({
+    kind: "failed",
+    failure: { code: "story.simulation_invalid" },
+  });
 });
 
 it("accepts one strictly validated neutral presentation catalog", () => {
@@ -576,7 +610,7 @@ pnpm --filter @sillymaker/base exec vitest run src/contracts/presentation.test.t
 pnpm typecheck
 ```
 
-Expected: FAIL because ResolvedStoryV1 still drops the SceneGraph, StoryTooling names do not exist, the resolver erases concrete facet types, and the neutral presentation/canonical-projection contracts are absent。
+Expected: FAIL because ResolvedStoryV1 still drops the SceneGraph, StoryTooling names do not exist, the resolver erases concrete facet types, the neutral presentation/canonical-projection contracts are absent, and StorySimulationFacet/Resolver do not yet accept or validate StateContractManifestV1。
 
 - [ ] **Step 3: Implement the complete ResolvedGame lifecycle**
 
@@ -592,6 +626,7 @@ export interface StorySimulationFacetV1<
   TSimulationProgram,
 > {
   readonly stateContractRevision: PositiveSafeInteger;
+  readonly stateContractManifest: StateContractManifestV1;
   readonly data: TData;
   readonly rules: TRules;
   readonly narrativeProgram: TNarrativeProgram;
@@ -600,6 +635,31 @@ export interface StorySimulationFacetV1<
     values: DeepReadonly<ResolvedPatchValuesV1<TPatchSurface>>,
   ): TSimulationProgram;
   createGameSimulation(program: DeepReadonly<TSimulationProgram>): TGameSimulation;
+}
+
+export interface StateContractSchemaManifestV1 {
+  readonly schemaId: string;
+  readonly revision: PositiveSafeInteger;
+}
+
+export interface StateContractModuleManifestV1 {
+  readonly moduleId: ModuleId;
+  readonly moduleContractRevision: PositiveSafeInteger;
+  readonly stateSlots: readonly StateSlotId[];
+  readonly stateSchema: StateContractSchemaManifestV1;
+}
+
+export interface StateContractStableReferenceSetV1 {
+  readonly setId: string;
+  readonly ids: readonly string[];
+}
+
+export interface StateContractManifestV1 {
+  readonly contractRevision: 1;
+  readonly aggregateStateSchema: StateContractSchemaManifestV1;
+  readonly moduleStateSchemas: readonly StateContractModuleManifestV1[];
+  readonly persistentIrSchemas: readonly StateContractSchemaManifestV1[];
+  readonly stableReferenceSets: readonly StateContractStableReferenceSetV1[];
 }
 
 export interface ResolvedGameV1<
@@ -620,6 +680,12 @@ export interface ResolvedGameV1<
 ```
 
 Resolver 顺序必须保持 define 两次确定性检查 → fresh patch registries → Hotfix → revoke → 两个 materializer 各一次 → validate/deep-freeze Programs → createGameSimulation 一次 → resolve assets/identities → freeze ResolvedGame。Task 1 已冻结的 failure code `story.simulation_invalid` 保持不变，不得恢复任何 profile alias。
+
+`StateContractManifestV1` 是 Story-owned state/persistent-IR 合同的显式权威投影，不是规则源码或通用 Schema DSL。`schemaId`/`setId`/稳定引用使用 Base stable-ID 字节合同，revision 为正整数；全部对象必须 exact、data-only 且通过既有 integer-only Canonical JSON。`moduleStateSchemas` 必须与实际 GameSimulation 的全部 stateful Module 逐一匹配 `moduleId + moduleContractRevision + stateSlots`，不得登记 stateless Module；Schema ID 在 aggregate/module/persistent IR 中全局唯一。
+
+`moduleStateSchemas`、`persistentIrSchemas` 和 `stableReferenceSets` 分别按 moduleId/schemaId/setId 的 Unicode code-point order 严格递增，每个 reference set 的 `ids` 也唯一且严格递增；Resolver 拒绝而不是静默排序非规范输入。`RuntimeSchemaV1.parse` 是 opaque executable，Resolver 不尝试从它反射 Schema 结构；任何 State Schema 语义变化都必须由 Story 作者同步提升对应 schema descriptor revision，任何可持久稳定引用集合变化都必须同步更新 reference descriptor。这样即使忘记提升外层 `stateContractRevision`，已正确更新的内层 descriptor 仍会令 digest 漂移并阻止普通读档；只改公式、Rule provider、平衡数值或 Presentation 不得改变 manifest/stateContractDigest。
+
+manifest shape、非法 ID/revision、重复项、accessor/non-data 或非规范顺序统一归一化为 `story.contract_invalid`；一个自身合法、但与已经验证的 GameSimulation stateful Module `id + revision + stateSlots` 不一致的 manifest 统一归一化为 `story.simulation_invalid`。state-contract digest 的 manifest 输入必须使用验证后的显式 manifest，不得用整个 simulation source digest 代替。
 
 define-twice 比较必须区分 data 与 executable provider：canonical JSON 只处理可序列化 data 和经 schema 验证的 provider descriptor，不得对函数 stringify。Rule/Resolver/lifecycle 等受控可执行值必须是具有 stable symbol ID 和 build source/import-closure digest 的 module-level named reference，两次 define 以 allowed descriptor keys、引用恒等与 digest 三重检查；最终 ResolvedGame 保留这些 Gameplay executable 并深冻结容器，不把函数替换为 JSON 占位符。ResolvedGame 只持有 data-only SceneGraph；Web renderer registry 不属于 default Story resolver/import closure。
 
@@ -905,6 +971,7 @@ Expected: 所有命令退出 0；ResolvedGame 类型无需强制 cast；SceneGra
 
 ```bash
 git add -- docs/engineering/specs/2026-07-12-game-runtime-design.md docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md engine/packages/base/src/contracts/presentation.ts engine/packages/base/src/contracts/presentation.test.ts engine/packages/base/src/contracts/game-package.ts engine/packages/base/src/contracts/hotfix.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/authoring engine/packages/base/src/index.ts engine/packages/base/src/testkit engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/loader game/stories/sandbox
+git diff --cached --name-status
 git diff --cached --check
 git commit -m "refactor(base): resolve complete frozen games"
 ```
