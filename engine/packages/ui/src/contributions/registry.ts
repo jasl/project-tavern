@@ -2,35 +2,35 @@
 import type { ReactNode } from "react";
 import type { DeepReadonly } from "@sillymaker/base";
 
-export interface UiContributionRenderContextV1<TView, TPlayerPort, TPresentation> {
-  readonly view: DeepReadonly<TView>;
-  readonly playerPort: TPlayerPort;
+export interface UiContributionRenderContextV1<TViewSlice, TSemantic, TPresentation> {
+  readonly viewSlice: DeepReadonly<TViewSlice>;
+  readonly semantic: TSemantic;
   readonly presentation: TPresentation;
 }
 
-export interface UiContributionV1<TView, TPlayerPort, TPresentation> {
+export interface UiContributionV1<TViewSlice, TSemantic, TPresentation> {
   readonly id: string;
-  render(context: UiContributionRenderContextV1<TView, TPlayerPort, TPresentation>): ReactNode;
+  render(context: UiContributionRenderContextV1<TViewSlice, TSemantic, TPresentation>): ReactNode;
 }
 
-export interface UiContributionRegistryV1<TView, TPlayerPort, TPresentation> {
-  readonly scenes: ReadonlyMap<string, UiContributionV1<TView, TPlayerPort, TPresentation>>;
-  readonly overlays: ReadonlyMap<string, UiContributionV1<TView, TPlayerPort, TPresentation>>;
-  readonly hud: ReadonlyMap<string, UiContributionV1<TView, TPlayerPort, TPresentation>>;
-  readonly gameSymbols: ReadonlyMap<string, UiContributionV1<TView, TPlayerPort, TPresentation>>;
+export interface UiContributionRegistryV1<TViewSlice, TSemantic, TPresentation> {
+  readonly scenes: ReadonlyMap<string, UiContributionV1<TViewSlice, TSemantic, TPresentation>>;
+  readonly overlays: ReadonlyMap<string, UiContributionV1<TViewSlice, TSemantic, TPresentation>>;
+  readonly hud: ReadonlyMap<string, UiContributionV1<TViewSlice, TSemantic, TPresentation>>;
+  readonly gameSymbols: ReadonlyMap<string, UiContributionV1<TViewSlice, TSemantic, TPresentation>>;
 }
 
-export function createUiContributionRegistryV1<TView, TPlayerPort, TPresentation>(input: {
-  readonly scenes: readonly UiContributionV1<TView, TPlayerPort, TPresentation>[];
-  readonly overlays: readonly UiContributionV1<TView, TPlayerPort, TPresentation>[];
-  readonly hud: readonly UiContributionV1<TView, TPlayerPort, TPresentation>[];
-  readonly gameSymbols: readonly UiContributionV1<TView, TPlayerPort, TPresentation>[];
-}): UiContributionRegistryV1<TView, TPlayerPort, TPresentation> {
+export function createUiContributionRegistryV1<TViewSlice, TSemantic, TPresentation>(input: {
+  readonly scenes: readonly UiContributionV1<TViewSlice, TSemantic, TPresentation>[];
+  readonly overlays: readonly UiContributionV1<TViewSlice, TSemantic, TPresentation>[];
+  readonly hud: readonly UiContributionV1<TViewSlice, TSemantic, TPresentation>[];
+  readonly gameSymbols: readonly UiContributionV1<TViewSlice, TSemantic, TPresentation>[];
+}): UiContributionRegistryV1<TViewSlice, TSemantic, TPresentation> {
   const all = [...input.scenes, ...input.overlays, ...input.hud, ...input.gameSymbols];
   if (new Set(all.map(({ id }) => id)).size !== all.length) {
     throw new TypeError("duplicate UI contribution ID");
   }
-  const map = (values: readonly UiContributionV1<TView, TPlayerPort, TPresentation>[]) =>
+  const map = (values: readonly UiContributionV1<TViewSlice, TSemantic, TPresentation>[]) =>
     new Map(values.map((value) => [value.id, Object.freeze(value)]));
   return Object.freeze({
     scenes: map(input.scenes),

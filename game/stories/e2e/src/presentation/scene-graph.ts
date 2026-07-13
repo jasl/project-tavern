@@ -3,6 +3,14 @@ import { emptyContentMaturityFlagsV1, parseStageSceneGraphV1 } from "@sillymaker
 
 import { e2eContentMaturityPolicyV1 } from "./content-maturity-policy.js";
 
+export const e2eStageRendererIdV1 = "renderer.e2e.stage.css" as const;
+export const e2eCharacterRendererIdV1 = "renderer.e2e.character.layered" as const;
+export const e2eRendererIdsV1 = Object.freeze([
+  e2eStageRendererIdV1,
+  e2eCharacterRendererIdV1,
+] as const);
+export type E2eRendererIdV1 = (typeof e2eRendererIdsV1)[number];
+
 export const e2eSceneGraphV1 = parseStageSceneGraphV1({
   stageScenes: [
     {
@@ -20,7 +28,7 @@ export const e2eSceneGraphV1 = parseStageSceneGraphV1({
     {
       stageSceneId: "stage_scene.e2e.main",
       variantId: "stage_variant.e2e.main.default",
-      rendererId: "renderer.e2e.stage.css",
+      rendererId: e2eStageRendererIdV1,
       accessibleNameTextId: "text.e2e.stage.main.name",
       backgroundAssetId: "asset.e2e.background.base",
       layout: {
@@ -51,7 +59,7 @@ export const e2eSceneGraphV1 = parseStageSceneGraphV1({
     {
       stageSceneId: "stage_scene.e2e.summary",
       variantId: "stage_variant.e2e.summary.default",
-      rendererId: "renderer.e2e.stage.css",
+      rendererId: e2eStageRendererIdV1,
       accessibleNameTextId: "text.e2e.stage.summary.name",
       backgroundAssetId: "asset.e2e.background.base",
       layout: {
@@ -74,7 +82,7 @@ export const e2eSceneGraphV1 = parseStageSceneGraphV1({
   characterRigs: [
     {
       rigId: "rig.e2e.counter",
-      rendererId: "renderer.e2e.character.layered",
+      rendererId: e2eCharacterRendererIdV1,
       poseIds: ["pose.e2e.counter.idle"],
       expressionIds: ["expression.e2e.counter.neutral"],
       activityIds: [],

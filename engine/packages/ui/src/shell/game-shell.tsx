@@ -2,61 +2,51 @@
 import type { DeepReadonly, ReadonlyViewSourceV1 } from "@sillymaker/base";
 import type { UiContributionRegistryV1 } from "../contributions/registry.js";
 import { useReadonlyViewV1 } from "../runtime/create-view-bridge.js";
-interface CommandPort<TCommand> {
-  readonly commands: { dispatch(command: DeepReadonly<TCommand>): Promise<unknown> };
-}
+import styles from "./game-shell.module.css";
 
-export interface GameShellPropsV1<
-  TView,
-  TCommand,
-  TPlayerPort extends CommandPort<TCommand>,
-  TPresentation,
-> {
-  readonly view: ReadonlyViewSourceV1<TView>;
-  readonly playerPort: TPlayerPort;
+export interface GameShellPropsV1<TViewSlice, TSemantic, TPresentation> {
+  readonly view: ReadonlyViewSourceV1<TViewSlice>;
+  readonly semantic: TSemantic;
   readonly presentation: TPresentation;
-  readonly contributions: UiContributionRegistryV1<TView, TPlayerPort, TPresentation>;
-  readonly sceneId: string;
-  readonly hudId: string;
-  readonly incrementCommand: DeepReadonly<TCommand>;
-  readonly incrementLabel: string;
+  readonly contributions: UiContributionRegistryV1<TViewSlice, TSemantic, TPresentation>;
+  readonly sceneId: string | ((viewSlice: DeepReadonly<TViewSlice>) => string);
+  readonly hudId: string | null;
+  readonly accessibleName?: string | ((viewSlice: DeepReadonly<TViewSlice>) => string);
 }
 
-export function GameShell<
-  TView,
-  TCommand,
-  TPlayerPort extends CommandPort<TCommand>,
-  TPresentation,
->(props: GameShellPropsV1<TView, TCommand, TPlayerPort, TPresentation>) {
+function resolveViewTextV1<TViewSlice>(
+  value: string | ((viewSlice: DeepReadonly<TViewSlice>) => string),
+  viewSlice: DeepReadonly<TViewSlice>,
+): string {
+  return typeof value === "function" ? value(viewSlice) : value;
+}
+
+export function GameShell<TViewSlice, TSemantic, TPresentation>(
+  props: GameShellPropsV1<TViewSlice, TSemantic, TPresentation>,
+) {
   const current = useReadonlyViewV1(props.view);
   const context = Object.freeze({
-    view: current,
-    playerPort: props.playerPort,
+    viewSlice: current,
+    semantic: props.semantic,
     presentation: props.presentation,
   });
-  const scene = props.contributions.scenes.get(props.sceneId);
-  const hud = props.contributions.hud.get(props.hudId);
+  const sceneId = resolveViewTextV1(props.sceneId, current);
+  const accessibleName =
+    props.accessibleName === undefined
+      ? undefined
+      : resolveViewTextV1(props.accessibleName, current);
+  const scene = props.contributions.scenes.get(sceneId);
+  const hud = props.hudId === null ? null : props.contributions.hud.get(props.hudId);
   if (scene === undefined || hud === undefined) throw new TypeError("missing UI contribution");
   return (
-    <main className="game-shell">
-      <section className="game-shell__stage" aria-label="游戏场景">
+    <main className={styles["game-shell"]} aria-label={accessibleName}>
+      <section className={styles["game-shell__stage"]} aria-label="游戏场景">
         {scene.render(context)}
-        <div className="game-shell__hud">{hud.render(context)}</div>
+        {hud === null ? null : (
+          <div className={styles["game-shell__hud"]}>{hud.render(context)}</div>
+        )}
       </section>
-      <section className="game-shell__workspace" aria-label="操作区">
-        <button
-          className="game-shell__action"
-          type="button"
-          aria-label={props.incrementLabel}
-          onClick={() => void props.playerPort.commands.dispatch(props.incrementCommand)}
-        >
-          +
-        </button>
-      </section>
-      <section className="game-shell__narrative" aria-label="叙事区" />
-      <output className="game-shell__status" aria-label="系统状态">
-        {String(Reflect.get(current as object, "status") ?? "ready")}
-      </output>
+      <section className={styles["game-shell__narrative"]} aria-label="叙事区" />
     </main>
   );
 }

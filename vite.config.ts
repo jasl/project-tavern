@@ -1,8 +1,43 @@
+import { createRequire } from "node:module";
 import { basename, dirname, resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import type { Plugin, UserConfig } from "vite";
 
 const repositoryRoot = import.meta.dirname;
+
+interface E2eBuildIdentityModuleV1 {
+  readonly e2eBuildIdentityVirtualSpecifierV1: string;
+  collectE2eBuildIdentityV1(root: string): Promise<unknown>;
+  renderE2eBuildIdentityVirtualModuleV1(identity: unknown): string;
+  createE2eBuildIdentityVirtualPluginV1(source: string): Plugin;
+}
+
+function assertE2eBuildIdentityModuleV1(value: unknown): asserts value is E2eBuildIdentityModuleV1 {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof Reflect.get(value, "e2eBuildIdentityVirtualSpecifierV1") !== "string" ||
+    typeof Reflect.get(value, "collectE2eBuildIdentityV1") !== "function" ||
+    typeof Reflect.get(value, "renderE2eBuildIdentityVirtualModuleV1") !== "function" ||
+    typeof Reflect.get(value, "createE2eBuildIdentityVirtualPluginV1") !== "function"
+  ) {
+    throw new TypeError("E2E BuildIdentity collector module is invalid");
+  }
+}
+
+const requireFromConfigV1 = createRequire(import.meta.url);
+const e2eBuildIdentityModuleV1: unknown = requireFromConfigV1(
+  resolve(repositoryRoot, "scripts/build-e2e-identity.mjs"),
+);
+assertE2eBuildIdentityModuleV1(e2eBuildIdentityModuleV1);
+
+const {
+  collectE2eBuildIdentityV1,
+  createE2eBuildIdentityVirtualPluginV1,
+  renderE2eBuildIdentityVirtualModuleV1,
+} = e2eBuildIdentityModuleV1;
+
 const applicationRoots = Object.freeze({
   "e2e-web": Object.freeze({
     html: resolve(repositoryRoot, "game/stories/e2e/index.html"),
@@ -37,7 +72,7 @@ function rejectCallerBuildRootV1(argv: readonly string[]) {
   }
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   rejectCallerBuildRootV1(process.argv.slice(2));
   const application = applicationRoots[mode as keyof typeof applicationRoots];
   if (application === undefined) {
@@ -45,11 +80,15 @@ export default defineConfig(({ mode }) => {
   }
   const storyRoot = dirname(application.html);
   const htmlName = basename(application.html);
+  const buildIdentityVirtualSource = renderE2eBuildIdentityVirtualModuleV1(
+    await collectE2eBuildIdentityV1(repositoryRoot),
+  );
   return {
     root: storyRoot,
     base: "./",
     publicDir: false,
     plugins: [
+      createE2eBuildIdentityVirtualPluginV1(buildIdentityVirtualSource),
       react(),
       {
         name: "project-tavern-closed-application-root",
@@ -95,5 +134,5 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       rollupOptions: { input: application.html },
     },
-  };
+  } satisfies UserConfig;
 });

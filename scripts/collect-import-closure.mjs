@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { createHash } from "node:crypto";
 import { lstat, readFile, realpath } from "node:fs/promises";
-import { dirname, extname, join, relative, resolve, sep } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageTargets = Object.freeze({
@@ -10,11 +10,42 @@ const packageTargets = Object.freeze({
   "@sillymaker/base/testkit": "engine/packages/base/src/testkit/index.ts",
   "@sillymaker/ui": "engine/packages/ui/src/index.ts",
   "@sillymaker/web": "engine/packages/web/src/index.ts",
+  "@project-tavern/assets": "game/packages/assets/src/index.ts",
   "@project-tavern/story-e2e": "game/stories/e2e/src/index.ts",
-  "@project-tavern/story-e2e/development": "game/stories/e2e/src/development.ts",
+  "@project-tavern/story-e2e/tooling": "game/stories/e2e/src/tooling.ts",
 });
 
 const posix = (root, path) => relative(root, path).split(sep).join("/");
+const buildIdentityFacetsV1 = new Set([
+  "engine",
+  "story_simulation",
+  "story_presentation",
+  "application",
+]);
+
+function compareUtf16CodeUnits(left, right) {
+  const sharedLength = Math.min(left.length, right.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    const difference = left.charCodeAt(index) - right.charCodeAt(index);
+    if (difference !== 0) return difference;
+  }
+  return left.length - right.length;
+}
+
+function validateManagedPath(path) {
+  const parts = path.split("/");
+  if (
+    path.length === 0 ||
+    isAbsolute(path) ||
+    path.includes("\\") ||
+    path.includes("\0") ||
+    parts.some((part) => part === "" || part === "." || part === "..") ||
+    parts.includes("references")
+  ) {
+    throw new TypeError(`invalid import closure path: ${path}`);
+  }
+}
+
 async function existing(candidates) {
   for (const path of candidates) {
     try {
@@ -44,6 +75,7 @@ export async function collectImportClosure(root, entries) {
   const queue = entries.map((entry) => resolve(root, entry));
   const paths = new Set();
   const errors = [];
+  const externalImports = new Map();
   while (queue.length > 0) {
     const path = queue.shift();
     if (path === undefined) continue;
@@ -78,12 +110,33 @@ export async function collectImportClosure(root, entries) {
     for (const match of source.matchAll(dynamicPattern)) if (match[1]) specifiers.push(match[1]);
     for (const specifier of specifiers) {
       const dependency = await resolveSpecifier(root, actual, specifier);
-      if (dependency !== null) queue.push(dependency);
+      if (dependency !== null) {
+        queue.push(dependency);
+      } else if (specifier.startsWith(".")) {
+        errors.push(`${relativePath}: missing import: ${specifier}`);
+      } else {
+        const key = `${relativePath}\0${specifier}`;
+        externalImports.set(
+          key,
+          Object.freeze({
+            owner: relativePath,
+            specifier,
+          }),
+        );
+      }
     }
   }
   return Object.freeze({
-    paths: Object.freeze([...paths].sort()),
-    errors: Object.freeze(errors.sort()),
+    paths: Object.freeze([...paths].sort(compareUtf16CodeUnits)),
+    errors: Object.freeze(errors.sort(compareUtf16CodeUnits)),
+    externalImports: Object.freeze(
+      [...externalImports.values()].sort((left, right) =>
+        compareUtf16CodeUnits(
+          `${left.owner}\0${left.specifier}`,
+          `${right.owner}\0${right.specifier}`,
+        ),
+      ),
+    ),
   });
 }
 
@@ -93,27 +146,61 @@ export async function collectManagedPaths(root, entries) {
   return result.paths;
 }
 
-export async function buildImportClosureV1(root, entries, facet) {
-  const paths = await collectManagedPaths(root, entries);
-  return Promise.all(
-    paths.map(async (path) =>
-      Object.freeze({
+/**
+ * Hashes an already resolved set of workspace-relative files without discovering any additional
+ * imports. This keeps facet filtering in the caller while retaining one live-byte record format.
+ */
+export async function buildImportClosureRecordsV1(root, paths, facet) {
+  if (!buildIdentityFacetsV1.has(facet)) {
+    throw new TypeError(`invalid import closure facet: ${facet}`);
+  }
+  for (const path of paths) validateManagedPath(path);
+  if (new Set(paths).size !== paths.length) {
+    throw new TypeError("duplicate import closure path");
+  }
+
+  const repository = await realpath(root);
+  const sortedPaths = [...paths].sort(compareUtf16CodeUnits);
+  const records = await Promise.all(
+    sortedPaths.map(async (path) => {
+      const actual = await realpath(join(repository, path));
+      if (!actual.startsWith(`${repository}${sep}`)) {
+        throw new TypeError(`workspace-external import closure path: ${path}`);
+      }
+      const actualPath = posix(repository, actual);
+      if (actualPath !== path) {
+        throw new TypeError(`non-canonical import closure path: ${path}`);
+      }
+      return Object.freeze({
         path,
         facet,
         sha256: `sha256:${createHash("sha256")
-          .update(await readFile(join(root, path)))
+          .update(await readFile(actual))
           .digest("hex")}`,
-      }),
-    ),
+      });
+    }),
   );
+  return Object.freeze(records);
+}
+
+export async function buildImportClosureV1(root, entries, facet) {
+  const paths = await collectManagedPaths(root, entries);
+  return buildImportClosureRecordsV1(root, paths, facet);
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));
-  const result = await collectImportClosure(root, process.argv.slice(2));
-  if (result.errors.length > 0) {
-    console.error(result.errors.join("\n"));
-    process.exitCode = 1;
-  } else console.log(JSON.stringify(result.paths, null, 2));
+  void collectImportClosure(root, process.argv.slice(2)).then(
+    (result) => {
+      if (result.errors.length > 0) {
+        console.error(result.errors.join("\n"));
+        process.exitCode = 1;
+      } else console.log(JSON.stringify(result.paths, null, 2));
+    },
+    (error) => {
+      console.error(error);
+      process.exitCode = 1;
+    },
+  );
 }
