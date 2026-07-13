@@ -3123,14 +3123,15 @@ pnpm --filter @project-tavern/story-e2e verify:fixtures
 pnpm --filter @project-tavern/story-e2e verify:golden
 pnpm verify:determinism
 pnpm verify:semantic
-pnpm verify:phase2
+pnpm verify
 after="$(git status --porcelain=v1)"
 test "$before" = "$after"
-pnpm verify
 git diff --check
 ```
 
-Expected: explicit writers update exactly the E2E fixture and semantic-flow golden；执行 agent 核对 Story/state-contract/engine/simulation provenance、sequence-zero pristine Snapshot、四个 Semantic invocations、final digest/Facts/RNG trace/terminal View，并记录两个 SHA-256；all read-only commands exit 0；status comparison exits 0。此 review 不等待人工输入。
+`verify:phase2` 的第一条命令是严格要求 clean tree 的 `verify:materialization`，因此不能在本任务未提交的 reviewed bytes 上预运行，也不得为此放宽 Materialization 护栏。提交前由上述 component gates 与完整 `pnpm verify` 验证同一实现；Task commit 后立即按 Phase 2 Acceptance 在 clean HEAD 上执行两次完整 `verify:phase2`。
+
+Expected: explicit writers update exactly the E2E fixture and semantic-flow golden；执行 agent 核对 Story/state-contract/engine/simulation provenance、sequence-zero pristine Snapshot、四个 Semantic invocations、final digest/Facts/RNG trace/terminal View，并记录两个 SHA-256；all pre-commit read-only commands exit 0；status comparison exits 0。此 review 不等待人工输入。
 
 - [ ] **Step 6: Commit Phase 2 evidence and gate**
 
