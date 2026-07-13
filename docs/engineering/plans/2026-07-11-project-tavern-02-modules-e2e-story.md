@@ -1420,10 +1420,12 @@ root scripts 精确改为：
 
 ```json
 {
-  "build:e2e": "vite build --mode e2e-web",
+  "build:e2e": "vite build --config ./vite.config.ts --mode e2e-web",
   "release:prepare": "pnpm build:e2e && node scripts/prepare-artifact.mjs dist/e2e"
 }
 ```
+
+显式 `--config` 是 closed root 的一部分：否则追加给 `pnpm build:e2e` 的 positional root 会先改变 Vite config discovery，从而让仓库 guard 根本不加载。focused script test 必须证明 caller root、dist 外 `--outDir` 和 `--emptyOutDir=false` 均失败且不创建目标输出；resolved config 同时冻结 `publicDir:false` 与 `emptyOutDir:true`。
 
 Phase 5B 将在同一 closed map 中增加 `poc-web` 和临时直接 Vite `build:poc`；Phase 6 再以统一 release builder 替换两条 build script 的实现。本任务不创建第二种 E2E flavor。
 
