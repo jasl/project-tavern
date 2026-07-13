@@ -1453,7 +1453,6 @@ node scripts/verify-bundle.mjs
 node scripts/verify-artifact.mjs
 pnpm test:e2e:smoke
 pnpm test:scripts
-pnpm verify:materialization
 pnpm verify:phase2:checkpoint
 git diff --exit-code -- engine/packages/web/e2e/__screenshots__/e2e-shell.png
 git diff --check
@@ -1468,6 +1467,8 @@ git add -A -- game/stories/e2e engine/packages/web vite.config.ts playwright.con
 git diff --cached --check
 git commit -m "refactor(web): build one artifact per story host"
 ```
+
+提交完成并确认 worktree clean 后运行 `pnpm verify:materialization`；该 strict live check 按设计拒绝任何 dirty worktree，因此不得在暂存或提交前弱化它。Expected: attestation 和 materialization digest 保持有效。
 
 ### Task 6: Remove the public Player/Developer application split
 
