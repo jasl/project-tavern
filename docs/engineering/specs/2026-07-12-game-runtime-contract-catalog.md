@@ -2692,7 +2692,7 @@ interface GameDebugCommandExecutorV1<
 
 interface GameSimulationV1<
   TTypes extends GameSimulationTypeMapV1,
-  TModules extends readonly GameplayModuleBindingV1[],
+  TModules extends readonly unknown[],
   TExecutor extends GameCommandExecutorV1<
     TTypes["snapshot"],
     TTypes["command"],
@@ -2708,7 +2708,7 @@ interface GameSimulationV1<
   >,
 > extends GameSimulationTypeWitnessV1<TTypes> {
   readonly contractRevision: 1;
-  readonly modules: TModules;
+  readonly modules: GameplayModuleTupleForSimulationV1<TTypes, TModules>;
   readonly stateSchema: RuntimeSchemaV1<TTypes["state"]>;
   readonly commandSchema: RuntimeSchemaV1<TTypes["command"]>;
   readonly factSchema: RuntimeSchemaV1<TTypes["fact"]>;
