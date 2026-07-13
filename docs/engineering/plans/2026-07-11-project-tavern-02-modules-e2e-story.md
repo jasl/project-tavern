@@ -1026,7 +1026,7 @@ it("isolates a throwing subscriber and keeps the FIFO usable", async () => {
     execution: { kind: "committed" },
   });
   expect(fixture.session.getCurrentSnapshot().state.count).toBe(1);
-  expect(fixture.session.getStatus()).toBe("idle");
+  expect(fixture.session.getStatus()).toBe("ready");
   expect(fixture.secondSubscriberCalls()).toBeGreaterThan(0);
   expect(fixture.observerFailures()).toHaveLength(1);
   await expect(fixture.session.dispatch({ kind: "synthetic.increment" })).resolves.toMatchObject({
@@ -1034,7 +1034,7 @@ it("isolates a throwing subscriber and keeps the FIFO usable", async () => {
     execution: { kind: "committed" },
   });
   expect(fixture.session.getCurrentSnapshot().state.count).toBe(2);
-  expect(fixture.session.getStatus()).toBe("idle");
+  expect(fixture.session.getStatus()).toBe("ready");
   expect(fixture.observerFailures()).toHaveLength(1);
 });
 ```
