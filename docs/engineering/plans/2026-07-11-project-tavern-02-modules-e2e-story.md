@@ -1539,7 +1539,7 @@ pnpm --filter @sillymaker/base exec vitest run src/contracts/application.test.ts
 pnpm typecheck
 ```
 
-Expected: FAIL because GameApplicationPortV1 does not exist and the old public application split is still exported。
+Expected: companion Vitest 可以通过，因为 `GameApplicationPortV1` 是 type-only contract 且 Vitest transform 会擦除类型；正式 `pnpm typecheck` 必须 FAIL because GameApplicationPortV1 does not exist and the old public application split is still exported。不得为制造 runtime RED 而虚构一个 value export。
 
 - [ ] **Step 3: Define the generic unified application contract**
 
