@@ -2340,6 +2340,14 @@ git commit -m "feat(e2e): resolve the minimal fixture story"
 
 ### Task 10: Implement SemanticGamePort over the real GameSession
 
+**Mechanical Files repair before the Task 10 GREEN:** Task 6 correctly migrated the production
+`entry.tsx` to the temporary narrow Semantic adapter, but this task replaces that adapter's public
+shape and originally omitted the entry from its Files and exact staging contracts. Keeping the old
+entry makes the required independent `typecheck`/`build:e2e` checkpoint fail; adding a compatibility
+view would create the forbidden second UI state API. Therefore this task also migrates `entry.tsx`
+to consume the atomic Semantic publication and typed invocation directly, without changing the
+Task 11 owner for resolved SceneGraph rendering.
+
 **Files:**
 
 - Modify: engine/packages/base/src/contracts/application.ts
@@ -2357,6 +2365,7 @@ git commit -m "feat(e2e): resolve the minimal fixture story"
 - Create: game/stories/e2e/src/runtime/headless-runner.test.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
+- Modify: game/stories/e2e/src/application/entry.tsx
 - Modify: game/stories/e2e/package.json
 - Modify: package.json
 - Create: scripts/verify-semantic.mts
@@ -2685,7 +2694,7 @@ Expected: 所有命令退出 0；normal semantic operations produce the same fin
 - [ ] **Step 7: Commit SemanticGamePort**
 
 ```bash
-git add -- engine/packages/base/src/contracts/application.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/src/runtime/application engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/runtime game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/package.json package.json scripts/verify-semantic.mts scripts/verify-semantic.test.mjs scripts/run-script-tests.test.mjs
+git add -- engine/packages/base/src/contracts/application.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/src/runtime/application engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/runtime game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/package.json package.json scripts/verify-semantic.mts scripts/verify-semantic.test.mjs scripts/run-script-tests.test.mjs
 git diff --cached --check
 git commit -m "feat(runtime): add semantic game interaction"
 ```
