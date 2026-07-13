@@ -32,6 +32,7 @@ export {
 export type { ResolvedStoryV1 } from "./authoring/index.js";
 export type {
   AssetPackDigestProjectionV1,
+  AssetPackV1,
   BootstrapEntropyV1,
   Brand,
   BuildProvenanceV1,

@@ -6,6 +6,7 @@
       "target": "./src/index.ts",
       "exports": [
         "AssetPackDigestProjectionV1",
+        "AssetPackV1",
         "BootstrapEntropyV1",
         "Brand",
         "BuildProvenanceV1",
