@@ -7,11 +7,13 @@ import {
   parsePositiveSafeInteger,
 } from "@sillymaker/base";
 import type {
+  DeepReadonly,
   ExportedSaveV1,
+  GameApplicationPortV1,
   GameHostV1,
   PersistenceOperationResultV1,
   PersistenceStatusV1,
-  PlayerApplicationPortV1,
+  ReadonlyViewSourceV1,
   SaveExportOperationResultV1,
   SaveSlotSummaryV1,
   SessionAnchorResultV1,
@@ -21,7 +23,7 @@ import type {
 import { createGameSessionV1 } from "@sillymaker/base/runtime";
 import { createViewSourceV1 } from "@sillymaker/ui";
 
-import type { E2eCommandV1, E2eSimulationTypesV1 } from "../contracts.js";
+import type { E2eCommandV1, E2eRejectionV1, E2eSimulationTypesV1 } from "../contracts.js";
 import { createE2eInitialSnapshotV1 } from "../session.js";
 import { createE2eFaultAttemptV1 } from "../profile.js";
 import type { E2eResolvedGameV1 } from "../story-entry.js";
@@ -30,6 +32,37 @@ export interface E2eApplicationViewV1 {
   readonly count: number;
   readonly parity: "even" | "odd";
   readonly status: "ready" | "busy" | "fault_paused" | "hmr_invalidated";
+}
+
+type E2eSessionDispatchResultV1 = Awaited<
+  ReturnType<ReturnType<typeof createGameSessionV1<E2eSimulationTypesV1>>["session"]["dispatch"]>
+>;
+
+export type E2eSemanticPlaceholderDispatchResultV1 =
+  | { readonly kind: "committed" }
+  | {
+      readonly kind: "rejected";
+      readonly reasons: readonly DeepReadonly<E2eRejectionV1>[];
+    }
+  | {
+      readonly kind: "not_executed";
+      readonly code:
+        "session_unavailable" | "fault_paused" | "hmr_invalidated" | "validation_failed";
+    }
+  | { readonly kind: "faulted"; readonly code: "gameplay_fault" };
+
+export interface E2eSemanticPlaceholderPortV1 {
+  readonly view: ReadonlyViewSourceV1<E2eApplicationViewV1>;
+  dispatch(command: DeepReadonly<E2eCommandV1>): Promise<E2eSemanticPlaceholderDispatchResultV1>;
+}
+
+export interface E2eUnavailableCapabilitiesPortV1 {
+  readonly kind: "unavailable";
+}
+
+export interface E2eUnavailableDebugToolsPortV1 {
+  readonly kind: "unavailable";
+  readonly code: "phase3_not_installed";
 }
 
 type E2ePersistencePortV1 = {
@@ -56,32 +89,59 @@ type E2ePersistencePortV1 = {
   importSave(bytes: Uint8Array): Promise<PersistenceOperationResultV1>;
 };
 
-export type E2ePlayerApplicationV1 = PlayerApplicationPortV1<
-  E2eApplicationViewV1,
-  {
-    dispatch(
-      command: E2eCommandV1,
-    ): ReturnType<
-      ReturnType<typeof createGameSessionV1<E2eSimulationTypesV1>>["session"]["dispatch"]
-    >;
-  },
+export type E2eGameApplicationPortV1 = GameApplicationPortV1<
+  E2eSemanticPlaceholderPortV1,
   {
     createNewSession(): Promise<SessionAnchorResultV1>;
     restartSession(): Promise<SessionAnchorResultV1>;
   },
   E2ePersistencePortV1,
-  { exportDebugBundle(): Promise<{ readonly kind: "unavailable"; readonly code: string }> }
+  { exportDebugBundle(): Promise<{ readonly kind: "unavailable"; readonly code: string }> },
+  E2eUnavailableCapabilitiesPortV1,
+  E2eUnavailableDebugToolsPortV1
 >;
+
+const unavailableCapabilities: E2eUnavailableCapabilitiesPortV1 = Object.freeze({
+  kind: "unavailable",
+});
+const unavailableDebugTools: E2eUnavailableDebugToolsPortV1 = Object.freeze({
+  kind: "unavailable",
+  code: "phase3_not_installed",
+});
 
 const unavailablePersistence = (): PersistenceOperationResultV1 =>
   Object.freeze({ kind: "rejected", code: "unavailable" });
 const unavailableLease = (): SessionLeaseOperationResultV1 =>
   Object.freeze({ kind: "rejected", code: "unavailable" });
 
-export function createE2eApplicationV1(input: {
+function projectE2ePlaceholderDispatchResultV1(
+  result: E2eSessionDispatchResultV1,
+): E2eSemanticPlaceholderDispatchResultV1 {
+  if (result.kind === "not_executed") {
+    return Object.freeze({ kind: "not_executed", code: result.code });
+  }
+  switch (result.execution.kind) {
+    case "committed":
+      return Object.freeze({ kind: "committed" });
+    case "rejected":
+      return Object.freeze({
+        kind: "rejected",
+        reasons: Object.freeze(
+          result.execution.reasons.map((reason) => Object.freeze({ code: reason.code })),
+        ),
+      });
+    case "faulted":
+      return Object.freeze({ kind: "faulted", code: "gameplay_fault" });
+  }
+  const unsupported: never = result.execution;
+  void unsupported;
+  throw new TypeError("unsupported E2E dispatch result");
+}
+
+export function createE2eGameRuntimeV1(input: {
   readonly resolved: E2eResolvedGameV1;
   readonly host: GameHostV1;
-}): E2ePlayerApplicationV1 {
+}): E2eGameApplicationPortV1 {
   const gameSimulation = input.resolved.gameSimulation;
   const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
   const created = createGameSessionV1<E2eSimulationTypesV1>({
@@ -101,8 +161,12 @@ export function createE2eApplicationV1(input: {
     const projected = gameSimulation.projectGameView(queries);
     return Object.freeze({ ...projected, status: created.session.getStatus() });
   };
-  const view = createViewSourceV1(project());
-  created.session.subscribe(() => view.publish(project()));
+  const viewPublisher = createViewSourceV1(project());
+  const view: ReadonlyViewSourceV1<E2eApplicationViewV1> = Object.freeze({
+    getCurrent: viewPublisher.getCurrent,
+    subscribe: viewPublisher.subscribe,
+  });
+  created.session.subscribe(() => viewPublisher.publish(project()));
 
   const lifecycleOperation = () =>
     created.runtimeControl.enqueueAuthoritative<SessionAnchorResultV1>(
@@ -192,9 +256,10 @@ export function createE2eApplicationV1(input: {
   });
 
   return Object.freeze({
-    view,
-    commands: Object.freeze({
-      dispatch: (command: E2eCommandV1) => created.session.dispatch(command),
+    semantic: Object.freeze({
+      view,
+      dispatch: async (command: DeepReadonly<E2eCommandV1>) =>
+        projectE2ePlaceholderDispatchResultV1(await created.session.dispatch(command)),
     }),
     lifecycle: Object.freeze({
       createNewSession: lifecycleOperation,
@@ -205,5 +270,7 @@ export function createE2eApplicationV1(input: {
       exportDebugBundle: async () =>
         Object.freeze({ kind: "unavailable" as const, code: "diagnostics.unavailable" }),
     }),
+    capabilities: unavailableCapabilities,
+    debugTools: unavailableDebugTools,
   });
 }

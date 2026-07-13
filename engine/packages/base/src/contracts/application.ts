@@ -28,8 +28,20 @@ export function createReadonlyViewSourceV1<TViewModel>(
   });
 }
 
-export interface PlayerCommandPortV1<TCommand, TDispatchResult> {
-  dispatch(command: DeepReadonly<TCommand>): Promise<TDispatchResult>;
+export interface GameApplicationPortV1<
+  TSemantic,
+  TLifecycle,
+  TPersistence,
+  TDiagnostics,
+  TCapabilities,
+  TDebugTools,
+> {
+  readonly semantic: TSemantic;
+  readonly lifecycle: TLifecycle;
+  readonly persistence: TPersistence;
+  readonly diagnostics: TDiagnostics;
+  readonly capabilities: TCapabilities;
+  readonly debugTools: TDebugTools;
 }
 
 export interface SessionLifecyclePortV1<TAnchorResult> {
@@ -72,45 +84,6 @@ export interface PlayerPersistencePortV1<
 
 export interface PlayerDiagnosticsPortV1<TDebugBundle> {
   exportDebugBundle(): Promise<TDebugBundle>;
-}
-
-export interface PlayerApplicationPortV1<
-  TViewModel,
-  TCommandPort,
-  TLifecyclePort,
-  TPersistencePort,
-  TDiagnosticsPort,
-> {
-  readonly view: ReadonlyViewSourceV1<TViewModel>;
-  readonly commands: TCommandPort;
-  readonly lifecycle: TLifecyclePort;
-  readonly persistence: TPersistencePort;
-  readonly diagnostics: TDiagnosticsPort;
-}
-
-export interface DeveloperControlPortV1<
-  TDebugCommand,
-  TDebugResult,
-  TFixtureId,
-  TAnchorResult,
-  TDebugInspection,
-  TAuthoritativeReplayResult,
-  TBestEffortReplayInspection,
-  TDiagnosticQuery,
-  TDiagnosticQueryResult,
-> {
-  executeDebugCommand(command: DeepReadonly<TDebugCommand>): Promise<TDebugResult>;
-  anchorFixture(fixtureId: TFixtureId): Promise<TAnchorResult>;
-  inspectDebugBundle(bytes: Uint8Array): Promise<TDebugInspection>;
-  anchorDebugBundle(bytes: Uint8Array): Promise<TAnchorResult>;
-  replayAuthoritatively(bytes: Uint8Array): Promise<TAuthoritativeReplayResult>;
-  inspectReplayBestEffort(bytes: Uint8Array): Promise<TBestEffortReplayInspection>;
-  queryDiagnostics(query: DeepReadonly<TDiagnosticQuery>): Promise<TDiagnosticQueryResult>;
-}
-
-export interface DeveloperApplicationPortV1<TPlayerPort, TDeveloperControlPort> {
-  readonly player: TPlayerPort;
-  readonly control: TDeveloperControlPort;
 }
 
 export interface UiRendererBindingV1<TId, TViewModel, TViewSlice, TRenderer> {

@@ -5,8 +5,8 @@ import {
   createWebHostV1,
   mountGameApplicationV1,
 } from "@sillymaker/web";
-import { createE2eApplicationV1 } from "./create-e2e-application.js";
-import type { E2eApplicationViewV1, E2ePlayerApplicationV1 } from "./create-e2e-application.js";
+import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
+import type { E2eApplicationViewV1 } from "./create-e2e-game-runtime.js";
 import { e2eStoryEntryV1 } from "../index.js";
 
 const root = document.querySelector("#root");
@@ -31,11 +31,15 @@ if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
   if (bootstrapped.kind !== "ready")
     throw new TypeError(`E2e bootstrap failed: ${bootstrapped.code}`);
   const resolved = bootstrapped.resolved;
-  const player = createE2eApplicationV1({ resolved, host });
+  const application = createE2eGameRuntimeV1({ resolved, host });
+  const semantic = application.semantic;
+  const gameShellPort = Object.freeze({
+    commands: Object.freeze({ dispatch: semantic.dispatch }),
+  });
   const presentation = Object.freeze({ label: "计数" });
   const contributions = createUiContributionRegistryV1<
     E2eApplicationViewV1,
-    E2ePlayerApplicationV1,
+    typeof gameShellPort,
     typeof presentation
   >({
     scenes: [{ id: "scene.e2e.counter", render: ({ view }) => <p>计数：{view.count}</p> }],
@@ -46,8 +50,8 @@ if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
   mountGameApplicationV1(
     root,
     <GameShell
-      view={player.view}
-      playerPort={player}
+      view={semantic.view}
+      playerPort={gameShellPort}
       presentation={presentation}
       contributions={contributions}
       sceneId="scene.e2e.counter"

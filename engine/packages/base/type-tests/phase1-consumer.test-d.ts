@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type {
   BootstrapEntropyV1,
+  GameApplicationPortV1,
   GameBootstrapInputV1,
   GameBootstrapResolutionResultV1,
   GamePackageResolutionFailureCodeV1,
@@ -60,6 +61,7 @@ import {
 } from "@sillymaker/base/testkit";
 
 export type Phase1ConsumerTypesV1 = {
+  application: GameApplicationPortV1<unknown, unknown, unknown, unknown, unknown, unknown>;
   entropy: BootstrapEntropyV1;
   bootstrap: GameBootstrapInputV1;
   bootstrapResolution: GameBootstrapResolutionResultV1<unknown, unknown>;

@@ -20,12 +20,9 @@ export type {
 } from "./assets.js";
 export { createReadonlyViewSourceV1 } from "./application.js";
 export type {
-  DeveloperApplicationPortV1,
-  DeveloperControlPortV1,
+  GameApplicationPortV1,
   LeaseHandoffRequestId,
   MutableViewPublisherV1,
-  PlayerApplicationPortV1,
-  PlayerCommandPortV1,
   PlayerDiagnosticsPortV1,
   PlayerPersistencePortV1,
   PlayerWritableSaveSlotIdV1,
