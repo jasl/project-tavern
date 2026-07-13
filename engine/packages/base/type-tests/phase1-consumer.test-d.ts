@@ -43,7 +43,13 @@ import {
   resolveGamePackageV1,
   rngStateV1Schema,
 } from "@sillymaker/base";
-import { createEngineSessionV1 } from "@sillymaker/base/runtime";
+import { createGameSessionV1 } from "@sillymaker/base/runtime";
+import type {
+  GameSessionCompositionV1,
+  GameSessionInputV1,
+  GameSessionRuntimeControlV1,
+  GameSessionV1,
+} from "@sillymaker/base/runtime";
 import {
   createFixedBootstrapEntropyV1,
   createSyntheticCounterGamePackageV1,
@@ -64,6 +70,10 @@ export type Phase1ConsumerTypesV1 = {
   debugCommandExecutor: GameDebugCommandExecutorV1<unknown, unknown, unknown, unknown, unknown>;
   debugValidation: GameDebugCommandValidationResultV1<unknown>;
   simulation: GameSimulationTypeMapV1<GameBootstrapInputV1, unknown, unknown>;
+  gameSession: GameSessionV1<GameSimulationTypeMapV1>;
+  gameSessionComposition: GameSessionCompositionV1<GameSimulationTypeMapV1>;
+  gameSessionInput: GameSessionInputV1<GameSimulationTypeMapV1>;
+  gameSessionRuntimeControl: GameSessionRuntimeControlV1<unknown>;
   simulationContract: GameSimulationV1<
     GameSimulationTypeMapV1,
     readonly GameplayModuleBindingV1[],
@@ -87,7 +97,7 @@ export type Phase1ConsumerTypesV1 = {
 };
 
 export type Phase1ConsumerValuesV1 = {
-  createEngineSession: typeof createEngineSessionV1;
+  createGameSession: typeof createGameSessionV1;
   createFixedBootstrapEntropy: typeof createFixedBootstrapEntropyV1;
   createGameSnapshotEnvelopeSchema: typeof createGameSnapshotEnvelopeSchemaV1;
   createSaveRecordEnvelopeSchema: typeof createSaveRecordEnvelopeSchemaV1;
@@ -179,5 +189,11 @@ export { defineStoryDevelopmentEntry } from "@sillymaker/base";
 export { validateDevelopmentFixturesV1 } from "@sillymaker/base/testkit";
 // @ts-expect-error replaced by ResolvedGameV1
 export type OldResolvedStory = import("@sillymaker/base").ResolvedStoryV1;
+// @ts-expect-error removed after the GameSession rename
+export type { EngineSessionV1 as OldEngineSessionV1 } from "@sillymaker/base/runtime";
+// @ts-expect-error removed after the GameSession rename
+export type { EngineSessionRuntimeControlV1 as OldEngineSessionRuntimeControlV1 } from "@sillymaker/base/runtime";
+// @ts-expect-error removed after the GameSession rename
+export { createEngineSessionV1 } from "@sillymaker/base/runtime";
 // @ts-expect-error import closure belongs to scripts, never Base/testkit
 export { buildImportClosureV1 } from "@sillymaker/base/testkit";

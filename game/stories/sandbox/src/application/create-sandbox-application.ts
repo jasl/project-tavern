@@ -18,7 +18,7 @@ import type {
   SessionLeaseOperationResultV1,
   SessionLeaseStatusV1,
 } from "@sillymaker/base";
-import { createEngineSessionV1 } from "@sillymaker/base/runtime";
+import { createGameSessionV1 } from "@sillymaker/base/runtime";
 import { createViewSourceV1 } from "@sillymaker/ui";
 
 import type { SandboxCommandV1, SandboxSimulationTypesV1 } from "../contracts.js";
@@ -62,7 +62,7 @@ export type SandboxPlayerApplicationV1 = PlayerApplicationPortV1<
     dispatch(
       command: SandboxCommandV1,
     ): ReturnType<
-      ReturnType<typeof createEngineSessionV1<SandboxSimulationTypesV1>>["session"]["dispatch"]
+      ReturnType<typeof createGameSessionV1<SandboxSimulationTypesV1>>["session"]["dispatch"]
     >;
   },
   {
@@ -84,7 +84,7 @@ export function createSandboxApplicationV1(input: {
 }): SandboxPlayerApplicationV1 {
   const gameSimulation = input.resolved.gameSimulation;
   const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
-  const created = createEngineSessionV1<SandboxSimulationTypesV1>({
+  const created = createGameSessionV1<SandboxSimulationTypesV1>({
     initialSnapshot: createSandboxInitialSnapshotV1(gameSimulation, bootstrap),
     commandSchema: gameSimulation.commandSchema,
     executionContext: undefined,

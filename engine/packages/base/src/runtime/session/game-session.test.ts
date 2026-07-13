@@ -9,7 +9,7 @@ import type {
 import type { GameSnapshotEnvelopeV1 } from "../../contracts/snapshot.js";
 import type { RuntimeSchemaV1 } from "../../contracts/values.js";
 import { parseNonNegativeSafeInteger } from "../../contracts/values.js";
-import { createEngineSessionInternalV1, createEngineSessionV1 } from "./engine-session.js";
+import { createGameSessionInternalV1, createGameSessionV1 } from "./game-session.js";
 
 interface State {
   readonly count: number;
@@ -86,15 +86,25 @@ const attempt = (current: Snapshot, command: Command): Attempt => {
   });
 };
 
-function fixture(): ReturnType<typeof createEngineSessionV1<Types>> & {
+function fixture(): ReturnType<typeof createGameSessionV1<Types>> & {
   readonly calls: () => number;
   readonly attempts: Attempt[];
 };
-function fixture(internal: true): ReturnType<typeof createEngineSessionInternalV1<Types>> & {
+function fixture(
+  internal: true,
+  onObserverFailure?: (error: unknown) => void,
+): ReturnType<typeof createGameSessionInternalV1<Types>> & {
   readonly calls: () => number;
   readonly attempts: Attempt[];
 };
-function fixture(internal = false) {
+function fixture(
+  internal: false,
+  onObserverFailure?: (error: unknown) => void,
+): ReturnType<typeof createGameSessionV1<Types>> & {
+  readonly calls: () => number;
+  readonly attempts: Attempt[];
+};
+function fixture(internal = false, onObserverFailure?: (error: unknown) => void) {
   let calls = 0;
   const attempts: Attempt[] = [];
   const input = {
@@ -112,14 +122,15 @@ function fixture(internal = false) {
     onAttempt(value: Attempt) {
       attempts.push(value);
     },
+    ...(onObserverFailure === undefined ? {} : { onObserverFailure }),
   };
   const created = internal
-    ? createEngineSessionInternalV1<Types>(input)
-    : createEngineSessionV1<Types>(input);
+    ? createGameSessionInternalV1<Types>(input)
+    : createGameSessionV1<Types>(input);
   return { ...created, calls: () => calls, attempts };
 }
 
-describe("EngineSession FIFO", () => {
+describe("GameSession FIFO", () => {
   it("publishes busy synchronously and commits in admission order", async () => {
     const { session, calls } = fixture();
     const first = session.dispatch({ kind: "increment" });
@@ -192,5 +203,90 @@ describe("EngineSession FIFO", () => {
       code: "validation_failed",
     });
     expect(calls()).toBe(0);
+  });
+
+  it("publishes busy in the enqueueing tick and executes once", async () => {
+    const { session, calls } = fixture();
+    const result = session.dispatch({ kind: "increment" });
+
+    expect(session.getStatus()).toBe("busy");
+    await expect(result).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    expect(calls()).toBe(1);
+  });
+
+  it("serializes dispatch and authoritative replacement on one tail", async () => {
+    const order: string[] = [];
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      executeAttempt(snapshot: Snapshot, command: Command) {
+        order.push("dispatch");
+        return attempt(snapshot, command);
+      },
+      normalizeUnexpectedDispatchFault(_error: unknown, snapshot: Snapshot) {
+        return attempt(snapshot, { kind: "fault" });
+      },
+    });
+    const dispatch = created.session.dispatch({ kind: "increment" });
+    const anchor = created.runtimeControl.enqueueAuthoritative(
+      async () => {
+        order.push("anchor");
+        return {
+          kind: "replace" as const,
+          snapshot: createSnapshot(10),
+          result: "anchored" as const,
+          anchor: "replace_replay_base" as const,
+        };
+      },
+      () => "faulted" as const,
+    );
+
+    await expect(dispatch).resolves.toMatchObject({ kind: "executed" });
+    await expect(anchor).resolves.toBe("anchored");
+    expect(order).toEqual(["dispatch", "anchor"]);
+    expect(created.session.getCurrentSnapshot().state.count).toBe(10);
+  });
+
+  it("isolates throwing subscribers and an observer-failure hook", async () => {
+    const subscriberError = new Error("subscriber failed once");
+    const observerFailures: unknown[] = [];
+    const observations: Array<{ readonly count: number; readonly status: string }> = [];
+    const { session } = fixture(false, (error) => {
+      observerFailures.push(error);
+      throw new Error("observer failure hook also failed");
+    });
+    let throwOnce = true;
+    session.subscribe(() => {
+      if (!throwOnce) return;
+      throwOnce = false;
+      throw subscriberError;
+    });
+    session.subscribe(() => {
+      observations.push({
+        count: session.getCurrentSnapshot().state.count,
+        status: session.getStatus(),
+      });
+    });
+
+    await expect(session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    expect(session.getCurrentSnapshot().state.count).toBe(1);
+    expect(session.getStatus()).toBe("ready");
+    expect(observations[0]).toEqual({ count: 0, status: "busy" });
+    expect(observerFailures).toEqual([subscriberError]);
+
+    await expect(session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    expect(session.getCurrentSnapshot().state.count).toBe(2);
+    expect(session.getStatus()).toBe("ready");
+    expect(observerFailures).toEqual([subscriberError]);
   });
 });

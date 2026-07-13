@@ -227,9 +227,11 @@
       "target": "./src/runtime/index.ts",
       "exports": [
         "AuthoritativeOutcomeV1",
-        "EngineSessionRuntimeControlV1",
-        "EngineSessionV1",
-        "createEngineSessionV1"
+        "GameSessionCompositionV1",
+        "GameSessionInputV1",
+        "GameSessionRuntimeControlV1",
+        "GameSessionV1",
+        "createGameSessionV1"
       ]
     },
     "./testkit": {

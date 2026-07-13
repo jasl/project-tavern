@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-export { createEngineSessionV1 } from "./session/index.js";
+export { createGameSessionV1 } from "./session/index.js";
 export type {
   AuthoritativeOutcomeV1,
-  EngineSessionRuntimeControlV1,
-  EngineSessionV1,
+  GameSessionCompositionV1,
+  GameSessionInputV1,
+  GameSessionRuntimeControlV1,
+  GameSessionV1,
 } from "./session/index.js";

@@ -10,7 +10,7 @@ import type {
 } from "../../contracts/presentation.js";
 import type { DeepReadonly, RuntimeSchemaV1 } from "../../contracts/values.js";
 
-export interface EngineSessionV1<TTypes extends GameSimulationTypeMapV1> {
+export interface GameSessionV1<TTypes extends GameSimulationTypeMapV1> {
   getStatus(): RuntimeSessionStatusV1;
   getCurrentSnapshot(): DeepReadonly<TTypes["snapshot"]>;
   subscribe(listener: () => void): () => void;
@@ -37,7 +37,7 @@ export type AuthoritativeOutcomeV1<TSnapshot, TResult> =
       readonly anchor: "preserve_log" | "replace_replay_base";
     };
 
-export interface EngineSessionRuntimeControlV1<TSnapshot> {
+export interface GameSessionRuntimeControlV1<TSnapshot> {
   enqueueAuthoritative<TResult>(
     operation: (
       current: DeepReadonly<TSnapshot>,
@@ -59,7 +59,7 @@ type AttemptFor<TTypes extends GameSimulationTypeMapV1> = CommandExecutionAttemp
   TTypes["rngDrawTrace"]
 >;
 
-export interface EngineSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
+export interface GameSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
   readonly initialSnapshot: TTypes["snapshot"];
   readonly commandSchema: RuntimeSchemaV1<TTypes["command"]>;
   readonly executionContext: TTypes["executionContext"];
@@ -74,27 +74,28 @@ export interface EngineSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
     snapshot: DeepReadonly<TTypes["snapshot"]>,
   ): AttemptFor<TTypes>;
   onAttempt?(attempt: AttemptFor<TTypes>): void;
+  onObserverFailure?(error: unknown): void;
 }
 
-interface EngineSessionPrivateControlV1 {
+interface GameSessionPrivateControlV1 {
   invalidateForHmr(): Promise<void>;
 }
 
-export interface EngineSessionCompositionV1<TTypes extends GameSimulationTypeMapV1> {
-  readonly session: EngineSessionV1<TTypes>;
-  readonly runtimeControl: EngineSessionRuntimeControlV1<TTypes["snapshot"]>;
+export interface GameSessionCompositionV1<TTypes extends GameSimulationTypeMapV1> {
+  readonly session: GameSessionV1<TTypes>;
+  readonly runtimeControl: GameSessionRuntimeControlV1<TTypes["snapshot"]>;
 }
 
 interface InternalCompositionV1<
   TTypes extends GameSimulationTypeMapV1,
-> extends EngineSessionCompositionV1<TTypes> {
-  readonly privateControl: EngineSessionPrivateControlV1;
+> extends GameSessionCompositionV1<TTypes> {
+  readonly privateControl: GameSessionPrivateControlV1;
 }
 
 function createInternal<TTypes extends GameSimulationTypeMapV1>(
-  input: EngineSessionInputV1<TTypes>,
+  input: GameSessionInputV1<TTypes>,
 ): InternalCompositionV1<TTypes> {
-  type DispatchResult = Awaited<ReturnType<EngineSessionV1<TTypes>["dispatch"]>>;
+  type DispatchResult = Awaited<ReturnType<GameSessionV1<TTypes>["dispatch"]>>;
 
   let snapshot = input.initialSnapshot;
   let stableStatus: Exclude<RuntimeSessionStatusV1, "busy"> = "ready";
@@ -103,8 +104,21 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
   const listeners = new Set<() => void>();
 
   const status = (): RuntimeSessionStatusV1 => (pending > 0 ? "busy" : stableStatus);
+  const reportObserverFailure = (error: unknown): void => {
+    try {
+      input.onObserverFailure?.(error);
+    } catch {
+      // Observer reporting is diagnostics-only and must not affect authoritative work.
+    }
+  };
   const publish = (): void => {
-    for (const listener of [...listeners]) listener();
+    for (const listener of [...listeners]) {
+      try {
+        listener();
+      } catch (error) {
+        reportObserverFailure(error);
+      }
+    }
   };
 
   function enqueue<TResult>(operation: () => Promise<TResult>): Promise<TResult> {
@@ -121,7 +135,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     });
   }
 
-  const runtimeControl: EngineSessionRuntimeControlV1<TTypes["snapshot"]> = Object.freeze({
+  const runtimeControl: GameSessionRuntimeControlV1<TTypes["snapshot"]> = Object.freeze({
     enqueueAuthoritative<TResult>(
       operation: (
         current: DeepReadonly<TTypes["snapshot"]>,
@@ -152,7 +166,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     },
   });
 
-  const session: EngineSessionV1<TTypes> = Object.freeze({
+  const session: GameSessionV1<TTypes> = Object.freeze({
     getStatus: status,
     getCurrentSnapshot: () => snapshot as DeepReadonly<TTypes["snapshot"]>,
     subscribe(listener: () => void) {
@@ -208,7 +222,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     },
   });
 
-  const privateControl: EngineSessionPrivateControlV1 = Object.freeze({
+  const privateControl: GameSessionPrivateControlV1 = Object.freeze({
     invalidateForHmr() {
       return enqueue(async () => {
         stableStatus = "hmr_invalidated";
@@ -220,16 +234,16 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
   return Object.freeze({ session, runtimeControl, privateControl });
 }
 
-export function createEngineSessionV1<TTypes extends GameSimulationTypeMapV1>(
-  input: EngineSessionInputV1<TTypes>,
-): EngineSessionCompositionV1<TTypes> {
+export function createGameSessionV1<TTypes extends GameSimulationTypeMapV1>(
+  input: GameSessionInputV1<TTypes>,
+): GameSessionCompositionV1<TTypes> {
   const { session, runtimeControl } = createInternal(input);
   return Object.freeze({ session, runtimeControl });
 }
 
 /** @internal Base-owned test and Developer composition seam; not exported by the runtime barrel. */
-export function createEngineSessionInternalV1<TTypes extends GameSimulationTypeMapV1>(
-  input: EngineSessionInputV1<TTypes>,
+export function createGameSessionInternalV1<TTypes extends GameSimulationTypeMapV1>(
+  input: GameSessionInputV1<TTypes>,
 ): InternalCompositionV1<TTypes> {
   return createInternal(input);
 }

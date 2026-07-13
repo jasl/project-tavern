@@ -4,8 +4,8 @@ import {
   parseNonZeroUint32,
   parseNonNegativeSafeInteger,
 } from "@sillymaker/base";
-import { createEngineSessionV1 } from "@sillymaker/base/runtime";
-import type { EngineSessionV1 } from "@sillymaker/base/runtime";
+import { createGameSessionV1 } from "@sillymaker/base/runtime";
+import type { GameSessionV1 } from "@sillymaker/base/runtime";
 
 import type {
   SandboxBootstrapInputV1,
@@ -29,8 +29,8 @@ export function createSandboxInitialSnapshotV1(
 export function createSandboxSessionV1(
   gameSimulation: SandboxGameSimulationV1,
   bootstrap: SandboxBootstrapInputV1,
-): EngineSessionV1<SandboxSimulationTypesV1> {
-  const created = createEngineSessionV1<SandboxSimulationTypesV1>({
+): GameSessionV1<SandboxSimulationTypesV1> {
+  const created = createGameSessionV1<SandboxSimulationTypesV1>({
     initialSnapshot: createSandboxInitialSnapshotV1(gameSimulation, bootstrap),
     commandSchema: gameSimulation.commandSchema,
     executionContext: undefined,
