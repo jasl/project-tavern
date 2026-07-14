@@ -430,3 +430,67 @@ export {
   pocCalendarOwnerV1,
   pocCalendarGameplayModuleV1,
 } from "./modules/calendar/module.js";
+
+export {
+  pocActorsStateSchemaV1,
+  pocActorsInvariantV1,
+  pocActorsOwnerOperationSchemaV1,
+  parsePocActorsDependencyPortsV1,
+  pocActorsDependencyPortsSchemaV1,
+  pocActorsStatesEqualV1,
+  pocActorsOwnerProposalSchemaV1,
+} from "./modules/actors/contract.js";
+
+export type {
+  PocActorsOwnerOperationV1,
+  PocActorsGameplayFactV1,
+  PocActorsOwnerProposalPayloadV1,
+  PocActorsOwnerProposalV1,
+  PocActorsReadPortV1,
+  PocActorsDependencyPortsV1,
+} from "./modules/actors/contract.js";
+
+export {
+  createPocActorsReadPortV1,
+  pocActorsOwnerV1,
+  createPocActorsGameplayModuleV1,
+} from "./modules/actors/module.js";
+
+export type { PocActorsGameplayModuleV1 } from "./modules/actors/module.js";
+
+export {
+  parsePocAuraTargetV1,
+  parsePocAuraDurationV1,
+  parsePocAuraInstanceV1,
+  parsePocChangeReasonV1,
+  pocStatusStateSchemaV1,
+  pocStatusDependencyPortsSchemaV1,
+  pocStatusOwnerOperationSchemaV1,
+  pocStatusStatesEqualV1,
+  pocStatusOwnerProposalSchemaV1,
+  pocStatusInvariantV1,
+} from "./modules/status/contract.js";
+
+export type {
+  PocStatusAuraDefinitionPortV1,
+  PocStatusDependencyPortsV1,
+  PocStatusOwnerOperationV1,
+  PocStatusGameplayFactV1,
+  PocStatusOwnerProposalPayloadV1,
+  PocStatusOwnerProposalV1,
+  PocStatusReadPortV1,
+} from "./modules/status/contract.js";
+
+export {
+  advancePocAuraCountdownsV1,
+  createPocStatusReadPortV1,
+  pocStatusOwnerV1,
+  createPocStatusGameplayModuleV1,
+} from "./modules/status/module.js";
+
+export type {
+  PocStatusOwnerCapabilityV1,
+  PocAuraCountdownInputV1,
+  PocAuraCountdownResultV1,
+  PocStatusGameplayModuleV1,
+} from "./modules/status/module.js";
