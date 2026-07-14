@@ -1747,6 +1747,7 @@ git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 **Files:**
 
 - Modify: .gitignore
+- Modify: .prettierignore
 - Create: game/stories/e2e/src/test/fixtures/runtime/auto-current-flow-blocked.v1.json
 - Create: game/stories/e2e/src/test/fixtures/runtime/auto-previous-recovery.v1.json
 - Create: game/stories/e2e/src/test/fixtures/runtime/quick-narrative-branch.v1.json
@@ -1925,7 +1926,7 @@ Expected: explicit writer creates exactly ten payload files plus manifest；`git
 - [ ] **Step 7: Commit runtime fixtures and gate**
 
 ```bash
-git add -- .gitignore game/stories/e2e/src/test/fixtures/runtime game/stories/e2e/src/runtime/runtime-fixture-provenance.ts game/stories/e2e/src/runtime/e2e-debug-bundle.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/scripts/runtime-fixture-builder.mts game/stories/e2e/scripts/regenerate-runtime-fixtures.mts game/stories/e2e/scripts/verify-runtime-fixtures.mts game/stories/e2e/src/runtime/runtime-fixtures.test.ts game/stories/e2e/package.json package.json scripts/verify-persistence-diagnostics.mts scripts/verify-persistence-diagnostics.test.mjs scripts/run-script-tests.test.mjs engine/packages/base/package.json engine/packages/web/package.json
+git add -- .gitignore .prettierignore game/stories/e2e/src/test/fixtures/runtime game/stories/e2e/src/runtime/runtime-fixture-provenance.ts game/stories/e2e/src/runtime/e2e-debug-bundle.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/scripts/runtime-fixture-builder.mts game/stories/e2e/scripts/regenerate-runtime-fixtures.mts game/stories/e2e/scripts/verify-runtime-fixtures.mts game/stories/e2e/src/runtime/runtime-fixtures.test.ts game/stories/e2e/package.json package.json scripts/verify-persistence-diagnostics.mts scripts/verify-persistence-diagnostics.test.mjs scripts/run-script-tests.test.mjs engine/packages/base/package.json engine/packages/web/package.json
 git diff --cached --check
 git commit -m "test(runtime): freeze persistence diagnostics evidence"
 ```
