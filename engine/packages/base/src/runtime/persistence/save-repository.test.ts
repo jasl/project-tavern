@@ -6,7 +6,9 @@ import { canonicalJsonBytes } from "../../contracts/canonical-json.js";
 import { digestCanonical } from "../../contracts/digest.js";
 import type {
   HostAtomicRecordStoreV1,
+  HostRecordKeyV1,
   HostRecordMutationV1,
+  HostRecordNamespaceV1,
   HostStoredRecordV1,
 } from "../../contracts/host.js";
 import { createMemoryHostRecordStoreV1 } from "../../contracts/host.js";
@@ -363,6 +365,47 @@ describe("Save repository", () => {
       record: { recordRevision: 3 },
     });
     expect([4, 5]).toContain(final.health === "valid" ? final.record.snapshot.commandSequence : -1);
+  });
+
+  it("returns the original stored bytes as a fresh defensive copy for every valid read", async () => {
+    const fixture = await createFixtureV1();
+    await fixture.repository.writeQuick(makeRecordV1(7), fixture.fence);
+    const exposedSaveReadBytes: Uint8Array[] = [];
+    const exposingRecords: HostAtomicRecordStoreV1 = Object.freeze({
+      async read(namespace: HostRecordNamespaceV1, key: HostRecordKeyV1) {
+        const stored = await fixture.records.read(namespace, key);
+        if (namespace === "save" && stored !== null) exposedSaveReadBytes.push(stored.bytes);
+        return stored;
+      },
+      list: fixture.records.list,
+      commit: fixture.records.commit,
+    });
+    const repository = createSaveRepositoryV1({
+      records: exposingRecords,
+      storyId: storyIdV1,
+      codec: codecV1,
+    });
+
+    const first = await repository.read("quick");
+    const firstHostBytes = exposedSaveReadBytes.at(-1);
+    if (first.health !== "valid" || firstHostBytes === undefined) {
+      throw new TypeError("expected valid exposed Save bytes");
+    }
+    const expectedBytes = Uint8Array.from(firstHostBytes);
+    expect(first.bytes).toEqual(expectedBytes);
+    expect(first.bytes).not.toBe(firstHostBytes);
+
+    first.bytes.fill(0);
+    expect(firstHostBytes).toEqual(expectedBytes);
+
+    const second = await repository.read("quick");
+    const secondHostBytes = exposedSaveReadBytes.at(-1);
+    if (second.health !== "valid" || secondHostBytes === undefined) {
+      throw new TypeError("expected second valid exposed Save bytes");
+    }
+    expect(second.bytes).toEqual(expectedBytes);
+    expect(second.bytes).not.toBe(secondHostBytes);
+    expect(second.bytes).not.toBe(first.bytes);
   });
 
   it("keeps lease operations usable after a Save CAS-touches only its Host revision", async () => {

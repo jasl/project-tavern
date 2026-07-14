@@ -42,6 +42,7 @@ export type SaveRepositoryReadResultV1<TSaveRecord> =
       readonly slotId: SaveSlotIdV1;
       readonly hostRevision: HostRecordRevisionV1;
       readonly record: DeepReadonly<TSaveRecord>;
+      readonly bytes: Uint8Array;
       readonly code: null;
     }
   | {
@@ -341,6 +342,7 @@ export function createSaveRepositoryV1<
           slotId,
           hostRevision: stored.revision,
           record: decoded.record,
+          bytes: Uint8Array.from(stored.bytes),
           code: null,
         });
       } catch (error) {

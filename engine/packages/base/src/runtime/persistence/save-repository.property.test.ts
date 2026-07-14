@@ -7,7 +7,9 @@ import { digestCanonical } from "../../contracts/digest.js";
 import type {
   HostAtomicCommitResultV1,
   HostAtomicRecordStoreV1,
+  HostRecordKeyV1,
   HostRecordMutationV1,
+  HostRecordNamespaceV1,
 } from "../../contracts/host.js";
 import { createMemoryHostRecordStoreV1 } from "../../contracts/host.js";
 import {
@@ -276,6 +278,56 @@ function createOrderedCommitStoreV1() {
 }
 
 describe("Save repository interleaving properties", () => {
+  it("returns fresh defensive raw-byte copies for every randomized valid read", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.constantFrom("auto", "quick", "manual"),
+        fc.integer({ min: 1, max: 10_000 }),
+        async (kind, sequence) => {
+          const delegate = createMemoryHostRecordStoreV1();
+          const exposedSaveReadBytes: Uint8Array[] = [];
+          const records: HostAtomicRecordStoreV1 = Object.freeze({
+            async read(namespace: HostRecordNamespaceV1, key: HostRecordKeyV1) {
+              const stored = await delegate.read(namespace, key);
+              if (namespace === "save" && stored !== null) exposedSaveReadBytes.push(stored.bytes);
+              return stored;
+            },
+            list: delegate.list,
+            commit: delegate.commit,
+          });
+          const fixture = await fixtureV1(records);
+          await expect(
+            callWriteV1(kind, fixture.repository, recordV1(sequence), fixture.fence),
+          ).resolves.toMatchObject({ kind: "saved" });
+          const slotId = kind === "auto" ? "auto.current" : kind;
+
+          const first = await fixture.repository.read(slotId);
+          const firstHostBytes = exposedSaveReadBytes.at(-1);
+          if (first.health !== "valid" || firstHostBytes === undefined) {
+            throw new TypeError("missing randomized valid Save bytes");
+          }
+          const expectedBytes = Uint8Array.from(firstHostBytes);
+          expect(first.bytes).toEqual(expectedBytes);
+          expect(first.bytes).not.toBe(firstHostBytes);
+
+          first.bytes[0] = (first.bytes[0] ?? 0) ^ 0xff;
+          expect(firstHostBytes).toEqual(expectedBytes);
+
+          const second = await fixture.repository.read(slotId);
+          const secondHostBytes = exposedSaveReadBytes.at(-1);
+          if (second.health !== "valid" || secondHostBytes === undefined) {
+            throw new TypeError("missing second randomized valid Save bytes");
+          }
+          expect(second.bytes).toEqual(expectedBytes);
+          expect(second.bytes).not.toBe(secondHostBytes);
+          expect(second.bytes).not.toBe(first.bytes);
+          expect(second.record.snapshot.commandSequence).toBe(sequence);
+        },
+      ),
+      { numRuns: 30 },
+    );
+  });
+
   it("linearizes randomized write and takeover sequences without stale or partial commits", async () => {
     await fc.assert(
       fc.asyncProperty(
