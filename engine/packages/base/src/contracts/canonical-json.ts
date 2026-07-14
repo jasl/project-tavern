@@ -34,7 +34,7 @@ function assertValidString(value: string, path: string): void {
     const code = value.charCodeAt(index);
     if (code >= 0xd800 && code <= 0xdbff) {
       const next = value.charCodeAt(index + 1);
-      if (next < 0xdc00 || next > 0xdfff) {
+      if (index + 1 >= value.length || next < 0xdc00 || next > 0xdfff) {
         throw new CanonicalJsonError("string.lone_surrogate", path);
       }
       index += 1;

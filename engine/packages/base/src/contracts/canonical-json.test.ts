@@ -20,4 +20,15 @@ describe("Canonical JSON", () => {
       code: "value.getter",
     });
   });
+
+  it("rejects a trailing lone high surrogate in values and keys", () => {
+    for (const value of [{ value: "\ud800" }, { ["\ud800"]: true }]) {
+      expect(() => canonicalJsonBytes(value)).toThrowError(
+        expect.objectContaining({
+          name: "CanonicalJsonError",
+          code: "string.lone_surrogate",
+        }),
+      );
+    }
+  });
 });

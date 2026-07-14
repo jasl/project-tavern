@@ -23,4 +23,14 @@ describe("Strict JSON", () => {
       error: { code: "encoding.bom_forbidden" },
     });
   });
+
+  it.each(['"\\ud800"', '{"\\ud800":true}'])(
+    "rejects a trailing lone high surrogate in %s",
+    (source) => {
+      expect(parseStrictJson(new TextEncoder().encode(source), limits)).toMatchObject({
+        ok: false,
+        error: { code: "string.lone_surrogate" },
+      });
+    },
+  );
 });
