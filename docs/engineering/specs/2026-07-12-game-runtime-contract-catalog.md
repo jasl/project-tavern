@@ -4938,9 +4938,102 @@ type ImportCompatibilityOutcomeV1 =
   | { readonly kind: "rejected"; readonly code: ImportRejectionCodeV1 };
 ```
 
+Task 3 的公开 codec/compatibility ABI 冻结为：
+
+```ts
+type SaveRecordDecodeRejectionCodeV1 =
+  | StrictJsonErrorCodeV1
+  | "envelope.schema_invalid"
+  | "envelope.unsupported_revision"
+  | "digest.invalid_format"
+  | "digest.state_mismatch";
+
+type SaveRecordDecodeResultV1<TSaveRecord> =
+  | { readonly kind: "decoded"; readonly record: DeepReadonly<TSaveRecord> }
+  | { readonly kind: "rejected"; readonly code: SaveRecordDecodeRejectionCodeV1 };
+
+interface SaveCodecContextV1<
+  TSnapshot,
+  TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
+> {
+  readonly recordSchema: RuntimeSchemaV1<TSaveRecord>;
+  validateEnvelope(record: DeepReadonly<TSaveRecord>): void;
+}
+
+interface SaveCompatibilityClassificationInputV1 {
+  readonly stored: DeepReadonly<BuildProvenanceV1>;
+  readonly current: DeepReadonly<BuildProvenanceV1>;
+  readonly simulationLineage: readonly DeepReadonly<SimulationAdoptionV1>[];
+  readonly adoptionDeclaration: DeepReadonly<PatchSetAdoptionDeclarationV1> | null;
+  readonly candidateCommandSequence: NonNegativeSafeInteger;
+}
+
+type SaveCompatibilityClassificationV1 =
+  | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "exact" }>
+  | {
+      readonly kind: "adoption_candidate";
+      readonly mismatches: readonly [];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
+      readonly adoption: SimulationAdoptionV1;
+    }
+  | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "inspect_only" | "rejected" }>;
+
+type SaveImportValidationResultV1<TSaveRecord> =
+  | (Extract<ImportCompatibilityOutcomeV1, { readonly kind: "exact" | "adopted" }> & {
+      readonly candidate: DeepReadonly<TSaveRecord>;
+    })
+  | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "inspect_only" | "rejected" }>;
+
+interface SaveImportValidationContextV1<
+  TState,
+  TSnapshot extends { readonly state: TState },
+  TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
+> {
+  readonly codec: SaveCodecContextV1<TSnapshot, TSaveRecord>;
+  classifyCompatibility(record: DeepReadonly<TSaveRecord>): SaveCompatibilityClassificationV1;
+  validateReferences(state: DeepReadonly<TState>): readonly string[];
+  validateInvariants(state: DeepReadonly<TState>): readonly string[];
+}
+
+declare function encodeSaveRecordV1<
+  TSnapshot,
+  TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
+>(
+  record: DeepReadonly<TSaveRecord>,
+  context: SaveCodecContextV1<TSnapshot, TSaveRecord>,
+): Uint8Array;
+
+declare function decodeSaveRecordV1<
+  TSnapshot,
+  TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
+>(
+  bytes: Uint8Array,
+  context: SaveCodecContextV1<TSnapshot, TSaveRecord>,
+): SaveRecordDecodeResultV1<TSaveRecord>;
+
+declare function classifySaveCompatibilityV1(
+  input: DeepReadonly<SaveCompatibilityClassificationInputV1>,
+): SaveCompatibilityClassificationV1;
+
+declare function validateSaveImportCandidateV1<
+  TState,
+  TSnapshot extends { readonly state: TState },
+  TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
+>(
+  bytes: Uint8Array,
+  context: SaveImportValidationContextV1<TState, TSnapshot, TSaveRecord>,
+): SaveImportValidationResultV1<TSaveRecord>;
+```
+
+`SaveCodecContextV1.recordSchema` 是完整 Save envelope Schema；`validateEnvelope` 只校验 Base-owned 跨字段关系：`slot.storyId === provenance.story.id`、`slot.capturedCommandSequence === snapshot.commandSequence`、lineage 最多 16 项、相邻 `to → from` 连续且非空 lineage 的尾项等于存档 provenance simulation digest。它不能执行 Story stable-reference 或 gameplay invariant 校验。两者任一失败在 decode 中都是 `envelope.schema_invalid`；encode 对非法 typed candidate 抛出 programmer error，不产生 bytes。
+
+`createSaveRecordEnvelopeSchemaV1` 必须以内部机器可判别的 failure 区分两个外层字段错误，codec 不读取异常文本：存在且为正 safe integer、但不等于 `1` 的 `formatRevision` 返回 `envelope.unsupported_revision`；缺失、类型错误、非正或非 safe integer 仍为 `envelope.schema_invalid`。只有顶层 `stateDigest` 的格式错误返回 `digest.invalid_format`；provenance、PatchSet、lineage 或 Snapshot 内其他 Digest 非法仍属于 `envelope.schema_invalid`。完整 Schema 和跨字段验证成功后，codec 固定比较 `digestCanonical("sillymaker:state:v1", record.snapshot)`。
+
 `inspect_only.mismatches` 非空、field 唯一，并严格按 `story_id → story_revision → state_contract_revision → state_contract_digest → engine_digest → simulation_digest` 排序；一次导入可同时报告多项。`warnings` 按 `story_digest → presentation_digest → hotfix_set` 排序，field 唯一。
 
-只有 `simulation_digest` 不同、其他阻断字段全部相同，且一份 `PatchSetAdoptionDeclarationV1` 与旧/新摘要、state contract revision/digest 和当前 simulation PatchSet 精确匹配并通过候选 Snapshot 校验，才返回 `adopted`。adoption 在 GameSession 队首原子建立新 replay anchor、追加 lineage 并清空旧 CommandLog；它不是 authoritative replay。若旧 lineage 已有 16 项则返回 `rejected/compatibility.lineage_limit`。`engine.version` 与 `appBuildId` 不产生 mismatch。只有 `rejected` 阶段错误阻止候选进入兼容比较；inspect-only 原文件保持可导出但不能建立 runnable GameSession。
+`hotfix_set` 对完整 `PatchSetIdentityV1` 的 Canonical JSON 做精确比较，不只信任其中一个字段。`engine.version` 与 `appBuildId` 不进入 mismatch 或 warning；前者仅 display-only，后者不在 Save provenance 中。compatibility callback 抛出的异常、reference/invariant callback 抛出的异常和 malformed callback result 都继续抛给上层 runtime-fault 归一化，不能伪装为普通 rejection。
+
+只有 `simulation_digest` 不同、其他阻断字段全部相同，且一份 `PatchSetAdoptionDeclarationV1` 与旧/新摘要、state contract revision/digest 和当前 simulation PatchSet 精确匹配时，classifier 才返回 `adoption_candidate`；其 `candidateCommandSequence` 必须来自候选 Snapshot。validator 随后只把 references/invariants 均通过的该候选提升为公开 `adopted`。adoption 在 GameSession 队首原子建立新 replay anchor、追加 lineage 并清空旧 CommandLog；它不是 authoritative replay。若旧 lineage 已有 16 项则返回 `rejected/compatibility.lineage_limit`。只有最终 `exact/adopted` 结果携带 runnable `candidate`；inspect-only 原文件保持可导出但不能建立 runnable GameSession。
 
 ## 11. 必须由 Schema + invariants 同时保证的条件
 
