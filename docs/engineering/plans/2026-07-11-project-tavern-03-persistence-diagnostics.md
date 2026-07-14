@@ -1413,6 +1413,8 @@ git commit -m "feat(base): export bounded debug bundles"
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
 - Modify: game/stories/e2e/src/runtime/persistence-roundtrip.test.ts
 - Modify: game/stories/e2e/src/runtime/diagnostics-replay.test.ts
+- Modify: game/stories/e2e/fixtures/session-zero.json
+- Modify: game/stories/e2e/golden/semantic-flow.json
 - Test: engine/packages/base/src/runtime/diagnostics/debug-tools.test.ts
 - Test: game/stories/e2e/src/tooling/debug-command-form-adapter.test.ts
 
@@ -1458,8 +1460,11 @@ it("logs the same finalized debug attempt returned by the session", async () => 
     kind: "debug.e2e.counter.add",
     amount: 5,
   });
-  expect(fixture.commandLog().at(-1)?.postStateDigest).toBe(result.postStateDigest);
-  expect(result.postStateDigest).toBe(fixture.liveStateDigest());
+  expect(result).toMatchObject({
+    kind: "committed",
+    commandSequence: fixture.snapshot().commandSequence,
+  });
+  expect(fixture.commandLog().at(-1)?.postStateDigest).toBe(fixture.liveStateDigest());
   expect(fixture.debugExecuteAttemptCalls()).toBe(1);
 });
 ```
@@ -1542,16 +1547,23 @@ pnpm --filter @project-tavern/story-e2e exec vitest run src/tooling src/runtime/
 pnpm verify:boundaries
 pnpm build:e2e
 pnpm verify:bundle
+pnpm regenerate:fixtures
+pnpm update:golden
+git diff -- game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+wc -c game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+shasum -a 256 game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+pnpm verify:fixtures
+pnpm verify:golden
 pnpm verify
 git diff --check
 ```
 
-Expected: all commands exit 0；same Artifact contains tooling chunk but default UI/capabilities are off；normal Semantic operations remain normal integrity；successful cheat/anchor remains modified across Save/replay。
+Expected: all commands exit 0；same Artifact contains tooling chunk but default UI/capabilities are off；normal Semantic operations remain normal integrity；successful cheat/anchor remains modified across Save/replay。显式 writers 只更新 fixture/golden 内因新 DebugTools public closure 产生的 engine provenance/digest；执行 agent 审查 exact bytes、size、SHA-256 和不变的 Snapshot/Facts/RNG/Story/simulation/presentation 语义，普通 verifier/verify 保持只读。
 
 - [ ] **Step 7: Commit DebugTools**
 
 ```bash
-git add -- engine/packages/base/src/runtime/diagnostics/debug-tools.ts engine/packages/base/src/runtime/diagnostics/debug-tools.test.ts engine/packages/base/src/runtime/diagnostics/command-log.ts engine/packages/base/src/runtime/diagnostics/command-log.test.ts engine/packages/base/src/runtime/diagnostics/replay.ts engine/packages/base/src/runtime/diagnostics/replay.test.ts engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/tooling.ts game/stories/e2e/src/tooling game/stories/e2e/package.json game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/runtime/persistence-roundtrip.test.ts game/stories/e2e/src/runtime/diagnostics-replay.test.ts
+git add -- engine/packages/base/src/runtime/diagnostics/debug-tools.ts engine/packages/base/src/runtime/diagnostics/debug-tools.test.ts engine/packages/base/src/runtime/diagnostics/command-log.ts engine/packages/base/src/runtime/diagnostics/command-log.test.ts engine/packages/base/src/runtime/diagnostics/replay.ts engine/packages/base/src/runtime/diagnostics/replay.test.ts engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/tooling.ts game/stories/e2e/src/tooling game/stories/e2e/package.json game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/runtime/persistence-roundtrip.test.ts game/stories/e2e/src/runtime/diagnostics-replay.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(runtime): gate same-artifact debug tools"
 ```
