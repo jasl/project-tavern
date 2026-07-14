@@ -59,8 +59,9 @@ export function encodeSaveRecordV1<
     throw new TypeError("Save state digest mismatch");
   }
   const bytes = canonicalJsonBytes(parsed);
-  if (bytes.byteLength > Number(saveJsonLimitsV1.maxBytes)) {
-    throw new TypeError("Save record exceeds the 5 MiB byte limit");
+  const preflight = parseStrictJson(bytes, saveJsonLimitsV1);
+  if (!preflight.ok) {
+    throw new TypeError(`Save record violates Strict JSON constraints: ${preflight.error.code}`);
   }
   return bytes;
 }

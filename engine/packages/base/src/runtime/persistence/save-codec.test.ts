@@ -334,6 +334,25 @@ describe("Save record codec", () => {
     expect(() => encodeSaveRecordV1(record, codecV1)).toThrow(TypeError);
   });
 
+  it("does not encode a Save that exceeds the decoder string byte limit", () => {
+    const snapshot = snapshotSchemaV1.parse({
+      ...makeSnapshotV1(),
+      state: {
+        referenceId: "x".repeat(Number(saveJsonLimitsV1.maxStringBytes) + 1),
+        count: 4,
+      },
+    });
+    const record = makeRecordV1({ snapshot });
+    const rawBytes = canonicalJsonBytes(record);
+
+    expect(rawBytes.byteLength).toBeLessThan(Number(saveJsonLimitsV1.maxBytes));
+    expect(decodeSaveRecordV1(rawBytes, codecV1)).toEqual({
+      kind: "rejected",
+      code: "limit.string_bytes",
+    });
+    expect(() => encodeSaveRecordV1(record, codecV1)).toThrow(TypeError);
+  });
+
   it("rejects disconnected and wrong-tail lineage before Story validation", () => {
     const first = Object.freeze({
       fromSimulationDigest: digestV1("sim.0"),
