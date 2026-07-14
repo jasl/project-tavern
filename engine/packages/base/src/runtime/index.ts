@@ -4,6 +4,27 @@ export {
   createGameApplicationV1,
 } from "./application/game-application.js";
 export { createRuntimeCapabilityPortV1 } from "./capabilities/runtime-capabilities.js";
+export { createCommandLogV1 } from "./diagnostics/command-log.js";
+export type {
+  CommandLogCommandSourceV1,
+  CommandLogV1,
+  FinalizedCommandAttemptV1,
+} from "./diagnostics/command-log.js";
+export { inspectReplayBestEffortV1, replayAuthoritativelyV1 } from "./diagnostics/replay.js";
+export type {
+  ReplayBlockingIdentityFieldV1,
+  ReplayCommandLogEntryV1,
+  ReplayCommandSourceV1,
+  ReplayComparisonV1,
+  ReplayDriverV1,
+  ReplayEntryMismatchFieldV1,
+  ReplayIdentityV1,
+  ReplayInputV1,
+  ReplayLoggedCommandShapeV1,
+  ReplayLoggedCommandV1,
+  ReplayMismatchV1,
+  ReplayRecordedOutcomeV1,
+} from "./diagnostics/replay.js";
 export {
   classifySaveCompatibilityV1,
   validateSaveImportCandidateV1,

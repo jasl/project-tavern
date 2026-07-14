@@ -35,6 +35,10 @@ import type {
   RuntimeSchemaV1,
 } from "../../contracts/values.js";
 import { parseNonNegativeSafeInteger, parsePositiveSafeInteger } from "../../contracts/values.js";
+import type {
+  AuthoritativeOutcomeV1,
+  GameSessionRuntimeControlV1,
+} from "../session/game-session.js";
 import { createGameSessionV1 } from "../session/game-session.js";
 import { classifySaveCompatibilityV1 } from "./compatibility.js";
 import { decodeSaveRecordV1, encodeSaveRecordV1 } from "./save-codec.js";
@@ -358,12 +362,41 @@ function createSessionV1(initial: SyntheticSnapshotV1) {
   });
 }
 
+function failReplacementCommitV1(
+  control: GameSessionRuntimeControlV1<SyntheticSnapshotV1>,
+): GameSessionRuntimeControlV1<SyntheticSnapshotV1> {
+  return Object.freeze({
+    ...control,
+    enqueueAuthoritative<TResult>(
+      operation: (
+        current: DeepReadonly<SyntheticSnapshotV1>,
+      ) => Promise<AuthoritativeOutcomeV1<SyntheticSnapshotV1, TResult>>,
+      normalizeUnexpectedFault: (error: unknown) => TResult,
+      prepareReplacementCommit?: (
+        snapshot: DeepReadonly<SyntheticSnapshotV1>,
+        anchor: "preserve_log" | "replace_replay_base",
+      ) => void,
+    ): Promise<TResult> {
+      return control.enqueueAuthoritative(
+        operation,
+        normalizeUnexpectedFault,
+        prepareReplacementCommit === undefined
+          ? undefined
+          : () => {
+              throw new Error("replacement callback failed");
+            },
+      );
+    },
+  });
+}
+
 interface FixtureOptionsV1 {
   readonly records?: HostAtomicRecordStoreV1;
   readonly initial?: SyntheticSnapshotV1;
   readonly provenance?: BuildProvenanceV1;
   readonly adoptionDeclaration?: PatchSetAdoptionDeclarationV1 | null;
   readonly initialLineage?: readonly SimulationAdoptionV1[];
+  readonly failReplacementCommit?: boolean;
   decorateRepository?(
     repository: SaveRepositoryV1<SyntheticSaveRecordV1>,
     lease: SessionLeaseV1,
@@ -411,7 +444,10 @@ async function fixtureV1(options: FixtureOptionsV1 = {}) {
     now: () => "2026-07-14T12:00:00.000Z" as IsoUtcInstant,
   });
   const service = await createPersistenceServiceV1({
-    runtimeControl: created.runtimeControl,
+    runtimeControl:
+      options.failReplacementCommit === true
+        ? failReplacementCommitV1(created.runtimeControl)
+        : created.runtimeControl,
     repository,
     lease: serviceLease,
     validation,
@@ -957,8 +993,21 @@ describe("PersistenceServiceV1", () => {
 
   it("loads an exact Save with its integrity and lineage without rewriting the slot", async () => {
     const fixture = await fixtureV1();
+    await expect(fixture.session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    await fixture.service.autoSaveIdle();
+    const replayBaseBefore = fixture.commandLog.replayBase();
+    expect(fixture.commandLog.entries()).toHaveLength(1);
+    const loadedIntegrity = runIntegrityV1Schema.parse({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 7,
+      reasons: [{ kind: "fixture_anchor", fixtureId: "fixture.loaded", sequence: 7 }],
+    });
     const lineage = lineageV1(1, provenanceV1().resolved.simulationDigest);
-    const saved = recordV1({ snapshot: snapshotV1(7), lineage });
+    const saved = recordV1({ snapshot: snapshotV1(7, loadedIntegrity), lineage });
     await fixture.repository.writeQuick(saved, await ownedFenceV1(fixture));
     const before = await saveRecordsV1(fixture.records);
 
@@ -967,7 +1016,15 @@ describe("PersistenceServiceV1", () => {
       compatibility: "exact",
       commandSequence: 7,
     });
-    expect(fixture.session.getCurrentSnapshot()).toEqual(saved.snapshot);
+    const loaded = fixture.session.getCurrentSnapshot();
+    expect(loaded).toEqual(saved.snapshot);
+    expect(loaded.integrity).toEqual(loadedIntegrity);
+    expect(fixture.commandLog.entries()).toEqual([]);
+    expect(fixture.commandLog.replayBase()).toBe(loaded);
+    expect(fixture.commandLog.replayBase()).not.toBe(replayBaseBefore);
+    expect(fixture.commandLog.replayBaseStateDigest()).toBe(
+      digestCanonical("sillymaker:state:v1", loaded),
+    );
     expect(await saveRecordsV1(fixture.records)).toEqual(before);
     const exported = await fixture.service.port.exportCurrentSave();
     const decoded = decodeSaveRecordV1(exported.bytes, codecV1);
@@ -988,12 +1045,26 @@ describe("PersistenceServiceV1", () => {
       provenance: current,
       adoptionDeclaration: adoptionDeclarationV1(stored, current),
     });
+    await expect(fixture.session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    await fixture.service.autoSaveIdle();
+    const replayBaseBefore = fixture.commandLog.replayBase();
+    expect(fixture.commandLog.entries()).toHaveLength(1);
     const before = await saveRecordsV1(fixture.records);
 
     await expect(
       fixture.service.port.importSave(encodeSaveRecordV1(candidate, codecV1)),
     ).resolves.toEqual({ kind: "imported", compatibility: "adopted", commandSequence: 5 });
-    expect(fixture.session.getCurrentSnapshot().integrity).toEqual(modified);
+    const adopted = fixture.session.getCurrentSnapshot();
+    expect(adopted.integrity).toEqual(modified);
+    expect(fixture.commandLog.entries()).toEqual([]);
+    expect(fixture.commandLog.replayBase()).toBe(adopted);
+    expect(fixture.commandLog.replayBase()).not.toBe(replayBaseBefore);
+    expect(fixture.commandLog.replayBaseStateDigest()).toBe(
+      digestCanonical("sillymaker:state:v1", adopted),
+    );
     expect(await saveRecordsV1(fixture.records)).toEqual(before);
 
     const decoded = decodeSaveRecordV1(
@@ -1019,16 +1090,26 @@ describe("PersistenceServiceV1", () => {
 
   it("keeps Session and storage unchanged for inspect-only, invalid, and lineage-limit imports", async () => {
     const inspectFixture = await fixtureV1();
+    await expect(inspectFixture.session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    await inspectFixture.service.autoSaveIdle();
     const inspectRecord = recordV1({
       snapshot: snapshotV1(4),
       provenance: provenanceV1({ engine: "engine.other" }),
     });
     const inspectSnapshot = inspectFixture.session.getCurrentSnapshot();
+    const inspectReplayBase = inspectFixture.commandLog.replayBase();
+    const inspectEntries = inspectFixture.commandLog.entries();
+    expect(inspectEntries).toHaveLength(1);
     const inspectStorage = await saveRecordsV1(inspectFixture.records);
     await expect(
       inspectFixture.service.port.importSave(encodeSaveRecordV1(inspectRecord, codecV1)),
     ).resolves.toEqual({ kind: "rejected", code: "incompatible" });
     expect(inspectFixture.session.getCurrentSnapshot()).toBe(inspectSnapshot);
+    expect(inspectFixture.commandLog.replayBase()).toBe(inspectReplayBase);
+    expect(inspectFixture.commandLog.entries()).toBe(inspectEntries);
     expect(await saveRecordsV1(inspectFixture.records)).toEqual(inspectStorage);
 
     const invalidSnapshot = inspectFixture.session.getCurrentSnapshot();
@@ -1039,6 +1120,8 @@ describe("PersistenceServiceV1", () => {
       code: "invalid_record",
     });
     expect(inspectFixture.session.getCurrentSnapshot()).toBe(invalidSnapshot);
+    expect(inspectFixture.commandLog.replayBase()).toBe(inspectReplayBase);
+    expect(inspectFixture.commandLog.entries()).toBe(inspectEntries);
     expect(await saveRecordsV1(inspectFixture.records)).toEqual(inspectStorage);
 
     const stored = provenanceV1({ simulation: "simulation.old", patch: "old" });
@@ -1047,18 +1130,74 @@ describe("PersistenceServiceV1", () => {
       provenance: current,
       adoptionDeclaration: adoptionDeclarationV1(stored, current),
     });
+    await expect(limitFixture.session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    await limitFixture.service.autoSaveIdle();
     const limited = recordV1({
       snapshot: snapshotV1(16),
       provenance: stored,
       lineage: lineageV1(16, stored.resolved.simulationDigest),
     });
     const limitSnapshot = limitFixture.session.getCurrentSnapshot();
+    const limitReplayBase = limitFixture.commandLog.replayBase();
+    const limitEntries = limitFixture.commandLog.entries();
+    expect(limitEntries).toHaveLength(1);
     const limitStorage = await saveRecordsV1(limitFixture.records);
     await expect(
       limitFixture.service.port.importSave(encodeSaveRecordV1(limited, codecV1)),
     ).resolves.toEqual({ kind: "rejected", code: "lineage_limit" });
     expect(limitFixture.session.getCurrentSnapshot()).toBe(limitSnapshot);
+    expect(limitFixture.commandLog.replayBase()).toBe(limitReplayBase);
+    expect(limitFixture.commandLog.entries()).toBe(limitEntries);
     expect(await saveRecordsV1(limitFixture.records)).toEqual(limitStorage);
+  });
+
+  it("preserves the CommandLog anchor when persistence cannot read a requested slot", async () => {
+    const switchable = createSwitchableUnavailableStoreV1();
+    const fixture = await fixtureV1({ records: switchable.records });
+    await expect(fixture.session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    await fixture.service.autoSaveIdle();
+    const snapshotBefore = fixture.session.getCurrentSnapshot();
+    const replayBaseBefore = fixture.commandLog.replayBase();
+    const entriesBefore = fixture.commandLog.entries();
+    expect(entriesBefore).toHaveLength(1);
+
+    switchable.becomeUnavailable();
+    await expect(fixture.service.port.load("quick")).resolves.toEqual({
+      kind: "rejected",
+      code: "unavailable",
+    });
+
+    expect(fixture.session.getCurrentSnapshot()).toBe(snapshotBefore);
+    expect(fixture.commandLog.replayBase()).toBe(replayBaseBefore);
+    expect(fixture.commandLog.entries()).toBe(entriesBefore);
+  });
+
+  it("preserves the CommandLog anchor when the replacement callback fails", async () => {
+    const fixture = await fixtureV1({ failReplacementCommit: true });
+    await expect(fixture.session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    await fixture.service.autoSaveIdle();
+    const snapshotBefore = fixture.session.getCurrentSnapshot();
+    const replayBaseBefore = fixture.commandLog.replayBase();
+    const entriesBefore = fixture.commandLog.entries();
+    expect(entriesBefore).toHaveLength(1);
+    const replacement = recordV1({ snapshot: snapshotV1(9) });
+
+    await expect(
+      fixture.service.port.importSave(encodeSaveRecordV1(replacement, codecV1)),
+    ).resolves.toEqual({ kind: "faulted", code: "persistence.unexpected" });
+
+    expect(fixture.session.getCurrentSnapshot()).toBe(snapshotBefore);
+    expect(fixture.commandLog.replayBase()).toBe(replayBaseBefore);
+    expect(fixture.commandLog.entries()).toBe(entriesBefore);
   });
 
   it("keeps a lineage-limited physical Save available for inspection and export", async () => {

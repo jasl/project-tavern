@@ -319,7 +319,7 @@ describe("E2E SemanticGamePort", () => {
             }),
           }),
           result: undefined,
-          anchor: "preserve_log" as const,
+          anchor: "replace_replay_base" as const,
         }),
       () => undefined,
     );
@@ -365,7 +365,7 @@ describe("E2E SemanticGamePort", () => {
             }),
           }),
           result: undefined,
-          anchor: "preserve_log" as const,
+          anchor: "replace_replay_base" as const,
         }),
       () => undefined,
     );

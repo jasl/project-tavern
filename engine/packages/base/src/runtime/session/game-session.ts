@@ -3,6 +3,7 @@ import type {
   CommandExecutionAttemptEnvelopeV1,
   CommandExecutionResultEnvelopeV1,
 } from "../../contracts/execution.js";
+import { digestCanonical } from "../../contracts/digest.js";
 import type { GameSimulationTypeMapV1 } from "../../contracts/gameplay-module.js";
 import type {
   RuntimeSessionStatusV1,
@@ -10,6 +11,11 @@ import type {
 } from "../../contracts/presentation.js";
 import type { DeepReadonly, RuntimeSchemaV1 } from "../../contracts/values.js";
 import { runIntegrityV1Schema } from "../../contracts/snapshot.js";
+import {
+  createCommandLogV1,
+  type CommandLogV1,
+  type FinalizedCommandAttemptV1,
+} from "../diagnostics/command-log.js";
 import { finalizeSnapshotIntegrityV1 } from "./run-integrity.js";
 
 export interface GameSessionV1<TTypes extends GameSimulationTypeMapV1> {
@@ -69,6 +75,35 @@ type AttemptFor<TTypes extends GameSimulationTypeMapV1> = CommandExecutionAttemp
   TTypes["rngDrawTrace"]
 >;
 
+type FinalizedAttemptFor<TTypes extends GameSimulationTypeMapV1> = FinalizedCommandAttemptV1<
+  TTypes["snapshot"],
+  TTypes["fact"],
+  TTypes["rejection"],
+  TTypes["fault"],
+  TTypes["rngState"],
+  TTypes["rngDrawTrace"]
+>;
+
+type LoggedGameCommandFor<TTypes extends GameSimulationTypeMapV1> = {
+  readonly source: "game";
+  readonly command: TTypes["command"];
+};
+
+type CommandLogFor<TTypes extends GameSimulationTypeMapV1> = CommandLogV1<
+  TTypes["snapshot"],
+  LoggedGameCommandFor<TTypes>,
+  TTypes["fact"],
+  TTypes["rejection"],
+  TTypes["fault"],
+  TTypes["rngState"],
+  TTypes["rngDrawTrace"]
+>;
+
+type CommandLogViewFor<TTypes extends GameSimulationTypeMapV1> = Pick<
+  CommandLogFor<TTypes>,
+  "entries" | "replayBase" | "replayBaseStateDigest"
+>;
+
 export interface GameSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
   readonly initialSnapshot: TTypes["snapshot"];
   readonly commandSchema: RuntimeSchemaV1<TTypes["command"]>;
@@ -83,7 +118,7 @@ export interface GameSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
     error: unknown,
     snapshot: DeepReadonly<TTypes["snapshot"]>,
   ): AttemptFor<TTypes>;
-  onAttempt?(attempt: AttemptFor<TTypes>): void;
+  onAttempt?(attempt: FinalizedAttemptFor<TTypes>): void;
   onObserverFailure?(error: unknown): void;
 }
 
@@ -94,6 +129,7 @@ interface GameSessionPrivateControlV1 {
 export interface GameSessionCompositionV1<TTypes extends GameSimulationTypeMapV1> {
   readonly session: GameSessionV1<TTypes>;
   readonly runtimeControl: GameSessionRuntimeControlV1<TTypes["snapshot"]>;
+  readonly commandLog: CommandLogViewFor<TTypes>;
 }
 
 interface InternalCompositionV1<
@@ -121,6 +157,47 @@ function isThenable(value: unknown): boolean {
   return false;
 }
 
+function finalizeCommandAttemptV1<TTypes extends GameSimulationTypeMapV1>(
+  before: DeepReadonly<TTypes["snapshot"]>,
+  candidate: AttemptFor<TTypes>,
+): FinalizedAttemptFor<TTypes> {
+  const finalizedSnapshot = finalizeSnapshotIntegrityV1<TTypes["snapshot"]>(
+    before,
+    candidate.result.snapshot,
+    { kind: "preserve_current" },
+  );
+  if (candidate.result.kind !== "committed" && finalizedSnapshot !== before) {
+    throw new TypeError("Non-committed command attempt changed the Snapshot");
+  }
+
+  const result: AttemptFor<TTypes>["result"] =
+    candidate.result.kind === "committed"
+      ? Object.freeze({
+          kind: "committed" as const,
+          snapshot: finalizedSnapshot,
+          facts: candidate.result.facts,
+        })
+      : candidate.result.kind === "rejected"
+        ? Object.freeze({
+            kind: "rejected" as const,
+            snapshot: finalizedSnapshot,
+            reasons: candidate.result.reasons,
+          })
+        : Object.freeze({
+            kind: "faulted" as const,
+            snapshot: finalizedSnapshot,
+            fault: candidate.result.fault,
+          });
+
+  return Object.freeze({
+    result,
+    diagnostics: candidate.diagnostics,
+    preSnapshot: before,
+    preStateDigest: digestCanonical("sillymaker:state:v1", before),
+    postStateDigest: digestCanonical("sillymaker:state:v1", finalizedSnapshot),
+  }) as FinalizedAttemptFor<TTypes>;
+}
+
 function createInternal<TTypes extends GameSimulationTypeMapV1>(
   input: GameSessionInputV1<TTypes>,
 ): InternalCompositionV1<TTypes> {
@@ -131,6 +208,23 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
   let stableStatus: Exclude<RuntimeSessionStatusV1, "busy"> = "ready";
   let pending = 0;
   let tail: Promise<void> = Promise.resolve();
+  const commandLog = createCommandLogV1<
+    TTypes["snapshot"],
+    LoggedGameCommandFor<TTypes>,
+    TTypes["fact"],
+    TTypes["rejection"],
+    TTypes["fault"],
+    TTypes["rngState"],
+    TTypes["rngDrawTrace"]
+  >({
+    replayBase: input.initialSnapshot as DeepReadonly<TTypes["snapshot"]>,
+    limit: 200,
+  });
+  const commandLogView: CommandLogViewFor<TTypes> = Object.freeze({
+    entries: () => commandLog.entries(),
+    replayBase: () => commandLog.replayBase(),
+    replayBaseStateDigest: () => commandLog.replayBaseStateDigest(),
+  });
   const listeners = new Set<() => void>();
   const committedSnapshotListeners = new Set<
     (snapshot: DeepReadonly<TTypes["snapshot"]>) => void
@@ -198,10 +292,20 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
               outcome.snapshot,
               { kind: "accept_replacement" },
             );
+            if (outcome.anchor === "preserve_log" && finalized !== snapshot) {
+              throw new TypeError("preserve_log replacement changed the Snapshot");
+            }
+            const preparedCommandLogAnchor =
+              outcome.anchor === "replace_replay_base"
+                ? commandLog.prepareAnchor(finalized as DeepReadonly<TTypes["snapshot"]>)
+                : null;
             prepareReplacementCommit?.(
               finalized as DeepReadonly<TTypes["snapshot"]>,
               outcome.anchor,
             );
+            if (preparedCommandLogAnchor !== null) {
+              commandLog.establishPreparedAnchor(preparedCommandLogAnchor);
+            }
             snapshot = finalized;
             if (outcome.anchor === "replace_replay_base") stableStatus = "ready";
             publish();
@@ -267,38 +371,46 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
           });
         }
         const before = snapshot as DeepReadonly<TTypes["snapshot"]>;
-        let execution: AttemptFor<TTypes>;
+        let candidate: AttemptFor<TTypes>;
         try {
-          execution = await input.executeAttempt(
+          candidate = await input.executeAttempt(
             before,
             parsed as DeepReadonly<TTypes["command"]>,
             input.executionContext,
           );
         } catch (error) {
-          execution = input.normalizeUnexpectedDispatchFault(error, before);
+          candidate = input.normalizeUnexpectedDispatchFault(error, before);
         }
+        let finalizedAttempt: FinalizedAttemptFor<TTypes>;
         try {
-          finalizeSnapshotIntegrityV1(before, execution.result.snapshot, {
-            kind: "preserve_current",
-          });
+          finalizedAttempt = finalizeCommandAttemptV1<TTypes>(before, candidate);
         } catch (error) {
-          execution = input.normalizeUnexpectedDispatchFault(error, before);
-          finalizeSnapshotIntegrityV1(before, execution.result.snapshot, {
-            kind: "preserve_current",
-          });
+          candidate = input.normalizeUnexpectedDispatchFault(error, before);
+          finalizedAttempt = finalizeCommandAttemptV1<TTypes>(before, candidate);
         }
-        input.onAttempt?.(execution);
-        if (execution.result.kind === "committed") {
-          snapshot = execution.result.snapshot;
+        commandLog.append(
+          Object.freeze({
+            source: "game" as const,
+            command: parsed as DeepReadonly<TTypes["command"]>,
+          }),
+          finalizedAttempt,
+        );
+        try {
+          input.onAttempt?.(finalizedAttempt);
+        } catch (error) {
+          reportObserverFailure(error);
+        }
+        if (finalizedAttempt.result.kind === "committed") {
+          snapshot = finalizedAttempt.result.snapshot;
           publish();
           publishCommittedSnapshot();
-        } else if (execution.result.kind === "faulted") {
+        } else if (finalizedAttempt.result.kind === "faulted") {
           stableStatus = "fault_paused";
           publish();
         }
         return Object.freeze({
           kind: "executed" as const,
-          execution: execution.result,
+          execution: finalizedAttempt.result,
         });
       });
     },
@@ -313,14 +425,19 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     },
   });
 
-  return Object.freeze({ session, runtimeControl, privateControl });
+  return Object.freeze({
+    session,
+    runtimeControl,
+    commandLog: commandLogView,
+    privateControl,
+  });
 }
 
 export function createGameSessionV1<TTypes extends GameSimulationTypeMapV1>(
   input: GameSessionInputV1<TTypes>,
 ): GameSessionCompositionV1<TTypes> {
-  const { session, runtimeControl } = createInternal(input);
-  return Object.freeze({ session, runtimeControl });
+  const { session, runtimeControl, commandLog } = createInternal(input);
+  return Object.freeze({ session, runtimeControl, commandLog });
 }
 
 /** @internal Base-owned test and Developer composition seam; not exported by the runtime barrel. */
