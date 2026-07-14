@@ -248,6 +248,8 @@ export type {
   SimulationAdoptionV1,
 } from "./persistence.js";
 export {
+  createDebugBundleEnvelopeSchemaV1,
+  DebugBundleEnvelopeSchemaFailureV1,
   debugBundleJsonLimitsV1,
   exportedDebugBundleSchemaV1,
   runtimeOperationFaultSchemaV1,
@@ -257,6 +259,8 @@ export type {
   CommandLogEntryBaseV1,
   CommandLogEntryEnvelopeV1,
   DebugBundleEnvelopeV1,
+  DebugBundleEnvelopeSchemaFailureCodeV1,
+  DebugBundleEnvelopeSchemaInputV1,
   ExportedDebugBundleV1,
   PersistenceFaultCodeV1,
   RuntimeFaultBaseV1,

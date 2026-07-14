@@ -2,9 +2,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   canonicalJsonBytes,
+  createTransactionalRngV1,
+  digestBytes,
   digestCanonical,
   parseNonNegativeSafeInteger,
   parsePositiveSafeInteger,
+  rngStateV1Schema,
 } from "@sillymaker/base";
 import { createWebHostV1 } from "@sillymaker/web";
 import {
@@ -12,7 +15,7 @@ import {
   resolveStoryForTestV1,
   validateToolingFixturesV1,
 } from "@sillymaker/base/testkit";
-import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
+import { createE2eDebugBundleCodecV1, createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
 import type { E2eGameSnapshotV1 } from "../gameplay/contracts/index.js";
 import { e2eGameCommandSchemaV1 } from "../gameplay/contracts/index.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
@@ -85,6 +88,255 @@ function createCountingE2eStoryEntryV1() {
 }
 
 describe("E2e Game Application runtime", () => {
+  it("exports one privacy-scrubbed bundle from the shared observer-failure sink", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000099"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+    });
+    let throwOnce = true;
+    application.semantic.subscribe(() => {
+      if (!throwOnce) return;
+      throwOnce = false;
+      throw new Error("subscriber at C:\\Users\\alice\\private.ts");
+    });
+    const following = vi.fn();
+    application.semantic.subscribe(following);
+
+    await expect(
+      application.semantic.dispatch({ actionId: "action.e2e.increment", parameters: {} }),
+    ).resolves.toEqual({ kind: "committed" });
+    expect(application.semantic.observe().game.counterLabel).toBe("计数 1");
+    expect(following).toHaveBeenCalled();
+    await expect(
+      application.semantic.dispatch({ actionId: "action.e2e.increment", parameters: {} }),
+    ).resolves.toEqual({ kind: "committed" });
+    await expect(application.capabilities.setEnabled("debug_tools", true)).resolves.toMatchObject({
+      kind: "updated",
+    });
+
+    const exported = await application.diagnostics.exportDebugBundle();
+    expect(exported).toMatchObject({
+      filename: expect.stringMatching(/\.debug-bundle\.json$/u),
+      mediaType: "application/json",
+      digest: digestBytes(exported.bytes),
+    });
+    const text = new TextDecoder().decode(exported.bytes);
+    const bundle = JSON.parse(text) as {
+      readonly capabilities: {
+        readonly debugTools: boolean;
+        readonly cheats: boolean;
+        readonly automationBridge: boolean;
+      };
+      readonly simulationLineage: readonly unknown[];
+      readonly replayBase: E2eGameSnapshotV1;
+      readonly replayBaseStateDigest: string;
+      readonly commandLog: readonly unknown[];
+      readonly currentSnapshot: E2eGameSnapshotV1;
+      readonly currentStateDigest: string;
+      readonly runtimeFailures: readonly {
+        readonly operation: string;
+        readonly message: string;
+      }[];
+    };
+    expect(text).not.toContain("C:\\Users\\alice");
+    expect(bundle.capabilities).toEqual({
+      debugTools: true,
+      cheats: false,
+      automationBridge: false,
+    });
+    expect(bundle.simulationLineage).toEqual([]);
+    expect(bundle.replayBase.commandSequence).toBe(0);
+    expect(bundle.replayBaseStateDigest).toBe(
+      digestCanonical("sillymaker:state:v1", bundle.replayBase),
+    );
+    expect(bundle.commandLog).toHaveLength(2);
+    expect(bundle.currentSnapshot.commandSequence).toBe(2);
+    expect(bundle.currentSnapshot.integrity).toEqual({
+      mode: "normal",
+      mutationCount: 0,
+      firstMutationSequence: null,
+      reasons: [],
+    });
+    expect(bundle.currentStateDigest).toBe(
+      digestCanonical("sillymaker:state:v1", bundle.currentSnapshot),
+    );
+    expect(bundle.runtimeFailures).toEqual([
+      expect.objectContaining({
+        operation: "runtime.observer_notification_failed",
+        message: "subscriber at <redacted-path>",
+      }),
+    ]);
+    expect(application.diagnostics).not.toHaveProperty("inspectDebugBundle");
+    expect(application.diagnostics).not.toHaveProperty("anchorDebugBundle");
+  });
+
+  it("admits contract-valid diagnostic arrays beyond obsolete local caps", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000098"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+    });
+    await application.semantic.dispatch({ actionId: "action.e2e.increment", parameters: {} });
+    await application.semantic.dispatch({
+      actionId: "action.e2e.choose",
+      parameters: { choice: "left" },
+    });
+    const bundle = JSON.parse(
+      new TextDecoder().decode((await application.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly provenance: {
+        readonly resolved: {
+          readonly patchSet: {
+            readonly digest: string;
+            readonly appliedHotfixes: readonly unknown[];
+          };
+        };
+      };
+      readonly commandLog: readonly {
+        readonly committedRngBefore: unknown;
+        readonly attemptedDraws: readonly unknown[];
+        readonly outcome:
+          | { readonly kind: "committed"; readonly facts: readonly unknown[] }
+          | { readonly kind: "rejected"; readonly reasons: readonly unknown[] }
+          | { readonly kind: "faulted"; readonly fault: unknown };
+      }[];
+    };
+    const codec = createE2eDebugBundleCodecV1(resolved.gameSimulation.stateSchema);
+    const patchDigest = bundle.provenance.resolved.patchSet.digest;
+    const committedIndex = bundle.commandLog.findIndex(
+      ({ outcome }) => outcome.kind === "committed",
+    );
+    const rejectedIndex = bundle.commandLog.findIndex(({ outcome }) => outcome.kind === "rejected");
+    const committed = bundle.commandLog[committedIndex];
+    const rejected = bundle.commandLog[rejectedIndex];
+    if (committed === undefined || rejected === undefined) {
+      throw new TypeError("missing E2E diagnostic evidence");
+    }
+    const rng = createTransactionalRngV1(rngStateV1Schema.parse(committed.committedRngBefore));
+    for (let index = 0; index < 257; index += 1) {
+      rng.nextInt({ exclusiveMax: 2, purpose: "check:e2e.debug_bundle_limit" });
+    }
+
+    const variants = [
+      {
+        label: "applied Hotfixes",
+        value: {
+          ...bundle,
+          provenance: {
+            ...bundle.provenance,
+            resolved: {
+              ...bundle.provenance.resolved,
+              patchSet: {
+                ...bundle.provenance.resolved.patchSet,
+                appliedHotfixes: Array.from({ length: 257 }, (_, index) => ({
+                  identity: {
+                    id: `hotfix.e2e.${index + 1}`,
+                    revision: 1,
+                    digest: patchDigest,
+                  },
+                  ordinal: index + 1,
+                  replacements: [],
+                })),
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "Patch replacements",
+        value: {
+          ...bundle,
+          provenance: {
+            ...bundle.provenance,
+            resolved: {
+              ...bundle.provenance.resolved,
+              patchSet: {
+                ...bundle.provenance.resolved.patchSet,
+                appliedHotfixes: [
+                  {
+                    identity: { id: "hotfix.e2e.large", revision: 1, digest: patchDigest },
+                    ordinal: 1,
+                    replacements: Array.from({ length: 257 }, (_, index) => ({
+                      surface: "simulation",
+                      symbolId: `symbol.e2e.${index + 1}`,
+                      kind: "value",
+                      previousProviderDigest: patchDigest,
+                      nextProviderDigest: patchDigest,
+                    })),
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "committed GameplayFacts",
+        value: {
+          ...bundle,
+          commandLog: bundle.commandLog.map((entry, index) =>
+            index === committedIndex
+              ? {
+                  ...entry,
+                  outcome: {
+                    kind: "committed",
+                    facts: Array.from({ length: 257 }, () => ({ kind: "flow.started" })),
+                  },
+                }
+              : entry,
+          ),
+        },
+      },
+      {
+        label: "rejection reasons",
+        value: {
+          ...bundle,
+          commandLog: bundle.commandLog.map((entry, index) =>
+            index === rejectedIndex
+              ? {
+                  ...entry,
+                  outcome: {
+                    kind: "rejected",
+                    reasons: Array.from({ length: 65 }, () => ({ code: "test.rejected" })),
+                  },
+                }
+              : entry,
+          ),
+        },
+      },
+      {
+        label: "attempted RNG draws",
+        value: {
+          ...bundle,
+          commandLog: bundle.commandLog.map((entry, index) =>
+            index === committedIndex ? { ...entry, attemptedDraws: rng.attemptedDraws() } : entry,
+          ),
+        },
+      },
+    ];
+
+    for (const { label, value } of variants) {
+      let failure: unknown;
+      try {
+        codec.bundleSchema.parse(value);
+      } catch (error) {
+        failure = error;
+      }
+      expect.soft(failure, label).toBeUndefined();
+    }
+  });
+
   it("consumes one resolved simulation without redefining or rematerializing the Story", async () => {
     const fixture = createCountingE2eStoryEntryV1();
     const resolved = resolveStoryForTestV1(fixture.entry);

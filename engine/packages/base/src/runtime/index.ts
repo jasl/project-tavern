@@ -10,6 +10,33 @@ export type {
   CommandLogV1,
   FinalizedCommandAttemptV1,
 } from "./diagnostics/command-log.js";
+export {
+  createGameDiagnosticsServiceV1,
+  decodeDebugBundleV1,
+  encodeDebugBundleV1,
+} from "./diagnostics/debug-bundle.js";
+export type {
+  CreateGameDiagnosticsServiceInputV1,
+  DebugBundleCodecContextV1,
+  DebugBundleDecodeRejectionCodeV1,
+  DebugBundleDecodeResultV1,
+  DebugBundleDigestEnvelopeV1,
+  DebugBundleReplayEvidenceV1,
+} from "./diagnostics/debug-bundle.js";
+export {
+  runtimeDiagnosticTextLimitsV1,
+  scrubDiagnosticTextV1,
+  scrubRuntimeOperationFaultV1,
+} from "./diagnostics/privacy.js";
+export {
+  createRuntimeFailureBufferV1,
+  createRuntimeFailureReporterV1,
+  normalizeRuntimeFailureV1,
+} from "./diagnostics/runtime-failures.js";
+export type {
+  RuntimeFailureAppendPortV1,
+  RuntimeFailureBufferV1,
+} from "./diagnostics/runtime-failures.js";
 export { inspectReplayBestEffortV1, replayAuthoritativelyV1 } from "./diagnostics/replay.js";
 export type {
   ReplayBlockingIdentityFieldV1,

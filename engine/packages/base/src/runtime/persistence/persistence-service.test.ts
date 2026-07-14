@@ -612,6 +612,21 @@ async function corruptAutoCurrentV1(fixture: Awaited<ReturnType<typeof fixtureV1
 }
 
 describe("PersistenceServiceV1", () => {
+  it("exposes a frozen current-lineage snapshot only on the internal service", async () => {
+    const initialLineage = lineageV1(1, provenanceV1().resolved.simulationDigest);
+    const fixture = await fixtureV1({ initialLineage });
+
+    const observed = fixture.service.getSimulationLineage();
+    expect(observed).toEqual(initialLineage);
+    expect(observed).not.toBe(initialLineage);
+    expect(Object.isFrozen(observed)).toBe(true);
+    expect(fixture.service.port).not.toHaveProperty("getSimulationLineage");
+
+    fixture.service.establishAnchor(snapshotV1(3), Object.freeze([]));
+    expect(fixture.service.getSimulationLineage()).toEqual([]);
+    expect(observed).toEqual(initialLineage);
+  });
+
   it("captures Quick at accepted call time and does not make dispatch wait for storage", async () => {
     const delayed = createDelayedSaveStoreV1();
     const fixture = await fixtureV1({ records: delayed.records, initial: snapshotV1(3) });
@@ -1025,6 +1040,8 @@ describe("PersistenceServiceV1", () => {
     expect(fixture.commandLog.replayBaseStateDigest()).toBe(
       digestCanonical("sillymaker:state:v1", loaded),
     );
+    expect(fixture.service.getSimulationLineage()).toEqual(lineage);
+    expect(Object.isFrozen(fixture.service.getSimulationLineage())).toBe(true);
     expect(await saveRecordsV1(fixture.records)).toEqual(before);
     const exported = await fixture.service.port.exportCurrentSave();
     const decoded = decodeSaveRecordV1(exported.bytes, codecV1);
@@ -1067,6 +1084,15 @@ describe("PersistenceServiceV1", () => {
     );
     expect(await saveRecordsV1(fixture.records)).toEqual(before);
 
+    expect(fixture.service.getSimulationLineage()).toEqual([
+      {
+        fromSimulationDigest: stored.resolved.simulationDigest,
+        toSimulationDigest: current.resolved.simulationDigest,
+        viaSimulationPatchSetDigest: current.resolved.patchSet.simulationDigest,
+        adoptedAtCommandSequence: 5,
+      },
+    ]);
+
     const decoded = decodeSaveRecordV1(
       (await fixture.service.port.exportCurrentSave()).bytes,
       codecV1,
@@ -1102,6 +1128,7 @@ describe("PersistenceServiceV1", () => {
     const inspectSnapshot = inspectFixture.session.getCurrentSnapshot();
     const inspectReplayBase = inspectFixture.commandLog.replayBase();
     const inspectEntries = inspectFixture.commandLog.entries();
+    const inspectLineage = inspectFixture.service.getSimulationLineage();
     expect(inspectEntries).toHaveLength(1);
     const inspectStorage = await saveRecordsV1(inspectFixture.records);
     await expect(
@@ -1110,6 +1137,7 @@ describe("PersistenceServiceV1", () => {
     expect(inspectFixture.session.getCurrentSnapshot()).toBe(inspectSnapshot);
     expect(inspectFixture.commandLog.replayBase()).toBe(inspectReplayBase);
     expect(inspectFixture.commandLog.entries()).toBe(inspectEntries);
+    expect(inspectFixture.service.getSimulationLineage()).toBe(inspectLineage);
     expect(await saveRecordsV1(inspectFixture.records)).toEqual(inspectStorage);
 
     const invalidSnapshot = inspectFixture.session.getCurrentSnapshot();

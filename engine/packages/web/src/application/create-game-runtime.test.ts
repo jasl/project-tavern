@@ -15,6 +15,33 @@ function deferredRecordV1() {
 }
 
 describe("generic Web game runtime", () => {
+  it("injects one shared bounded observer-failure sink into application composition", async () => {
+    const host = createWebHostV1({
+      records: createMemoryHostRecordStoreV1(),
+      uuids: ["00000000-0000-4000-8000-000000000100"],
+      now: () => "2026-07-14T02:03:04.000Z",
+    });
+
+    const application = await createGameRuntimeV1({
+      host,
+      createApplication(input) {
+        input.reportObserverFailure(new Error("listener at /Users/alice/private.ts"));
+        return input;
+      },
+    });
+
+    expect(Object.isFrozen(application)).toBe(true);
+    expect(application.runtimeFailures.entries()).toEqual([
+      expect.objectContaining({
+        occurredAt: "2026-07-14T02:03:04.000Z",
+        operation: "runtime.observer_notification_failed",
+        message: "listener at <redacted-path>",
+        category: "runtime",
+        code: "runtime.async_operation_failed",
+      }),
+    ]);
+  });
+
   it("does not expose or compose an application before preference hydration finishes", async () => {
     const source = createWebHostV1({ records: createMemoryHostRecordStoreV1() });
     const pendingRead = deferredRecordV1();
@@ -66,10 +93,11 @@ describe("generic Web game runtime", () => {
     const createApplication = vi.fn(
       async ({
         persistenceIdentity,
+        runtimeFailures,
       }: Parameters<Parameters<typeof createGameRuntimeV1>[0]["createApplication"]>[0]) => {
         identities.push(persistenceIdentity);
         if (identities.length === 1) await firstComposition;
-        return Object.freeze({ persistenceIdentity });
+        return Object.freeze({ persistenceIdentity, runtimeFailures });
       },
     );
 
@@ -95,5 +123,6 @@ describe("generic Web game runtime", () => {
     const second = await createGameRuntimeV1({ host, createApplication });
     expect(second.persistenceIdentity.ownerId).toBe("00000000-0000-4000-8000-000000000103");
     expect(second.persistenceIdentity).not.toBe(first.persistenceIdentity);
+    expect(second.runtimeFailures).not.toBe(first.runtimeFailures);
   });
 });

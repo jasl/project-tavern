@@ -72,6 +72,7 @@ type PersistencePortV1 = PlayerPersistencePortV1<
 
 export interface PersistenceServiceV1<TSnapshot> {
   readonly port: PersistencePortV1;
+  getSimulationLineage(): readonly DeepReadonly<SimulationAdoptionV1>[];
   establishAnchor(
     snapshot: DeepReadonly<TSnapshot>,
     simulationLineage: readonly DeepReadonly<SimulationAdoptionV1>[],
@@ -789,6 +790,7 @@ async function createPersistenceServiceWithDependenciesV1<
 
   return Object.freeze({
     port,
+    getSimulationLineage: () => currentLineage,
     establishAnchor: establishAnchorV1,
     autoSaveIdle: () => autoQueue.idle(),
   });

@@ -7,10 +7,15 @@ import type {
   GameBootstrapInputV1,
   GameSimulationTypeMapV1,
 } from "../../contracts/gameplay-module.js";
+import type { IsoUtcInstant } from "../../contracts/host.js";
 import type { GameSnapshotEnvelopeV1 } from "../../contracts/snapshot.js";
 import { createPristineRunIntegrityV1, runIntegrityV1Schema } from "../../contracts/snapshot.js";
 import type { RuntimeSchemaV1 } from "../../contracts/values.js";
 import { parseNonNegativeSafeInteger } from "../../contracts/values.js";
+import {
+  createRuntimeFailureBufferV1,
+  createRuntimeFailureReporterV1,
+} from "../diagnostics/runtime-failures.js";
 import { createGameSessionInternalV1, createGameSessionV1 } from "./game-session.js";
 
 interface State {
@@ -744,13 +749,20 @@ describe("GameSession FIFO", () => {
 
   it("notifies runtime commit listeners after publication and before dispatch resolves", async () => {
     const listenerFailure = new Error("runtime commit listener failed");
-    const observerFailures: unknown[] = [];
+    const runtimeFailures = createRuntimeFailureBufferV1();
+    const reportObserverFailure = createRuntimeFailureReporterV1({
+      failures: runtimeFailures,
+      now: () => "2026-07-14T02:03:04.000Z" as IsoUtcInstant,
+      operation: "runtime.observer_notification_failed",
+      category: "runtime",
+      code: "runtime.async_operation_failed",
+    });
     const observations: Array<{
       readonly listener: "throwing" | "following";
       readonly count: number;
       readonly dispatchResolved: boolean;
     }> = [];
-    const { session, runtimeControl } = fixture(false, (error) => observerFailures.push(error));
+    const { session, runtimeControl } = fixture(false, reportObserverFailure);
     let dispatchResolved = false;
     runtimeControl.subscribeCommittedSnapshots((snapshot) => {
       observations.push({
@@ -781,13 +793,19 @@ describe("GameSession FIFO", () => {
       { listener: "throwing", count: 1, dispatchResolved: false },
       { listener: "following", count: 1, dispatchResolved: false },
     ]);
-    expect(observerFailures).toEqual([listenerFailure]);
+    expect(runtimeFailures.entries()).toEqual([
+      expect.objectContaining({
+        operation: "runtime.observer_notification_failed",
+        message: "runtime commit listener failed",
+      }),
+    ]);
 
     await expect(session.dispatch({ kind: "fault" })).resolves.toMatchObject({
       kind: "executed",
       execution: { kind: "faulted" },
     });
     expect(observations).toHaveLength(2);
+    expect(runtimeFailures.entries()).toHaveLength(1);
     expect(session).not.toHaveProperty("subscribeCommittedSnapshots");
   });
 

@@ -7,6 +7,26 @@ import {
 } from "./game-application.js";
 
 describe("Game Application composition", () => {
+  it("keeps the injected player diagnostics export available without mutation authority", async () => {
+    const exported = Object.freeze({ filename: "run.debug-bundle.json" });
+    const diagnostics = Object.freeze({ exportDebugBundle: async () => exported });
+    const application = createGameApplicationV1({
+      semantic: Object.freeze({}),
+      lifecycle: Object.freeze({}),
+      persistence: Object.freeze({}),
+      diagnostics,
+      capabilities: Object.freeze({}),
+      debugTools: Object.freeze({}),
+    });
+
+    expect(application.diagnostics).toBe(diagnostics);
+    await expect(application.diagnostics.exportDebugBundle()).resolves.toBe(exported);
+    expect(Object.keys(application.diagnostics)).toEqual(["exportDebugBundle"]);
+    expect(application.diagnostics).not.toHaveProperty("inspectDebugBundle");
+    expect(application.diagnostics).not.toHaveProperty("anchorDebugBundle");
+    expect(application.diagnostics).not.toHaveProperty("executeDebugCommand");
+  });
+
   it("freezes one exact six-port application without replacing injected identities", () => {
     const ports = Object.freeze({
       semantic: Object.freeze({ kind: "semantic" }),
