@@ -634,11 +634,25 @@ git commit -m "feat(base): validate save compatibility"
 
 **Files:**
 
+- Modify: engine/packages/base/public-exports.v1.json
+- Modify: engine/packages/base/src/testkit/index.ts
+- Modify: engine/packages/base/type-tests/phase1-consumer.test-d.ts
+- Modify: engine/packages/web/src/application/create-game-runtime.test.ts
+- Modify: engine/packages/web/src/capabilities/web-capability-preferences.test.ts
 - Create: engine/packages/web/src/host/indexeddb-record-store.ts
 - Create: engine/packages/web/src/host/indexeddb-record-store.test.ts
 - Modify: engine/packages/web/src/host/create-web-host.ts
 - Modify: engine/packages/web/src/host/create-web-host.test.ts
+- Modify: engine/packages/web/src/loader/loader.test.tsx
+- Modify: engine/packages/web/type-tests/application-exports.test-d.ts
+- Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
+- Modify: game/stories/e2e/src/application/e2e-application-root.test.tsx
 - Modify: game/stories/e2e/src/application/entry.tsx
+- Modify: game/stories/e2e/src/presentation/e2e-renderers.test.tsx
+- Modify: game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts
+- Modify: game/stories/e2e/src/runtime/headless-runner.test.ts
+- Modify: game/stories/e2e/src/runtime/hotfix-integration.test.ts
+- Inspect unchanged: docs/engineering/specs/2026-07-12-game-runtime-design.md
 - Inspect unchanged: engine/packages/web/package.json
 - Inspect unchanged: pnpm-lock.yaml
 - Test: engine/packages/web/src/host/indexeddb-record-store.test.ts
@@ -646,7 +660,7 @@ git commit -m "feat(base): validate save compatibility"
 **Interfaces:**
 
 - Consumes: HostAtomicRecordStoreV1、HostStoredRecordV1、HostRecordMutationV1 and browser IndexedDB。
-- Produces: createIndexedDbRecordStoreV1 with all-or-nothing read/list/commit、Host revision CAS、stable error mapping and no Base dependency on idb。
+- Produces: createIndexedDbRecordStoreV1 with all-or-nothing read/list/commit、Host revision CAS、stable error mapping、`CreateWebHostOptionsV1` 的 production database/test record-store 互斥组合，以及只从 `@sillymaker/base/testkit` 暴露的 memory record-store factory；Base root 不新增该 test helper，Base 也不依赖 idb。
 
 - [ ] **Step 1: Assert the pre-materialized exact Web-only dependencies without registry access**
 
@@ -723,7 +737,7 @@ it.each([
 });
 ```
 
-另加 tests：database revision > supported 时只读拒绝、blocked upgrade、quota、transaction abort、duplicate mutation identity and Uint8Array defensive copies。
+另加 tests：database revision > supported 时只读拒绝、blocked upgrade、quota、transaction abort、duplicate mutation identity and Uint8Array defensive copies。所有既有 `createWebHostV1` test callsites 都必须从 `@sillymaker/base/testkit` 显式注入 fresh `createMemoryHostRecordStoreV1()`；`application-exports.test-d.ts` 固定 `databaseName`/`records` 恰好二选一，并用 `@ts-expect-error` 拒绝两者同时存在或同时缺失。Base consumer type test 固定 memory factory 只存在于 `@sillymaker/base/testkit`，不从 root 暴露。
 
 - [ ] **Step 3: Run focused tests and confirm the adapter is absent**
 
@@ -733,7 +747,7 @@ Run:
 pnpm --filter @sillymaker/web exec vitest run src/host/indexeddb-record-store.test.ts src/host/create-web-host.test.ts
 ```
 
-Expected: FAIL because IndexedDB adapter does not exist and createWebHost still uses memory records by default。
+Expected: FAIL because IndexedDB adapter、testkit memory-store export and required WebHost persistence union do not exist；failure 不得来自 dependency resolution、syntax 或 unrelated tests。
 
 - [ ] **Step 4: Implement the frozen one-store IndexedDB ABI and atomic adapter**
 
@@ -771,6 +785,25 @@ export interface CreateIndexedDbRecordStoreOptionsV1 {
 }
 ```
 
+`@sillymaker/web` 的公开 composition ABI 精确为：
+
+```ts
+interface CreateWebHostCommonOptionsV1 {
+  readonly seeds?: readonly number[];
+  readonly uuids?: readonly string[];
+  readonly now?: () => string;
+  readonly crypto?: Pick<Crypto, "getRandomValues" | "randomUUID">;
+}
+
+export type CreateWebHostOptionsV1 = CreateWebHostCommonOptionsV1 &
+  (
+    | { readonly databaseName: string; readonly records?: never }
+    | { readonly databaseName?: never; readonly records: HostAtomicRecordStoreV1 }
+  );
+```
+
+`createWebHostV1` 不再接受省略 options 的调用；production branch 只用 `databaseName`，injected branch 只用 `records`。`createMemoryHostRecordStoreV1` 的实现继续属于 storage-neutral Base，但只新增 `@sillymaker/base/testkit` named export、public inventory 和 consumer type coverage，不进入 Base root。
+
 Production WebHost 必须显式接收 `databaseName` 并传入 `globalThis.indexedDB`，tests 通过 `CreateIndexedDbRecordStoreOptionsV1` 注入名称和 fake/instrumented `IDBFactory`；adapter 不直接捕获全局 factory，也不提供 SillyMaker 或 Project Tavern 品牌化默认值。Project Tavern 玩家 application composition 传入 `project-tavern.runtime`，E2E composition 传入 `project-tavern.e2e.runtime`，单元测试每例使用隔离名称；其他采用 SillyMaker 的游戏必须提供自己的稳定名称。version 1 恰好拥有 object store `records`，composite keyPath `["namespace","key"]` 和 non-unique index `by-namespace`；row 没有时间戳、Story ID 或额外 metadata，转换到 `HostStoredRecordV1` 时复制 `ArrayBuffer`→`Uint8Array`。
 
 Open 必须以显式 version 1 执行；遇到更高 database version 的 `VersionError` 映射 `indexeddb.database_newer`，不得 delete/recreate/upgrade；blocked callback close pending handle and rejects `indexeddb.upgrade_blocked`。version=1 但 store/keyPath/index 不精确时 close 并返回 `indexeddb.schema_invalid`，不得自行修复。所有 expected DOMException 在 Web boundary 映射为上述稳定 code；failure 对象不携带本地路径、原始 row bytes 或任意 database dump。
@@ -788,12 +821,13 @@ Expected IndexedDB failures map to `IndexedDbRecordStoreFailureV1` at Web bounda
 
 - [ ] **Step 5: Wire WebHost and verify boundaries**
 
-createWebHostV1 要求 application 提供稳定 `databaseName`，在 browser 支持 IndexedDB 时使用 persistent adapter；Project Tavern 的 E2E application entry 精确传入 `project-tavern.e2e.runtime`，不得与玩家应用共享数据库。production 缺少 `globalThis.indexedDB` 时安装返回 `indexeddb.unavailable` 的 degraded record store，绝不静默回退到 memory 并谎报持久化成功；只有 test/options 可以显式注入 memory record store。Host construction must not open Story or GameSession。
+createWebHostV1 要求 application 提供稳定 `databaseName`，在 browser 支持 IndexedDB 时使用 persistent adapter；Project Tavern 的 E2E application entry 精确传入 `project-tavern.e2e.runtime`，不得与玩家应用共享数据库。production 缺少 `globalThis.indexedDB` 时安装返回 `indexeddb.unavailable` 的 degraded record store，绝不静默回退到 memory 并谎报持久化成功；所有现有 unit/Story tests 改为显式注入各自 fresh memory record store，不共享 module-global store。Host construction must not open Story or GameSession。
 
 Run:
 
 ```bash
 pnpm --filter @sillymaker/web exec vitest run src/host
+pnpm verify:public-exports
 pnpm verify:boundaries
 pnpm typecheck
 pnpm verify
@@ -805,7 +839,7 @@ Expected: 所有命令退出 0；IndexedDB/idb imports only exist under engine/p
 - [ ] **Step 6: Commit the Web record store**
 
 ```bash
-git add -- engine/packages/web/src/host/indexeddb-record-store.ts engine/packages/web/src/host/indexeddb-record-store.test.ts engine/packages/web/src/host/create-web-host.ts engine/packages/web/src/host/create-web-host.test.ts game/stories/e2e/src/application/entry.tsx
+git add -- engine/packages/base/public-exports.v1.json engine/packages/base/src/testkit/index.ts engine/packages/base/type-tests/phase1-consumer.test-d.ts engine/packages/web/src/application/create-game-runtime.test.ts engine/packages/web/src/capabilities/web-capability-preferences.test.ts engine/packages/web/src/host/indexeddb-record-store.ts engine/packages/web/src/host/indexeddb-record-store.test.ts engine/packages/web/src/host/create-web-host.ts engine/packages/web/src/host/create-web-host.test.ts engine/packages/web/src/loader/loader.test.tsx engine/packages/web/type-tests/application-exports.test-d.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/e2e-application-root.test.tsx game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/presentation/e2e-renderers.test.tsx game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts game/stories/e2e/src/runtime/headless-runner.test.ts game/stories/e2e/src/runtime/hotfix-integration.test.ts
 git diff --exit-code -- engine/packages/web/package.json pnpm-lock.yaml
 git diff --cached --check
 git commit -m "feat(web): persist atomic host records"
