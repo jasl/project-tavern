@@ -4677,6 +4677,7 @@ interface DiagnosticSummaryV1 {
 
 interface DebugBundleEnvelopeV1<
   TProvenance,
+  TCapabilities,
   TSimulationLineage,
   TSnapshot,
   TCommandLogEntry,
@@ -4688,6 +4689,7 @@ interface DebugBundleEnvelopeV1<
   readonly formatRevision: 1;
   readonly provenance: TProvenance;
   readonly appBuildId?: Digest;
+  readonly capabilities: TCapabilities;
   readonly simulationLineage: TSimulationLineage;
   readonly generatedAt: IsoUtcInstant;
   readonly replayBase: TSnapshot;
@@ -4703,6 +4705,7 @@ interface DebugBundleEnvelopeV1<
 
 type DebugBundleV1 = DebugBundleEnvelopeV1<
   BuildProvenanceV1,
+  RuntimeCapabilitiesV1,
   readonly SimulationAdoptionV1[],
   PocGameSnapshotV1,
   CommandLogEntryV1,

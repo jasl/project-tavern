@@ -1250,6 +1250,7 @@ git commit -m "feat(base): replay bounded game commands"
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
 - Modify: game/stories/e2e/fixtures/session-zero.json
 - Modify: game/stories/e2e/golden/semantic-flow.json
+- Inspect unchanged: docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md
 - Test: engine/packages/base/src/runtime/diagnostics/debug-bundle.test.ts
 - Test: engine/packages/base/src/runtime/diagnostics/privacy.test.ts
 
