@@ -7,8 +7,12 @@ import type {
 } from "./application.js";
 import { digestBytes } from "./digest.js";
 import type { IsoUtcInstant } from "./host.js";
+import type { PatchSetAdoptionDeclarationV1, PatchSetIdentityV1 } from "./hotfix.js";
+import type { BuildProvenanceV1 } from "./provenance.js";
 import { parseStrictJsonLimitsV1 } from "./strict-json.js";
+import type { StrictJsonErrorCodeV1 } from "./strict-json.js";
 import type {
+  DeepReadonly,
   Digest,
   NonNegativeSafeInteger,
   PositiveSafeInteger,
@@ -121,6 +125,191 @@ export interface SaveRecordEnvelopeV1<TSnapshot, TProvenance, TSlotMetadata, TSi
   readonly stateDigest: Digest;
   readonly snapshot: TSnapshot;
   readonly simulationLineage: TSimulationLineage;
+}
+
+export interface SaveCompatibilityKeyV1 {
+  readonly storyId: string;
+  readonly storyRevision: PositiveSafeInteger;
+  readonly stateContractRevision: PositiveSafeInteger;
+  readonly stateContractDigest: Digest;
+  readonly engineDigest: Digest;
+  readonly simulationDigest: Digest;
+}
+
+export interface SimulationAdoptionV1 {
+  readonly fromSimulationDigest: Digest;
+  readonly toSimulationDigest: Digest;
+  readonly viaSimulationPatchSetDigest: Digest;
+  readonly adoptedAtCommandSequence: NonNegativeSafeInteger;
+}
+
+export type ImportValidationErrorCodeV1 =
+  | StrictJsonErrorCodeV1
+  | "envelope.schema_invalid"
+  | "envelope.unsupported_revision"
+  | "digest.invalid_format"
+  | "digest.state_mismatch"
+  | "identity.story_id_mismatch"
+  | "identity.story_revision_mismatch"
+  | "identity.state_contract_revision_mismatch"
+  | "identity.state_contract_digest_mismatch"
+  | "identity.engine_digest_mismatch"
+  | "identity.simulation_digest_mismatch"
+  | "reference.unknown_id"
+  | "invariant.failed";
+
+export type SaveCompatibilityMismatchV1 =
+  | {
+      readonly field: "story_id";
+      readonly code: "identity.story_id_mismatch";
+      readonly stored: string;
+      readonly current: string;
+    }
+  | {
+      readonly field: "story_revision";
+      readonly code: "identity.story_revision_mismatch";
+      readonly stored: PositiveSafeInteger;
+      readonly current: PositiveSafeInteger;
+    }
+  | {
+      readonly field: "state_contract_revision";
+      readonly code: "identity.state_contract_revision_mismatch";
+      readonly stored: PositiveSafeInteger;
+      readonly current: PositiveSafeInteger;
+    }
+  | {
+      readonly field: "state_contract_digest";
+      readonly code: "identity.state_contract_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    }
+  | {
+      readonly field: "engine_digest";
+      readonly code: "identity.engine_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    }
+  | {
+      readonly field: "simulation_digest";
+      readonly code: "identity.simulation_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    };
+
+export type ImportCompatibilityWarningV1 =
+  | {
+      readonly field: "story_digest";
+      readonly code: "identity.story_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    }
+  | {
+      readonly field: "presentation_digest";
+      readonly code: "identity.presentation_digest_mismatch";
+      readonly stored: Digest;
+      readonly current: Digest;
+    }
+  | {
+      readonly field: "hotfix_set";
+      readonly code: "identity.hotfix_set_mismatch";
+      readonly stored: PatchSetIdentityV1;
+      readonly current: PatchSetIdentityV1;
+    };
+
+export type ImportRejectionCodeV1 =
+  | StrictJsonErrorCodeV1
+  | "envelope.schema_invalid"
+  | "envelope.unsupported_revision"
+  | "digest.invalid_format"
+  | "digest.state_mismatch"
+  | "compatibility.lineage_limit"
+  | "reference.unknown_id"
+  | "invariant.failed";
+
+export type ImportCompatibilityOutcomeV1 =
+  | {
+      readonly kind: "exact";
+      readonly mismatches: readonly [];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
+    }
+  | {
+      readonly kind: "adopted";
+      readonly mismatches: readonly [];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
+      readonly adoption: SimulationAdoptionV1;
+    }
+  | {
+      readonly kind: "inspect_only";
+      readonly mismatches: readonly [SaveCompatibilityMismatchV1, ...SaveCompatibilityMismatchV1[]];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
+    }
+  | { readonly kind: "rejected"; readonly code: ImportRejectionCodeV1 };
+
+export type SaveRecordDecodeRejectionCodeV1 =
+  | StrictJsonErrorCodeV1
+  | "envelope.schema_invalid"
+  | "envelope.unsupported_revision"
+  | "digest.invalid_format"
+  | "digest.state_mismatch";
+
+export type SaveRecordDecodeResultV1<TSaveRecord> =
+  | { readonly kind: "decoded"; readonly record: DeepReadonly<TSaveRecord> }
+  | { readonly kind: "rejected"; readonly code: SaveRecordDecodeRejectionCodeV1 };
+
+export interface SaveCodecContextV1<
+  TSnapshot,
+  TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
+> {
+  readonly recordSchema: RuntimeSchemaV1<TSaveRecord>;
+  validateEnvelope(record: DeepReadonly<TSaveRecord>): void;
+}
+
+export interface SaveCompatibilityClassificationInputV1 {
+  readonly stored: DeepReadonly<BuildProvenanceV1>;
+  readonly current: DeepReadonly<BuildProvenanceV1>;
+  readonly simulationLineage: readonly DeepReadonly<SimulationAdoptionV1>[];
+  readonly adoptionDeclaration: DeepReadonly<PatchSetAdoptionDeclarationV1> | null;
+  readonly candidateCommandSequence: NonNegativeSafeInteger;
+}
+
+export type SaveCompatibilityClassificationV1 =
+  | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "exact" }>
+  | {
+      readonly kind: "adoption_candidate";
+      readonly mismatches: readonly [];
+      readonly warnings: readonly ImportCompatibilityWarningV1[];
+      readonly adoption: SimulationAdoptionV1;
+    }
+  | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "inspect_only" | "rejected" }>;
+
+export type SaveImportValidationResultV1<TSaveRecord> =
+  | (Extract<ImportCompatibilityOutcomeV1, { readonly kind: "exact" | "adopted" }> & {
+      readonly candidate: DeepReadonly<TSaveRecord>;
+    })
+  | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "inspect_only" | "rejected" }>;
+
+export interface SaveImportValidationContextV1<
+  TState,
+  TSnapshot extends { readonly state: TState },
+  TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
+> {
+  readonly codec: SaveCodecContextV1<TSnapshot, TSaveRecord>;
+  classifyCompatibility(record: DeepReadonly<TSaveRecord>): SaveCompatibilityClassificationV1;
+  validateReferences(state: DeepReadonly<TState>): readonly string[];
+  validateInvariants(state: DeepReadonly<TState>): readonly string[];
+}
+
+type SaveRecordEnvelopeSchemaFailureCodeV1 =
+  "envelope.unsupported_revision" | "digest.invalid_format";
+
+export class SaveRecordEnvelopeSchemaFailureV1 extends TypeError {
+  readonly code: SaveRecordEnvelopeSchemaFailureCodeV1;
+
+  constructor(code: SaveRecordEnvelopeSchemaFailureCodeV1) {
+    super(code);
+    this.name = "SaveRecordEnvelopeSchemaFailureV1";
+    this.code = code;
+  }
 }
 
 type ExactRecord = Record<string, PropertyDescriptor>;
@@ -288,14 +477,35 @@ export function createSaveRecordEnvelopeSchemaV1<
         ],
         "SaveRecordEnvelopeV1",
       );
-      if (fields.formatRevision?.value !== 1) throw new TypeError("invalid Save formatRevision");
+      const formatRevision = fields.formatRevision?.value;
+      if (formatRevision !== 1) {
+        if (
+          typeof formatRevision === "number" &&
+          Number.isSafeInteger(formatRevision) &&
+          !Object.is(formatRevision, -0) &&
+          formatRevision > 0
+        ) {
+          throw new SaveRecordEnvelopeSchemaFailureV1("envelope.unsupported_revision");
+        }
+        throw new TypeError("invalid Save formatRevision");
+      }
+      const recordRevision = parsePositiveSafeInteger(fields.recordRevision?.value);
+      const provenance = provenanceSchema.parse(fields.provenance?.value);
+      const slot = slotMetadataSchema.parse(fields.slot?.value);
+      const savedAt = parseIsoUtcInstantV1(fields.savedAt?.value);
+      let stateDigest: Digest;
+      try {
+        stateDigest = parseDigest(fields.stateDigest?.value);
+      } catch {
+        throw new SaveRecordEnvelopeSchemaFailureV1("digest.invalid_format");
+      }
       return Object.freeze({
         formatRevision: 1 as const,
-        recordRevision: parsePositiveSafeInteger(fields.recordRevision?.value),
-        provenance: provenanceSchema.parse(fields.provenance?.value),
-        slot: slotMetadataSchema.parse(fields.slot?.value),
-        savedAt: parseIsoUtcInstantV1(fields.savedAt?.value),
-        stateDigest: parseDigest(fields.stateDigest?.value),
+        recordRevision,
+        provenance,
+        slot,
+        savedAt,
+        stateDigest,
         snapshot: snapshotSchema.parse(fields.snapshot?.value),
         simulationLineage: simulationLineageSchema.parse(fields.simulationLineage?.value),
       });

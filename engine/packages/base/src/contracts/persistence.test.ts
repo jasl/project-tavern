@@ -5,6 +5,7 @@ import { digestBytes } from "./digest.js";
 import {
   createSaveRecordEnvelopeSchemaV1,
   exportedSaveSchemaV1,
+  SaveRecordEnvelopeSchemaFailureV1,
   saveJsonLimitsV1,
   sessionLeaseStatusSchemaV1,
 } from "./persistence.js";
@@ -81,6 +82,20 @@ describe("persistence contracts", () => {
     expect(() => schema.parse({ ...valid, extra: true })).toThrow();
     expect(() => schema.parse({ ...valid, savedAt: "2026-07-12" })).toThrow();
     expect(Object.isFrozen(schema.parse(valid))).toBe(true);
+
+    for (const [value, code] of [
+      [{ ...valid, formatRevision: 2 }, "envelope.unsupported_revision"],
+      [{ ...valid, stateDigest: "not-a-digest" }, "digest.invalid_format"],
+    ] as const) {
+      try {
+        schema.parse(value);
+        throw new TypeError("expected tagged envelope failure");
+      } catch (error) {
+        expect(error).toBeInstanceOf(SaveRecordEnvelopeSchemaFailureV1);
+        expect(error).toMatchObject({ code });
+      }
+    }
+    expect(() => schema.parse({ ...valid, formatRevision: 0 })).toThrow(TypeError);
   });
 
   it("freezes the reviewed Save limits", () => {
