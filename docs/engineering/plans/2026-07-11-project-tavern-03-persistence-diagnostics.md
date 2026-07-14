@@ -517,6 +517,8 @@ git commit -m "feat(runtime): unify application capabilities"
 - Modify: engine/packages/base/src/runtime/index.ts
 - Modify: engine/packages/base/public-exports.v1.json
 - Create: engine/packages/base/type-tests/persistence.test-d.ts
+- Modify: game/stories/e2e/fixtures/session-zero.json
+- Modify: game/stories/e2e/golden/semantic-flow.json
 - Test: engine/packages/base/src/runtime/persistence/save-codec.test.ts
 - Test: engine/packages/base/src/runtime/persistence/compatibility.test.ts
 
@@ -602,16 +604,22 @@ Run:
 pnpm --filter @sillymaker/base exec vitest run src/runtime/persistence/save-codec.test.ts src/runtime/persistence/compatibility.test.ts
 pnpm verify:public-exports
 pnpm typecheck
+pnpm regenerate:fixtures
+pnpm update:golden
+git diff -- game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+shasum -a 256 game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+pnpm verify:fixtures
+pnpm verify:golden
 pnpm verify
 git diff --check
 ```
 
-Expected: 所有命令退出 0；malformed integrity 在 envelope/state-digest stage 被拒绝；no Session/storage mutation is reachable from codec。
+Expected: 所有命令退出 0；malformed integrity 在 envelope/state-digest stage 被拒绝；no Session/storage mutation is reachable from codec。显式 writers 只更新 fixture/golden 的 engine provenance/digest；执行 agent 审查 exact bytes、size、SHA-256 与语义投影，普通 verifier/verify 保持只读。
 
 - [ ] **Step 6: Commit Save validation**
 
 ```bash
-git add -- engine/packages/base/src/runtime/persistence/save-codec.ts engine/packages/base/src/runtime/persistence/save-codec.test.ts engine/packages/base/src/runtime/persistence/compatibility.ts engine/packages/base/src/runtime/persistence/compatibility.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/type-tests/persistence.test-d.ts engine/packages/base/public-exports.v1.json
+git add -- engine/packages/base/src/runtime/persistence/save-codec.ts engine/packages/base/src/runtime/persistence/save-codec.test.ts engine/packages/base/src/runtime/persistence/compatibility.ts engine/packages/base/src/runtime/persistence/compatibility.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/type-tests/persistence.test-d.ts engine/packages/base/public-exports.v1.json game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(base): validate save compatibility"
 ```
