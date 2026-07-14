@@ -852,9 +852,11 @@ git commit -m "feat(web): persist atomic host records"
 - Create: engine/packages/base/src/runtime/persistence/slot-keys.ts
 - Create: engine/packages/base/src/runtime/persistence/save-repository.ts
 - Create: engine/packages/base/src/runtime/persistence/save-repository.test.ts
+- Create: engine/packages/base/src/runtime/persistence/save-repository.property.test.ts
 - Create: engine/packages/base/src/runtime/persistence/session-lease.ts
 - Create: engine/packages/base/src/runtime/persistence/session-lease.test.ts
 - Test: engine/packages/base/src/runtime/persistence/save-repository.test.ts
+- Test: engine/packages/base/src/runtime/persistence/save-repository.property.test.ts
 - Test: engine/packages/base/src/runtime/persistence/session-lease.test.ts
 
 **Interfaces:**
@@ -911,12 +913,14 @@ it("rejects a writer after ownership changes", async () => {
 });
 ```
 
+另在 `save-repository.property.test.ts` 使用 fast-check 生成 repository write/Auto rotation/lease takeover 的交错序列，固定 stale fence 永不提交、Auto batch 不部分轮换、损坏记录不静默修复。该文件必须由 `pnpm test:property` 直接发现，不能把 randomized coverage 藏在普通 unit test 中。
+
 - [ ] **Step 3: Run focused tests and confirm repository/lease absence**
 
 Run:
 
 ```bash
-pnpm --filter @sillymaker/base exec vitest run src/runtime/persistence/save-repository.test.ts src/runtime/persistence/session-lease.test.ts
+pnpm --filter @sillymaker/base exec vitest run src/runtime/persistence/save-repository.test.ts src/runtime/persistence/save-repository.property.test.ts src/runtime/persistence/session-lease.test.ts
 ```
 
 Expected: FAIL because repository and lease services do not exist。
@@ -945,7 +949,7 @@ Lease record contains ownerId、monotonic fencingToken and optional handoff requ
 Run:
 
 ```bash
-pnpm --filter @sillymaker/base exec vitest run src/runtime/persistence/save-repository.test.ts src/runtime/persistence/session-lease.test.ts
+pnpm --filter @sillymaker/base exec vitest run src/runtime/persistence/save-repository.test.ts src/runtime/persistence/save-repository.property.test.ts src/runtime/persistence/session-lease.test.ts
 pnpm test:property
 pnpm verify
 git diff --check
@@ -956,7 +960,7 @@ Expected: all commands exit 0；randomized interleavings never permit stale writ
 - [ ] **Step 7: Commit slots and leases**
 
 ```bash
-git add -- engine/packages/base/src/runtime/persistence/slot-keys.ts engine/packages/base/src/runtime/persistence/save-repository.ts engine/packages/base/src/runtime/persistence/save-repository.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts
+git add -- engine/packages/base/src/runtime/persistence/slot-keys.ts engine/packages/base/src/runtime/persistence/save-repository.ts engine/packages/base/src/runtime/persistence/save-repository.test.ts engine/packages/base/src/runtime/persistence/save-repository.property.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts
 git diff --cached --check
 git commit -m "feat(base): add fenced save slots"
 ```
