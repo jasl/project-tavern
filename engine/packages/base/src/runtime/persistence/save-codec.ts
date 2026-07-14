@@ -58,7 +58,11 @@ export function encodeSaveRecordV1<
   if (!hasMatchingStateDigestV1(parsed)) {
     throw new TypeError("Save state digest mismatch");
   }
-  return canonicalJsonBytes(parsed);
+  const bytes = canonicalJsonBytes(parsed);
+  if (bytes.byteLength > Number(saveJsonLimitsV1.maxBytes)) {
+    throw new TypeError("Save record exceeds the 5 MiB byte limit");
+  }
+  return bytes;
 }
 
 export function decodeSaveRecordV1<

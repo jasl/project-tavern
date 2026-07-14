@@ -315,6 +315,25 @@ describe("Save record codec", () => {
     });
   });
 
+  it("does not encode a Save that its decoder rejects at the 5 MiB byte limit", () => {
+    const snapshot = snapshotSchemaV1.parse({
+      ...makeSnapshotV1(),
+      state: {
+        referenceId: "x".repeat(Number(saveJsonLimitsV1.maxBytes)),
+        count: 4,
+      },
+    });
+    const record = makeRecordV1({ snapshot });
+    const rawBytes = canonicalJsonBytes(record);
+
+    expect(rawBytes.byteLength).toBeGreaterThan(Number(saveJsonLimitsV1.maxBytes));
+    expect(decodeSaveRecordV1(rawBytes, codecV1)).toEqual({
+      kind: "rejected",
+      code: "limit.bytes",
+    });
+    expect(() => encodeSaveRecordV1(record, codecV1)).toThrow(TypeError);
+  });
+
   it("rejects disconnected and wrong-tail lineage before Story validation", () => {
     const first = Object.freeze({
       fromSimulationDigest: digestV1("sim.0"),
