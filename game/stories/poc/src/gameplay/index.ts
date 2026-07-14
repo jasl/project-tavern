@@ -537,3 +537,81 @@ export {
 } from "./modules/inventory/module.js";
 
 export type { PocInventoryGameplayModuleV1 } from "./modules/inventory/module.js";
+
+export {
+  comparePocFacilityIdsV1,
+  comparePocFacilityOpportunityIdsV1,
+  parsePocFacilityDecisionV1,
+  parsePocFacilityChoiceV1,
+  parsePocFacilityStateV1,
+  parsePocFacilityDecisionRecordV1,
+  parsePocFacilitiesStateV1,
+  pocFacilitiesStateSchemaV1,
+  sortPocFacilityStatesV1,
+  sortPocFacilityDecisionRecordsV1,
+  pocFacilitiesInvariantV1,
+  pocFacilitiesOwnerOperationSchemaV1,
+  parsePocFacilitiesDependencyPortsV1,
+  pocFacilitiesDependencyPortsSchemaV1,
+  pocFacilitiesStatesEqualV1,
+  assertValidInitialPocFacilitiesStateV1,
+  pocFacilitiesOwnerProposalSchemaV1,
+} from "./modules/facilities/contract.js";
+
+export type {
+  PocFacilitiesOpportunityPortV1,
+  PocFacilitiesOwnerOperationV1,
+  PocFacilitiesDependencyPortsV1,
+  PocFacilitiesGameplayFactV1,
+  PocFacilitiesOwnerProposalPayloadV1,
+  PocFacilitiesOwnerProposalV1,
+  PocFacilitiesReadPortV1,
+} from "./modules/facilities/contract.js";
+
+export {
+  createPocFacilitiesReadPortV1,
+  pocFacilitiesOwnerV1,
+  createInitialPocFacilitiesStateV1,
+  pocFacilitiesGameplayModuleV1,
+} from "./modules/facilities/module.js";
+
+export {
+  parsePocTavernChangeReasonV1,
+  parsePocTavernHelperStateV1,
+  parsePocTavernPlanV1,
+  parsePocTavernDemandDayV1,
+  parsePocTavernMaterializedDemandDayV1,
+  parsePocTavernOpeningLedgerV1,
+  parsePocTavernClosureHistoryV1,
+  parsePocTavernServiceHistoryEntryV1,
+  parsePocTavernStateV1,
+  pocTavernStateSchemaV1,
+  pocTavernOwnerOperationSchemaV1,
+  pocTavernDependencyPortsSchemaV1,
+  pocTavernStatesEqualV1,
+  pocTavernInvariantV1,
+  assertValidPocTavernStateV1,
+  assertValidInitialPocTavernStateV1,
+  sortPocTavernRecipeIdsV1,
+  pocTavernOwnerProposalSchemaV1,
+} from "./modules/tavern/contract.js";
+
+export type {
+  PocTavernOwnerOperationV1,
+  PocTavernPlanRecipePortV1,
+  PocTavernPlanDependenciesV1,
+  PocTavernPreparationDependenciesV1,
+  PocTavernDependencyPortsV1,
+  PocTavernReadPortV1,
+  PocTavernGameplayFactV1,
+  PocTavernOwnerProposalPayloadV1,
+  PocTavernOwnerProposalV1,
+} from "./modules/tavern/contract.js";
+
+export {
+  createPocTavernReadPortV1,
+  pocTavernOwnerV1,
+  createPocTavernGameplayModuleV1,
+} from "./modules/tavern/module.js";
+
+export type { PocTavernGameplayModuleV1 } from "./modules/tavern/module.js";
