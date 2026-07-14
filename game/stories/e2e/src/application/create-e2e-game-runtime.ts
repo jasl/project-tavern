@@ -22,6 +22,8 @@ import type {
   LeaseHandoffRequestId,
   PersistenceOperationResultV1,
   PersistenceStatusV1,
+  NonNegativeSafeInteger,
+  PositiveSafeInteger,
   RuntimeCapabilityPortV1,
   RuntimeCapabilitiesV1,
   RuntimeOperationFaultV1,
@@ -36,17 +38,31 @@ import type {
   SimulationAdoptionV1,
 } from "@sillymaker/base";
 import {
-  createCapabilityDisabledDebugToolsPortV1,
+  createDebugToolsPortV1,
+  decodeDebugBundleV1,
   createGameDiagnosticsServiceV1,
   createGameApplicationV1,
   createGameSessionV1,
   createPersistenceServiceV1,
+  inspectReplayBestEffortV1,
+  replayAuthoritativelyV1,
 } from "@sillymaker/base/runtime";
-import type { DebugBundleCodecContextV1 } from "@sillymaker/base/runtime";
+import type {
+  DebugBundleCodecContextV1,
+  DebugBundleDecodeRejectionCodeV1,
+  DebugBundleDecodeResultV1,
+  FinalizedCommandAttemptV1,
+  GameSessionDebugInputV1,
+  ReplayDriverV1,
+  ReplayInputV1,
+  ReplayComparisonV1,
+  ReplayLoggedCommandV1,
+} from "@sillymaker/base/runtime";
 import { createGameRuntimeV1 } from "@sillymaker/web";
 
 import type {
   E2eDebugCommandV1,
+  E2eDebugValidationErrorV1,
   E2eGameCommandV1,
   E2eGameStateV1,
   E2eGameSimulationTypesV1,
@@ -56,6 +72,7 @@ import type {
   E2eRejectionReasonV1,
 } from "../gameplay/contracts/index.js";
 import {
+  e2eDebugCommandSchemaV1,
   e2eGameCommandSchemaV1,
   e2eGameplayFactSchemaV1,
   e2eGameplayFaultSchemaV1,
@@ -67,17 +84,58 @@ import { createE2eSemanticGamePortV1 } from "../runtime/e2e-semantic-game-port.j
 import type { E2eSemanticGamePortV1 } from "../runtime/e2e-semantic-game-port.js";
 import { createE2eInitialSnapshotV1 } from "../session.js";
 import type { E2eResolvedGameV1 } from "../story-entry.js";
+import type { E2eFixtureIdV1, E2eFixtureResolverV1 } from "../tooling.js";
 
-export type E2eDisabledDebugToolsPortV1 = DebugToolsPortV1<
+export type E2eDebugCommandResultV1 =
+  | {
+      readonly kind: "validation_failed";
+      readonly error: E2eDebugValidationErrorV1 | { readonly code: "debug.command_schema_invalid" };
+    }
+  | { readonly kind: "committed"; readonly commandSequence: PositiveSafeInteger }
+  | { readonly kind: "faulted"; readonly fault: E2eGameplayFaultV1 };
+
+export type E2eDebugAnchorResultV1 =
+  | {
+      readonly kind: "validation_failed";
+      readonly error:
+        | {
+            readonly code: "debug.unknown_reference";
+            readonly commandKind: "debug.fixture.load";
+            readonly reference: { readonly kind: "fixture"; readonly fixtureId: string };
+          }
+        | {
+            readonly code: "debug.bundle_invalid";
+            readonly rejection: DebugBundleDecodeRejectionCodeV1;
+          }
+        | { readonly code: "debug.bundle_replay_mismatch" };
+    }
+  | { readonly kind: "anchor_established"; readonly commandSequence: NonNegativeSafeInteger }
+  | { readonly kind: "faulted"; readonly fault: E2eGameplayFaultV1 };
+
+export type E2eDebugReplayResultV1 =
+  | { readonly kind: "rejected"; readonly code: DebugBundleDecodeRejectionCodeV1 }
+  | { readonly kind: "replayed"; readonly comparison: ReplayComparisonV1 };
+
+export type E2eDiagnosticQueryV1 = { readonly kind: "summary" };
+
+export type E2eDiagnosticQueryResultV1 =
+  | { readonly kind: "validation_failed"; readonly code: "debug.diagnostics_query_invalid" }
+  | {
+      readonly kind: "summary";
+      readonly diagnostics: E2eDiagnosticSummaryV1;
+      readonly commandLogEntryCount: NonNegativeSafeInteger;
+    };
+
+export type E2eDebugToolsPortV1 = DebugToolsPortV1<
   E2eDebugCommandV1,
-  never,
-  string,
-  never,
-  never,
-  never,
-  never,
-  never,
-  never
+  E2eDebugCommandResultV1,
+  E2eFixtureIdV1,
+  E2eDebugAnchorResultV1,
+  DebugBundleDecodeResultV1<E2eDebugBundleV1>,
+  E2eDebugReplayResultV1,
+  E2eDebugReplayResultV1,
+  E2eDiagnosticQueryV1,
+  E2eDiagnosticQueryResultV1
 >;
 
 type E2ePersistencePortV1 = {
@@ -113,18 +171,27 @@ export type E2eGameApplicationPortV1 = GameApplicationPortV1<
   E2ePersistencePortV1,
   { exportDebugBundle(): Promise<ExportedDebugBundleV1> },
   RuntimeCapabilityPortV1,
-  E2eDisabledDebugToolsPortV1
+  E2eDebugToolsPortV1
 >;
 
-type E2eCommandLogOutcomeV1 =
+type E2eGameCommandLogOutcomeV1 =
   | { readonly kind: "committed"; readonly facts: readonly E2eGameplayFactV1[] }
   | { readonly kind: "rejected"; readonly reasons: readonly E2eRejectionReasonV1[] }
   | { readonly kind: "faulted"; readonly fault: E2eGameplayFaultV1 };
 
-type E2eCommandLogEntryV1 = CommandLogEntryEnvelopeV1<
-  { readonly source: "game"; readonly command: E2eGameCommandV1 },
-  E2eCommandLogOutcomeV1
->;
+type E2eDebugCommandLogOutcomeV1 =
+  | { readonly kind: "committed"; readonly facts: readonly E2eGameplayFactV1[] }
+  | { readonly kind: "faulted"; readonly fault: E2eGameplayFaultV1 };
+
+type E2eCommandLogEntryV1 =
+  | CommandLogEntryEnvelopeV1<
+      { readonly source: "game"; readonly command: E2eGameCommandV1 },
+      E2eGameCommandLogOutcomeV1
+    >
+  | CommandLogEntryEnvelopeV1<
+      { readonly source: "debug"; readonly command: E2eDebugCommandV1 },
+      E2eDebugCommandLogOutcomeV1
+    >;
 
 type E2eDiagnosticCodeV1 = E2eGameplayFaultV1["code"] | RuntimeOperationFaultV1["code"];
 
@@ -132,6 +199,22 @@ interface E2eDiagnosticSummaryV1 {
   readonly invariantCodes: readonly never[];
   readonly recentErrorCodes: readonly E2eDiagnosticCodeV1[];
   readonly hmrInvalidated: boolean;
+}
+
+type E2eDebugFailureCommandV1 =
+  | { readonly source: "game"; readonly command: E2eGameCommandV1 }
+  | { readonly source: "debug"; readonly command: E2eDebugCommandV1 }
+  | {
+      readonly source: "debug_anchor";
+      readonly command: { readonly kind: "debug.fixture.load"; readonly fixtureId: string };
+    };
+
+interface E2eDebugFailureV1 {
+  readonly command: E2eDebugFailureCommandV1;
+  readonly fault: E2eGameplayFaultV1;
+  readonly attemptedDraws: readonly RngDrawTraceV1[];
+  readonly candidateRngAfter?: RngStateV1;
+  readonly candidateSnapshot?: E2eGameSnapshotV1;
 }
 
 const strictJsonMaximumArrayItemsV1 = 10_000;
@@ -363,7 +446,10 @@ function parseRngDrawTraceV1(value: unknown): RngDrawTraceV1 {
   });
 }
 
-function parseE2eCommandLogOutcomeV1(value: unknown): E2eCommandLogOutcomeV1 {
+function parseE2eCommandLogOutcomeV1(
+  value: unknown,
+  source: E2eCommandLogEntryV1["source"],
+): E2eGameCommandLogOutcomeV1 | E2eDebugCommandLogOutcomeV1 {
   const input = requirePlainObjectV1(value, "E2E CommandLog outcome");
   if (input.kind === "committed") {
     const fields = requireExactObjectV1(value, ["kind", "facts"], "committed outcome");
@@ -378,6 +464,7 @@ function parseE2eCommandLogOutcomeV1(value: unknown): E2eCommandLogOutcomeV1 {
     });
   }
   if (input.kind === "rejected") {
+    if (source !== "game") throw new TypeError("DebugCommand log entry cannot be rejected");
     const fields = requireExactObjectV1(value, ["kind", "reasons"], "rejected outcome");
     return Object.freeze({
       kind: "rejected",
@@ -420,7 +507,10 @@ const e2eCommandLogEntrySchemaV1: RuntimeSchemaV1<E2eCommandLogEntryV1> = Object
       ],
       "E2E CommandLog entry",
     );
-    if (fields.source !== "game") throw new TypeError("invalid E2E CommandLog source");
+    if (fields.source !== "game" && fields.source !== "debug") {
+      throw new TypeError("invalid E2E CommandLog source");
+    }
+    const source = fields.source;
     const sequence = requireExactObjectV1(
       fields.commandSequence,
       ["before", "after"],
@@ -429,9 +519,7 @@ const e2eCommandLogEntrySchemaV1: RuntimeSchemaV1<E2eCommandLogEntryV1> = Object
     const candidateRngAfter = hasCandidateRngAfter
       ? rngStateV1Schema.parse(fields.candidateRngAfter)
       : undefined;
-    return Object.freeze({
-      source: "game",
-      command: e2eGameCommandSchemaV1.parse(fields.command),
+    const shared = Object.freeze({
       logOrdinal: parsePositiveSafeInteger(fields.logOrdinal),
       preStateDigest: parseDigest(fields.preStateDigest),
       postStateDigest: parseDigest(fields.postStateDigest),
@@ -448,8 +536,21 @@ const e2eCommandLogEntrySchemaV1: RuntimeSchemaV1<E2eCommandLogEntryV1> = Object
       ),
       ...(candidateRngAfter === undefined ? {} : { candidateRngAfter }),
       committedRngAfter: rngStateV1Schema.parse(fields.committedRngAfter),
-      outcome: parseE2eCommandLogOutcomeV1(fields.outcome),
+      outcome: parseE2eCommandLogOutcomeV1(fields.outcome, source),
     });
+    return source === "game"
+      ? Object.freeze({
+          source,
+          command: e2eGameCommandSchemaV1.parse(fields.command),
+          ...shared,
+          outcome: shared.outcome as E2eGameCommandLogOutcomeV1,
+        })
+      : Object.freeze({
+          source,
+          command: e2eDebugCommandSchemaV1.parse(fields.command),
+          ...shared,
+          outcome: shared.outcome as E2eDebugCommandLogOutcomeV1,
+        });
   },
 });
 
@@ -516,6 +617,83 @@ const absentDebugEvidenceSchemaV1: RuntimeSchemaV1<never> = Object.freeze({
   },
 });
 
+function createE2eDebugFailureSchemaV1(
+  snapshotSchema: RuntimeSchemaV1<E2eGameSnapshotV1>,
+): RuntimeSchemaV1<E2eDebugFailureV1> {
+  return Object.freeze({
+    parse(value: unknown): E2eDebugFailureV1 {
+      const input = requirePlainObjectV1(value, "E2E Debug failure");
+      const hasCandidateRngAfter = Object.hasOwn(input, "candidateRngAfter");
+      const hasCandidateSnapshot = Object.hasOwn(input, "candidateSnapshot");
+      const fields = requireExactObjectV1(
+        value,
+        [
+          "command",
+          "fault",
+          "attemptedDraws",
+          ...(hasCandidateRngAfter ? ["candidateRngAfter"] : []),
+          ...(hasCandidateSnapshot ? ["candidateSnapshot"] : []),
+        ],
+        "E2E Debug failure",
+      );
+      const commandValue = requirePlainObjectV1(fields.command, "E2E Debug failure command");
+      const commandFields = requireExactObjectV1(
+        fields.command,
+        ["source", "command"],
+        "E2E Debug failure command",
+      );
+      let command: E2eDebugFailureCommandV1;
+      if (commandValue.source === "game") {
+        command = Object.freeze({
+          source: "game" as const,
+          command: e2eGameCommandSchemaV1.parse(commandFields.command),
+        });
+      } else if (commandValue.source === "debug") {
+        command = Object.freeze({
+          source: "debug" as const,
+          command: e2eDebugCommandSchemaV1.parse(commandFields.command),
+        });
+      } else if (commandValue.source === "debug_anchor") {
+        const anchorFields = requireExactObjectV1(
+          commandFields.command,
+          ["kind", "fixtureId"],
+          "E2E Debug anchor command",
+        );
+        if (anchorFields.kind !== "debug.fixture.load") {
+          throw new TypeError("invalid E2E Debug anchor command");
+        }
+        command = Object.freeze({
+          source: "debug_anchor" as const,
+          command: Object.freeze({
+            kind: "debug.fixture.load" as const,
+            fixtureId: parseNonemptyTextV1(anchorFields.fixtureId, "fixture ID"),
+          }),
+        });
+      } else {
+        throw new TypeError("invalid E2E Debug failure command source");
+      }
+      const candidateRngAfter = hasCandidateRngAfter
+        ? rngStateV1Schema.parse(fields.candidateRngAfter)
+        : undefined;
+      const candidateSnapshot = hasCandidateSnapshot
+        ? snapshotSchema.parse(fields.candidateSnapshot)
+        : undefined;
+      return Object.freeze({
+        command,
+        fault: e2eGameplayFaultSchemaV1.parse(fields.fault),
+        attemptedDraws: parseDenseArrayV1(
+          fields.attemptedDraws,
+          strictJsonMaximumArrayItemsV1,
+          parseRngDrawTraceV1,
+          "E2E Debug failure attempted RNG draws",
+        ),
+        ...(candidateRngAfter === undefined ? {} : { candidateRngAfter }),
+        ...(candidateSnapshot === undefined ? {} : { candidateSnapshot }),
+      });
+    },
+  });
+}
+
 function sameRngStateV1(left: DeepReadonly<RngStateV1>, right: DeepReadonly<RngStateV1>): boolean {
   return (
     left.algorithm === right.algorithm &&
@@ -532,7 +710,7 @@ type E2eDebugBundleV1 = DebugBundleEnvelopeV1<
   E2eCommandLogEntryV1,
   E2eDiagnosticSummaryV1,
   RuntimeOperationFaultV1,
-  never,
+  E2eDebugFailureV1,
   never
 >;
 
@@ -548,7 +726,7 @@ export function createE2eDebugBundleCodecV1(
     commandLogEntrySchema: e2eCommandLogEntrySchemaV1,
     diagnosticsSchema: e2eDiagnosticSummarySchemaV1,
     runtimeFailureSchema: runtimeOperationFaultSchemaV1,
-    failureSchema: absentDebugEvidenceSchemaV1,
+    failureSchema: createE2eDebugFailureSchemaV1(snapshotSchema),
     uiContextSchema: absentDebugEvidenceSchemaV1,
   });
 
@@ -654,6 +832,119 @@ function createE2eUnexpectedFaultAttemptV1(snapshot: DeepReadonly<E2eGameSnapsho
   });
 }
 
+type E2eFinalizedAttemptV1 = FinalizedCommandAttemptV1<
+  E2eGameSnapshotV1,
+  E2eGameplayFactV1,
+  E2eRejectionReasonV1,
+  E2eGameplayFaultV1,
+  RngStateV1,
+  RngDrawTraceV1
+>;
+
+type E2eReplayLoggedCommandV1 =
+  | ReplayLoggedCommandV1<"game", E2eGameCommandV1>
+  | ReplayLoggedCommandV1<"debug", E2eDebugCommandV1>;
+
+type E2eReplayDriverV1 = ReplayDriverV1<
+  E2eGameSnapshotV1,
+  E2eReplayLoggedCommandV1,
+  E2eGameplayFactV1,
+  E2eRejectionReasonV1,
+  E2eGameplayFaultV1,
+  RngStateV1,
+  RngDrawTraceV1
+>;
+
+type E2eReplayInputV1 = ReplayInputV1<
+  E2eGameSnapshotV1,
+  E2eReplayLoggedCommandV1,
+  E2eGameplayFactV1,
+  E2eRejectionReasonV1,
+  E2eGameplayFaultV1,
+  RngStateV1,
+  RngDrawTraceV1
+>;
+
+function createE2eReplayDriverV1(
+  gameSimulation: E2eResolvedGameV1["gameSimulation"],
+  replayBase: DeepReadonly<E2eGameSnapshotV1>,
+): E2eReplayDriverV1 {
+  let capturedAttempt: E2eFinalizedAttemptV1 | null = null;
+  const isolated = createGameSessionV1<E2eGameSimulationTypesV1>({
+    initialSnapshot: replayBase as E2eGameSnapshotV1,
+    commandSchema: gameSimulation.commandSchema,
+    executionContext: undefined,
+    executeAttempt(snapshot, command) {
+      return gameSimulation.commandExecutor.executeAttempt(snapshot, command, undefined);
+    },
+    normalizeUnexpectedDispatchFault(_error, snapshot) {
+      return createE2eUnexpectedFaultAttemptV1(snapshot);
+    },
+    debug: Object.freeze({
+      validate(snapshot, command) {
+        return gameSimulation.debugCommandExecutor.validate(snapshot, command, undefined);
+      },
+      executeAttempt(snapshot, command) {
+        return gameSimulation.debugCommandExecutor.executeAttempt(snapshot, command, undefined);
+      },
+      normalizeUnexpectedFault(_error, snapshot) {
+        return createE2eUnexpectedFaultAttemptV1(snapshot);
+      },
+    } satisfies GameSessionDebugInputV1<E2eGameSimulationTypesV1>),
+    onAttempt(attempt) {
+      capturedAttempt = attempt;
+    },
+  });
+
+  return Object.freeze({
+    getCurrentSnapshot: isolated.session.getCurrentSnapshot,
+    async submit(loggedCommand: DeepReadonly<E2eReplayLoggedCommandV1>) {
+      capturedAttempt = null;
+      if (loggedCommand.source === "debug") {
+        const result = await isolated.debugControl.execute(loggedCommand.command, () => true);
+        if (result.kind !== "executed") {
+          throw new TypeError("E2E replay did not execute a DebugCommand entry");
+        }
+        return result.attempt;
+      }
+
+      const result = await isolated.session.dispatch(loggedCommand.command);
+      const finalizedAttempt = capturedAttempt;
+      if (result.kind !== "executed" || finalizedAttempt === null) {
+        throw new TypeError("E2E replay did not capture a finalized GameCommand attempt");
+      }
+      return finalizedAttempt;
+    },
+  });
+}
+
+function createE2eReplayInputV1(
+  resolved: E2eResolvedGameV1,
+  bundle: DeepReadonly<E2eDebugBundleV1>,
+): E2eReplayInputV1 {
+  return Object.freeze({
+    recordedIdentity: Object.freeze({
+      provenance: bundle.provenance,
+      ...(bundle.appBuildId === undefined ? {} : { appBuildId: bundle.appBuildId }),
+    }),
+    runtimeIdentity: Object.freeze({ provenance: resolved.provenance }),
+    replayBase: bundle.replayBase,
+    replayBaseStateDigest: bundle.replayBaseStateDigest,
+    commandLog: bundle.commandLog,
+    currentSnapshot: bundle.currentSnapshot,
+    currentStateDigest: bundle.currentStateDigest,
+    projectStableRejection(rejection: DeepReadonly<E2eRejectionReasonV1>) {
+      return Object.freeze({ code: rejection.code });
+    },
+    projectStableFault(fault: DeepReadonly<E2eGameplayFaultV1>) {
+      return Object.freeze({ code: fault.code });
+    },
+    createDriver(base: DeepReadonly<E2eGameSnapshotV1>) {
+      return createE2eReplayDriverV1(resolved.gameSimulation, base);
+    },
+  });
+}
+
 const noValidationCodesV1 = Object.freeze([]) as readonly string[];
 const e2eFlowNodeReferencesV1 = Object.freeze(
   e2eStateContractManifestV1.stableReferenceSets.find(
@@ -700,9 +991,18 @@ function validateE2eInvariantsV1(
     : Object.freeze(violations.map(({ code }) => code));
 }
 
+type E2eToolingModuleV1 = {
+  readonly e2eToolingEntryV1: typeof import("../tooling.js").e2eToolingEntryV1;
+};
+
+type E2eToolingLoaderV1 = (
+  specifier: "@project-tavern/story-e2e/tooling",
+) => Promise<E2eToolingModuleV1>;
+
 export async function createE2eGameRuntimeV1(input: {
   readonly resolved: E2eResolvedGameV1;
   readonly host: GameHostV1;
+  readonly loadTooling?: E2eToolingLoaderV1;
 }): Promise<E2eGameApplicationPortV1> {
   return createGameRuntimeV1({
     host: input.host,
@@ -713,16 +1013,44 @@ export async function createE2eGameRuntimeV1(input: {
       reportObserverFailure,
     }) {
       const gameSimulation = input.resolved.gameSimulation;
+      let latestFailure: E2eDebugFailureV1 | undefined;
+      let pendingGameCommandForFailure: DeepReadonly<E2eGameCommandV1> | undefined;
       const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
       const created = createGameSessionV1<E2eGameSimulationTypesV1>({
         initialSnapshot: createE2eInitialSnapshotV1(gameSimulation, bootstrap),
         commandSchema: gameSimulation.commandSchema,
         executionContext: undefined,
         executeAttempt(snapshot, command) {
+          pendingGameCommandForFailure = command;
           return gameSimulation.commandExecutor.executeAttempt(snapshot, command, undefined);
         },
         normalizeUnexpectedDispatchFault(_error, snapshot) {
           return createE2eUnexpectedFaultAttemptV1(snapshot);
+        },
+        debug: Object.freeze({
+          validate(snapshot, command) {
+            return gameSimulation.debugCommandExecutor.validate(snapshot, command, undefined);
+          },
+          executeAttempt(snapshot, command) {
+            return gameSimulation.debugCommandExecutor.executeAttempt(snapshot, command, undefined);
+          },
+          normalizeUnexpectedFault(_error, snapshot) {
+            return createE2eUnexpectedFaultAttemptV1(snapshot);
+          },
+        } satisfies GameSessionDebugInputV1<E2eGameSimulationTypesV1>),
+        onAttempt(attempt) {
+          const gameCommand = pendingGameCommandForFailure;
+          pendingGameCommandForFailure = undefined;
+          if (gameCommand === undefined || attempt.result.kind !== "faulted") return;
+          latestFailure = Object.freeze({
+            command: Object.freeze({ source: "game" as const, command: gameCommand }),
+            fault: attempt.result.fault,
+            attemptedDraws: attempt.diagnostics.attemptedDraws,
+            ...(attempt.diagnostics.candidateRngAfter === undefined
+              ? {}
+              : { candidateRngAfter: attempt.diagnostics.candidateRngAfter }),
+            candidateSnapshot: attempt.result.snapshot,
+          });
         },
         onObserverFailure: reportObserverFailure,
       });
@@ -774,18 +1102,20 @@ export async function createE2eGameRuntimeV1(input: {
           (snapshot) => persistenceService.establishAnchor(snapshot, Object.freeze([])),
         );
 
-      const debugTools = createCapabilityDisabledDebugToolsPortV1<
-        E2eDebugCommandV1,
-        never,
-        string,
-        never,
-        never,
-        never,
-        never,
-        never,
-        never
-      >();
       const debugBundleCodec = createE2eDebugBundleCodecV1(gameSimulation.stateSchema);
+      const getDiagnosticSummary = (): E2eDiagnosticSummaryV1 => {
+        const commandFaults = created.commandLog
+          .entries()
+          .flatMap(({ outcome }) => (outcome.kind === "faulted" ? [outcome.fault.code] : []));
+        const recentErrorCodes: readonly E2eDiagnosticCodeV1[] = Object.freeze(
+          [...commandFaults, ...runtimeFailures.entries().map(({ code }) => code)].slice(-50),
+        );
+        return Object.freeze({
+          invariantCodes: Object.freeze([]),
+          recentErrorCodes,
+          hmrInvalidated: created.session.getStatus() === "hmr_invalidated",
+        });
+      };
       const diagnostics = createGameDiagnosticsServiceV1({
         codec: debugBundleCodec,
         provenance: input.resolved.provenance,
@@ -798,25 +1128,254 @@ export async function createE2eGameRuntimeV1(input: {
             replayBaseStateDigest: created.commandLog.replayBaseStateDigest(),
             commandLog: created.commandLog.entries(),
           }),
-        getDiagnostics: () => {
-          const commandFaults = created.commandLog
-            .entries()
-            .flatMap(({ outcome }) => (outcome.kind === "faulted" ? [outcome.fault.code] : []));
-          const recentErrorCodes = Object.freeze(
-            [...commandFaults, ...runtimeFailures.entries().map(({ code }) => code)].slice(-50),
-          );
-          return Object.freeze({
-            invariantCodes: Object.freeze([]),
-            recentErrorCodes,
-            hmrInvalidated: created.session.getStatus() === "hmr_invalidated",
-          });
-        },
+        getDiagnostics: getDiagnosticSummary,
         getRuntimeFailures: () => runtimeFailures.entries(),
-        getFailure: () => undefined,
+        getFailure: () => latestFailure,
         scrubFailure: (failure) => failure,
         getUiContext: () => undefined,
         metadataClock: input.host.metadataClock,
         exportFilename: "project-tavern-e2e.debug-bundle.json",
+      });
+
+      const loadTooling: E2eToolingLoaderV1 =
+        input.loadTooling ?? (async () => await import("@project-tavern/story-e2e/tooling"));
+      let fixtureResolverPromise: Promise<E2eFixtureResolverV1> | undefined;
+      const getFixtureResolver = (): Promise<E2eFixtureResolverV1> => {
+        fixtureResolverPromise ??= loadTooling("@project-tavern/story-e2e/tooling").then(
+          ({ e2eToolingEntryV1 }) => {
+            const support = e2eToolingEntryV1.defineToolingSupport();
+            return support.createFixtureResolver(gameSimulation, e2eToolingEntryV1);
+          },
+        );
+        return fixtureResolverPromise;
+      };
+
+      const publicUnexpectedFault = Object.freeze({ code: "e2e.runtime.unexpected" as const });
+      const mapUnavailableDebugResult = (): E2eDebugCommandResultV1 =>
+        Object.freeze({ kind: "faulted" as const, fault: publicUnexpectedFault });
+      const mapUnavailableAnchorResult = (): E2eDebugAnchorResultV1 =>
+        Object.freeze({ kind: "faulted" as const, fault: publicUnexpectedFault });
+      const rememberDebugCommandFailure = (
+        command: DeepReadonly<E2eDebugCommandV1>,
+        attempt: DeepReadonly<E2eFinalizedAttemptV1>,
+      ): void => {
+        if (attempt.result.kind !== "faulted") return;
+        latestFailure = Object.freeze({
+          command: Object.freeze({ source: "debug" as const, command }),
+          fault: attempt.result.fault,
+          attemptedDraws: attempt.diagnostics.attemptedDraws,
+          ...(attempt.diagnostics.candidateRngAfter === undefined
+            ? {}
+            : { candidateRngAfter: attempt.diagnostics.candidateRngAfter }),
+          candidateSnapshot: attempt.result.snapshot,
+        });
+      };
+
+      const replayDebugBundle = async (
+        bytes: Uint8Array,
+        mode: "authoritative" | "best_effort",
+      ): Promise<E2eDebugReplayResultV1> => {
+        const decoded = decodeDebugBundleV1(bytes, debugBundleCodec);
+        if (decoded.kind === "rejected") return decoded;
+        const replayInput = createE2eReplayInputV1(input.resolved, decoded.bundle);
+        const comparison =
+          mode === "authoritative"
+            ? await replayAuthoritativelyV1(replayInput)
+            : await inspectReplayBestEffortV1(replayInput);
+        return Object.freeze({ kind: "replayed" as const, comparison });
+      };
+
+      const debugTools = createDebugToolsPortV1<
+        E2eDebugCommandV1,
+        E2eDebugCommandResultV1,
+        E2eFixtureIdV1,
+        E2eDebugAnchorResultV1,
+        DebugBundleDecodeResultV1<E2eDebugBundleV1>,
+        E2eDebugReplayResultV1,
+        E2eDebugReplayResultV1,
+        E2eDiagnosticQueryV1,
+        E2eDiagnosticQueryResultV1
+      >({
+        capabilities: capabilities.state,
+        debugCommandSchema: gameSimulation.debugCommandSchema,
+        debugCommandSchemaFailure: () =>
+          Object.freeze({
+            kind: "validation_failed" as const,
+            error: Object.freeze({ code: "debug.command_schema_invalid" as const }),
+          }),
+        async listFixtures() {
+          return (await getFixtureResolver()).listFixtureIds();
+        },
+        async executeDebugCommand(command, isStillEnabled) {
+          const result = await created.debugControl.execute(command, isStillEnabled);
+          if (result.kind === "capability_disabled") return result;
+          if (result.kind === "not_executed") return mapUnavailableDebugResult();
+          if (result.kind === "validation_failed") {
+            const error = result.errors[0];
+            if (error === undefined || result.errors.length !== 1) {
+              return mapUnavailableDebugResult();
+            }
+            return Object.freeze({ kind: "validation_failed" as const, error });
+          }
+          const attempt = result.attempt;
+          if (attempt.result.kind === "committed") {
+            return Object.freeze({
+              kind: "committed" as const,
+              commandSequence: parsePositiveSafeInteger(attempt.result.snapshot.commandSequence),
+            });
+          }
+          if (attempt.result.kind === "faulted") {
+            rememberDebugCommandFailure(command, attempt);
+            return Object.freeze({ kind: "faulted" as const, fault: attempt.result.fault });
+          }
+          return mapUnavailableDebugResult();
+        },
+        async anchorFixture(fixtureId, isStillEnabled) {
+          let resolver: E2eFixtureResolverV1 | undefined;
+          let toolingLoadFailed = false;
+          try {
+            resolver = await getFixtureResolver();
+          } catch {
+            toolingLoadFailed = true;
+          }
+          const anchored = await created.debugControl.anchorReplacement<E2eDebugAnchorResultV1>(
+            Object.freeze({ kind: "fixture" as const, fixtureId }),
+            async () => {
+              if (toolingLoadFailed || resolver === undefined) {
+                throw new TypeError("E2E tooling resolution failed");
+              }
+              const resolution = await resolver.resolveFixture(fixtureId);
+              if (resolution.kind === "unknown_reference") {
+                return Object.freeze({
+                  kind: "preserve" as const,
+                  result: Object.freeze({
+                    kind: "validation_failed" as const,
+                    error: Object.freeze({
+                      code: "debug.unknown_reference" as const,
+                      commandKind: "debug.fixture.load" as const,
+                      reference: Object.freeze({
+                        kind: "fixture" as const,
+                        fixtureId: resolution.fixtureId,
+                      }),
+                    }),
+                  }),
+                });
+              }
+              if (
+                validateE2eReferencesV1(resolution.snapshot.state).length !== 0 ||
+                validateE2eInvariantsV1(
+                  gameSimulation,
+                  input.resolved.simulationProgram.values.terminalThreshold,
+                  resolution.snapshot.state,
+                ).length !== 0
+              ) {
+                throw new TypeError("E2E fixture Snapshot failed full validation");
+              }
+              return Object.freeze({
+                kind: "replace" as const,
+                snapshot: resolution.snapshot as E2eGameSnapshotV1,
+                result: Object.freeze({
+                  kind: "anchor_established" as const,
+                  commandSequence: resolution.snapshot.commandSequence,
+                }),
+              });
+            },
+            isStillEnabled,
+            () => {
+              latestFailure = Object.freeze({
+                command: Object.freeze({
+                  source: "debug_anchor" as const,
+                  command: Object.freeze({ kind: "debug.fixture.load" as const, fixtureId }),
+                }),
+                fault: publicUnexpectedFault,
+                attemptedDraws: Object.freeze([]),
+              });
+              return Object.freeze({ kind: "faulted" as const, fault: publicUnexpectedFault });
+            },
+            (snapshot) => persistenceService.establishAnchor(snapshot, Object.freeze([])),
+          );
+          return anchored.kind === "not_executed" ? mapUnavailableAnchorResult() : anchored;
+        },
+        inspectDebugBundle(bytes) {
+          return decodeDebugBundleV1(bytes, debugBundleCodec);
+        },
+        async anchorDebugBundle(bytes, isStillEnabled) {
+          let adoptedLineage: readonly DeepReadonly<SimulationAdoptionV1>[] | undefined;
+          const anchored = await created.debugControl.anchorReplacement<E2eDebugAnchorResultV1>(
+            Object.freeze({ kind: "debug_bundle" as const }),
+            async () => {
+              const decoded = decodeDebugBundleV1(bytes, debugBundleCodec);
+              if (decoded.kind === "rejected") {
+                return Object.freeze({
+                  kind: "preserve" as const,
+                  result: Object.freeze({
+                    kind: "validation_failed" as const,
+                    error: Object.freeze({
+                      code: "debug.bundle_invalid" as const,
+                      rejection: decoded.code,
+                    }),
+                  }),
+                });
+              }
+              const comparison = await replayAuthoritativelyV1(
+                createE2eReplayInputV1(input.resolved, decoded.bundle),
+              );
+              if (!comparison.authoritative || !comparison.identityMatch || !comparison.matches) {
+                return Object.freeze({
+                  kind: "preserve" as const,
+                  result: Object.freeze({
+                    kind: "validation_failed" as const,
+                    error: Object.freeze({ code: "debug.bundle_replay_mismatch" as const }),
+                  }),
+                });
+              }
+              adoptedLineage = decoded.bundle.simulationLineage;
+              return Object.freeze({
+                kind: "replace" as const,
+                snapshot: decoded.bundle.currentSnapshot as E2eGameSnapshotV1,
+                result: Object.freeze({
+                  kind: "anchor_established" as const,
+                  commandSequence: decoded.bundle.currentSnapshot.commandSequence,
+                }),
+              });
+            },
+            isStillEnabled,
+            () => Object.freeze({ kind: "faulted" as const, fault: publicUnexpectedFault }),
+            (snapshot) => {
+              if (adoptedLineage === undefined) {
+                throw new TypeError("missing adopted Debug Bundle lineage");
+              }
+              persistenceService.establishAnchor(snapshot, adoptedLineage);
+            },
+          );
+          return anchored.kind === "not_executed" ? mapUnavailableAnchorResult() : anchored;
+        },
+        replayAuthoritatively(bytes) {
+          return replayDebugBundle(bytes, "authoritative");
+        },
+        inspectReplayBestEffort(bytes) {
+          return replayDebugBundle(bytes, "best_effort");
+        },
+        async queryDiagnostics(query) {
+          try {
+            const fields = requireExactObjectV1(query, ["kind"], "E2E diagnostic query");
+            if (fields.kind !== "summary") throw new TypeError("invalid E2E diagnostic query");
+          } catch {
+            return Object.freeze({
+              kind: "validation_failed" as const,
+              code: "debug.diagnostics_query_invalid" as const,
+            });
+          }
+          return await created.runtimeControl.readAtQueueFront(() =>
+            Object.freeze({
+              kind: "summary" as const,
+              diagnostics: getDiagnosticSummary(),
+              commandLogEntryCount: parseNonNegativeSafeInteger(
+                created.commandLog.entries().length,
+              ),
+            }),
+          );
+        },
       });
       return createGameApplicationV1({
         semantic,

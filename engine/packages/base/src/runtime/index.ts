@@ -10,6 +10,8 @@ export type {
   CommandLogV1,
   FinalizedCommandAttemptV1,
 } from "./diagnostics/command-log.js";
+export { createDebugToolsPortV1 } from "./diagnostics/debug-tools.js";
+export type { CreateDebugToolsPortInputV1 } from "./diagnostics/debug-tools.js";
 export {
   createGameDiagnosticsServiceV1,
   decodeDebugBundleV1,
@@ -69,3 +71,9 @@ export type {
   GameSessionRuntimeControlV1,
   GameSessionV1,
 } from "./session/index.js";
+export type {
+  GameSessionDebugAnchorV1,
+  GameSessionDebugCommandResultV1,
+  GameSessionDebugControlV1,
+  GameSessionDebugInputV1,
+} from "./session/game-session.js";

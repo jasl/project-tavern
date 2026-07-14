@@ -176,6 +176,284 @@ describe("E2e Game Application runtime", () => {
     expect(application.diagnostics).not.toHaveProperty("anchorDebugBundle");
   });
 
+  it("loads only the fixed tooling export after DebugTools is enabled", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const loadTooling = vi.fn(async (specifier: unknown) => {
+      expect(specifier).toBe("@project-tavern/story-e2e/tooling");
+      return Object.freeze({ e2eToolingEntryV1 });
+    });
+    const input = {
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000097"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+      loadTooling,
+    };
+    const application = await createE2eGameRuntimeV1(input);
+
+    expect(loadTooling).not.toHaveBeenCalled();
+    await expect(application.debugTools.listFixtures()).resolves.toEqual({
+      kind: "capability_disabled",
+    });
+    expect(loadTooling).not.toHaveBeenCalled();
+
+    await application.capabilities.setEnabled("debug_tools", true);
+    await expect(application.debugTools.listFixtures()).resolves.toEqual({
+      kind: "listed",
+      fixtureIds: e2eFixtureIdsV1,
+    });
+    await expect(application.debugTools.listFixtures()).resolves.toEqual({
+      kind: "listed",
+      fixtureIds: e2eFixtureIdsV1,
+    });
+    expect(loadTooling).toHaveBeenCalledTimes(1);
+    expect(loadTooling).toHaveBeenCalledWith("@project-tavern/story-e2e/tooling");
+  });
+
+  it("executes parsed DebugCommands without tooling import and finalizes integrity once", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const loadTooling = vi.fn(async () => Object.freeze({ e2eToolingEntryV1 }));
+    const input = {
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000096"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+      loadTooling,
+    };
+    const application = await createE2eGameRuntimeV1(input);
+    await application.capabilities.setEnabled("debug_tools", true);
+    await expect(
+      application.debugTools.executeDebugCommand({
+        kind: "debug.e2e.counter.add",
+        amount: parsePositiveSafeInteger(5),
+      }),
+    ).resolves.toEqual({ kind: "capability_disabled" });
+
+    await application.capabilities.setEnabled("cheats", true);
+    await expect(
+      application.debugTools.executeDebugCommand({
+        kind: "debug.e2e.counter.add",
+        amount: parsePositiveSafeInteger(5),
+      }),
+    ).resolves.toEqual({ kind: "committed", commandSequence: 1 });
+    expect(application.semantic.observe().game.counterLabel).toBe("计数 5");
+    expect(loadTooling).not.toHaveBeenCalled();
+
+    const firstBundle = JSON.parse(
+      new TextDecoder().decode((await application.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly commandLog: readonly {
+        readonly source: string;
+        readonly postStateDigest: string;
+      }[];
+      readonly currentSnapshot: E2eGameSnapshotV1;
+      readonly currentStateDigest: string;
+    };
+    expect(firstBundle.currentSnapshot.integrity).toEqual({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 1,
+      reasons: [
+        {
+          kind: "debug_command",
+          commandKind: "debug.e2e.counter.add",
+          sequence: 1,
+        },
+      ],
+    });
+    expect(firstBundle.commandLog).toHaveLength(1);
+    expect(firstBundle.commandLog[0]).toMatchObject({
+      source: "debug",
+      postStateDigest: firstBundle.currentStateDigest,
+    });
+
+    await expect(
+      application.debugTools.executeDebugCommand({
+        kind: "debug.e2e.test.validation_failed",
+      }),
+    ).resolves.toEqual({
+      kind: "validation_failed",
+      error: {
+        code: "debug.e2e.test_validation_failed",
+        commandKind: "debug.e2e.test.validation_failed",
+      },
+    });
+    const secondBundle = JSON.parse(
+      new TextDecoder().decode((await application.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly commandLog: readonly unknown[];
+      readonly currentSnapshot: E2eGameSnapshotV1;
+    };
+    expect(secondBundle.commandLog).toHaveLength(1);
+    expect(secondBundle.currentSnapshot.integrity.mutationCount).toBe(1);
+  });
+
+  it("records a fault without marking integrity and recovers through a fixture anchor", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000095"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+    });
+    await application.capabilities.setEnabled("debug_tools", true);
+    await application.capabilities.setEnabled("cheats", true);
+
+    await expect(
+      application.debugTools.executeDebugCommand({ kind: "debug.e2e.test.fault" }),
+    ).resolves.toEqual({ kind: "faulted", fault: { code: "e2e.test.fault" } });
+    expect(application.semantic.observe().status).toBe("fault_paused");
+
+    const faultBundle = JSON.parse(
+      new TextDecoder().decode((await application.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly commandLog: readonly unknown[];
+      readonly currentSnapshot: E2eGameSnapshotV1;
+      readonly failure: unknown;
+    };
+    expect(faultBundle.currentSnapshot.integrity).toEqual({
+      mode: "normal",
+      mutationCount: 0,
+      firstMutationSequence: null,
+      reasons: [],
+    });
+    expect(faultBundle.commandLog).toHaveLength(1);
+    expect(faultBundle.failure).toMatchObject({
+      command: { source: "debug", command: { kind: "debug.e2e.test.fault" } },
+      fault: { code: "e2e.test.fault" },
+    });
+
+    await expect(
+      application.debugTools.anchorFixture("fixture.other.story" as never),
+    ).resolves.toEqual({
+      kind: "validation_failed",
+      error: {
+        code: "debug.unknown_reference",
+        commandKind: "debug.fixture.load",
+        reference: { kind: "fixture", fixtureId: "fixture.other.story" },
+      },
+    });
+    expect(application.semantic.observe().status).toBe("fault_paused");
+
+    await expect(
+      application.debugTools.anchorFixture("fixture.e2e.choice-right-blocked"),
+    ).resolves.toEqual({ kind: "anchor_established", commandSequence: 2 });
+    expect(application.semantic.observe()).toMatchObject({
+      status: "ready",
+      game: { counterLabel: "计数 2" },
+    });
+    const anchoredBundle = JSON.parse(
+      new TextDecoder().decode((await application.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly commandLog: readonly unknown[];
+      readonly replayBase: E2eGameSnapshotV1;
+      readonly currentSnapshot: E2eGameSnapshotV1;
+    };
+    expect(anchoredBundle.commandLog).toEqual([]);
+    expect(anchoredBundle.replayBase).toEqual(anchoredBundle.currentSnapshot);
+    expect(anchoredBundle.currentSnapshot.integrity).toEqual({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 2,
+      reasons: [
+        {
+          kind: "fixture_anchor",
+          fixtureId: "fixture.e2e.choice-right-blocked",
+          sequence: 2,
+        },
+      ],
+    });
+  });
+
+  it("inspects, replays, queries, and anchors one exact mixed Debug Bundle", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const createApplication = async (uuid: string) => {
+      const application = await createE2eGameRuntimeV1({
+        resolved,
+        host: createWebHostV1({
+          records: createMemoryHostRecordStoreV1(),
+          seeds: [0x0002_3049],
+          uuids: [uuid],
+          now: () => "2026-07-14T03:04:05.000Z",
+        }),
+      });
+      await application.capabilities.setEnabled("debug_tools", true);
+      await application.capabilities.setEnabled("cheats", true);
+      return application;
+    };
+    const source = await createApplication("00000000-0000-4000-8000-000000000094");
+    await expect(
+      source.debugTools.executeDebugCommand({
+        kind: "debug.e2e.counter.add",
+        amount: parsePositiveSafeInteger(5),
+      }),
+    ).resolves.toEqual({ kind: "committed", commandSequence: 1 });
+    const exported = await source.diagnostics.exportDebugBundle();
+
+    await expect(source.debugTools.inspectDebugBundle(exported.bytes)).resolves.toMatchObject({
+      kind: "decoded",
+      bundle: { commandLog: [{ source: "debug" }] },
+    });
+    await expect(source.debugTools.replayAuthoritatively(exported.bytes)).resolves.toEqual({
+      kind: "replayed",
+      comparison: {
+        authoritative: true,
+        identityMatch: true,
+        visualMatch: true,
+        matches: true,
+        executedEntries: 1,
+        mismatches: [],
+      },
+    });
+    await expect(source.debugTools.inspectReplayBestEffort(exported.bytes)).resolves.toMatchObject({
+      kind: "replayed",
+      comparison: { authoritative: false, identityMatch: true, matches: true },
+    });
+    await expect(source.debugTools.queryDiagnostics({ kind: "summary" })).resolves.toEqual({
+      kind: "summary",
+      diagnostics: {
+        invariantCodes: [],
+        recentErrorCodes: [],
+        hmrInvalidated: false,
+      },
+      commandLogEntryCount: 1,
+    });
+
+    const target = await createApplication("00000000-0000-4000-8000-000000000093");
+    await expect(target.debugTools.anchorDebugBundle(exported.bytes)).resolves.toEqual({
+      kind: "anchor_established",
+      commandSequence: 1,
+    });
+    expect(target.semantic.observe().game.counterLabel).toBe("计数 5");
+    const anchored = JSON.parse(
+      new TextDecoder().decode((await target.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly commandLog: readonly unknown[];
+      readonly replayBase: E2eGameSnapshotV1;
+      readonly currentSnapshot: E2eGameSnapshotV1;
+    };
+    expect(anchored.commandLog).toEqual([]);
+    expect(anchored.replayBase).toEqual(anchored.currentSnapshot);
+    expect(anchored.currentSnapshot.integrity).toEqual({
+      mode: "modified",
+      mutationCount: 2,
+      firstMutationSequence: 1,
+      reasons: [
+        { kind: "debug_command", commandKind: "debug.e2e.counter.add", sequence: 1 },
+        { kind: "debug_bundle_anchor", sequence: 1 },
+      ],
+    });
+  });
+
   it("admits contract-valid diagnostic arrays beyond obsolete local caps", async () => {
     const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
     const application = await createE2eGameRuntimeV1({

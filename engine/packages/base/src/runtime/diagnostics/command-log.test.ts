@@ -21,10 +21,18 @@ interface FixtureCommandV1 {
   readonly ordinal: PositiveSafeInteger;
 }
 
-interface FixtureLoggedCommandV1 {
-  readonly source: "game";
-  readonly command: FixtureCommandV1;
-}
+type FixtureLoggedCommandV1 =
+  | {
+      readonly source: "game";
+      readonly command: FixtureCommandV1;
+    }
+  | {
+      readonly source: "debug";
+      readonly command: {
+        readonly kind: "debug.fixture.command";
+        readonly ordinal: PositiveSafeInteger;
+      };
+    };
 
 interface FixtureFactV1 {
   readonly kind: "fixture.committed";
@@ -75,6 +83,16 @@ function parsedCommand(ordinal: number): FixtureLoggedCommandV1 {
     source: "game",
     command: Object.freeze({
       kind: "fixture.command",
+      ordinal: parsePositiveSafeInteger(ordinal),
+    }),
+  });
+}
+
+function parsedDebugCommand(ordinal: number): FixtureLoggedCommandV1 {
+  return Object.freeze({
+    source: "debug",
+    command: Object.freeze({
+      kind: "debug.fixture.command",
       ordinal: parsePositiveSafeInteger(ordinal),
     }),
   });
@@ -290,6 +308,27 @@ describe("CommandLog", () => {
     ).toThrow("Debug CommandLog entries cannot be rejected");
     expect(log.replayBase()).toBe(replayBaseBefore);
     expect(log.entries()).toBe(entriesBefore);
+  });
+
+  it("retains parsed Debug commands with committed and faulted finalized attempts", () => {
+    const base = snapshotAtSequence(0);
+    const log = createFixtureLog(base);
+    const committed = finalizedAttempt(base, 1);
+    const committedEntry = log.append(parsedDebugCommand(1), committed);
+    const faulted = finalizedAttempt(committed.result.snapshot, 3);
+    const faultedEntry = log.append(parsedDebugCommand(2), faulted);
+
+    expect(committedEntry).toMatchObject({
+      source: "debug",
+      command: { kind: "debug.fixture.command", ordinal: 1 },
+      outcome: { kind: "committed" },
+    });
+    expect(faultedEntry).toMatchObject({
+      source: "debug",
+      command: { kind: "debug.fixture.command", ordinal: 2 },
+      outcome: { kind: "faulted" },
+    });
+    expect(log.entries()).toEqual([committedEntry, faultedEntry]);
   });
 
   it("prepares every throwing anchor value before committing the reset", () => {

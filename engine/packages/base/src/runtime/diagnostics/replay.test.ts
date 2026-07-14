@@ -14,6 +14,7 @@ import { digestCanonical } from "../../contracts/digest.js";
 import { digestBytes } from "../../contracts/digest.js";
 import { parseNonNegativeSafeInteger, parsePositiveSafeInteger } from "../../contracts/values.js";
 import type { FinalizedCommandAttemptV1 } from "./command-log.js";
+import { markRunModifiedV1 } from "../session/run-integrity.js";
 import { inspectReplayBestEffortV1, replayAuthoritativelyV1 } from "./replay.js";
 import type {
   ReplayCommandLogEntryV1,
@@ -35,6 +36,11 @@ type SyntheticCommandV1 =
   | { readonly kind: "reject"; readonly code: string }
   | { readonly kind: "fault"; readonly code: string };
 
+type SyntheticDebugCommandV1 = {
+  readonly kind: "debug_add";
+  readonly amount: NonNegativeSafeInteger;
+};
+
 interface SyntheticFactV1 {
   readonly kind: "value.changed";
   readonly before: NonNegativeSafeInteger;
@@ -54,7 +60,9 @@ interface SyntheticFaultV1 {
   readonly stack: string;
 }
 
-type SyntheticLoggedCommandV1 = ReplayLoggedCommandV1<"game", SyntheticCommandV1>;
+type SyntheticLoggedCommandV1 =
+  | ReplayLoggedCommandV1<"game", SyntheticCommandV1>
+  | ReplayLoggedCommandV1<"debug", SyntheticDebugCommandV1>;
 
 type SyntheticAttemptV1 = CommandExecutionAttemptEnvelopeV1<
   SyntheticSnapshotV1,
@@ -183,6 +191,23 @@ function executeAttemptV1(
   logged: SyntheticLoggedCommandV1,
 ): SyntheticAttemptV1 {
   const rng = createTransactionalRngV1(snapshot.rng);
+  if (logged.source === "debug") {
+    const commandSequence = parseNonNegativeSafeInteger(snapshot.commandSequence + 1);
+    const afterValue = parseNonNegativeSafeInteger(snapshot.state.value + logged.command.amount);
+    const committed = snapshotV1(
+      afterValue,
+      commandSequence,
+      snapshot.rng,
+      markRunModifiedV1(snapshot.integrity, {
+        kind: "debug_command",
+        commandKind: logged.command.kind,
+        sequence: commandSequence,
+      }),
+    );
+    return commitAttemptV1(snapshot, committed, rng, [
+      Object.freeze({ kind: "value.changed", before: snapshot.state.value, after: afterValue }),
+    ]);
+  }
   rng.nextInt({ purpose: `check:replay.${logged.command.kind}`, exclusiveMax: 10 });
   if (logged.command.kind === "reject") {
     return rejectAttemptV1(snapshot, rng, [
@@ -250,23 +275,34 @@ function entryV1(
   const attempt = finalizedAttemptV1(before, logged);
   const after = attempt.result.snapshot;
   const candidateRngAfter = attempt.diagnostics.candidateRngAfter;
-  return Object.freeze({
-    entry: Object.freeze({
-      logOrdinal: parsePositiveSafeInteger(ordinal),
-      source: logged.source,
-      command: logged.command,
-      preStateDigest: stateDigestV1(before),
-      postStateDigest: stateDigestV1(after),
-      commandSequence: Object.freeze({
-        before: before.commandSequence,
-        after: after.commandSequence,
-      }),
-      committedRngBefore: attempt.diagnostics.committedRngBefore,
-      attemptedDraws: attempt.diagnostics.attemptedDraws,
-      ...(candidateRngAfter === undefined ? {} : { candidateRngAfter }),
-      committedRngAfter: attempt.diagnostics.committedRngAfter,
-      outcome: outcomeV1(attempt),
+  const entryBase = Object.freeze({
+    logOrdinal: parsePositiveSafeInteger(ordinal),
+    preStateDigest: stateDigestV1(before),
+    postStateDigest: stateDigestV1(after),
+    commandSequence: Object.freeze({
+      before: before.commandSequence,
+      after: after.commandSequence,
     }),
+    committedRngBefore: attempt.diagnostics.committedRngBefore,
+    attemptedDraws: attempt.diagnostics.attemptedDraws,
+    ...(candidateRngAfter === undefined ? {} : { candidateRngAfter }),
+    committedRngAfter: attempt.diagnostics.committedRngAfter,
+    outcome: outcomeV1(attempt),
+  });
+  const entry: SyntheticEntryV1 =
+    logged.source === "game"
+      ? Object.freeze({
+          ...entryBase,
+          source: "game" as const,
+          command: logged.command,
+        })
+      : Object.freeze({
+          ...entryBase,
+          source: "debug" as const,
+          command: logged.command,
+        });
+  return Object.freeze({
+    entry,
     after,
   });
 }
@@ -426,6 +462,57 @@ describe("authoritative replay", () => {
         (command) => Object.keys(command).toSorted().join() === "command,source",
       ),
     ).toBe(true);
+  });
+
+  it("routes Game and Debug log entries through one isolated driver and compares modified integrity", async () => {
+    const replayBase = snapshotV1(0, 0);
+    const game = Object.freeze({
+      source: "game" as const,
+      command: Object.freeze({
+        kind: "add" as const,
+        amount: parseNonNegativeSafeInteger(2),
+      }),
+    });
+    const debug = Object.freeze({
+      source: "debug" as const,
+      command: Object.freeze({
+        kind: "debug_add" as const,
+        amount: parseNonNegativeSafeInteger(3),
+      }),
+    });
+    const first = entryV1(1, replayBase, game);
+    const second = entryV1(2, first.after, debug);
+    const submitted: SyntheticLoggedCommandV1[] = [];
+    const provenance = provenanceV1();
+
+    await expect(
+      replayAuthoritativelyV1({
+        recordedIdentity: identityV1(provenance),
+        runtimeIdentity: identityV1(provenance),
+        replayBase,
+        replayBaseStateDigest: stateDigestV1(replayBase),
+        commandLog: Object.freeze([first.entry, second.entry]),
+        currentSnapshot: second.after,
+        currentStateDigest: stateDigestV1(second.after),
+        projectStableRejection: ({ code, slot }: SyntheticRejectionV1) =>
+          Object.freeze({ code, slot }),
+        projectStableFault: ({ code }: SyntheticFaultV1) => Object.freeze({ code }),
+        createDriver: (base: SyntheticSnapshotV1) => createDriverV1(base, submitted),
+      }),
+    ).resolves.toEqual({
+      authoritative: true,
+      identityMatch: true,
+      visualMatch: true,
+      matches: true,
+      executedEntries: 2,
+      mismatches: [],
+    });
+    expect(submitted.map(({ source }) => source)).toEqual(["game", "debug"]);
+    expect(second.after.integrity).toMatchObject({
+      mode: "modified",
+      mutationCount: 1,
+      reasons: [{ kind: "debug_command", commandKind: "debug_add", sequence: 2 }],
+    });
   });
 
   it("ignores rejection message and fault message/stack drift outside stable projections", async () => {

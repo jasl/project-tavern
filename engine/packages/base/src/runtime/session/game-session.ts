@@ -4,19 +4,28 @@ import type {
   CommandExecutionResultEnvelopeV1,
 } from "../../contracts/execution.js";
 import { digestCanonical } from "../../contracts/digest.js";
-import type { GameSimulationTypeMapV1 } from "../../contracts/gameplay-module.js";
+import type {
+  GameDebugCommandValidationResultV1,
+  GameSimulationTypeMapV1,
+} from "../../contracts/gameplay-module.js";
 import type {
   RuntimeSessionStatusV1,
   SessionDispatchOperationResultV1,
 } from "../../contracts/presentation.js";
-import type { DeepReadonly, RuntimeSchemaV1 } from "../../contracts/values.js";
+import type {
+  DeepReadonly,
+  NonNegativeSafeInteger,
+  RuntimeSchemaV1,
+} from "../../contracts/values.js";
+import type { RunIntegrityReasonV1 } from "../../contracts/snapshot.js";
 import { runIntegrityV1Schema } from "../../contracts/snapshot.js";
 import {
   createCommandLogV1,
   type CommandLogV1,
   type FinalizedCommandAttemptV1,
 } from "../diagnostics/command-log.js";
-import { finalizeSnapshotIntegrityV1 } from "./run-integrity.js";
+import type { IntegrityDirectiveV1 } from "./run-integrity.js";
+import { finalizeSnapshotIntegrityV1, markRunModifiedV1 } from "./run-integrity.js";
 
 export interface GameSessionV1<TTypes extends GameSimulationTypeMapV1> {
   getStatus(): RuntimeSessionStatusV1;
@@ -89,15 +98,82 @@ type LoggedGameCommandFor<TTypes extends GameSimulationTypeMapV1> = {
   readonly command: TTypes["command"];
 };
 
+type LoggedDebugCommandFor<TTypes extends GameSimulationTypeMapV1> = {
+  readonly source: "debug";
+  readonly command: TTypes["debugCommand"];
+};
+
+type LoggedCommandFor<TTypes extends GameSimulationTypeMapV1> =
+  LoggedGameCommandFor<TTypes> | LoggedDebugCommandFor<TTypes>;
+
 type CommandLogFor<TTypes extends GameSimulationTypeMapV1> = CommandLogV1<
   TTypes["snapshot"],
-  LoggedGameCommandFor<TTypes>,
+  LoggedCommandFor<TTypes>,
   TTypes["fact"],
   TTypes["rejection"],
   TTypes["fault"],
   TTypes["rngState"],
   TTypes["rngDrawTrace"]
 >;
+
+export interface GameSessionDebugInputV1<TTypes extends GameSimulationTypeMapV1> {
+  validate(
+    snapshot: DeepReadonly<TTypes["snapshot"]>,
+    command: DeepReadonly<TTypes["debugCommand"]>,
+    context: TTypes["executionContext"],
+  ): GameDebugCommandValidationResultV1<TTypes["debugValidationError"]>;
+  executeAttempt(
+    snapshot: DeepReadonly<TTypes["snapshot"]>,
+    command: DeepReadonly<TTypes["debugCommand"]>,
+    context: TTypes["executionContext"],
+  ): AttemptFor<TTypes> | PromiseLike<AttemptFor<TTypes>>;
+  normalizeUnexpectedFault(
+    error: unknown,
+    snapshot: DeepReadonly<TTypes["snapshot"]>,
+  ): AttemptFor<TTypes>;
+}
+
+export type GameSessionDebugCommandResultV1<TTypes extends GameSimulationTypeMapV1> =
+  | { readonly kind: "capability_disabled" }
+  | {
+      readonly kind: "not_executed";
+      readonly code: "session_unavailable" | "fault_paused" | "hmr_invalidated";
+    }
+  | {
+      readonly kind: "validation_failed";
+      readonly errors: readonly DeepReadonly<TTypes["debugValidationError"]>[];
+    }
+  | { readonly kind: "executed"; readonly attempt: FinalizedAttemptFor<TTypes> };
+
+export type GameSessionDebugAnchorV1 =
+  { readonly kind: "fixture"; readonly fixtureId: string } | { readonly kind: "debug_bundle" };
+
+type DebugAnchorOutcomeV1<TSnapshot, TResult> =
+  | { readonly kind: "preserve"; readonly result: TResult }
+  | { readonly kind: "replace"; readonly snapshot: TSnapshot; readonly result: TResult };
+
+export interface GameSessionDebugControlV1<TTypes extends GameSimulationTypeMapV1> {
+  execute(
+    command: DeepReadonly<TTypes["debugCommand"]>,
+    isCapabilityEnabled: () => boolean,
+  ): Promise<GameSessionDebugCommandResultV1<TTypes>>;
+  anchorReplacement<TResult>(
+    anchor: GameSessionDebugAnchorV1,
+    operation: (
+      current: DeepReadonly<TTypes["snapshot"]>,
+    ) => Promise<DebugAnchorOutcomeV1<TTypes["snapshot"], TResult>>,
+    isCapabilityEnabled: () => boolean,
+    normalizeUnexpectedFault: (error: unknown) => TResult,
+    prepareReplacementCommit?: (snapshot: DeepReadonly<TTypes["snapshot"]>) => void,
+  ): Promise<
+    | TResult
+    | { readonly kind: "capability_disabled" }
+    | {
+        readonly kind: "not_executed";
+        readonly code: "session_unavailable" | "hmr_invalidated";
+      }
+  >;
+}
 
 type CommandLogViewFor<TTypes extends GameSimulationTypeMapV1> = Pick<
   CommandLogFor<TTypes>,
@@ -118,6 +194,7 @@ export interface GameSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
     error: unknown,
     snapshot: DeepReadonly<TTypes["snapshot"]>,
   ): AttemptFor<TTypes>;
+  readonly debug?: GameSessionDebugInputV1<TTypes>;
   onAttempt?(attempt: FinalizedAttemptFor<TTypes>): void;
   onObserverFailure?(error: unknown): void;
 }
@@ -129,6 +206,7 @@ interface GameSessionPrivateControlV1 {
 export interface GameSessionCompositionV1<TTypes extends GameSimulationTypeMapV1> {
   readonly session: GameSessionV1<TTypes>;
   readonly runtimeControl: GameSessionRuntimeControlV1<TTypes["snapshot"]>;
+  readonly debugControl: GameSessionDebugControlV1<TTypes>;
   readonly commandLog: CommandLogViewFor<TTypes>;
 }
 
@@ -160,11 +238,12 @@ function isThenable(value: unknown): boolean {
 function finalizeCommandAttemptV1<TTypes extends GameSimulationTypeMapV1>(
   before: DeepReadonly<TTypes["snapshot"]>,
   candidate: AttemptFor<TTypes>,
+  integrityDirective: IntegrityDirectiveV1 = { kind: "preserve_current" },
 ): FinalizedAttemptFor<TTypes> {
   const finalizedSnapshot = finalizeSnapshotIntegrityV1<TTypes["snapshot"]>(
     before,
     candidate.result.snapshot,
-    { kind: "preserve_current" },
+    integrityDirective,
   );
   if (candidate.result.kind !== "committed" && finalizedSnapshot !== before) {
     throw new TypeError("Non-committed command attempt changed the Snapshot");
@@ -198,6 +277,59 @@ function finalizeCommandAttemptV1<TTypes extends GameSimulationTypeMapV1>(
   }) as FinalizedAttemptFor<TTypes>;
 }
 
+const capabilityDisabledV1 = Object.freeze({ kind: "capability_disabled" as const });
+const sessionUnavailableV1 = Object.freeze({
+  kind: "not_executed" as const,
+  code: "session_unavailable" as const,
+});
+const faultPausedV1 = Object.freeze({
+  kind: "not_executed" as const,
+  code: "fault_paused" as const,
+});
+const hmrInvalidatedV1 = Object.freeze({
+  kind: "not_executed" as const,
+  code: "hmr_invalidated" as const,
+});
+
+function hasCapabilityV1(isCapabilityEnabled: () => boolean): boolean {
+  try {
+    return isCapabilityEnabled();
+  } catch {
+    return false;
+  }
+}
+
+function debugCommandKindV1(command: unknown): string {
+  if (command === null || typeof command !== "object" || Array.isArray(command)) {
+    throw new TypeError("DebugCommand must be an object");
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(command, "kind");
+  if (
+    descriptor === undefined ||
+    descriptor.get !== undefined ||
+    descriptor.set !== undefined ||
+    typeof descriptor.value !== "string"
+  ) {
+    throw new TypeError("DebugCommand kind must be an own data string");
+  }
+  return descriptor.value;
+}
+
+function debugAnchorReasonV1<
+  TSnapshot extends { readonly commandSequence: NonNegativeSafeInteger },
+>(anchor: GameSessionDebugAnchorV1, snapshot: TSnapshot): RunIntegrityReasonV1 {
+  return anchor.kind === "fixture"
+    ? Object.freeze({
+        kind: "fixture_anchor" as const,
+        fixtureId: anchor.fixtureId,
+        sequence: snapshot.commandSequence,
+      })
+    : Object.freeze({
+        kind: "debug_bundle_anchor" as const,
+        sequence: snapshot.commandSequence,
+      });
+}
+
 function createInternal<TTypes extends GameSimulationTypeMapV1>(
   input: GameSessionInputV1<TTypes>,
 ): InternalCompositionV1<TTypes> {
@@ -210,7 +342,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
   let tail: Promise<void> = Promise.resolve();
   const commandLog = createCommandLogV1<
     TTypes["snapshot"],
-    LoggedGameCommandFor<TTypes>,
+    LoggedCommandFor<TTypes>,
     TTypes["fact"],
     TTypes["rejection"],
     TTypes["fault"],
@@ -341,6 +473,158 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     },
   });
 
+  const debugControl: GameSessionDebugControlV1<TTypes> = Object.freeze({
+    execute(command: DeepReadonly<TTypes["debugCommand"]>, isCapabilityEnabled: () => boolean) {
+      return enqueue(async () => {
+        if (!hasCapabilityV1(isCapabilityEnabled)) return capabilityDisabledV1;
+        if (input.available === false) return sessionUnavailableV1;
+        if (stableStatus === "fault_paused") return faultPausedV1;
+        if (stableStatus === "hmr_invalidated") return hmrInvalidatedV1;
+        if (input.debug === undefined) return sessionUnavailableV1;
+
+        const debug = input.debug;
+        const before = snapshot as DeepReadonly<TTypes["snapshot"]>;
+        const normalizeFault = (error: unknown): AttemptFor<TTypes> => {
+          const normalized = debug.normalizeUnexpectedFault(error, before);
+          if (isThenable(normalized)) {
+            throw new TypeError("Debug fault normalizer returned thenable");
+          }
+          if (normalized.result.kind !== "faulted") {
+            throw new TypeError("Debug fault normalizer must return a faulted attempt");
+          }
+          return normalized;
+        };
+
+        let candidate: AttemptFor<TTypes>;
+        try {
+          const validation = debug.validate(before, command, input.executionContext);
+          if (isThenable(validation)) {
+            throw new TypeError("DebugCommand validation returned thenable");
+          }
+          if (validation.kind === "validation_failed") {
+            if (!Array.isArray(validation.errors) || validation.errors.length === 0) {
+              throw new TypeError("DebugCommand validation failure must contain errors");
+            }
+            return Object.freeze({
+              kind: "validation_failed" as const,
+              errors: Object.freeze([...validation.errors]),
+            });
+          }
+          if (validation.kind !== "allowed") {
+            throw new TypeError("DebugCommand validation returned an invalid result");
+          }
+          candidate = await debug.executeAttempt(before, command, input.executionContext);
+          if (candidate.result.kind === "rejected") {
+            throw new TypeError("An admitted DebugCommand cannot be rejected");
+          }
+        } catch (error) {
+          candidate = normalizeFault(error);
+        }
+
+        let finalizedAttempt: FinalizedAttemptFor<TTypes>;
+        try {
+          const integrityDirective: IntegrityDirectiveV1 =
+            candidate.result.kind === "committed"
+              ? {
+                  kind: "mark_modified",
+                  reason: {
+                    kind: "debug_command",
+                    commandKind: debugCommandKindV1(command),
+                    sequence: candidate.result.snapshot.commandSequence,
+                  },
+                }
+              : { kind: "preserve_current" };
+          finalizedAttempt = finalizeCommandAttemptV1<TTypes>(
+            before,
+            candidate,
+            integrityDirective,
+          );
+        } catch (error) {
+          candidate = normalizeFault(error);
+          finalizedAttempt = finalizeCommandAttemptV1<TTypes>(before, candidate);
+        }
+
+        commandLog.append(
+          Object.freeze({
+            source: "debug" as const,
+            command,
+          }),
+          finalizedAttempt,
+        );
+        try {
+          input.onAttempt?.(finalizedAttempt);
+        } catch (error) {
+          reportObserverFailure(error);
+        }
+        if (finalizedAttempt.result.kind === "committed") {
+          snapshot = finalizedAttempt.result.snapshot;
+          publish();
+          publishCommittedSnapshot();
+        } else {
+          stableStatus = "fault_paused";
+          publish();
+        }
+        return Object.freeze({
+          kind: "executed" as const,
+          attempt: finalizedAttempt,
+        });
+      });
+    },
+    anchorReplacement<TResult>(
+      anchor: GameSessionDebugAnchorV1,
+      operation: (
+        current: DeepReadonly<TTypes["snapshot"]>,
+      ) => Promise<DebugAnchorOutcomeV1<TTypes["snapshot"], TResult>>,
+      isCapabilityEnabled: () => boolean,
+      normalizeUnexpectedFault: (error: unknown) => TResult,
+      prepareReplacementCommit?: (snapshot: DeepReadonly<TTypes["snapshot"]>) => void,
+    ): Promise<
+      | TResult
+      | { readonly kind: "capability_disabled" }
+      | {
+          readonly kind: "not_executed";
+          readonly code: "session_unavailable" | "hmr_invalidated";
+        }
+    > {
+      return enqueue(async () => {
+        if (!hasCapabilityV1(isCapabilityEnabled)) return capabilityDisabledV1;
+        if (input.available === false) return sessionUnavailableV1;
+        if (stableStatus === "hmr_invalidated") return hmrInvalidatedV1;
+        try {
+          const current = snapshot as DeepReadonly<TTypes["snapshot"]>;
+          const outcome = await operation(current);
+          if (outcome.kind === "preserve") return outcome.result;
+          if (outcome.kind !== "replace") {
+            throw new TypeError("Debug anchor operation returned an invalid outcome");
+          }
+          const accepted = finalizeSnapshotIntegrityV1<TTypes["snapshot"]>(
+            current,
+            outcome.snapshot,
+            { kind: "accept_replacement" },
+          );
+          const finalized = Object.freeze({
+            ...accepted,
+            integrity: markRunModifiedV1(accepted.integrity, debugAnchorReasonV1(anchor, accepted)),
+          }) as TTypes["snapshot"];
+          runIntegrityV1Schema.parse(finalized.integrity);
+          const preparedCommandLogAnchor = commandLog.prepareAnchor(
+            finalized as DeepReadonly<TTypes["snapshot"]>,
+          );
+          prepareReplacementCommit?.(finalized as DeepReadonly<TTypes["snapshot"]>);
+          commandLog.establishPreparedAnchor(preparedCommandLogAnchor);
+          snapshot = finalized;
+          stableStatus = "ready";
+          publish();
+          return outcome.result;
+        } catch (error) {
+          stableStatus = "fault_paused";
+          publish();
+          return normalizeUnexpectedFault(error);
+        }
+      });
+    },
+  });
+
   const session: GameSessionV1<TTypes> = Object.freeze({
     getStatus: status,
     getCurrentSnapshot: () => snapshot as DeepReadonly<TTypes["snapshot"]>,
@@ -428,6 +712,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
   return Object.freeze({
     session,
     runtimeControl,
+    debugControl,
     commandLog: commandLogView,
     privateControl,
   });
@@ -436,8 +721,8 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
 export function createGameSessionV1<TTypes extends GameSimulationTypeMapV1>(
   input: GameSessionInputV1<TTypes>,
 ): GameSessionCompositionV1<TTypes> {
-  const { session, runtimeControl, commandLog } = createInternal(input);
-  return Object.freeze({ session, runtimeControl, commandLog });
+  const { session, runtimeControl, debugControl, commandLog } = createInternal(input);
+  return Object.freeze({ session, runtimeControl, debugControl, commandLog });
 }
 
 /** @internal Base-owned test and Developer composition seam; not exported by the runtime barrel. */

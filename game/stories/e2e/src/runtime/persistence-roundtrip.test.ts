@@ -3,6 +3,7 @@ import {
   createGameSnapshotEnvelopeSchemaV1,
   digestCanonical,
   parseDigest,
+  parsePositiveSafeInteger,
   parseStrictJson,
   rngStateV1Schema,
   saveJsonLimitsV1,
@@ -349,4 +350,121 @@ describe("E2E persistence continuation round-trips", () => {
       });
     },
   );
+
+  it("preserves modified DebugCommand state across Save load, continuation, and authoritative replay", async () => {
+    const directRecords = createMemoryHostRecordStoreV1();
+    const direct = await createInstrumentedRuntimeV1(
+      directRecords,
+      "00000000-0000-4000-8000-000000000023",
+    );
+    await direct.application.capabilities.setEnabled("debug_tools", true);
+    await direct.application.capabilities.setEnabled("cheats", true);
+    await expect(
+      direct.application.debugTools.executeDebugCommand({
+        kind: "debug.e2e.counter.add",
+        amount: parsePositiveSafeInteger(2),
+      }),
+    ).resolves.toEqual({ kind: "committed", commandSequence: 1 });
+
+    const captured = inspectExportedSaveV1(
+      await direct.application.persistence.exportCurrentSave(),
+    );
+    expect(captured.snapshot.state.simulation.counter.value).toBe(2);
+    expect(captured.snapshot.integrity).toEqual({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 1,
+      reasons: [
+        {
+          kind: "debug_command",
+          commandKind: "debug.e2e.counter.add",
+          sequence: 1,
+        },
+      ],
+    });
+
+    const debugBundle = await direct.application.diagnostics.exportDebugBundle();
+    await expect(
+      direct.application.debugTools.replayAuthoritatively(debugBundle.bytes),
+    ).resolves.toEqual({
+      kind: "replayed",
+      comparison: {
+        authoritative: true,
+        identityMatch: true,
+        visualMatch: true,
+        matches: true,
+        executedEntries: 1,
+        mismatches: [],
+      },
+    });
+
+    await expect(direct.application.persistence.save("quick")).resolves.toEqual({
+      kind: "saved",
+      slotId: "quick",
+    });
+    const loadedRecords = createMemoryHostRecordStoreV1();
+    await copyQuickSaveV1(directRecords, loadedRecords);
+
+    const continuation = Object.freeze([startV1, chooseRightV1, continueV1, completeV1]);
+    const directAttemptIndex = direct.attempts.length;
+    const directContinuation = await runE2eHeadlessSequenceV1(
+      direct.application.semantic,
+      continuation,
+    );
+    expectCommittedRunV1(directContinuation.results);
+    const directEvidence = committedContinuationEvidenceV1(direct.attempts, directAttemptIndex);
+    const directFinal = inspectExportedSaveV1(
+      await direct.application.persistence.exportCurrentSave(),
+    );
+    const directView: DeepReadonly<E2eGameViewV1> = direct.application.semantic.observe().game;
+
+    const loaded = await createInstrumentedRuntimeV1(
+      loadedRecords,
+      "00000000-0000-4000-8000-000000000024",
+    );
+    await expect(loaded.application.persistence.load("quick")).resolves.toEqual({
+      kind: "loaded",
+      compatibility: "exact",
+      commandSequence: 1,
+    });
+    const loadedPrefix = inspectExportedSaveV1(
+      await loaded.application.persistence.exportCurrentSave(),
+    );
+    expect(loadedPrefix.stateDigest).toBe(captured.stateDigest);
+    expect(loadedPrefix.snapshot.rng).toEqual(captured.snapshot.rng);
+    expect(loadedPrefix.snapshot.integrity).toEqual(captured.snapshot.integrity);
+
+    await loaded.application.capabilities.setEnabled("debug_tools", true);
+    await expect(
+      loaded.application.debugTools.replayAuthoritatively(debugBundle.bytes),
+    ).resolves.toEqual({
+      kind: "replayed",
+      comparison: {
+        authoritative: true,
+        identityMatch: true,
+        visualMatch: true,
+        matches: true,
+        executedEntries: 1,
+        mismatches: [],
+      },
+    });
+
+    const loadedAttemptIndex = loaded.attempts.length;
+    const loadedContinuation = await runE2eHeadlessSequenceV1(
+      loaded.application.semantic,
+      continuation,
+    );
+    expectCommittedRunV1(loadedContinuation.results);
+    const loadedEvidence = committedContinuationEvidenceV1(loaded.attempts, loadedAttemptIndex);
+    const loadedFinal = inspectExportedSaveV1(
+      await loaded.application.persistence.exportCurrentSave(),
+    );
+
+    expect(loadedFinal.stateDigest).toBe(directFinal.stateDigest);
+    expect(loadedFinal.snapshot.rng).toEqual(directFinal.snapshot.rng);
+    expect(loadedEvidence.facts).toEqual(directEvidence.facts);
+    expect(loadedEvidence.rngTrace).toEqual(directEvidence.rngTrace);
+    expect(loaded.application.semantic.observe().game).toEqual(directView);
+    expect(loadedFinal.snapshot.integrity).toEqual(captured.snapshot.integrity);
+  });
 });

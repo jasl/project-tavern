@@ -21,6 +21,7 @@ import {
 } from "@sillymaker/base/runtime";
 import type {
   FinalizedCommandAttemptV1,
+  GameSessionDebugInputV1,
   ReplayCommandLogEntryV1,
   ReplayDriverV1,
   ReplayInputV1,
@@ -65,8 +66,8 @@ type E2eGameLoggedCommandV1 = ReplayLoggedCommandV1<"game", E2eGameCommandV1>;
 type E2eReplayLoggedCommandV1 =
   E2eGameLoggedCommandV1 | ReplayLoggedCommandV1<"debug", E2eDebugCommandV1>;
 
-type E2eGameReplayEntryV1 = ReplayCommandLogEntryV1<
-  E2eGameLoggedCommandV1,
+type E2eReplayEntryV1 = ReplayCommandLogEntryV1<
+  E2eReplayLoggedCommandV1,
   E2eGameplayFactV1,
   E2eRejectionReasonV1,
   E2eGameplayFaultV1,
@@ -113,6 +114,21 @@ function createE2eSessionCompositionV1(
         undefined,
       );
     },
+    debug: Object.freeze({
+      validate(snapshot, command) {
+        return gameSimulation.debugCommandExecutor.validate(snapshot, command, undefined);
+      },
+      executeAttempt(snapshot, command) {
+        return gameSimulation.debugCommandExecutor.executeAttempt(snapshot, command, undefined);
+      },
+      normalizeUnexpectedFault(_error, snapshot) {
+        return gameSimulation.debugCommandExecutor.executeAttempt(
+          snapshot,
+          Object.freeze({ kind: "debug.e2e.test.fault" }),
+          undefined,
+        );
+      },
+    } satisfies GameSessionDebugInputV1<E2eGameSimulationTypesV1>),
     ...(onAttempt === undefined ? {} : { onAttempt }),
   });
 }
@@ -133,11 +149,15 @@ function createE2eReplayDriverV1(
   return Object.freeze({
     getCurrentSnapshot: isolated.session.getCurrentSnapshot,
     async submit(loggedCommand: DeepReadonly<E2eReplayLoggedCommandV1>) {
+      capturedAttempt = null;
       if (loggedCommand.source === "debug") {
-        throw new TypeError("E2E replay does not admit DebugCommand entries in Task 7");
+        const result = await isolated.debugControl.execute(loggedCommand.command, () => true);
+        if (result.kind !== "executed") {
+          throw new TypeError("E2E replay did not execute a DebugCommand entry");
+        }
+        return result.attempt;
       }
 
-      capturedAttempt = null;
       const result = await isolated.session.dispatch(loggedCommand.command);
       const finalizedAttempt = capturedAttempt;
       if (result.kind !== "executed" || finalizedAttempt === null) {
@@ -175,9 +195,9 @@ function createReplayInputV1(
   });
 }
 
-function mutateRetainedCounterFactV1(entries: readonly DeepReadonly<E2eGameReplayEntryV1>[]): {
-  readonly entries: readonly DeepReadonly<E2eGameReplayEntryV1>[];
-  readonly logOrdinal: E2eGameReplayEntryV1["logOrdinal"];
+function mutateRetainedCounterFactV1(entries: readonly DeepReadonly<E2eReplayEntryV1>[]): {
+  readonly entries: readonly DeepReadonly<E2eReplayEntryV1>[];
+  readonly logOrdinal: E2eReplayEntryV1["logOrdinal"];
 } {
   const index = entries.findIndex(
     (entry) =>
@@ -202,7 +222,7 @@ function mutateRetainedCounterFactV1(entries: readonly DeepReadonly<E2eGameRepla
   );
   if (!changed) throw new TypeError("missing retained counter Fact");
 
-  const mutatedEntry: DeepReadonly<E2eGameReplayEntryV1> = Object.freeze({
+  const mutatedEntry: DeepReadonly<E2eReplayEntryV1> = Object.freeze({
     ...entry,
     outcome: Object.freeze({ kind: "committed" as const, facts }),
   });
@@ -266,13 +286,38 @@ describe("E2E authoritative replay", () => {
     }
     const afterFirstCommit = source.session.getCurrentSnapshot();
 
-    for (let ordinal = 2; ordinal <= 199; ordinal += 1) {
+    const debugCommit = await source.debugControl.execute(
+      Object.freeze({
+        kind: "debug.e2e.counter.add",
+        amount: parsePositiveSafeInteger(2),
+      }),
+      () => true,
+    );
+    expect(debugCommit.kind).toBe("executed");
+    if (debugCommit.kind !== "executed" || debugCommit.attempt.result.kind !== "committed") {
+      throw new TypeError("retained E2E DebugCommand did not commit");
+    }
+    expect(debugCommit.attempt.result.snapshot.integrity).toEqual({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 2,
+      reasons: [
+        {
+          kind: "debug_command",
+          commandKind: "debug.e2e.counter.add",
+          sequence: 2,
+        },
+      ],
+    });
+    const afterDebugCommit = source.session.getCurrentSnapshot();
+
+    for (let ordinal = 3; ordinal <= 199; ordinal += 1) {
       const rejected = await source.session.dispatch(Object.freeze({ kind: "e2e.test.reject" }));
       expect(rejected).toEqual({
         kind: "executed",
         execution: {
           kind: "rejected",
-          snapshot: afterFirstCommit,
+          snapshot: afterDebugCommit,
           reasons: [{ code: "test.rejected" }],
         },
       });
@@ -303,16 +348,21 @@ describe("E2E authoritative replay", () => {
     });
     expect(source.session.getStatus()).toBe("fault_paused");
 
-    const sourceEntries: readonly DeepReadonly<E2eGameReplayEntryV1>[] =
-      source.commandLog.entries();
+    const sourceEntries: readonly DeepReadonly<E2eReplayEntryV1>[] = source.commandLog.entries();
     expect(sourceEntries).toHaveLength(200);
     expect(sourceEntries[0]?.logOrdinal).toBe(2);
     expect(sourceEntries.at(-1)?.logOrdinal).toBe(201);
     expect(sourceEntries.map(({ outcome }) => outcome.kind)).toEqual([
-      ...Array.from({ length: 198 }, () => "rejected" as const),
+      "committed",
+      ...Array.from({ length: 197 }, () => "rejected" as const),
       "committed",
       "faulted",
     ]);
+    expect(sourceEntries[0]).toMatchObject({
+      source: "debug",
+      command: { kind: "debug.e2e.counter.add", amount: 2 },
+      postStateDigest: digestCanonical("sillymaker:state:v1", debugCommit.attempt.result.snapshot),
+    });
     expect(sourceEntries.at(-2)?.attemptedDraws.length).toBeGreaterThan(0);
     expect(source.commandLog.replayBase()).toBe(afterFirstCommit);
     expect(source.commandLog.replayBaseStateDigest()).toBe(
@@ -335,14 +385,6 @@ describe("E2E authoritative replay", () => {
       sourceEntries,
       liveSnapshotBeforeReplay,
     );
-    await expect(
-      replayInput.createDriver(replayInput.replayBase).submit(
-        Object.freeze({
-          source: "debug" as const,
-          command: Object.freeze({ kind: "debug.e2e.test.fault" as const }),
-        }),
-      ),
-    ).rejects.toThrow("E2E replay does not admit DebugCommand entries in Task 7");
 
     await expect(replayAuthoritativelyV1(replayInput)).resolves.toEqual({
       authoritative: true,
@@ -352,6 +394,21 @@ describe("E2E authoritative replay", () => {
       executedEntries: 200,
       mismatches: [],
     });
+    expect(liveSnapshotBeforeReplay.integrity).toEqual({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 2,
+      reasons: [
+        {
+          kind: "debug_command",
+          commandKind: "debug.e2e.counter.add",
+          sequence: 2,
+        },
+      ],
+    });
+    expect(replayInput.currentStateDigest).toBe(
+      digestCanonical("sillymaker:state:v1", liveSnapshotBeforeReplay),
+    );
 
     const mutated = mutateRetainedCounterFactV1(sourceEntries);
     const mutatedComparison = await replayAuthoritativelyV1(

@@ -16,7 +16,11 @@ import {
   createRuntimeFailureBufferV1,
   createRuntimeFailureReporterV1,
 } from "../diagnostics/runtime-failures.js";
-import { createGameSessionInternalV1, createGameSessionV1 } from "./game-session.js";
+import {
+  createGameSessionInternalV1,
+  createGameSessionV1,
+  type GameSessionDebugInputV1,
+} from "./game-session.js";
 
 interface State {
   readonly count: number;
@@ -30,6 +34,15 @@ type Command =
   | { readonly kind: "reject" }
   | { readonly kind: "fault" }
   | { readonly kind: "throw" };
+type DebugCommand =
+  | { readonly kind: "debug.synthetic.add"; readonly amount: number }
+  | { readonly kind: "debug.synthetic.validation_failed" }
+  | { readonly kind: "debug.synthetic.fault" };
+interface DebugValidationError {
+  readonly code: "debug.synthetic.validation_failed";
+  readonly commandKind: DebugCommand["kind"];
+}
+type DebugAnchorTestResult = { readonly kind: "anchored" } | { readonly kind: "faulted" };
 type Attempt = CommandExecutionAttemptEnvelopeV1<
   Snapshot,
   { readonly count: number },
@@ -44,6 +57,8 @@ interface Types extends GameSimulationTypeMapV1<GameBootstrapInputV1, State, Rng
   readonly fact: { readonly count: number };
   readonly rejection: { readonly code: string };
   readonly fault: { readonly code: string };
+  readonly debugCommand: DebugCommand;
+  readonly debugValidationError: DebugValidationError;
   readonly rngState: { readonly cursor: number };
   readonly rngDrawTrace: never;
   readonly executionContext: undefined;
@@ -58,6 +73,10 @@ const commandSchema: RuntimeSchemaV1<Command> = {
     return Object.freeze({ kind });
   },
 };
+
+function defineDebugInputV1(input: GameSessionDebugInputV1<Types>): GameSessionDebugInputV1<Types> {
+  return Object.freeze(input);
+}
 
 function createSnapshot(count: number, integrity = createPristineRunIntegrityV1()): Snapshot {
   return Object.freeze({
@@ -228,6 +247,415 @@ describe("GameSession FIFO", () => {
     expect(entry?.postStateDigest).toBe(
       digestCanonical("sillymaker:state:v1", created.session.getCurrentSnapshot()),
     );
+  });
+
+  it("finalizes one successful DebugCommand for the result, log, live state, and integrity", async () => {
+    const initial = createSnapshot(0);
+    let validateCalls = 0;
+    let executeCalls = 0;
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: initial,
+      commandSchema,
+      executionContext: undefined,
+      executeAttempt(snapshot, command) {
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+      debug: defineDebugInputV1({
+        validate(_snapshot, _command) {
+          validateCalls += 1;
+          return Object.freeze({ kind: "allowed" as const });
+        },
+        executeAttempt(snapshot, command) {
+          executeCalls += 1;
+          return attempt(snapshot as Snapshot, {
+            kind: command.kind === "debug.synthetic.fault" ? "fault" : "increment",
+          });
+        },
+        normalizeUnexpectedFault(_error, snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+      }),
+    });
+
+    const result = await created.debugControl.execute(
+      Object.freeze({ kind: "debug.synthetic.add", amount: 5 }),
+      () => true,
+    );
+
+    expect(result.kind).toBe("executed");
+    if (result.kind !== "executed") throw new TypeError("expected executed DebugCommand");
+    expect(validateCalls).toBe(1);
+    expect(executeCalls).toBe(1);
+    expect(created.session.getCurrentSnapshot()).toBe(result.attempt.result.snapshot);
+    expect(created.session.getCurrentSnapshot().integrity).toEqual({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 1,
+      reasons: [
+        {
+          kind: "debug_command",
+          commandKind: "debug.synthetic.add",
+          sequence: 1,
+        },
+      ],
+    });
+    const entry = created.commandLog.entries().at(-1);
+    expect(entry).toMatchObject({
+      source: "debug",
+      command: { kind: "debug.synthetic.add", amount: 5 },
+      outcome: { kind: "committed" },
+    });
+    expect(entry?.postStateDigest).toBe(result.attempt.postStateDigest);
+    expect(result.attempt.postStateDigest).toBe(
+      digestCanonical("sillymaker:state:v1", created.session.getCurrentSnapshot()),
+    );
+  });
+
+  it("validates DebugCommand at queue front without opening an attempt or log", async () => {
+    const initial = createSnapshot(0);
+    let executeCalls = 0;
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: initial,
+      commandSchema,
+      executionContext: undefined,
+      executeAttempt(snapshot, command) {
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+      debug: defineDebugInputV1({
+        validate(_snapshot, command) {
+          return Object.freeze({
+            kind: "validation_failed" as const,
+            errors: Object.freeze([
+              Object.freeze({
+                code: "debug.synthetic.validation_failed" as const,
+                commandKind: command.kind,
+              }),
+            ]),
+          });
+        },
+        executeAttempt(snapshot) {
+          executeCalls += 1;
+          return attempt(snapshot as Snapshot, { kind: "increment" });
+        },
+        normalizeUnexpectedFault(_error, snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+      }),
+    });
+
+    await expect(
+      created.debugControl.execute(
+        Object.freeze({ kind: "debug.synthetic.validation_failed" }),
+        () => true,
+      ),
+    ).resolves.toEqual({
+      kind: "validation_failed",
+      errors: [
+        {
+          code: "debug.synthetic.validation_failed",
+          commandKind: "debug.synthetic.validation_failed",
+        },
+      ],
+    });
+    expect(executeCalls).toBe(0);
+    expect(created.commandLog.entries()).toEqual([]);
+    expect(created.session.getCurrentSnapshot()).toBe(initial);
+    expect(created.session.getCurrentSnapshot().integrity).toBe(initial.integrity);
+  });
+
+  it("rechecks capability before Debug validation after waiting in the one FIFO", async () => {
+    let releaseDispatch: (() => void) | undefined;
+    const blocked = new Promise<void>((resolve) => {
+      releaseDispatch = resolve;
+    });
+    let enabled = true;
+    let debugValidateCalls = 0;
+    let debugExecuteCalls = 0;
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      async executeAttempt(snapshot, command) {
+        await blocked;
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+      debug: defineDebugInputV1({
+        validate() {
+          debugValidateCalls += 1;
+          return Object.freeze({ kind: "allowed" as const });
+        },
+        executeAttempt(snapshot) {
+          debugExecuteCalls += 1;
+          return attempt(snapshot as Snapshot, { kind: "increment" });
+        },
+        normalizeUnexpectedFault(_error, snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+      }),
+    });
+
+    const gameplay = created.session.dispatch({ kind: "increment" });
+    const debug = created.debugControl.execute(
+      Object.freeze({ kind: "debug.synthetic.add", amount: 1 }),
+      () => enabled,
+    );
+    enabled = false;
+    releaseDispatch?.();
+
+    await expect(gameplay).resolves.toMatchObject({ kind: "executed" });
+    await expect(debug).resolves.toEqual({ kind: "capability_disabled" });
+    expect(debugValidateCalls).toBe(0);
+    expect(debugExecuteCalls).toBe(0);
+    expect(created.commandLog.entries()).toHaveLength(1);
+    expect(created.commandLog.entries()[0]?.source).toBe("game");
+    expect(created.session.getCurrentSnapshot().integrity).toEqual(createPristineRunIntegrityV1());
+  });
+
+  it("rechecks capability before a Debug anchor operation after waiting in the one FIFO", async () => {
+    let releaseDispatch: (() => void) | undefined;
+    const blocked = new Promise<void>((resolve) => {
+      releaseDispatch = resolve;
+    });
+    let enabled = true;
+    let anchorCalls = 0;
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      async executeAttempt(snapshot, command) {
+        await blocked;
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+    });
+
+    const gameplay = created.session.dispatch({ kind: "increment" });
+    const anchor = created.debugControl.anchorReplacement<DebugAnchorTestResult>(
+      Object.freeze({ kind: "fixture" as const, fixtureId: "fixture.synthetic" }),
+      async () => {
+        anchorCalls += 1;
+        return Object.freeze({
+          kind: "replace" as const,
+          snapshot: createSnapshot(10),
+          result: Object.freeze({ kind: "anchored" as const }),
+        });
+      },
+      () => enabled,
+      () => Object.freeze({ kind: "faulted" as const }),
+    );
+    enabled = false;
+    releaseDispatch?.();
+
+    await expect(gameplay).resolves.toMatchObject({ kind: "executed" });
+    await expect(anchor).resolves.toEqual({ kind: "capability_disabled" });
+    expect(anchorCalls).toBe(0);
+    expect(created.commandLog.entries()).toHaveLength(1);
+    expect(created.commandLog.entries()[0]?.source).toBe("game");
+    expect(created.session.getCurrentSnapshot().state.count).toBe(1);
+    expect(created.session.getCurrentSnapshot().integrity).toEqual(createPristineRunIntegrityV1());
+  });
+
+  it("does not let Debug anchors revive unavailable or HMR-invalidated Sessions", async () => {
+    let unavailableAnchorCalls = 0;
+    const unavailable = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      available: false,
+      executeAttempt(snapshot, command) {
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+    });
+    const unavailableOperation = async () => {
+      unavailableAnchorCalls += 1;
+      return Object.freeze({
+        kind: "replace" as const,
+        snapshot: createSnapshot(10),
+        result: Object.freeze({ kind: "anchored" as const }),
+      });
+    };
+    const unavailableFirst =
+      await unavailable.debugControl.anchorReplacement<DebugAnchorTestResult>(
+        Object.freeze({ kind: "fixture" as const, fixtureId: "fixture.synthetic" }),
+        unavailableOperation,
+        () => true,
+        () => Object.freeze({ kind: "faulted" as const }),
+      );
+    const unavailableSecond =
+      await unavailable.debugControl.anchorReplacement<DebugAnchorTestResult>(
+        Object.freeze({ kind: "fixture" as const, fixtureId: "fixture.synthetic" }),
+        unavailableOperation,
+        () => true,
+        () => Object.freeze({ kind: "faulted" as const }),
+      );
+    expect(unavailableFirst).toEqual({
+      kind: "not_executed",
+      code: "session_unavailable",
+    });
+    expect(unavailableSecond).toBe(unavailableFirst);
+    expect(unavailableAnchorCalls).toBe(0);
+    expect(unavailable.session.getCurrentSnapshot().state.count).toBe(0);
+
+    const invalidated = fixture(true);
+    let invalidatedAnchorCalls = 0;
+    const invalidation = invalidated.privateControl.invalidateForHmr();
+    const anchor = invalidated.debugControl.anchorReplacement<DebugAnchorTestResult>(
+      Object.freeze({ kind: "debug_bundle" as const }),
+      async () => {
+        invalidatedAnchorCalls += 1;
+        return Object.freeze({
+          kind: "replace" as const,
+          snapshot: createSnapshot(20),
+          result: Object.freeze({ kind: "anchored" as const }),
+        });
+      },
+      () => true,
+      () => Object.freeze({ kind: "faulted" as const }),
+    );
+    await invalidation;
+    await expect(anchor).resolves.toEqual({
+      kind: "not_executed",
+      code: "hmr_invalidated",
+    });
+    expect(invalidatedAnchorCalls).toBe(0);
+    expect(invalidated.session.getStatus()).toBe("hmr_invalidated");
+    expect(invalidated.session.getCurrentSnapshot().state.count).toBe(0);
+    expect(invalidated.commandLog.entries()).toEqual([]);
+  });
+
+  it("logs an admitted faulted DebugCommand without marking integrity and pauses the Session", async () => {
+    const initial = createSnapshot(0);
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: initial,
+      commandSchema,
+      executionContext: undefined,
+      executeAttempt(snapshot, command) {
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+      debug: defineDebugInputV1({
+        validate: () => Object.freeze({ kind: "allowed" as const }),
+        executeAttempt(snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+        normalizeUnexpectedFault(_error, snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+      }),
+    });
+
+    const result = await created.debugControl.execute(
+      Object.freeze({ kind: "debug.synthetic.fault" }),
+      () => true,
+    );
+    expect(result).toMatchObject({
+      kind: "executed",
+      attempt: { result: { kind: "faulted" } },
+    });
+    expect(created.commandLog.entries()).toEqual([
+      expect.objectContaining({
+        source: "debug",
+        outcome: { kind: "faulted", fault: { code: "synthetic.fault" } },
+      }),
+    ]);
+    expect(created.session.getCurrentSnapshot()).toBe(initial);
+    expect(created.session.getCurrentSnapshot().integrity).toBe(initial.integrity);
+    expect(created.session.getStatus()).toBe("fault_paused");
+  });
+
+  it("allows a successful Debug anchor to recover a fault-paused Session", async () => {
+    const created = fixture();
+    await created.session.dispatch({ kind: "fault" });
+    expect(created.session.getStatus()).toBe("fault_paused");
+    expect(created.commandLog.entries()).toHaveLength(1);
+
+    await expect(
+      created.debugControl.anchorReplacement<DebugAnchorTestResult>(
+        Object.freeze({ kind: "fixture" as const, fixtureId: "fixture.synthetic" }),
+        async () =>
+          Object.freeze({
+            kind: "replace" as const,
+            snapshot: createSnapshot(10),
+            result: Object.freeze({ kind: "anchored" as const }),
+          }),
+        () => true,
+        () => Object.freeze({ kind: "faulted" as const }),
+      ),
+    ).resolves.toEqual({ kind: "anchored" });
+    expect(created.session.getStatus()).toBe("ready");
+    expect(created.commandLog.entries()).toEqual([]);
+    expect(created.commandLog.replayBase()).toBe(created.session.getCurrentSnapshot());
+    expect(created.session.getCurrentSnapshot().integrity).toMatchObject({
+      mode: "modified",
+      mutationCount: 1,
+      reasons: [{ kind: "fixture_anchor", fixtureId: "fixture.synthetic", sequence: 10 }],
+    });
+  });
+
+  it("marks accepted fixture and Debug Bundle anchors through the dedicated Debug control", async () => {
+    const created = fixture();
+    await created.session.dispatch({ kind: "increment" });
+    const fixtureSnapshot = createSnapshot(10);
+    await expect(
+      created.debugControl.anchorReplacement<DebugAnchorTestResult>(
+        Object.freeze({ kind: "fixture" as const, fixtureId: "fixture.synthetic" }),
+        async () =>
+          Object.freeze({
+            kind: "replace" as const,
+            snapshot: fixtureSnapshot,
+            result: Object.freeze({ kind: "anchored" as const }),
+          }),
+        () => true,
+        () => Object.freeze({ kind: "faulted" as const }),
+      ),
+    ).resolves.toEqual({ kind: "anchored" });
+    expect(created.session.getCurrentSnapshot().integrity).toEqual({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 10,
+      reasons: [{ kind: "fixture_anchor", fixtureId: "fixture.synthetic", sequence: 10 }],
+    });
+    expect(created.commandLog.entries()).toEqual([]);
+    expect(created.commandLog.replayBase()).toBe(created.session.getCurrentSnapshot());
+
+    const existingModified = created.session.getCurrentSnapshot().integrity;
+    const bundleSnapshot = createSnapshot(20, existingModified);
+    await created.debugControl.anchorReplacement<DebugAnchorTestResult>(
+      Object.freeze({ kind: "debug_bundle" as const }),
+      async () =>
+        Object.freeze({
+          kind: "replace" as const,
+          snapshot: bundleSnapshot,
+          result: Object.freeze({ kind: "anchored" as const }),
+        }),
+      () => true,
+      () => Object.freeze({ kind: "faulted" as const }),
+    );
+    expect(created.session.getCurrentSnapshot().integrity).toEqual({
+      mode: "modified",
+      mutationCount: 2,
+      firstMutationSequence: 10,
+      reasons: [
+        { kind: "fixture_anchor", fixtureId: "fixture.synthetic", sequence: 10 },
+        { kind: "debug_bundle_anchor", sequence: 20 },
+      ],
+    });
   });
 
   it("logs rejected and faulted attempts but not invalid admission or a queued skip", async () => {
