@@ -26,6 +26,10 @@ import {
 } from "../diagnostics/command-log.js";
 import type { IntegrityDirectiveV1 } from "./run-integrity.js";
 import { finalizeSnapshotIntegrityV1, markRunModifiedV1 } from "./run-integrity.js";
+import {
+  createRuntimeInvalidationControllerV1,
+  type RuntimeInvalidationControllerV1,
+} from "./runtime-invalidation.js";
 
 export interface GameSessionV1<TTypes extends GameSimulationTypeMapV1> {
   getStatus(): RuntimeSessionStatusV1;
@@ -64,6 +68,7 @@ export interface GameSessionRuntimeControlV1<TSnapshot> {
       snapshot: DeepReadonly<TSnapshot>,
       anchor: "preserve_log" | "replace_replay_base",
     ) => void,
+    whenHmrInvalidated?: () => TResult,
   ): Promise<TResult>;
   readAtQueueFront<TResult>(
     reader: (snapshot: DeepReadonly<TSnapshot>) => TResult,
@@ -197,10 +202,7 @@ export interface GameSessionInputV1<TTypes extends GameSimulationTypeMapV1> {
   readonly debug?: GameSessionDebugInputV1<TTypes>;
   onAttempt?(attempt: FinalizedAttemptFor<TTypes>): void;
   onObserverFailure?(error: unknown): void;
-}
-
-interface GameSessionPrivateControlV1 {
-  invalidateForHmr(): Promise<void>;
+  onHmrInvalidated?(): void;
 }
 
 export interface GameSessionCompositionV1<TTypes extends GameSimulationTypeMapV1> {
@@ -208,12 +210,7 @@ export interface GameSessionCompositionV1<TTypes extends GameSimulationTypeMapV1
   readonly runtimeControl: GameSessionRuntimeControlV1<TTypes["snapshot"]>;
   readonly debugControl: GameSessionDebugControlV1<TTypes>;
   readonly commandLog: CommandLogViewFor<TTypes>;
-}
-
-interface InternalCompositionV1<
-  TTypes extends GameSimulationTypeMapV1,
-> extends GameSessionCompositionV1<TTypes> {
-  readonly privateControl: GameSessionPrivateControlV1;
+  readonly invalidationController: RuntimeInvalidationControllerV1;
 }
 
 function isThenable(value: unknown): boolean {
@@ -332,7 +329,7 @@ function debugAnchorReasonV1<
 
 function createInternal<TTypes extends GameSimulationTypeMapV1>(
   input: GameSessionInputV1<TTypes>,
-): InternalCompositionV1<TTypes> {
+): GameSessionCompositionV1<TTypes> {
   type DispatchResult = Awaited<ReturnType<GameSessionV1<TTypes>["dispatch"]>>;
 
   runIntegrityV1Schema.parse(input.initialSnapshot.integrity);
@@ -362,7 +359,9 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     (snapshot: DeepReadonly<TTypes["snapshot"]>) => void
   >();
 
-  const status = (): RuntimeSessionStatusV1 => (pending > 0 ? "busy" : stableStatus);
+  const status = (): RuntimeSessionStatusV1 =>
+    stableStatus === "hmr_invalidated" ? stableStatus : pending > 0 ? "busy" : stableStatus;
+  const isHmrInvalidated = (): boolean => stableStatus === "hmr_invalidated";
   const reportObserverFailure = (error: unknown): void => {
     try {
       input.onObserverFailure?.(error);
@@ -390,6 +389,14 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     }
   };
 
+  const invalidationController = createRuntimeInvalidationControllerV1({
+    transitionToInvalidated() {
+      stableStatus = "hmr_invalidated";
+      publish();
+    },
+    ...(input.onHmrInvalidated === undefined ? {} : { reportInvalidation: input.onHmrInvalidated }),
+  });
+
   function enqueue<TResult>(operation: () => Promise<TResult>): Promise<TResult> {
     pending += 1;
     publish();
@@ -414,10 +421,17 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
         snapshot: DeepReadonly<TTypes["snapshot"]>,
         anchor: "preserve_log" | "replace_replay_base",
       ) => void,
+      whenHmrInvalidated?: () => TResult,
     ): Promise<TResult> {
       return enqueue(async () => {
+        const invalidatedResult = (): TResult =>
+          whenHmrInvalidated === undefined
+            ? normalizeUnexpectedFault(new TypeError("GameSession was invalidated by HMR"))
+            : whenHmrInvalidated();
+        if (isHmrInvalidated()) return invalidatedResult();
         try {
           const outcome = await operation(snapshot as DeepReadonly<TTypes["snapshot"]>);
+          if (isHmrInvalidated()) return invalidatedResult();
           if (outcome.kind === "replace") {
             const finalized = finalizeSnapshotIntegrityV1<TTypes["snapshot"]>(
               snapshot as DeepReadonly<TTypes["snapshot"]>,
@@ -444,6 +458,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
           }
           return outcome.result;
         } catch (error) {
+          if (isHmrInvalidated()) return invalidatedResult();
           stableStatus = "fault_paused";
           publish();
           return normalizeUnexpectedFault(error);
@@ -520,6 +535,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
         } catch (error) {
           candidate = normalizeFault(error);
         }
+        if (isHmrInvalidated()) return hmrInvalidatedV1;
 
         let finalizedAttempt: FinalizedAttemptFor<TTypes>;
         try {
@@ -589,10 +605,11 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
       return enqueue(async () => {
         if (!hasCapabilityV1(isCapabilityEnabled)) return capabilityDisabledV1;
         if (input.available === false) return sessionUnavailableV1;
-        if (stableStatus === "hmr_invalidated") return hmrInvalidatedV1;
+        if (isHmrInvalidated()) return hmrInvalidatedV1;
         try {
           const current = snapshot as DeepReadonly<TTypes["snapshot"]>;
           const outcome = await operation(current);
+          if (isHmrInvalidated()) return hmrInvalidatedV1;
           if (outcome.kind === "preserve") return outcome.result;
           if (outcome.kind !== "replace") {
             throw new TypeError("Debug anchor operation returned an invalid outcome");
@@ -617,6 +634,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
           publish();
           return outcome.result;
         } catch (error) {
+          if (isHmrInvalidated()) return hmrInvalidatedV1;
           stableStatus = "fault_paused";
           publish();
           return normalizeUnexpectedFault(error);
@@ -665,6 +683,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
         } catch (error) {
           candidate = input.normalizeUnexpectedDispatchFault(error, before);
         }
+        if (isHmrInvalidated()) return hmrInvalidatedV1;
         let finalizedAttempt: FinalizedAttemptFor<TTypes>;
         try {
           finalizedAttempt = finalizeCommandAttemptV1<TTypes>(before, candidate);
@@ -700,34 +719,17 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     },
   });
 
-  const privateControl: GameSessionPrivateControlV1 = Object.freeze({
-    invalidateForHmr() {
-      return enqueue(async () => {
-        stableStatus = "hmr_invalidated";
-        publish();
-      });
-    },
-  });
-
   return Object.freeze({
     session,
     runtimeControl,
     debugControl,
     commandLog: commandLogView,
-    privateControl,
+    invalidationController,
   });
 }
 
 export function createGameSessionV1<TTypes extends GameSimulationTypeMapV1>(
   input: GameSessionInputV1<TTypes>,
 ): GameSessionCompositionV1<TTypes> {
-  const { session, runtimeControl, debugControl, commandLog } = createInternal(input);
-  return Object.freeze({ session, runtimeControl, debugControl, commandLog });
-}
-
-/** @internal Base-owned test and Developer composition seam; not exported by the runtime barrel. */
-export function createGameSessionInternalV1<TTypes extends GameSimulationTypeMapV1>(
-  input: GameSessionInputV1<TTypes>,
-): InternalCompositionV1<TTypes> {
   return createInternal(input);
 }

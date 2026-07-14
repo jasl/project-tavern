@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -60,7 +60,7 @@ function changedFacets(before, after) {
 async function withTemporarySourceMutation(
   path,
   run,
-  suffix = "\n// Task 11 temporary BuildIdentity mutation.\n",
+  suffix = "\n// Task 10 temporary BuildIdentity mutation.\n",
 ) {
   const absolutePath = join(repositoryRoot, path);
   const original = await readFile(absolutePath);
@@ -72,7 +72,22 @@ async function withTemporarySourceMutation(
   }
 }
 
-test("collects four non-empty production identity facets from live sources", async () => {
+async function withTemporaryClosureDependency(run) {
+  const dependency = "scripts/build-e2e-identity-hmr-fixture.mjs";
+  const absoluteDependency = join(repositoryRoot, dependency);
+  await writeFile(absoluteDependency, "export const hmrFixtureV1 = true;\n");
+  try {
+    return await withTemporarySourceMutation(
+      "scripts/build-e2e-identity.mjs",
+      () => run(dependency),
+      '\nimport "./build-e2e-identity-hmr-fixture.mjs";\n',
+    );
+  } finally {
+    await rm(absoluteDependency, { force: true });
+  }
+}
+
+void test("collects four non-empty production identity facets from live sources", async () => {
   const identity = await collectE2eBuildIdentityV1(repositoryRoot);
   assert(Object.isFrozen(identity));
   assert.deepEqual(Object.keys(identity), [
@@ -122,11 +137,14 @@ test("collects four non-empty production identity facets from live sources", asy
   }
 });
 
-test("serves the direct collector payload byte-for-byte through the closed Vite module", async () => {
+void test("serves the direct collector payload byte-for-byte through the closed Vite module", async () => {
   assert.equal(e2eBuildIdentityVirtualSpecifierV1, "virtual:project-tavern/e2e-build-identity");
   const identity = await collectE2eBuildIdentityV1(repositoryRoot);
   const directSource = renderE2eBuildIdentityVirtualModuleV1(identity);
-  const directPlugin = createE2eBuildIdentityVirtualPluginV1(directSource);
+  const directPlugin = createE2eBuildIdentityVirtualPluginV1({
+    root: repositoryRoot,
+    initialIdentity: identity,
+  });
   const viteModuleSpecifier = "vite";
   const { loadConfigFromFile } = await import(viteModuleSpecifier);
   const loadedConfig = await loadConfigFromFile(
@@ -162,7 +180,96 @@ test("serves the direct collector payload byte-for-byte through the closed Vite 
   );
 });
 
-test("rejects testkit and React imports from Node-only Story facets", async () => {
+void test("refreshes and propagates the virtual identity module only for live payload changes", async () => {
+  const identity = await collectE2eBuildIdentityV1(repositoryRoot);
+  const plugin = createE2eBuildIdentityVirtualPluginV1({
+    root: repositoryRoot,
+    initialIdentity: identity,
+  });
+  const resolvedId = plugin.resolveId(e2eBuildIdentityVirtualSpecifierV1);
+  const changedModule = Object.freeze({ id: "changed-source" });
+  const virtualModule = Object.freeze({ id: resolvedId });
+  const watched = [];
+  const invalidations = [];
+  const server = {
+    watcher: {
+      add(paths) {
+        watched.push([...paths]);
+      },
+    },
+    moduleGraph: {
+      getModuleById(id) {
+        return id === resolvedId ? virtualModule : undefined;
+      },
+      invalidateModule(...input) {
+        invalidations.push(input);
+      },
+    },
+  };
+  plugin.configureServer(server);
+
+  const initialWatchedPaths = new Set(watched.flat());
+  assert(initialWatchedPaths.has(join(repositoryRoot, "engine/packages/base/package.json")));
+  for (const facet of facetNames) {
+    for (const record of identity[facet]) {
+      assert(initialWatchedPaths.has(join(repositoryRoot, record.path)), record.path);
+    }
+  }
+
+  const initialSource = plugin.load(resolvedId);
+  await withTemporaryClosureDependency(async (dependency) => {
+    const propagated = await plugin.handleHotUpdate({
+      timestamp: 101,
+      modules: [changedModule],
+      server,
+    });
+    assert.deepEqual(propagated, [changedModule, virtualModule]);
+    assert.equal(invalidations.length, 1);
+    assert.equal(invalidations[0][0], virtualModule);
+    assert(invalidations[0][1] instanceof Set);
+    assert.equal(invalidations[0][2], 101);
+    assert.equal(invalidations[0][3], true);
+    assert.notEqual(plugin.load(resolvedId), initialSource);
+    assert(watched.at(-1).includes(join(repositoryRoot, dependency)));
+    assert.equal(
+      plugin.load(resolvedId),
+      renderE2eBuildIdentityVirtualModuleV1(await collectE2eBuildIdentityV1(repositoryRoot)),
+    );
+
+    const unchanged = await plugin.handleHotUpdate({
+      timestamp: 102,
+      modules: [changedModule],
+      server,
+    });
+    assert.equal(unchanged, undefined);
+    assert.equal(invalidations.length, 1);
+  });
+  assert.equal(watched.length, 3);
+});
+
+void test("marks the production E2E entry as a real Vite self-accept boundary", async () => {
+  const viteModuleSpecifier = "vite";
+  const { createServer } = await import(viteModuleSpecifier);
+  const server = await createServer({
+    configFile: join(repositoryRoot, "vite.config.ts"),
+    mode: "e2e-web",
+    logLevel: "silent",
+    server: { middlewareMode: true },
+    optimizeDeps: { disabled: true },
+  });
+  try {
+    const entryUrl = "/src/application/entry.tsx";
+    const transformed = await server.transformRequest(entryUrl);
+    assert(transformed);
+    const entryModule = await server.moduleGraph.getModuleByUrl(entryUrl);
+    assert(entryModule);
+    assert.equal(entryModule.isSelfAccepting, true);
+  } finally {
+    await server.close();
+  }
+});
+
+void test("rejects testkit and React imports from Node-only Story facets", async () => {
   const path = "game/stories/e2e/src/simulation/story-simulation-facet.ts";
   const cases = [
     {
@@ -190,7 +297,7 @@ test("rejects testkit and React imports from Node-only Story facets", async () =
   }
 });
 
-test("partitions live source mutations into only their owning facets", async () => {
+void test("partitions live source mutations into only their owning facets", async () => {
   const baseline = await collectE2eBuildIdentityV1(repositoryRoot);
   const cases = [
     {

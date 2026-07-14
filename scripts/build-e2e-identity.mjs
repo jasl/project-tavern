@@ -164,12 +164,68 @@ export function renderE2eBuildIdentityVirtualModuleV1(identity) {
   return `export const e2eBuildIdentityV1 = ${JSON.stringify(identity)};\n`;
 }
 
-/** Creates the production Vite plugin without making the Node collector depend on Vite. */
-export function createE2eBuildIdentityVirtualPluginV1(source) {
-  if (typeof source !== "string" || source.length === 0) {
-    throw new TypeError("E2E BuildIdentity virtual module source is empty");
+const identityRecordKeysV1 = Object.freeze([
+  "engine",
+  "storySimulation",
+  "storyPresentation",
+  "application",
+]);
+
+function collectIdentityWatchPathsV1(root, identity) {
+  if (typeof identity !== "object" || identity === null) {
+    throw new TypeError("E2E BuildIdentity is invalid");
   }
+  const paths = new Set([resolve(root, basePackageManifestV1)]);
+  for (const key of identityRecordKeysV1) {
+    const records = Reflect.get(identity, key);
+    if (!Array.isArray(records)) {
+      throw new TypeError(`E2E BuildIdentity ${key} records are invalid`);
+    }
+    for (const record of records) {
+      const path =
+        typeof record === "object" && record !== null ? Reflect.get(record, "path") : null;
+      if (typeof path !== "string" || path.length === 0) {
+        throw new TypeError(`E2E BuildIdentity ${key} record path is invalid`);
+      }
+      paths.add(resolve(root, path));
+    }
+  }
+  return Object.freeze([...paths].sort());
+}
+
+/**
+ * Creates the production Vite plugin without making the Node collector depend on Vite. Build uses
+ * the supplied live payload unchanged; a dev server refreshes that payload from watched closure
+ * bytes and propagates the virtual module only when its rendered source changes.
+ */
+export function createE2eBuildIdentityVirtualPluginV1(input) {
+  if (typeof input !== "object" || input === null) {
+    throw new TypeError("E2E BuildIdentity virtual plugin input is invalid");
+  }
+  const inputRoot = Reflect.get(input, "root");
+  if (typeof inputRoot !== "string" || inputRoot.length === 0) {
+    throw new TypeError("E2E BuildIdentity virtual plugin root is invalid");
+  }
+  const root = resolve(inputRoot);
+  const initialIdentity = Reflect.get(input, "initialIdentity");
+  let source = renderE2eBuildIdentityVirtualModuleV1(initialIdentity);
+  const initialWatchPaths = collectIdentityWatchPathsV1(root, initialIdentity);
   const resolvedId = `\0${e2eBuildIdentityVirtualSpecifierV1}`;
+  let refreshTail = Promise.resolve();
+
+  async function refreshForHotUpdateV1(context) {
+    const identity = await collectE2eBuildIdentityV1(root);
+    context.server.watcher.add(collectIdentityWatchPathsV1(root, identity));
+    const nextSource = renderE2eBuildIdentityVirtualModuleV1(identity);
+    if (nextSource === source) return undefined;
+
+    source = nextSource;
+    const virtualModule = context.server.moduleGraph.getModuleById(resolvedId);
+    if (virtualModule === undefined) return context.modules;
+    context.server.moduleGraph.invalidateModule(virtualModule, new Set(), context.timestamp, true);
+    return [...new Set([...context.modules, virtualModule])];
+  }
+
   return Object.freeze({
     name: "project-tavern-e2e-build-identity",
     resolveId(id) {
@@ -177,6 +233,20 @@ export function createE2eBuildIdentityVirtualPluginV1(source) {
     },
     load(id) {
       return id === resolvedId ? source : null;
+    },
+    configureServer(server) {
+      server.watcher.add(initialWatchPaths);
+    },
+    handleHotUpdate(context) {
+      const refresh = refreshTail.then(
+        () => refreshForHotUpdateV1(context),
+        () => refreshForHotUpdateV1(context),
+      );
+      refreshTail = refresh.then(
+        () => undefined,
+        () => undefined,
+      );
+      return refresh;
     },
   });
 }

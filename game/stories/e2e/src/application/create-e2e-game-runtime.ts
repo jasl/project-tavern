@@ -53,12 +53,14 @@ import type {
   DebugBundleDecodeResultV1,
   FinalizedCommandAttemptV1,
   GameSessionDebugInputV1,
+  PersistenceRebootstrapDisposalV1,
   ReplayDriverV1,
   ReplayInputV1,
   ReplayComparisonV1,
   ReplayLoggedCommandV1,
 } from "@sillymaker/base/runtime";
 import { createGameRuntimeV1 } from "@sillymaker/web";
+import type { WebRuntimeRebootstrapLifecycleV1 } from "@sillymaker/web";
 
 import type {
   E2eDebugCommandV1,
@@ -1003,14 +1005,23 @@ export async function createE2eGameRuntimeV1(input: {
   readonly resolved: E2eResolvedGameV1;
   readonly host: GameHostV1;
   readonly loadTooling?: E2eToolingLoaderV1;
+  readonly rebootstrapDisposition?: DeepReadonly<PersistenceRebootstrapDisposalV1>;
+  onRebootstrapLifecycle?(
+    lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>,
+  ): void;
 }): Promise<E2eGameApplicationPortV1> {
-  return createGameRuntimeV1({
+  return createGameRuntimeV1<E2eGameApplicationPortV1, PersistenceRebootstrapDisposalV1>({
     host: input.host,
+    ...(input.onRebootstrapLifecycle === undefined
+      ? {}
+      : { onRebootstrapLifecycle: input.onRebootstrapLifecycle }),
     async createApplication({
       capabilities,
       persistenceIdentity,
       runtimeFailures,
       reportObserverFailure,
+      reportHmrInvalidated,
+      registerRebootstrapLifecycle,
     }) {
       const gameSimulation = input.resolved.gameSimulation;
       let latestFailure: E2eDebugFailureV1 | undefined;
@@ -1053,6 +1064,7 @@ export async function createE2eGameRuntimeV1(input: {
           });
         },
         onObserverFailure: reportObserverFailure,
+        onHmrInvalidated: reportHmrInvalidated,
       });
       const semantic = createE2eSemanticGamePortV1({
         gameSimulation,
@@ -1081,7 +1093,15 @@ export async function createE2eGameRuntimeV1(input: {
         initialSimulationLineage: Object.freeze([]),
         metadataClock: input.host.metadataClock,
         exportFilename: "project-tavern-e2e-current.json",
+        leaseAcquisition:
+          input.rebootstrapDisposition === undefined ? "acquire_initial" : "deferred_rebootstrap",
       });
+      registerRebootstrapLifecycle(
+        Object.freeze({
+          invalidationController: created.invalidationController,
+          disposeForRebootstrap: () => persistenceService.disposeForRebootstrap(),
+        }),
+      );
 
       const lifecycleOperation = () =>
         created.runtimeControl.enqueueAuthoritative<SessionAnchorResultV1>(
@@ -1100,6 +1120,7 @@ export async function createE2eGameRuntimeV1(input: {
           },
           () => Object.freeze({ kind: "faulted" as const, code: "runtime.anchor_failed" }),
           (snapshot) => persistenceService.establishAnchor(snapshot, Object.freeze([])),
+          () => Object.freeze({ kind: "rejected" as const, code: "hmr_invalidated" }),
         );
 
       const debugBundleCodec = createE2eDebugBundleCodecV1(gameSimulation.stateSchema);
@@ -1377,7 +1398,7 @@ export async function createE2eGameRuntimeV1(input: {
           );
         },
       });
-      return createGameApplicationV1({
+      const application = createGameApplicationV1({
         semantic,
         lifecycle: Object.freeze({
           createNewSession: lifecycleOperation,
@@ -1388,6 +1409,10 @@ export async function createE2eGameRuntimeV1(input: {
         capabilities,
         debugTools,
       });
+      if (input.rebootstrapDisposition !== undefined) {
+        await persistenceService.takeOverForRebootstrap(input.rebootstrapDisposition);
+      }
+      return application;
     },
   });
 }

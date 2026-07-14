@@ -925,6 +925,8 @@ describe("E2e Game Application runtime", () => {
     });
     const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
     const first = await createE2eGameRuntimeV1({ resolved, host });
+    expect(first).not.toHaveProperty("invalidationController");
+    expect(first).not.toHaveProperty("disposeForRebootstrap");
     await first.capabilities.setEnabled("debug_tools", true);
     await first.capabilities.setEnabled("cheats", true);
 

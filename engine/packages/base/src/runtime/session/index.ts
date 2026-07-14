@@ -7,3 +7,4 @@ export type {
   GameSessionRuntimeControlV1,
   GameSessionV1,
 } from "./game-session.js";
+export type { RuntimeInvalidationControllerV1 } from "./runtime-invalidation.js";

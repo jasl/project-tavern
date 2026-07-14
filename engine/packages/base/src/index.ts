@@ -71,6 +71,7 @@ export {
   resolveGamePackageV1,
 } from "./authoring/index.js";
 export type { PatchSurfaceV1 } from "./authoring/index.js";
+export type { RuntimeInvalidationControllerV1 } from "./runtime/index.js";
 export type {
   AppearanceLayerId,
   AssetPackDigestProjectionV1,

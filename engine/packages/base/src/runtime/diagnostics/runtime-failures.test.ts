@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { RuntimeOperationFaultV1 } from "../../contracts/diagnostics.js";
 import type { IsoUtcInstant } from "../../contracts/host.js";
 import {
+  createRuntimeHmrInvalidationReporterV1,
   createRuntimeFailureBufferV1,
   createRuntimeFailureReporterV1,
   normalizeRuntimeFailureV1,
@@ -136,6 +137,27 @@ describe("RuntimeFailure buffer", () => {
       operation: "runtime.observer_notification_failed",
       message: "listener at <redacted-path>",
     });
+  });
+
+  it("records exactly one runtime.hmr_invalidated failure", () => {
+    const failures = createRuntimeFailureBufferV1();
+    const reportInvalidation = createRuntimeHmrInvalidationReporterV1({
+      failures,
+      now: () => occurredAt,
+    });
+
+    reportInvalidation();
+    reportInvalidation();
+
+    expect(failures.entries()).toEqual([
+      expect.objectContaining({
+        occurredAt,
+        operation: "runtime.hmr_invalidation",
+        category: "runtime",
+        code: "runtime.hmr_invalidated",
+        message: "Resolved game identity changed during HMR",
+      }),
+    ]);
   });
 
   it("rejects buffer limits outside the reviewed maximum", () => {

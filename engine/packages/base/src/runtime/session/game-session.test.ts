@@ -16,11 +16,7 @@ import {
   createRuntimeFailureBufferV1,
   createRuntimeFailureReporterV1,
 } from "../diagnostics/runtime-failures.js";
-import {
-  createGameSessionInternalV1,
-  createGameSessionV1,
-  type GameSessionDebugInputV1,
-} from "./game-session.js";
+import { createGameSessionV1, type GameSessionDebugInputV1 } from "./game-session.js";
 
 interface State {
   readonly count: number;
@@ -163,25 +159,15 @@ function integrityDriftAttempt(
   });
 }
 
-function fixture(): ReturnType<typeof createGameSessionV1<Types>> & {
-  readonly calls: () => number;
-  readonly attempts: Attempt[];
-};
 function fixture(
-  internal: true,
-  onObserverFailure?: (error: unknown) => void,
-): ReturnType<typeof createGameSessionInternalV1<Types>> & {
-  readonly calls: () => number;
-  readonly attempts: Attempt[];
-};
-function fixture(
-  internal: false,
-  onObserverFailure?: (error: unknown) => void,
+  options: {
+    readonly onObserverFailure?: (error: unknown) => void;
+    readonly onHmrInvalidated?: () => void;
+  } = {},
 ): ReturnType<typeof createGameSessionV1<Types>> & {
   readonly calls: () => number;
   readonly attempts: Attempt[];
-};
-function fixture(internal = false, onObserverFailure?: (error: unknown) => void) {
+} {
   let calls = 0;
   const attempts: Attempt[] = [];
   const input = {
@@ -199,11 +185,14 @@ function fixture(internal = false, onObserverFailure?: (error: unknown) => void)
     onAttempt(value: Attempt) {
       attempts.push(value);
     },
-    ...(onObserverFailure === undefined ? {} : { onObserverFailure }),
+    ...(options.onObserverFailure === undefined
+      ? {}
+      : { onObserverFailure: options.onObserverFailure }),
+    ...(options.onHmrInvalidated === undefined
+      ? {}
+      : { onHmrInvalidated: options.onHmrInvalidated }),
   };
-  const created = internal
-    ? createGameSessionInternalV1<Types>(input)
-    : createGameSessionV1<Types>(input);
+  const created = createGameSessionV1<Types>(input);
   return { ...created, calls: () => calls, attempts };
 }
 
@@ -510,9 +499,9 @@ describe("GameSession FIFO", () => {
     expect(unavailableAnchorCalls).toBe(0);
     expect(unavailable.session.getCurrentSnapshot().state.count).toBe(0);
 
-    const invalidated = fixture(true);
+    const invalidated = fixture();
     let invalidatedAnchorCalls = 0;
-    const invalidation = invalidated.privateControl.invalidateForHmr();
+    invalidated.invalidationController.invalidateForHmr();
     const anchor = invalidated.debugControl.anchorReplacement<DebugAnchorTestResult>(
       Object.freeze({ kind: "debug_bundle" as const }),
       async () => {
@@ -526,7 +515,6 @@ describe("GameSession FIFO", () => {
       () => true,
       () => Object.freeze({ kind: "faulted" as const }),
     );
-    await invalidation;
     await expect(anchor).resolves.toEqual({
       kind: "not_executed",
       code: "hmr_invalidated",
@@ -778,16 +766,292 @@ describe("GameSession FIFO", () => {
     expect(calls()).toBe(1);
   });
 
-  it("skips a queued command after authoritative HMR invalidation", async () => {
-    const { session, privateControl, calls } = fixture(true);
-    const invalidation = privateControl.invalidateForHmr();
+  it("invalidates synchronously once and rejects new commands without changing the Snapshot", async () => {
+    let invalidationReports = 0;
+    const { session, runtimeControl, invalidationController, commandLog, calls } = fixture({
+      onHmrInvalidated() {
+        invalidationReports += 1;
+      },
+    });
+    await session.dispatch({ kind: "increment" });
+    const snapshotBefore = session.getCurrentSnapshot();
+    const commandLogBefore = commandLog.entries();
+    let synchronouslyPublishedStatus: ReturnType<typeof session.getStatus> | undefined;
+    let invalidationPublications = 0;
+    session.subscribe(() => {
+      synchronouslyPublishedStatus = session.getStatus();
+      invalidationPublications += 1;
+    });
+
+    invalidationController.invalidateForHmr();
+    expect(synchronouslyPublishedStatus).toBe("hmr_invalidated");
+    expect(session.getStatus()).toBe("hmr_invalidated");
+    invalidationController.invalidateForHmr();
     const command = session.dispatch({ kind: "increment" });
-    await invalidation;
+
     await expect(command).resolves.toEqual({
       kind: "not_executed",
       code: "hmr_invalidated",
     });
-    expect(calls()).toBe(0);
+    expect(invalidationReports).toBe(1);
+    expect(invalidationPublications).toBe(1);
+    expect(calls()).toBe(1);
+    expect(session.getCurrentSnapshot()).toBe(snapshotBefore);
+    expect(commandLog.entries()).toBe(commandLogBefore);
+    await expect(runtimeControl.readAtQueueFront((snapshot) => snapshot)).resolves.toBe(
+      snapshotBefore,
+    );
+    expect(session.getStatus()).toBe("hmr_invalidated");
+  });
+
+  it("skips gameplay and Debug mutations queued behind synchronous invalidation", async () => {
+    let releaseBlocker: (() => void) | undefined;
+    let blockerStarted: (() => void) | undefined;
+    const blocker = new Promise<void>((resolve) => {
+      releaseBlocker = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      blockerStarted = resolve;
+    });
+    let gameplayCalls = 0;
+    let debugCalls = 0;
+    let anchorCalls = 0;
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      executeAttempt(snapshot, command) {
+        gameplayCalls += 1;
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+      debug: defineDebugInputV1({
+        validate: () => Object.freeze({ kind: "allowed" as const }),
+        executeAttempt(snapshot) {
+          debugCalls += 1;
+          return attempt(snapshot as Snapshot, { kind: "increment" });
+        },
+        normalizeUnexpectedFault(_error, snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+      }),
+    });
+    const blockingOperation = created.runtimeControl.enqueueAuthoritative(
+      async () => {
+        blockerStarted?.();
+        await blocker;
+        return Object.freeze({
+          kind: "preserve" as const,
+          result: "released" as const,
+        });
+      },
+      () => "faulted" as const,
+      undefined,
+      () => "hmr_invalidated" as const,
+    );
+    await started;
+    const gameplay = created.session.dispatch({ kind: "increment" });
+    const debug = created.debugControl.execute(
+      Object.freeze({ kind: "debug.synthetic.add", amount: 1 }),
+      () => true,
+    );
+    const anchor = created.debugControl.anchorReplacement<DebugAnchorTestResult>(
+      Object.freeze({ kind: "fixture" as const, fixtureId: "fixture.synthetic" }),
+      async () => {
+        anchorCalls += 1;
+        return Object.freeze({
+          kind: "replace" as const,
+          snapshot: createSnapshot(20),
+          result: Object.freeze({ kind: "anchored" as const }),
+        });
+      },
+      () => true,
+      () => Object.freeze({ kind: "faulted" as const }),
+    );
+
+    created.invalidationController.invalidateForHmr();
+    expect(created.session.getStatus()).toBe("hmr_invalidated");
+    releaseBlocker?.();
+
+    await expect(blockingOperation).resolves.toBe("hmr_invalidated");
+    await expect(gameplay).resolves.toEqual({
+      kind: "not_executed",
+      code: "hmr_invalidated",
+    });
+    await expect(debug).resolves.toEqual({
+      kind: "not_executed",
+      code: "hmr_invalidated",
+    });
+    await expect(anchor).resolves.toEqual({
+      kind: "not_executed",
+      code: "hmr_invalidated",
+    });
+    expect(gameplayCalls).toBe(0);
+    expect(debugCalls).toBe(0);
+    expect(anchorCalls).toBe(0);
+    expect(created.session.getCurrentSnapshot().state.count).toBe(0);
+    expect(created.commandLog.entries()).toEqual([]);
+  });
+
+  it("drops an in-flight async DebugCommand after synchronous HMR invalidation", async () => {
+    let releaseDebug: (() => void) | undefined;
+    let markDebugStarted: (() => void) | undefined;
+    const blockedDebug = new Promise<void>((resolve) => {
+      releaseDebug = resolve;
+    });
+    const debugStarted = new Promise<void>((resolve) => {
+      markDebugStarted = resolve;
+    });
+    let attemptsObserved = 0;
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      executeAttempt(snapshot, command) {
+        return attempt(snapshot as Snapshot, command as Command);
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+      onAttempt() {
+        attemptsObserved += 1;
+      },
+      debug: defineDebugInputV1({
+        validate: () => Object.freeze({ kind: "allowed" as const }),
+        async executeAttempt(snapshot) {
+          markDebugStarted?.();
+          await blockedDebug;
+          return attempt(snapshot as Snapshot, { kind: "increment" });
+        },
+        normalizeUnexpectedFault(_error, snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+      }),
+    });
+    const snapshotBefore = created.session.getCurrentSnapshot();
+    const debug = created.debugControl.execute(
+      Object.freeze({ kind: "debug.synthetic.add", amount: 1 }),
+      () => true,
+    );
+    await debugStarted;
+
+    created.invalidationController.invalidateForHmr();
+    releaseDebug?.();
+
+    await expect(debug).resolves.toEqual({
+      kind: "not_executed",
+      code: "hmr_invalidated",
+    });
+    expect(created.session.getStatus()).toBe("hmr_invalidated");
+    expect(created.session.getCurrentSnapshot()).toBe(snapshotBefore);
+    expect(created.commandLog.entries()).toEqual([]);
+    expect(attemptsObserved).toBe(0);
+  });
+
+  it("does not let an in-flight authoritative replacement revive an invalidated Session", async () => {
+    let releaseReplacement: (() => void) | undefined;
+    let replacementStarted: (() => void) | undefined;
+    const blocked = new Promise<void>((resolve) => {
+      releaseReplacement = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      replacementStarted = resolve;
+    });
+    const created = fixture();
+    const before = created.session.getCurrentSnapshot();
+    const replacement = created.runtimeControl.enqueueAuthoritative(
+      async () => {
+        replacementStarted?.();
+        await blocked;
+        return Object.freeze({
+          kind: "replace" as const,
+          snapshot: createSnapshot(20),
+          result: "anchored" as const,
+          anchor: "replace_replay_base" as const,
+        });
+      },
+      () => "faulted" as const,
+      undefined,
+      () => "hmr_invalidated" as const,
+    );
+    await started;
+
+    created.invalidationController.invalidateForHmr();
+    releaseReplacement?.();
+
+    await expect(replacement).resolves.toBe("hmr_invalidated");
+    expect(created.session.getStatus()).toBe("hmr_invalidated");
+    expect(created.session.getCurrentSnapshot()).toBe(before);
+    expect(created.commandLog.replayBase()).toBe(before);
+    expect(created.commandLog.entries()).toEqual([]);
+  });
+
+  it("keeps HMR invalidation terminal when in-flight authoritative work throws", async () => {
+    let releaseDispatch: (() => void) | undefined;
+    let dispatchStarted: (() => void) | undefined;
+    const blockedDispatch = new Promise<void>((resolve) => {
+      releaseDispatch = resolve;
+    });
+    const startedDispatch = new Promise<void>((resolve) => {
+      dispatchStarted = resolve;
+    });
+    const created = createGameSessionV1<Types>({
+      initialSnapshot: createSnapshot(0),
+      commandSchema,
+      executionContext: undefined,
+      async executeAttempt() {
+        dispatchStarted?.();
+        await blockedDispatch;
+        throw new Error("old executor failed");
+      },
+      normalizeUnexpectedDispatchFault(_error, snapshot) {
+        return attempt(snapshot as Snapshot, { kind: "fault" });
+      },
+    });
+    const dispatch = created.session.dispatch({ kind: "increment" });
+    await startedDispatch;
+
+    created.invalidationController.invalidateForHmr();
+    releaseDispatch?.();
+
+    await expect(dispatch).resolves.toEqual({
+      kind: "not_executed",
+      code: "hmr_invalidated",
+    });
+    expect(created.session.getStatus()).toBe("hmr_invalidated");
+    expect(created.session.getCurrentSnapshot().state.count).toBe(0);
+    expect(created.commandLog.entries()).toEqual([]);
+
+    let releaseReplacement: (() => void) | undefined;
+    let replacementStarted: (() => void) | undefined;
+    const blockedReplacement = new Promise<void>((resolve) => {
+      releaseReplacement = resolve;
+    });
+    const startedReplacement = new Promise<void>((resolve) => {
+      replacementStarted = resolve;
+    });
+    const replacementCreated = fixture();
+    const replacement = replacementCreated.runtimeControl.enqueueAuthoritative(
+      async () => {
+        replacementStarted?.();
+        await blockedReplacement;
+        throw new Error("old replacement failed");
+      },
+      () => "faulted" as const,
+      undefined,
+      () => "hmr_invalidated" as const,
+    );
+    await startedReplacement;
+
+    replacementCreated.invalidationController.invalidateForHmr();
+    releaseReplacement?.();
+
+    await expect(replacement).resolves.toBe("hmr_invalidated");
+    expect(replacementCreated.session.getStatus()).toBe("hmr_invalidated");
+    expect(replacementCreated.session.getCurrentSnapshot().state.count).toBe(0);
+    expect(replacementCreated.commandLog.entries()).toEqual([]);
   });
 
   it("normalizes a thrown executor once and permits an anchor recovery", async () => {
@@ -1190,7 +1454,7 @@ describe("GameSession FIFO", () => {
       readonly count: number;
       readonly dispatchResolved: boolean;
     }> = [];
-    const { session, runtimeControl } = fixture(false, reportObserverFailure);
+    const { session, runtimeControl } = fixture({ onObserverFailure: reportObserverFailure });
     let dispatchResolved = false;
     runtimeControl.subscribeCommittedSnapshots((snapshot) => {
       observations.push({
@@ -1241,9 +1505,11 @@ describe("GameSession FIFO", () => {
     const subscriberError = new Error("subscriber failed once");
     const observerFailures: unknown[] = [];
     const observations: Array<{ readonly count: number; readonly status: string }> = [];
-    const { session } = fixture(false, (error) => {
-      observerFailures.push(error);
-      throw new Error("observer failure hook also failed");
+    const { session } = fixture({
+      onObserverFailure(error) {
+        observerFailures.push(error);
+        throw new Error("observer failure hook also failed");
+      },
     });
     let throwOnce = true;
     session.subscribe(() => {

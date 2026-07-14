@@ -168,3 +168,24 @@ export function createRuntimeFailureReporterV1(
     }
   };
 }
+
+/** Creates the one-shot failure reporter for a terminal HMR identity invalidation. */
+export function createRuntimeHmrInvalidationReporterV1(input: {
+  readonly failures: RuntimeFailureAppendPortV1;
+  readonly now: () => IsoUtcInstant;
+}): () => void {
+  let reported = false;
+  const report = createRuntimeFailureReporterV1({
+    failures: input.failures,
+    now: input.now,
+    operation: "runtime.hmr_invalidation",
+    category: "runtime",
+    code: "runtime.hmr_invalidated",
+  });
+
+  return (): void => {
+    if (reported) return;
+    reported = true;
+    report("Resolved game identity changed during HMR");
+  };
+}

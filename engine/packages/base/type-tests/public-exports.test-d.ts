@@ -64,6 +64,7 @@ import type {
   PresentationCatalogValidationErrorV1,
   PresentationProviderId,
   ResolvedGameV1,
+  RuntimeInvalidationControllerV1,
   RunIntegrityReasonV1,
   RunIntegrityV1,
   StageSceneDescriptorV1,
@@ -137,6 +138,7 @@ export declare const publicRunIntegrityV1: RunIntegrityV1;
 export declare const publicRunIntegrityReasonV1: RunIntegrityReasonV1;
 export declare const publicCreatePristineRunIntegrityV1: typeof createPristineRunIntegrityV1;
 export declare const publicRunIntegritySchemaV1: typeof runIntegrityV1Schema;
+export declare const publicRuntimeInvalidationControllerV1: RuntimeInvalidationControllerV1;
 export const publicModuleId: ModuleId = parseModuleId("synthetic.parity");
 export const publicStateSlotId: StateSlotId = parseStateSlotId("simulation.counter");
 export const publicLocaleId: LocaleId = parseLocaleId("zh-CN");

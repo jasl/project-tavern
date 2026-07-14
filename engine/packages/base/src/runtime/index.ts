@@ -33,6 +33,7 @@ export {
 export {
   createRuntimeFailureBufferV1,
   createRuntimeFailureReporterV1,
+  createRuntimeHmrInvalidationReporterV1,
   normalizeRuntimeFailureV1,
 } from "./diagnostics/runtime-failures.js";
 export type {
@@ -61,7 +62,12 @@ export {
 export { decodeSaveRecordV1, encodeSaveRecordV1 } from "./persistence/save-codec.js";
 export { createAutoSaveQueueV1 } from "./persistence/auto-save-queue.js";
 export { createPersistenceServiceV1 } from "./persistence/persistence-service.js";
-export type { PersistenceServiceV1 } from "./persistence/persistence-service.js";
+export type {
+  PersistenceLeaseAcquisitionV1,
+  PersistenceRebootstrapDisposalV1,
+  PersistenceRebootstrapTakeoverV1,
+  PersistenceServiceV1,
+} from "./persistence/persistence-service.js";
 export { createSemanticGamePortV1 } from "./application/semantic-game-port.js";
 export { createGameSessionV1 } from "./session/index.js";
 export type {
@@ -70,6 +76,7 @@ export type {
   GameSessionInputV1,
   GameSessionRuntimeControlV1,
   GameSessionV1,
+  RuntimeInvalidationControllerV1,
 } from "./session/index.js";
 export type {
   GameSessionDebugAnchorV1,

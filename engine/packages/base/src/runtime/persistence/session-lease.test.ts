@@ -125,6 +125,59 @@ describe("Session lease", () => {
     expect(second.captureFence()).toEqual(fenceV1("owner.b", 2));
   });
 
+  it("releases only the exact current fence and cannot release a reacquired owner", async () => {
+    const records = createMemoryHostRecordStoreV1();
+    const first = createLeaseV1(records, "owner.a").lease;
+    const contender = createLeaseV1(records, "owner.b").lease;
+    await first.acquireInitial();
+    const staleFence = first.captureFence();
+    if (staleFence === null) throw new TypeError("expected initial owner fence");
+
+    await contender.takeOver();
+    await first.takeOver();
+    await expect(first.releaseFence(staleFence)).resolves.toEqual({
+      kind: "rejected",
+      code: "conflict",
+    });
+    await expect(first.getStatus()).resolves.toEqual({
+      kind: "owned",
+      ownerId: ownerV1("owner.a"),
+      fencingToken: 3,
+    });
+
+    const currentFence = first.captureFence();
+    if (currentFence === null) throw new TypeError("expected reacquired owner fence");
+    await expect(first.releaseFence(currentFence)).resolves.toEqual({
+      kind: "updated",
+      status: { kind: "unowned", ownerId: null, fencingToken: 3 },
+    });
+  });
+
+  it("takes over only an unowned lease and increments its token exactly once", async () => {
+    const records = createMemoryHostRecordStoreV1();
+    const first = createLeaseV1(records, "owner.a").lease;
+    const replacement = createLeaseV1(records, "owner.b").lease;
+    await first.acquireInitial();
+
+    await expect(replacement.takeOverUnowned(parsePositiveSafeInteger(1))).resolves.toEqual({
+      kind: "rejected",
+      code: "conflict",
+    });
+    await first.release();
+    await expect(replacement.takeOverUnowned(parsePositiveSafeInteger(2))).resolves.toEqual({
+      kind: "rejected",
+      code: "conflict",
+    });
+    await expect(replacement.takeOverUnowned(parsePositiveSafeInteger(1))).resolves.toEqual({
+      kind: "updated",
+      status: { kind: "owned", ownerId: ownerV1("owner.b"), fencingToken: 2 },
+    });
+    await expect(replacement.takeOverUnowned(parsePositiveSafeInteger(1))).resolves.toEqual({
+      kind: "updated",
+      status: { kind: "owned", ownerId: ownerV1("owner.b"), fencingToken: 2 },
+    });
+  });
+
   it("approves only the exact handoff request and transfers ownership with a new token", async () => {
     const records = createMemoryHostRecordStoreV1();
     const first = createLeaseV1(records, "owner.a").lease;

@@ -9,8 +9,10 @@ const repositoryRoot = import.meta.dirname;
 interface E2eBuildIdentityModuleV1 {
   readonly e2eBuildIdentityVirtualSpecifierV1: string;
   collectE2eBuildIdentityV1(root: string): Promise<unknown>;
-  renderE2eBuildIdentityVirtualModuleV1(identity: unknown): string;
-  createE2eBuildIdentityVirtualPluginV1(source: string): Plugin;
+  createE2eBuildIdentityVirtualPluginV1(input: {
+    readonly root: string;
+    readonly initialIdentity: unknown;
+  }): Plugin;
 }
 
 function assertE2eBuildIdentityModuleV1(value: unknown): asserts value is E2eBuildIdentityModuleV1 {
@@ -19,7 +21,6 @@ function assertE2eBuildIdentityModuleV1(value: unknown): asserts value is E2eBui
     value === null ||
     typeof Reflect.get(value, "e2eBuildIdentityVirtualSpecifierV1") !== "string" ||
     typeof Reflect.get(value, "collectE2eBuildIdentityV1") !== "function" ||
-    typeof Reflect.get(value, "renderE2eBuildIdentityVirtualModuleV1") !== "function" ||
     typeof Reflect.get(value, "createE2eBuildIdentityVirtualPluginV1") !== "function"
   ) {
     throw new TypeError("E2E BuildIdentity collector module is invalid");
@@ -32,11 +33,8 @@ const e2eBuildIdentityModuleV1: unknown = requireFromConfigV1(
 );
 assertE2eBuildIdentityModuleV1(e2eBuildIdentityModuleV1);
 
-const {
-  collectE2eBuildIdentityV1,
-  createE2eBuildIdentityVirtualPluginV1,
-  renderE2eBuildIdentityVirtualModuleV1,
-} = e2eBuildIdentityModuleV1;
+const { collectE2eBuildIdentityV1, createE2eBuildIdentityVirtualPluginV1 } =
+  e2eBuildIdentityModuleV1;
 
 const applicationRoots = Object.freeze({
   "e2e-web": Object.freeze({
@@ -80,15 +78,16 @@ export default defineConfig(async ({ mode }) => {
   }
   const storyRoot = dirname(application.html);
   const htmlName = basename(application.html);
-  const buildIdentityVirtualSource = renderE2eBuildIdentityVirtualModuleV1(
-    await collectE2eBuildIdentityV1(repositoryRoot),
-  );
+  const initialBuildIdentity = await collectE2eBuildIdentityV1(repositoryRoot);
   return {
     root: storyRoot,
     base: "./",
     publicDir: false,
     plugins: [
-      createE2eBuildIdentityVirtualPluginV1(buildIdentityVirtualSource),
+      createE2eBuildIdentityVirtualPluginV1({
+        root: repositoryRoot,
+        initialIdentity: initialBuildIdentity,
+      }),
       react(),
       {
         name: "project-tavern-closed-application-root",

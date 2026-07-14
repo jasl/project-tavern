@@ -41,7 +41,11 @@ export interface SessionLeaseV1 {
   requestHandoff(): Promise<SessionLeaseOperationResultV1>;
   approveHandoff(requestId: LeaseHandoffRequestId): Promise<SessionLeaseOperationResultV1>;
   takeOver(): Promise<SessionLeaseOperationResultV1>;
+  takeOverUnowned(
+    expectedFencingToken: PositiveSafeInteger,
+  ): Promise<SessionLeaseOperationResultV1>;
   release(): Promise<SessionLeaseOperationResultV1>;
+  releaseFence(fence: SessionLeaseFenceV1): Promise<SessionLeaseOperationResultV1>;
 }
 
 const leaseJsonLimitsV1 = parseStrictJsonLimitsV1({
@@ -252,6 +256,17 @@ function nextFencingTokenV1(token: PositiveSafeInteger): PositiveSafeInteger | n
   return parsePositiveSafeInteger(token + 1);
 }
 
+function normalizeSessionLeaseFenceV1(value: SessionLeaseFenceV1): SessionLeaseFenceV1 {
+  const descriptors = exactDescriptorsV1(value, ["fencingToken", "ownerId"], "SessionLeaseFenceV1");
+  return Object.freeze({
+    ownerId: parseLeaseIdV1<SessionLeaseOwnerId>(
+      descriptorValueV1(descriptors, "ownerId"),
+      "SessionLeaseOwnerId",
+    ),
+    fencingToken: parsePositiveSafeInteger(descriptorValueV1(descriptors, "fencingToken")),
+  });
+}
+
 function sameLeaseSemanticsV1(left: SessionLeaseRecordV1, right: SessionLeaseRecordV1): boolean {
   return (
     left.formatRevision === right.formatRevision &&
@@ -402,6 +417,60 @@ export function createSessionLeaseV1(input: {
     });
   };
 
+  const takeOverV1 = async (
+    expectedUnownedFencingToken: PositiveSafeInteger | null,
+  ): Promise<SessionLeaseOperationResultV1> => {
+    const current = await readFreshV1();
+    if (current.kind === "invalid" || current.kind === "unavailable") {
+      return rejectedV1("unavailable");
+    }
+    if (current.kind !== "available") return rejectedV1("conflict");
+    if (current.record.ownerId === ownerId) {
+      return Object.freeze({ kind: "updated", status: recordStatusV1(current.record) });
+    }
+    if (
+      expectedUnownedFencingToken !== null &&
+      (current.record.ownerId !== null ||
+        current.record.fencingToken !== expectedUnownedFencingToken)
+    ) {
+      return rejectedV1("conflict");
+    }
+    const fencingToken = nextFencingTokenV1(current.record.fencingToken);
+    if (fencingToken === null) return rejectedV1("unavailable");
+    const next: SessionLeaseRecordV1 = Object.freeze({
+      formatRevision: 1,
+      ownerId,
+      fencingToken,
+      handoff: null,
+    });
+    return updatedFromCommitV1(await commitRecordV1(current, next));
+  };
+
+  const releaseV1 = async (
+    expectedFence: SessionLeaseFenceV1 | null,
+  ): Promise<SessionLeaseOperationResultV1> => {
+    const current = await readFreshV1();
+    if (current.kind === "invalid" || current.kind === "unavailable") {
+      return rejectedV1("unavailable");
+    }
+    if (
+      current.kind !== "available" ||
+      current.record.ownerId !== ownerId ||
+      (expectedFence !== null &&
+        (current.record.ownerId !== expectedFence.ownerId ||
+          current.record.fencingToken !== expectedFence.fencingToken))
+    ) {
+      return rejectedV1("conflict");
+    }
+    const next: SessionLeaseRecordV1 = Object.freeze({
+      formatRevision: 1,
+      ownerId: null,
+      fencingToken: current.record.fencingToken,
+      handoff: null,
+    });
+    return updatedFromCommitV1(await commitRecordV1(current, next));
+  };
+
   return Object.freeze({
     async getStatus() {
       return observationStatusV1(await readFreshV1());
@@ -478,40 +547,19 @@ export function createSessionLeaseV1(input: {
     },
 
     async takeOver() {
-      const current = await readFreshV1();
-      if (current.kind === "invalid" || current.kind === "unavailable") {
-        return rejectedV1("unavailable");
-      }
-      if (current.kind !== "available") return rejectedV1("conflict");
-      if (current.record.ownerId === ownerId) {
-        return Object.freeze({ kind: "updated", status: recordStatusV1(current.record) });
-      }
-      const fencingToken = nextFencingTokenV1(current.record.fencingToken);
-      if (fencingToken === null) return rejectedV1("unavailable");
-      const next: SessionLeaseRecordV1 = Object.freeze({
-        formatRevision: 1,
-        ownerId,
-        fencingToken,
-        handoff: null,
-      });
-      return updatedFromCommitV1(await commitRecordV1(current, next));
+      return takeOverV1(null);
+    },
+
+    async takeOverUnowned(expectedFencingToken: PositiveSafeInteger) {
+      return takeOverV1(parsePositiveSafeInteger(expectedFencingToken));
     },
 
     async release() {
-      const current = await readFreshV1();
-      if (current.kind === "invalid" || current.kind === "unavailable") {
-        return rejectedV1("unavailable");
-      }
-      if (current.kind !== "available" || current.record.ownerId !== ownerId) {
-        return rejectedV1("conflict");
-      }
-      const next: SessionLeaseRecordV1 = Object.freeze({
-        formatRevision: 1,
-        ownerId: null,
-        fencingToken: current.record.fencingToken,
-        handoff: null,
-      });
-      return updatedFromCommitV1(await commitRecordV1(current, next));
+      return releaseV1(null);
+    },
+
+    async releaseFence(fence: SessionLeaseFenceV1) {
+      return releaseV1(normalizeSessionLeaseFenceV1(fence));
     },
   });
 }
