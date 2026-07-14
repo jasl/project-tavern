@@ -278,6 +278,7 @@
       "target": "./src/testkit/index.ts",
       "exports": [
         "createFixedBootstrapEntropyV1",
+        "createMemoryHostRecordStoreV1",
         "createSyntheticCounterGamePackageV1",
         "resolveStoryForTestV1",
         "strictJsonRoundTripV1",

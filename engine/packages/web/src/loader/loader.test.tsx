@@ -6,7 +6,10 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { digestBytes, parsePositiveSafeInteger } from "@sillymaker/base";
 import type { GamePackageV1, HotfixEntryV1 } from "@sillymaker/base";
-import { createSyntheticCounterGamePackageV1 } from "@sillymaker/base/testkit";
+import {
+  createMemoryHostRecordStoreV1,
+  createSyntheticCounterGamePackageV1,
+} from "@sillymaker/base/testkit";
 import { createWebHostV1 } from "../host/create-web-host.js";
 import { createGameBootstrapControllerV1, Loader } from "./loader.js";
 
@@ -35,7 +38,7 @@ describe("Loader", () => {
   });
 
   it("freezes fatal, safe-mode, and ready bootstrap branches", async () => {
-    const host = createWebHostV1();
+    const host = createWebHostV1({ records: createMemoryHostRecordStoreV1() });
     const bootstrap = createGameBootstrapControllerV1({
       host,
       buildIdentity: {

@@ -2,7 +2,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { parsePositiveSafeInteger } from "@sillymaker/base";
 import { createWebHostV1 } from "@sillymaker/web";
-import { resolveStoryForTestV1, validateToolingFixturesV1 } from "@sillymaker/base/testkit";
+import {
+  createMemoryHostRecordStoreV1,
+  resolveStoryForTestV1,
+  validateToolingFixturesV1,
+} from "@sillymaker/base/testkit";
 import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
 import { e2eGameCommandSchemaV1 } from "../gameplay/contracts/index.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
@@ -89,6 +93,7 @@ describe("E2e Game Application runtime", () => {
     const application = await createE2eGameRuntimeV1({
       resolved,
       host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
         seeds: [0x0002_3049],
         uuids: ["00000000-0000-4000-8000-000000000001"],
         now: () => "2026-07-12T00:00:00.000Z",
@@ -118,6 +123,7 @@ describe("E2e Game Application runtime", () => {
     const application = await createE2eGameRuntimeV1({
       resolved,
       host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
         seeds: [0x0002_3049, 0x0002_3050],
         uuids: ["00000000-0000-4000-8000-000000000001"],
         now: () => "2026-07-12T00:00:00.000Z",
@@ -241,6 +247,7 @@ describe("E2e Game Application runtime", () => {
 
   it("restores Host capability preferences before exposing the next runtime", async () => {
     const host = createWebHostV1({
+      records: createMemoryHostRecordStoreV1(),
       seeds: [0x0002_3049, 0x0002_3050],
       uuids: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
       now: () => "2026-07-12T00:00:00.000Z",

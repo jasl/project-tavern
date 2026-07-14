@@ -18,7 +18,7 @@ globalThis.addEventListener("hashchange", () => globalThis.location.reload());
 if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
   mountGameApplicationV1(root, <main>此入口不可用</main>);
 } else {
-  const host = createWebHostV1();
+  const host = createWebHostV1({ databaseName: "project-tavern.e2e.runtime" });
   const bootstrap = createGameBootstrapControllerV1({
     host,
     buildIdentity: e2eBuildIdentityV1,

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import {
   createGameBootstrapControllerV1,
   createGameRuntimeV1,
@@ -6,6 +7,15 @@ import {
   Loader,
   mountGameApplicationV1,
 } from "@sillymaker/web";
+
+const injectedRecordsV1 = createMemoryHostRecordStoreV1();
+createWebHostV1({ databaseName: "sillymaker.type-test.runtime" });
+createWebHostV1({ records: injectedRecordsV1 });
+
+// @ts-expect-error persistence composition requires databaseName or records
+createWebHostV1({});
+// @ts-expect-error persistence composition forbids databaseName and records together
+createWebHostV1({ databaseName: "sillymaker.type-test.runtime", records: injectedRecordsV1 });
 
 export {
   createGameBootstrapControllerV1,

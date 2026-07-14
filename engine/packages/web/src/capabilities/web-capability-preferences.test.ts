@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { canonicalJsonBytes } from "@sillymaker/base";
 import type { GameHostV1, HostAtomicRecordStoreV1, RuntimeCapabilitiesV1 } from "@sillymaker/base";
+import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import { describe, expect, it, vi } from "vitest";
 
 import { createWebHostV1 } from "../host/create-web-host.js";
@@ -14,7 +15,7 @@ const allDisabledV1 = Object.freeze({
 }) satisfies RuntimeCapabilitiesV1;
 
 function createHostFixtureV1(records?: HostAtomicRecordStoreV1) {
-  const source = createWebHostV1();
+  const source = createWebHostV1({ records: createMemoryHostRecordStoreV1() });
   const write = vi.fn<GameHostV1["log"]["write"]>();
   const host: GameHostV1 = Object.freeze({
     ...source,
@@ -146,7 +147,7 @@ describe("Web capability preferences", () => {
   });
 
   it("maps record-store failures to unavailable without rejecting or changing state", async () => {
-    const source = createWebHostV1().records;
+    const source = createWebHostV1({ records: createMemoryHostRecordStoreV1() }).records;
     const records: HostAtomicRecordStoreV1 = Object.freeze({
       read: source.read,
       list: source.list,

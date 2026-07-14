@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { GameHostV1, HostStoredRecordV1 } from "@sillymaker/base";
+import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import { describe, expect, it, vi } from "vitest";
 
 import { createWebHostV1 } from "../host/create-web-host.js";
@@ -15,7 +16,7 @@ function deferredRecordV1() {
 
 describe("generic Web game runtime", () => {
   it("does not expose or compose an application before preference hydration finishes", async () => {
-    const source = createWebHostV1();
+    const source = createWebHostV1({ records: createMemoryHostRecordStoreV1() });
     const pendingRead = deferredRecordV1();
     const read = vi.fn(async () => pendingRead.promise);
     const host: GameHostV1 = Object.freeze({

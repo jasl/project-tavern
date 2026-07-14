@@ -8,6 +8,7 @@ import {
   resolveGamePackageV1,
 } from "@sillymaker/base";
 import type { HotfixEntryV1, TextCatalogSetV1 } from "@sillymaker/base";
+import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import { createGameBootstrapControllerV1, createWebHostV1 } from "@sillymaker/web";
 
 import { createE2eGameRuntimeV1 } from "../application/create-e2e-game-runtime.js";
@@ -35,6 +36,7 @@ const testBuildIdentityV1 = Object.freeze({
 
 function createHostV1() {
   return createWebHostV1({
+    records: createMemoryHostRecordStoreV1(),
     seeds: [0x0002_3049],
     uuids: ["00000000-0000-4000-8000-000000000001"],
     now: () => "2026-07-12T00:00:00.000Z",

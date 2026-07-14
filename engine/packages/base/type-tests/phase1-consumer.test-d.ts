@@ -62,6 +62,7 @@ import type {
 } from "@sillymaker/base/runtime";
 import {
   createFixedBootstrapEntropyV1,
+  createMemoryHostRecordStoreV1,
   createSyntheticCounterGamePackageV1,
   resolveStoryForTestV1,
   strictJsonRoundTripV1,
@@ -115,6 +116,7 @@ export type Phase1ConsumerTypesV1 = {
 export type Phase1ConsumerValuesV1 = {
   createGameSession: typeof createGameSessionV1;
   createFixedBootstrapEntropy: typeof createFixedBootstrapEntropyV1;
+  createMemoryHostRecordStore: typeof createMemoryHostRecordStoreV1;
   createGameSnapshotEnvelopeSchema: typeof createGameSnapshotEnvelopeSchemaV1;
   createPristineRunIntegrity: typeof createPristineRunIntegrityV1;
   createSaveRecordEnvelopeSchema: typeof createSaveRecordEnvelopeSchemaV1;
@@ -225,3 +227,5 @@ export { markRunModifiedV1 as runtimeMarkRunModifiedV1 } from "@sillymaker/base/
 export type { IntegrityDirectiveV1 } from "@sillymaker/base/runtime";
 // @ts-expect-error import closure belongs to scripts, never Base/testkit
 export { buildImportClosureV1 } from "@sillymaker/base/testkit";
+// @ts-expect-error memory record stores are testkit-only, never Base root
+export { createMemoryHostRecordStoreV1 as ForbiddenRootMemoryRecordStoreV1 } from "@sillymaker/base";

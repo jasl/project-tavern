@@ -2,81 +2,67 @@
 import type {
   GameHostV1,
   HostAtomicRecordStoreV1,
-  HostRecordMutationV1,
-  HostStoredRecordV1,
   IsoUtcInstant,
   NonZeroUint32,
 } from "@sillymaker/base";
-import { parseNonZeroUint32, parseNonNegativeSafeInteger } from "@sillymaker/base";
+import { parseNonZeroUint32 } from "@sillymaker/base";
+import { createIndexedDbRecordStoreV1 } from "./indexeddb-record-store.js";
 
-type HostRecordKeyV1 = HostRecordMutationV1["key"];
-type HostRecordNamespaceV1 = Parameters<HostAtomicRecordStoreV1["read"]>[0];
-type HostAtomicCommitResultV1 = Awaited<ReturnType<HostAtomicRecordStoreV1["commit"]>>;
-
-export interface CreateWebHostOptionsV1 {
+interface CreateWebHostCommonOptionsV1 {
   readonly seeds?: readonly number[];
   readonly uuids?: readonly string[];
   readonly now?: () => string;
   readonly crypto?: Pick<Crypto, "getRandomValues" | "randomUUID">;
 }
 
-function createMemoryRecords(): HostAtomicRecordStoreV1 {
-  const records = new Map<string, HostStoredRecordV1>();
-  const id = (namespace: HostRecordNamespaceV1, key: HostRecordKeyV1) => `${namespace}\0${key}`;
-  const copy = (record: HostStoredRecordV1): HostStoredRecordV1 =>
-    Object.freeze({ ...record, bytes: Uint8Array.from(record.bytes) });
-  return Object.freeze({
-    async read(namespace: HostRecordNamespaceV1, key: HostRecordKeyV1) {
-      const record = records.get(id(namespace, key));
-      return record === undefined ? null : copy(record);
-    },
-    async list(namespace: HostRecordNamespaceV1) {
-      return Object.freeze(
-        [...records.values()]
-          .filter((record) => record.namespace === namespace)
-          .toSorted((left, right) => left.key.localeCompare(right.key))
-          .map(copy),
-      );
-    },
-    async commit(
-      mutations: readonly [HostRecordMutationV1, ...HostRecordMutationV1[]],
-    ): Promise<HostAtomicCommitResultV1> {
-      const identities = mutations.map(({ namespace, key }) => id(namespace, key));
-      if (new Set(identities).size !== identities.length) throw new TypeError("duplicate mutation");
-      for (const mutation of mutations) {
-        const current = records.get(id(mutation.namespace, mutation.key));
-        if ((current?.revision ?? null) !== mutation.expectedRevision) {
-          return Object.freeze({
-            kind: "conflict",
-            namespace: mutation.namespace,
-            key: mutation.key,
-            actualRevision: current?.revision ?? null,
-          });
-        }
-      }
-      const changed: HostStoredRecordV1[] = [];
-      for (const mutation of mutations as readonly HostRecordMutationV1[]) {
-        const identity = id(mutation.namespace, mutation.key);
-        if (mutation.kind === "delete") {
-          records.delete(identity);
-        } else {
-          const record = Object.freeze({
-            namespace: mutation.namespace,
-            key: mutation.key,
-            revision: parseNonNegativeSafeInteger((mutation.expectedRevision ?? 0) + 1),
-            bytes: Uint8Array.from(mutation.bytes),
-          });
-          records.set(identity, record);
-          changed.push(copy(record));
-        }
-      }
-      return Object.freeze({ kind: "committed", records: Object.freeze(changed) });
-    },
-  });
+export type CreateWebHostOptionsV1 = CreateWebHostCommonOptionsV1 &
+  (
+    | { readonly databaseName: string; readonly records?: never }
+    | { readonly databaseName?: never; readonly records: HostAtomicRecordStoreV1 }
+  );
+
+function readGlobalIndexedDbV1(): IDBFactory | undefined {
+  try {
+    const indexedDB = globalThis.indexedDB;
+    return indexedDB !== undefined && typeof indexedDB.open === "function" ? indexedDB : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
-export function createWebHostV1(options: CreateWebHostOptionsV1 = {}): GameHostV1 {
+function resolveRecordsV1(options: CreateWebHostOptionsV1): HostAtomicRecordStoreV1 {
+  const databaseName = Reflect.get(options, "databaseName") as unknown;
+  const records = Reflect.get(options, "records") as unknown;
+  const hasDatabaseName = databaseName !== undefined;
+  const hasRecords = records !== undefined;
+  if (hasDatabaseName === hasRecords) {
+    throw new TypeError("Web Host requires exactly one persistence composition");
+  }
+  if (hasDatabaseName) {
+    if (typeof databaseName !== "string") throw new TypeError("invalid Web Host databaseName");
+    return createIndexedDbRecordStoreV1({
+      indexedDB: readGlobalIndexedDbV1() as IDBFactory,
+      databaseName,
+    });
+  }
+  if (
+    records === null ||
+    typeof records !== "object" ||
+    typeof Reflect.get(records, "read") !== "function" ||
+    typeof Reflect.get(records, "list") !== "function" ||
+    typeof Reflect.get(records, "commit") !== "function"
+  ) {
+    throw new TypeError("invalid Web Host record store");
+  }
+  return records as HostAtomicRecordStoreV1;
+}
+
+export function createWebHostV1(options: CreateWebHostOptionsV1): GameHostV1 {
+  if (options === null || typeof options !== "object") {
+    throw new TypeError("invalid Web Host options");
+  }
   const cryptoPort = options.crypto ?? globalThis.crypto;
+  const records = resolveRecordsV1(options);
   const seeds = [...(options.seeds ?? [])];
   const uuids = [...(options.uuids ?? [])];
   let seedIndex = 0;
@@ -105,7 +91,7 @@ export function createWebHostV1(options: CreateWebHostOptionsV1 = {}): GameHostV
       },
       nextNonZeroUint32: nextSeed,
     }),
-    records: createMemoryRecords(),
+    records,
     files: Object.freeze({
       async selectOne() {
         return Object.freeze({ kind: "cancelled" as const });

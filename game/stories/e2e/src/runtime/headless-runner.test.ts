@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, it } from "vitest";
 
-import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
+import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import { createWebHostV1 } from "@sillymaker/web";
 
 import { createE2eGameRuntimeV1 } from "../application/create-e2e-game-runtime.js";
@@ -24,6 +24,7 @@ async function createPortV1() {
     await createE2eGameRuntimeV1({
       resolved: resolveStoryForTestV1(e2eStoryEntryV1),
       host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
         seeds: [0x0002_3049],
         uuids: ["00000000-0000-4000-8000-000000000001"],
         now: () => "2026-07-12T00:00:00.000Z",
