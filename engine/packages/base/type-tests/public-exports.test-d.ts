@@ -64,6 +64,8 @@ import type {
   PresentationCatalogValidationErrorV1,
   PresentationProviderId,
   ResolvedGameV1,
+  RunIntegrityReasonV1,
+  RunIntegrityV1,
   StageSceneDescriptorV1,
   StageSceneGraphV1,
   StageSceneId,
@@ -83,6 +85,7 @@ import type {
 } from "@sillymaker/base";
 import {
   combineContentMaturityFlagsV1,
+  createPristineRunIntegrityV1,
   definePatchSlot,
   definePresentationPatchSurface,
   defineSimulationPatchSurface,
@@ -124,11 +127,16 @@ import {
   parseTextCatalogSetV1,
   parseTextId,
   requireContentPreferencePresetV1,
+  runIntegrityV1Schema,
   setContentMaturityFlagV1,
   stageSceneGraphSchemaV1,
 } from "@sillymaker/base";
 
 export declare const publicSnapshot: GameSnapshotEnvelopeV1<unknown, unknown>;
+export declare const publicRunIntegrityV1: RunIntegrityV1;
+export declare const publicRunIntegrityReasonV1: RunIntegrityReasonV1;
+export declare const publicCreatePristineRunIntegrityV1: typeof createPristineRunIntegrityV1;
+export declare const publicRunIntegritySchemaV1: typeof runIntegrityV1Schema;
 export const publicModuleId: ModuleId = parseModuleId("synthetic.parity");
 export const publicStateSlotId: StateSlotId = parseStateSlotId("simulation.counter");
 export const publicLocaleId: LocaleId = parseLocaleId("zh-CN");

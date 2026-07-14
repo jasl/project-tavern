@@ -138,6 +138,7 @@ function commitAttemptV1(
     state,
     rng: committedRng,
     commandSequence: parseNonNegativeSafeInteger(snapshot.commandSequence + 1),
+    integrity: snapshot.integrity,
   });
   return Object.freeze({
     result: Object.freeze({ kind: "committed" as const, snapshot: committed, facts }),

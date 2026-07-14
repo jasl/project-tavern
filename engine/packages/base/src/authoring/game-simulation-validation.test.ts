@@ -8,6 +8,7 @@ import type {
   GameplayModuleBindingV1,
   RuntimeSchemaV1,
 } from "../contracts/index.js";
+import { createPristineRunIntegrityV1 } from "../contracts/snapshot.js";
 import {
   parseModuleId,
   parseNonNegativeSafeInteger,
@@ -170,6 +171,7 @@ function syntheticSnapshot(): SyntheticSimulationTypesV1["snapshot"] {
     }),
     rng: Object.freeze({ cursor: 0 }),
     commandSequence: parseNonNegativeSafeInteger(0),
+    integrity: createPristineRunIntegrityV1(),
   });
 }
 

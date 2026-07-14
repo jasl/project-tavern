@@ -250,8 +250,12 @@ export type {
 } from "./execution.js";
 export { createTransactionalRngV1, rngStateV1Schema } from "./rng.js";
 export type { RngDrawTraceV1, RngStateV1, RuleDrawRequestV1, RuleRngV1 } from "./rng.js";
-export { createGameSnapshotEnvelopeSchemaV1 } from "./snapshot.js";
-export type { GameSnapshotEnvelopeV1 } from "./snapshot.js";
+export {
+  createGameSnapshotEnvelopeSchemaV1,
+  createPristineRunIntegrityV1,
+  runIntegrityV1Schema,
+} from "./snapshot.js";
+export type { GameSnapshotEnvelopeV1, RunIntegrityReasonV1, RunIntegrityV1 } from "./snapshot.js";
 export { parseStrictJson, parseStrictJsonLimitsV1 } from "./strict-json.js";
 export type {
   StrictJsonErrorCodeV1,

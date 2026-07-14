@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
+  createPristineRunIntegrityV1,
   createTransactionalRngV1,
   parseNonNegativeSafeInteger,
   parseNonZeroUint32,
@@ -58,6 +59,7 @@ function createInitialSnapshotForTypesV1<TTypes extends SupportedE2eSimulationTy
     state: gameSimulation.createInitialState(bootstrap as DeepReadonly<TTypes["bootstrapInput"]>),
     rng: createTransactionalRngV1(parseNonZeroUint32(bootstrap.rngSeed)).candidateState(),
     commandSequence: parseNonNegativeSafeInteger(0),
+    integrity: createPristineRunIntegrityV1(),
   }) as TTypes["snapshot"];
 }
 

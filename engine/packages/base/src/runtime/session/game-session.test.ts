@@ -7,6 +7,7 @@ import type {
   GameSimulationTypeMapV1,
 } from "../../contracts/gameplay-module.js";
 import type { GameSnapshotEnvelopeV1 } from "../../contracts/snapshot.js";
+import { createPristineRunIntegrityV1, runIntegrityV1Schema } from "../../contracts/snapshot.js";
 import type { RuntimeSchemaV1 } from "../../contracts/values.js";
 import { parseNonNegativeSafeInteger } from "../../contracts/values.js";
 import { createGameSessionInternalV1, createGameSessionV1 } from "./game-session.js";
@@ -49,11 +50,12 @@ const commandSchema: RuntimeSchemaV1<Command> = {
   },
 };
 
-function createSnapshot(count: number): Snapshot {
+function createSnapshot(count: number, integrity = createPristineRunIntegrityV1()): Snapshot {
   return Object.freeze({
     state: Object.freeze({ count }),
     rng: Object.freeze({ cursor: 0 }),
     commandSequence: parseNonNegativeSafeInteger(count),
+    integrity,
   });
 }
 
@@ -62,7 +64,7 @@ const attempt = (current: Snapshot, command: Command): Attempt => {
     return Object.freeze({
       result: Object.freeze({
         kind: "faulted" as const,
-        snapshot: createSnapshot(999),
+        snapshot: current,
         fault: Object.freeze({ code: "synthetic.fault" }),
       }),
       diagnostics: Object.freeze({
@@ -75,7 +77,7 @@ const attempt = (current: Snapshot, command: Command): Attempt => {
   return Object.freeze({
     result: Object.freeze({
       kind: "committed" as const,
-      snapshot: createSnapshot(current.state.count + 1),
+      snapshot: createSnapshot(current.state.count + 1, current.integrity),
       facts: Object.freeze([{ count: current.state.count + 1 }]),
     }),
     diagnostics: Object.freeze({
@@ -85,6 +87,39 @@ const attempt = (current: Snapshot, command: Command): Attempt => {
     }),
   });
 };
+
+function integrityDriftAttempt(
+  current: Snapshot,
+  drifted: Snapshot,
+  kind: "committed" | "rejected" | "faulted",
+): Attempt {
+  const result: Attempt["result"] =
+    kind === "committed"
+      ? Object.freeze({
+          kind: "committed" as const,
+          snapshot: drifted,
+          facts: Object.freeze([{ count: drifted.state.count }]),
+        })
+      : kind === "rejected"
+        ? Object.freeze({
+            kind: "rejected" as const,
+            snapshot: drifted,
+            reasons: Object.freeze([{ code: "synthetic.reject" }]),
+          })
+        : Object.freeze({
+            kind: "faulted" as const,
+            snapshot: drifted,
+            fault: Object.freeze({ code: "synthetic.fault" }),
+          });
+  return Object.freeze({
+    result,
+    diagnostics: Object.freeze({
+      committedRngBefore: current.rng,
+      attemptedDraws: Object.freeze([]) as readonly never[],
+      committedRngAfter: current.rng,
+    }),
+  });
+}
 
 function fixture(): ReturnType<typeof createGameSessionV1<Types>> & {
   readonly calls: () => number;
@@ -141,7 +176,56 @@ describe("GameSession FIFO", () => {
     expect(session.getCurrentSnapshot().state.count).toBe(2);
     expect(session.getStatus()).toBe("ready");
     expect(calls()).toBe(2);
+    expect(session.getCurrentSnapshot().integrity).toEqual(createPristineRunIntegrityV1());
   });
+
+  it.each(["committed", "rejected", "faulted"] as const)(
+    "turns Story-owned integrity drift from %s into one finalized fault",
+    async (candidateKind) => {
+      const initial = createSnapshot(0);
+      const drifted = runIntegrityV1Schema.parse({
+        mode: "modified",
+        mutationCount: 1,
+        firstMutationSequence: 1,
+        reasons: [{ kind: "debug_bundle_anchor", sequence: 1 }],
+      });
+      let executorCalls = 0;
+      const finalizedAttempts: Attempt[] = [];
+      const created = createGameSessionV1<Types>({
+        initialSnapshot: initial,
+        commandSchema,
+        executionContext: undefined,
+        executeAttempt(snapshot) {
+          executorCalls += 1;
+          return integrityDriftAttempt(
+            snapshot as Snapshot,
+            createSnapshot(snapshot.state.count + 1, drifted),
+            candidateKind,
+          );
+        },
+        normalizeUnexpectedDispatchFault(_error, snapshot) {
+          return attempt(snapshot as Snapshot, { kind: "fault" });
+        },
+        onAttempt(value) {
+          finalizedAttempts.push(value);
+        },
+      });
+
+      await expect(created.session.dispatch({ kind: "increment" })).resolves.toMatchObject({
+        kind: "executed",
+        execution: { kind: "faulted", fault: { code: "synthetic.fault" } },
+      });
+      expect(executorCalls).toBe(1);
+      expect(finalizedAttempts).toHaveLength(1);
+      expect(finalizedAttempts[0]?.result).toMatchObject({
+        kind: "faulted",
+        fault: { code: "synthetic.fault" },
+      });
+      expect(finalizedAttempts[0]?.result.snapshot).toBe(initial);
+      expect(created.session.getCurrentSnapshot()).toBe(initial);
+      expect(created.session.getCurrentSnapshot().integrity).toBe(initial.integrity);
+    },
+  );
 
   it("preserves the exact Snapshot and skips a queued command after fault", async () => {
     const { session, calls } = fixture();
@@ -181,11 +265,17 @@ describe("GameSession FIFO", () => {
     });
     expect(calls()).toBe(1);
     expect(attempts).toHaveLength(1);
+    const acceptedIntegrity = runIntegrityV1Schema.parse({
+      mode: "modified",
+      mutationCount: 1,
+      firstMutationSequence: 40,
+      reasons: [{ kind: "fixture_anchor", fixtureId: "fixture.synthetic", sequence: 40 }],
+    });
     await expect(
       runtimeControl.enqueueAuthoritative(
         async () => ({
           kind: "replace" as const,
-          snapshot: createSnapshot(40),
+          snapshot: createSnapshot(40, acceptedIntegrity),
           result: "anchored" as const,
           anchor: "replace_replay_base" as const,
         }),
@@ -193,6 +283,7 @@ describe("GameSession FIFO", () => {
       ),
     ).resolves.toBe("anchored");
     expect(session.getCurrentSnapshot().state.count).toBe(40);
+    expect(session.getCurrentSnapshot().integrity).toBe(acceptedIntegrity);
     expect(session.getStatus()).toBe("ready");
   });
 

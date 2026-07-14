@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createPristineRunIntegrityV1,
   createTransactionalRngV1,
   parseNonNegativeSafeInteger,
   parseNonZeroUint32,
@@ -36,6 +37,7 @@ function createSnapshotV1(input: SnapshotFixtureInputV1 = {}): E2eGameSnapshotV1
     }),
     rng: createTransactionalRngV1(parseNonZeroUint32(0x0002_3049)).candidateState(),
     commandSequence: parseNonNegativeSafeInteger(input.commandSequence ?? 0),
+    integrity: createPristineRunIntegrityV1(),
   });
 }
 
@@ -220,6 +222,7 @@ describe("E2E GameDebugCommandExecutor", () => {
     expect(attempt.result.snapshot.state.simulation.flow).toBe(snapshot.state.simulation.flow);
     expect(attempt.result.snapshot.commandSequence).toBe(5);
     expect(attempt.result.snapshot.rng).toBe(snapshot.rng);
+    expect(attempt.result.snapshot.integrity).toBe(snapshot.integrity);
     expect(attempt.result.facts).toEqual([{ kind: "counter.changed", before: 0, after: 3 }]);
     expect(attempt.diagnostics.attemptedDraws).toEqual([]);
     expect(attempt.diagnostics.committedRngBefore).toBe(snapshot.rng);
@@ -254,6 +257,7 @@ describe("E2E GameDebugCommandExecutor", () => {
       nodeId: "choice",
     });
     expect(attempt.result.snapshot.rng).toBe(snapshot.rng);
+    expect(attempt.result.snapshot.integrity).toBe(snapshot.integrity);
     expect(attempt.result.facts).toEqual([{ kind: "flow.blocked", blocked: true }]);
   });
 

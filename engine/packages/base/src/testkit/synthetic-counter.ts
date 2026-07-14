@@ -334,6 +334,7 @@ function createGameSimulation(): SyntheticGameSimulationV1 {
         state: Object.freeze({ simulation: Object.freeze({ counter: nextCounter }) }),
         rng: rng.candidateState(),
         commandSequence: parseNonNegativeSafeInteger(snapshot.commandSequence + 1),
+        integrity: snapshot.integrity,
       });
       return commitAttemptV1(snapshot, next, rng, proposal.facts);
     },

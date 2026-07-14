@@ -24,6 +24,8 @@ import type {
   ResolvedPatchValuesV1,
   ResolvedTextPresentationV1,
   RunId,
+  RunIntegrityReasonV1,
+  RunIntegrityV1,
   RuntimeFaultBaseV1,
   RuntimeOperationFaultV1,
   SaveSlotHealthV1,
@@ -34,6 +36,7 @@ import type {
 } from "@sillymaker/base";
 import {
   createGameSnapshotEnvelopeSchemaV1,
+  createPristineRunIntegrityV1,
   createSaveRecordEnvelopeSchemaV1,
   createTransactionalRngV1,
   defineGameplayModule,
@@ -48,6 +51,7 @@ import {
   parseTextCatalogSetV1,
   resolveGamePackageV1,
   rngStateV1Schema,
+  runIntegrityV1Schema,
 } from "@sillymaker/base";
 import { createGameSessionV1 } from "@sillymaker/base/runtime";
 import type {
@@ -98,6 +102,8 @@ export type Phase1ConsumerTypesV1 = {
   textPresentation: ResolvedTextPresentationV1<unknown, unknown>;
   textCatalogSet: TextCatalogSetV1;
   runId: RunId;
+  runIntegrity: RunIntegrityV1;
+  runIntegrityReason: RunIntegrityReasonV1;
   runtimeFaultBase: RuntimeFaultBaseV1;
   runtimeOperationFault: RuntimeOperationFaultV1;
   saveSlotHealth: SaveSlotHealthV1;
@@ -110,6 +116,7 @@ export type Phase1ConsumerValuesV1 = {
   createGameSession: typeof createGameSessionV1;
   createFixedBootstrapEntropy: typeof createFixedBootstrapEntropyV1;
   createGameSnapshotEnvelopeSchema: typeof createGameSnapshotEnvelopeSchemaV1;
+  createPristineRunIntegrity: typeof createPristineRunIntegrityV1;
   createSaveRecordEnvelopeSchema: typeof createSaveRecordEnvelopeSchemaV1;
   createSyntheticCounterGamePackage: typeof createSyntheticCounterGamePackageV1;
   createTransactionalRng: typeof createTransactionalRngV1;
@@ -126,6 +133,7 @@ export type Phase1ConsumerValuesV1 = {
   resolveGamePackage: typeof resolveGamePackageV1;
   resolveStoryForTest: typeof resolveStoryForTestV1;
   rngStateSchema: typeof rngStateV1Schema;
+  runIntegritySchema: typeof runIntegrityV1Schema;
   strictJsonRoundTrip: typeof strictJsonRoundTripV1;
   validateToolingFixtures: typeof validateToolingFixturesV1;
   validateStory: typeof validateStoryV1;
@@ -207,5 +215,13 @@ export type { EngineSessionV1 as OldEngineSessionV1 } from "@sillymaker/base/run
 export type { EngineSessionRuntimeControlV1 as OldEngineSessionRuntimeControlV1 } from "@sillymaker/base/runtime";
 // @ts-expect-error removed after the GameSession rename
 export { createEngineSessionV1 } from "@sillymaker/base/runtime";
+// @ts-expect-error RunIntegrity mutation authority is Session-internal
+export { markRunModifiedV1 } from "@sillymaker/base";
+// @ts-expect-error RunIntegrity mutation authority is Session-internal
+export type ForbiddenIntegrityDirectiveV1 = import("@sillymaker/base").IntegrityDirectiveV1;
+// @ts-expect-error RunIntegrity mutation authority is not exposed by the runtime barrel
+export { markRunModifiedV1 as runtimeMarkRunModifiedV1 } from "@sillymaker/base/runtime";
+// @ts-expect-error RunIntegrity directives are not exposed by the runtime barrel
+export type { IntegrityDirectiveV1 } from "@sillymaker/base/runtime";
 // @ts-expect-error import closure belongs to scripts, never Base/testkit
 export { buildImportClosureV1 } from "@sillymaker/base/testkit";

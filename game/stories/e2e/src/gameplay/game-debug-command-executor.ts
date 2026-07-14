@@ -88,6 +88,7 @@ function createCommittedAttemptV1(
     state: mutation.state,
     rng: snapshot.rng,
     commandSequence: parseNonNegativeSafeInteger(snapshot.commandSequence + 1),
+    integrity: snapshot.integrity,
   });
   return Object.freeze({
     result: Object.freeze({

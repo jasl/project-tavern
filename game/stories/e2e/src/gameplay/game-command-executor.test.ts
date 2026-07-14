@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createGameSnapshotEnvelopeSchemaV1,
+  createPristineRunIntegrityV1,
   createTransactionalRngV1,
   parseNonNegativeSafeInteger,
   parseNonZeroUint32,
@@ -46,6 +47,7 @@ function createSnapshotV1(options: SnapshotOptionsV1 = {}): E2eGameSnapshotV1 {
     },
     rng: createTransactionalRngV1(parseNonZeroUint32(options.seed ?? 0x0002_3049)).candidateState(),
     commandSequence: parseNonNegativeSafeInteger(options.sequence ?? 0),
+    integrity: createPristineRunIntegrityV1(),
   });
 }
 
@@ -74,6 +76,7 @@ function expectRollbackV1(attempt: AttemptV1, input: E2eGameSnapshotV1): void {
   expect(attempt.result.snapshot.state).toBe(input.state);
   expect(attempt.result.snapshot.rng).toBe(input.rng);
   expect(attempt.result.snapshot.commandSequence).toBe(input.commandSequence);
+  expect(attempt.result.snapshot.integrity).toBe(input.integrity);
   expect(attempt.diagnostics.committedRngBefore).toBe(input.rng);
   expect(attempt.diagnostics.committedRngAfter).toBe(input.rng);
 }
@@ -86,6 +89,7 @@ function expectCommittedContractV1(
   const result = requireCommittedV1(attempt);
   expect(snapshotSchemaV1.parse(result.snapshot)).toEqual(result.snapshot);
   expect(result.snapshot.commandSequence).toBe(input.commandSequence + 1);
+  expect(result.snapshot.integrity).toBe(input.integrity);
   expect(attempt.diagnostics.committedRngBefore).toBe(input.rng);
   expect(attempt.diagnostics.committedRngAfter).toBe(result.snapshot.rng);
   expect(attempt.diagnostics.candidateRngAfter).toEqual(result.snapshot.rng);

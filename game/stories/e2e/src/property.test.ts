@@ -4,6 +4,7 @@ import fc from "fast-check";
 
 import {
   createGameSnapshotEnvelopeSchemaV1,
+  createPristineRunIntegrityV1,
   createTransactionalRngV1,
   parseNonNegativeSafeInteger,
   parseNonZeroUint32,
@@ -193,6 +194,7 @@ describe("canonical E2E execution properties", () => {
           },
           rng: createTransactionalRngV1(parseNonZeroUint32(0x0002_3049)).candidateState(),
           commandSequence: parseNonNegativeSafeInteger(4),
+          integrity: createPristineRunIntegrityV1(),
         });
         const attempt = simulation.commandExecutor.executeAttempt(snapshot, command, undefined);
         expect(attempt.result).toEqual({

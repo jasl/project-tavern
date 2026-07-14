@@ -9,6 +9,8 @@ import type {
   SessionDispatchOperationResultV1,
 } from "../../contracts/presentation.js";
 import type { DeepReadonly, RuntimeSchemaV1 } from "../../contracts/values.js";
+import { runIntegrityV1Schema } from "../../contracts/snapshot.js";
+import { finalizeSnapshotIntegrityV1 } from "./run-integrity.js";
 
 export interface GameSessionV1<TTypes extends GameSimulationTypeMapV1> {
   getStatus(): RuntimeSessionStatusV1;
@@ -119,6 +121,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
 ): InternalCompositionV1<TTypes> {
   type DispatchResult = Awaited<ReturnType<GameSessionV1<TTypes>["dispatch"]>>;
 
+  runIntegrityV1Schema.parse(input.initialSnapshot.integrity);
   let snapshot = input.initialSnapshot;
   let stableStatus: Exclude<RuntimeSessionStatusV1, "busy"> = "ready";
   let pending = 0;
@@ -168,7 +171,11 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
         try {
           const outcome = await operation(snapshot as DeepReadonly<TTypes["snapshot"]>);
           if (outcome.kind === "replace") {
-            snapshot = outcome.snapshot;
+            snapshot = finalizeSnapshotIntegrityV1<TTypes["snapshot"]>(
+              snapshot as DeepReadonly<TTypes["snapshot"]>,
+              outcome.snapshot,
+              { kind: "accept_replacement" },
+            );
             if (outcome.anchor === "replace_replay_base") stableStatus = "ready";
             publish();
           }
@@ -238,6 +245,16 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
           );
         } catch (error) {
           execution = input.normalizeUnexpectedDispatchFault(error, before);
+        }
+        try {
+          finalizeSnapshotIntegrityV1(before, execution.result.snapshot, {
+            kind: "preserve_current",
+          });
+        } catch (error) {
+          execution = input.normalizeUnexpectedDispatchFault(error, before);
+          finalizeSnapshotIntegrityV1(before, execution.result.snapshot, {
+            kind: "preserve_current",
+          });
         }
         input.onAttempt?.(execution);
         if (execution.result.kind === "committed") {

@@ -239,6 +239,7 @@ export function createE2eGameSimulationV1(program: E2eSimulationProgramV1) {
         state: Object.freeze({ simulation: Object.freeze({ counter: nextCounter }) }),
         rng: rng.candidateState(),
         commandSequence: parseNonNegativeSafeInteger(snapshot.commandSequence + 1),
+        integrity: snapshot.integrity,
       });
       return Object.freeze({
         result: Object.freeze({
