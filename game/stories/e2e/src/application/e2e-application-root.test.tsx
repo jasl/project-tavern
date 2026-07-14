@@ -24,7 +24,7 @@ function createHostV1() {
   });
 }
 
-function createResolvedOnlyFixtureV1() {
+async function createResolvedOnlyFixtureV1() {
   const sourceDefinition = e2eStoryEntryV1.define();
   let storyDefineCalls = 0;
   let sceneGraphFactoryCalls = 0;
@@ -48,7 +48,7 @@ function createResolvedOnlyFixtureV1() {
   });
   const resolvedGame = resolveStoryForTestV1(entry);
   const host = createHostV1();
-  const application = createE2eGameRuntimeV1({ resolved: resolvedGame, host });
+  const application = await createE2eGameRuntimeV1({ resolved: resolvedGame, host });
   return Object.freeze({
     element: (
       <E2eApplicationRootV1 resolvedGame={resolvedGame} application={application} host={host} />
@@ -80,8 +80,8 @@ function wrapSemanticDispatchV1(application: E2eGameApplicationPortV1) {
 }
 
 describe("E2eApplicationRootV1", () => {
-  it("renders only the SceneGraph held by ResolvedGame", () => {
-    const fixture = createResolvedOnlyFixtureV1();
+  it("renders only the SceneGraph held by ResolvedGame", async () => {
+    const fixture = await createResolvedOnlyFixtureV1();
 
     render(fixture.element);
 
@@ -94,7 +94,7 @@ describe("E2eApplicationRootV1", () => {
   it("uses semantic action availability and options for DOM controls", async () => {
     const resolvedGame = resolveStoryForTestV1(e2eStoryEntryV1);
     const host = createHostV1();
-    const runtime = createE2eGameRuntimeV1({ resolved: resolvedGame, host });
+    const runtime = await createE2eGameRuntimeV1({ resolved: resolvedGame, host });
     await runtime.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
     const fixture = wrapSemanticDispatchV1(runtime);
 
@@ -128,7 +128,7 @@ describe("E2eApplicationRootV1", () => {
   it("renders the resolved terminal summary layout without normal action controls", async () => {
     const resolvedGame = resolveStoryForTestV1(e2eStoryEntryV1);
     const host = createHostV1();
-    const application = createE2eGameRuntimeV1({ resolved: resolvedGame, host });
+    const application = await createE2eGameRuntimeV1({ resolved: resolvedGame, host });
     await application.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
     await application.semantic.dispatch({
       actionId: "action.e2e.choose",

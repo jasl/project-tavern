@@ -19,20 +19,22 @@ const terminalSequenceV1 = Object.freeze([
   Object.freeze({ actionId: "action.e2e.complete", parameters: Object.freeze({}) }),
 ] satisfies readonly E2eSemanticInvocationV1[]);
 
-function createPortV1() {
-  return createE2eGameRuntimeV1({
-    resolved: resolveStoryForTestV1(e2eStoryEntryV1),
-    host: createWebHostV1({
-      seeds: [0x0002_3049],
-      uuids: ["00000000-0000-4000-8000-000000000001"],
-      now: () => "2026-07-12T00:00:00.000Z",
-    }),
-  }).semantic;
+async function createPortV1() {
+  return (
+    await createE2eGameRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createWebHostV1({
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000001"],
+        now: () => "2026-07-12T00:00:00.000Z",
+      }),
+    })
+  ).semantic;
 }
 
 describe("E2E headless semantic runner", () => {
   it("runs a terminal flow through only Semantic invocations", async () => {
-    const run = await runE2eHeadlessSequenceV1(createPortV1(), terminalSequenceV1);
+    const run = await runE2eHeadlessSequenceV1(await createPortV1(), terminalSequenceV1);
 
     expect(run.results).toEqual([
       { kind: "committed" },
@@ -57,14 +59,14 @@ describe("E2E headless semantic runner", () => {
   });
 
   it("is deterministic for the same seed and semantic action sequence", async () => {
-    const first = await runE2eHeadlessSequenceV1(createPortV1(), terminalSequenceV1);
-    const second = await runE2eHeadlessSequenceV1(createPortV1(), terminalSequenceV1);
+    const first = await runE2eHeadlessSequenceV1(await createPortV1(), terminalSequenceV1);
+    const second = await runE2eHeadlessSequenceV1(await createPortV1(), terminalSequenceV1);
 
     expect(second).toEqual(first);
   });
 
   it("records rejected results without sleeping or bypassing the port", async () => {
-    const run = await runE2eHeadlessSequenceV1(createPortV1(), [
+    const run = await runE2eHeadlessSequenceV1(await createPortV1(), [
       { actionId: "action.e2e.continue", parameters: {} },
       { actionId: "action.e2e.increment", parameters: {} },
     ]);

@@ -29,6 +29,70 @@ export function createReadonlyViewSourceV1<TViewModel>(
   });
 }
 
+export type RuntimeCapabilityIdV1 = "debug_tools" | "cheats" | "automation_bridge";
+
+export interface RuntimeCapabilitiesV1 {
+  readonly debugTools: boolean;
+  readonly cheats: boolean;
+  readonly automationBridge: boolean;
+}
+
+export type RuntimeCapabilityOperationResultV1 =
+  | {
+      readonly kind: "updated" | "unchanged";
+      readonly state: DeepReadonly<RuntimeCapabilitiesV1>;
+    }
+  | {
+      readonly kind: "rejected";
+      readonly code: "conflict" | "unavailable";
+      readonly state: DeepReadonly<RuntimeCapabilitiesV1>;
+    };
+
+export interface RuntimeCapabilityPortV1 {
+  readonly state: ReadonlyViewSourceV1<RuntimeCapabilitiesV1>;
+  setEnabled(
+    capability: RuntimeCapabilityIdV1,
+    enabled: boolean,
+  ): Promise<RuntimeCapabilityOperationResultV1>;
+}
+
+export type DebugToolsOperationResultV1<TAllowedResult> =
+  TAllowedResult | { readonly kind: "capability_disabled" };
+
+export type DebugFixtureListResultV1<TFixtureId> = DebugToolsOperationResultV1<{
+  readonly kind: "listed";
+  readonly fixtureIds: readonly TFixtureId[];
+}>;
+
+export interface DebugToolsPortV1<
+  TDebugCommand,
+  TDebugResult,
+  TFixtureId,
+  TAnchorResult,
+  TDebugInspection,
+  TAuthoritativeReplayResult,
+  TBestEffortReplayInspection,
+  TDiagnosticQuery,
+  TDiagnosticQueryResult,
+> {
+  listFixtures(): Promise<DebugFixtureListResultV1<TFixtureId>>;
+  executeDebugCommand(
+    command: DeepReadonly<TDebugCommand>,
+  ): Promise<DebugToolsOperationResultV1<TDebugResult>>;
+  anchorFixture(fixtureId: TFixtureId): Promise<DebugToolsOperationResultV1<TAnchorResult>>;
+  inspectDebugBundle(bytes: Uint8Array): Promise<DebugToolsOperationResultV1<TDebugInspection>>;
+  anchorDebugBundle(bytes: Uint8Array): Promise<DebugToolsOperationResultV1<TAnchorResult>>;
+  replayAuthoritatively(
+    bytes: Uint8Array,
+  ): Promise<DebugToolsOperationResultV1<TAuthoritativeReplayResult>>;
+  inspectReplayBestEffort(
+    bytes: Uint8Array,
+  ): Promise<DebugToolsOperationResultV1<TBestEffortReplayInspection>>;
+  queryDiagnostics(
+    query: DeepReadonly<TDiagnosticQuery>,
+  ): Promise<DebugToolsOperationResultV1<TDiagnosticQueryResult>>;
+}
+
 export interface GameApplicationPortV1<
   TSemantic,
   TLifecycle,

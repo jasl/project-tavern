@@ -3214,6 +3214,14 @@ interface SemanticGamePortInputV1<
   dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;
 }
 
+type DebugToolsOperationResultV1<TAllowedResult> =
+  TAllowedResult | { readonly kind: "capability_disabled" };
+
+type DebugFixtureListResultV1<TFixtureId> = DebugToolsOperationResultV1<{
+  readonly kind: "listed";
+  readonly fixtureIds: readonly TFixtureId[];
+}>;
+
 interface DebugToolsPortV1<
   TDebugCommand,
   TDebugResult,
@@ -3225,14 +3233,22 @@ interface DebugToolsPortV1<
   TDiagnosticQuery,
   TDiagnosticQueryResult,
 > {
-  listFixtures(): Promise<readonly TFixtureId[]>;
-  executeDebugCommand(command: DeepReadonly<TDebugCommand>): Promise<TDebugResult>;
-  anchorFixture(fixtureId: TFixtureId): Promise<TAnchorResult>;
-  inspectDebugBundle(bytes: Uint8Array): Promise<TDebugInspection>;
-  anchorDebugBundle(bytes: Uint8Array): Promise<TAnchorResult>;
-  replayAuthoritatively(bytes: Uint8Array): Promise<TAuthoritativeReplayResult>;
-  inspectReplayBestEffort(bytes: Uint8Array): Promise<TBestEffortReplayInspection>;
-  queryDiagnostics(query: DeepReadonly<TDiagnosticQuery>): Promise<TDiagnosticQueryResult>;
+  listFixtures(): Promise<DebugFixtureListResultV1<TFixtureId>>;
+  executeDebugCommand(
+    command: DeepReadonly<TDebugCommand>,
+  ): Promise<DebugToolsOperationResultV1<TDebugResult>>;
+  anchorFixture(fixtureId: TFixtureId): Promise<DebugToolsOperationResultV1<TAnchorResult>>;
+  inspectDebugBundle(bytes: Uint8Array): Promise<DebugToolsOperationResultV1<TDebugInspection>>;
+  anchorDebugBundle(bytes: Uint8Array): Promise<DebugToolsOperationResultV1<TAnchorResult>>;
+  replayAuthoritatively(
+    bytes: Uint8Array,
+  ): Promise<DebugToolsOperationResultV1<TAuthoritativeReplayResult>>;
+  inspectReplayBestEffort(
+    bytes: Uint8Array,
+  ): Promise<DebugToolsOperationResultV1<TBestEffortReplayInspection>>;
+  queryDiagnostics(
+    query: DeepReadonly<TDiagnosticQuery>,
+  ): Promise<DebugToolsOperationResultV1<TDiagnosticQueryResult>>;
 }
 
 type RuntimeCapabilityIdV1 = "debug_tools" | "cheats" | "automation_bridge";
@@ -3303,6 +3319,8 @@ Base 实现 `ReadonlyViewSourceV1`、SemanticGamePort、闭合的 RuntimeCapabil
 Player 只能显式写 `quick | manual`；`auto.current/auto.previous` 由提交后 Auto Save policy 内部轮换，但四个 Slot 都可以 list、load、clear 和 export。`exportSave(slot)` 返回 `SaveExportOperationResultV1`，因此 empty、invalid、unavailable 与读取期间发生 CAS 冲突都以稳定结果表达，不以 Promise rejection 或“先 list 再假设不变”处理。`exportCurrentSave` 直接从调用被接受时的最后 committed Snapshot 构造 `slotId="manual"` 的 `ExportedSaveV1`，不依赖 IndexedDB 成功，因此持久化故障时仍可抢救现场。`listSlots/getStatus` 必须区分 empty、valid、invalid、recovery-candidate、busy 和 unavailable；Lease 子端口覆盖请求交接、原 owner 批准、显式接管和释放，并且每个结果都携带当前 fencing/ownership 状态。
 
 Runtime-gated DebugTools 的 `inspectDebugBundle` 与 `inspectReplayBestEffort` 永远只读，允许在身份不匹配时返回分阶段诊断，不能替换 Session；`replayAuthoritatively` 只接受精确 replay identity 并逐项验证日志；`anchorFixture` 与 `anchorDebugBundle` 在 `debug_tools+cheats` 执行点复查后进入 GameSession FIFO，成功时替换 Snapshot/replay base 并清空旧日志。`queryDiagnostics` 只读取有界日志、Facts、Aura、不变量和 runtime failures。它们可以存在于同一 Artifact，但普通 Story renderer 与 Automation Bridge 均不可达这些端口。
+
+`DebugToolsOperationResultV1` 是 Application capability 外层；Story-specific allowed result 不重复携带权限状态。`listFixtures` 的 `{ kind: "listed", fixtureIds: [] }` 表示已授权但没有 fixture，`{ kind: "capability_disabled" }` 表示调用时未授权。所有八个方法关闭时都 resolve 后者，不 reject、不 throw、不导入 tooling，也不进入 FIFO。
 
 `@sillymaker/ui` 实现中性 renderer/contribution 注册，Story/GameSimulation 提供具体 ID 与只读 GameQueries 投影。所有 Scene/Overlay/HUD ID 在各自 registry 内唯一；renderer 只能收到 view slice、Story-specialized SemanticGamePort 与 PresentationReadPort，不能收到 Snapshot、GameSession、DebugTools 或 Module owner capability。
 

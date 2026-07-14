@@ -52,7 +52,7 @@ function resolveE2eGameV1(hotfixes: readonly E2eHotfixV1[]): E2eResolvedGameV1 {
 }
 
 async function playRightBranchV1(resolved: E2eResolvedGameV1) {
-  const application = createE2eGameRuntimeV1({ resolved, host: createHostV1() });
+  const application = await createE2eGameRuntimeV1({ resolved, host: createHostV1() });
   await expect(
     application.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} }),
   ).resolves.toEqual({ kind: "committed" });
@@ -66,7 +66,7 @@ async function playRightBranchV1(resolved: E2eResolvedGameV1) {
 }
 
 async function playRightBranchToResolvedV1(resolved: E2eResolvedGameV1) {
-  const application = createE2eGameRuntimeV1({ resolved, host: createHostV1() });
+  const application = await createE2eGameRuntimeV1({ resolved, host: createHostV1() });
   await application.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
   await application.semantic.dispatch({
     actionId: "action.e2e.choose",
@@ -328,7 +328,7 @@ describe("E2E Hotfix integration", () => {
     expect(result.base).toBe(result.resolved);
     expect(fixture.createRuntime).not.toHaveBeenCalled();
 
-    const application = fixture.createRuntime(result.resolved);
+    const application = await fixture.createRuntime(result.resolved);
     expect(fixture.createRuntime).toHaveBeenCalledTimes(1);
     expect(application.semantic.observe()).toMatchObject({
       game: { counterLabel: "计数 0" },
@@ -344,7 +344,7 @@ describe("E2E Hotfix integration", () => {
     expect(result.base).not.toBe(result.resolved);
     expect(fixture.createRuntime).not.toHaveBeenCalled();
 
-    const application = fixture.createRuntime(result.resolved);
+    const application = await fixture.createRuntime(result.resolved);
     expect(fixture.createRuntime).toHaveBeenCalledTimes(1);
     await application.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
     await application.semantic.dispatch({
@@ -371,7 +371,7 @@ describe("E2E Hotfix integration", () => {
       expect(result.base).toBe(result.resolved);
       expect(fixture.createRuntime).not.toHaveBeenCalled();
 
-      const application = fixture.createRuntime(result.base);
+      const application = await fixture.createRuntime(result.base);
       expect(fixture.createRuntime).toHaveBeenCalledTimes(1);
       await application.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
       await application.semantic.dispatch({

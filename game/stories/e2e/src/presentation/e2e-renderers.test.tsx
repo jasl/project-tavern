@@ -77,7 +77,7 @@ describe("E2E Web renderer registry", () => {
 
   it("renders through only the narrow Semantic view and presentation context", async () => {
     const resolvedGame = resolveStoryForTestV1(e2eStoryEntryV1);
-    const application = createE2eGameRuntimeV1({
+    const application = await createE2eGameRuntimeV1({
       resolved: resolvedGame,
       host: createWebHostV1({
         seeds: [0x0002_3049],

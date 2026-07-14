@@ -28,7 +28,7 @@ if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
     throw new TypeError(`E2e bootstrap failed: ${bootstrapped.code}`);
   }
   const resolvedGame = bootstrapped.resolved;
-  const application = createE2eGameRuntimeV1({ resolved: resolvedGame, host });
+  const application = await createE2eGameRuntimeV1({ resolved: resolvedGame, host });
   mountGameApplicationV1(
     root,
     <E2eApplicationRootV1 resolvedGame={resolvedGame} application={application} host={host} />,

@@ -406,8 +406,8 @@ describe("E2E SemanticGamePort", () => {
     expect(() => parseE2eSemanticInvocationV1(invocation)).toThrow(/E2E Semantic invocation/iu);
   });
 
-  it("exposes only one immutable player-visible publication and its action reference", () => {
-    const port = createRuntimeV1().semantic;
+  it("exposes only one immutable player-visible publication and its action reference", async () => {
+    const port = (await createRuntimeV1()).semantic;
     const publication = port.observe();
 
     expect(publication).toEqual({
@@ -441,7 +441,7 @@ describe("E2E SemanticGamePort", () => {
   });
 
   it("publishes status and authoritative revisions without a second view cache", async () => {
-    const port = createRuntimeV1().semantic;
+    const port = (await createRuntimeV1()).semantic;
     const initial = port.observe();
     const observed: ReturnType<typeof port.observe>[] = [];
     const unsubscribe = port.subscribe(() => observed.push(port.observe()));
@@ -469,7 +469,7 @@ describe("E2E SemanticGamePort", () => {
   });
 
   it("rebuilds preview from its FIFO position and revalidates stale dispatch", async () => {
-    const port = createRuntimeV1().semantic;
+    const port = (await createRuntimeV1()).semantic;
     const start = port.dispatch({ actionId: "action.e2e.start", parameters: {} });
     const queuedPreview = port.preview({
       actionId: "action.e2e.choose",
@@ -500,7 +500,7 @@ describe("E2E SemanticGamePort", () => {
   });
 
   it("isolates a throwing subscriber and still notifies later listeners", async () => {
-    const port = createRuntimeV1().semantic;
+    const port = (await createRuntimeV1()).semantic;
     const second = vi.fn();
     let throwOnce = true;
     port.subscribe(() => {
@@ -519,7 +519,7 @@ describe("E2E SemanticGamePort", () => {
   });
 
   it("returns validation_failed for hostile runtime input without command passthrough", async () => {
-    const port = createRuntimeV1().semantic;
+    const port = (await createRuntimeV1()).semantic;
     await expect(
       port.dispatch({
         actionId: "action.e2e.increment",

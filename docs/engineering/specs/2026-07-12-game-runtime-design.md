@@ -347,6 +347,8 @@ interface GameApplicationPortV1<
 
 普通 Story Renderer 只接收所需窄 Port；DevDock 才接收 `debugTools`。代码是否存在于 bundle 不是权限边界；所有 DebugTools 操作在执行点重新检查 capability，关闭时返回稳定 `capability_disabled`，且不进入 GameSession FIFO。
 
+DebugTools 的 capability policy 由 Application 外层统一表达，不污染已经获准执行的 Story-specific operation result。八个操作均返回 `DebugToolsOperationResultV1<TAllowedResult> = TAllowedResult | { kind: "capability_disabled" }`；fixture list 的成功值精确为 `{ kind: "listed", fixtureIds }`。因此已授权的空列表与调用时 capability 被撤销是两个可判别结果，不能用 `[]`、Promise rejection 或异常代替拒绝。
+
 运行时只有一个 `GameApplicationPort` 和一个 Story application root。`PlayerPersistencePort` 等表达玩家低权限范围的子端口可以保留；不存在独立 Developer application root、Developer Artifact，也不把代码是否存在于 bundle 当作权限边界。
 
 ## 10. Runtime Capabilities 与 Story Tooling

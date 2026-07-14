@@ -20,6 +20,9 @@ export type {
 } from "./assets.js";
 export { createReadonlyViewSourceV1 } from "./application.js";
 export type {
+  DebugFixtureListResultV1,
+  DebugToolsOperationResultV1,
+  DebugToolsPortV1,
   GameApplicationPortV1,
   LeaseHandoffRequestId,
   MutableViewPublisherV1,
@@ -27,6 +30,10 @@ export type {
   PlayerPersistencePortV1,
   PlayerWritableSaveSlotIdV1,
   ReadonlyViewSourceV1,
+  RuntimeCapabilitiesV1,
+  RuntimeCapabilityIdV1,
+  RuntimeCapabilityOperationResultV1,
+  RuntimeCapabilityPortV1,
   SaveSlotIdV1,
   SemanticGamePortInputV1,
   SemanticGamePortSourceV1,

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, it, vi } from "vitest";
+import { parsePositiveSafeInteger } from "@sillymaker/base";
 import { createWebHostV1 } from "@sillymaker/web";
 import { resolveStoryForTestV1, validateToolingFixturesV1 } from "@sillymaker/base/testkit";
 import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
@@ -85,7 +86,7 @@ describe("E2e Game Application runtime", () => {
       createGameSimulation: 1,
     });
 
-    const application = createE2eGameRuntimeV1({
+    const application = await createE2eGameRuntimeV1({
       resolved,
       host: createWebHostV1({
         seeds: [0x0002_3049],
@@ -97,6 +98,13 @@ describe("E2e Game Application runtime", () => {
       application.semantic.dispatch({ actionId: "action.e2e.increment", parameters: {} }),
     ).resolves.toEqual({ kind: "committed" });
     expect(application.semantic.observe().game.counterLabel).toBe("计数 1");
+    const semantic = application.semantic;
+    const simulation = resolved.gameSimulation;
+    await expect(application.capabilities.setEnabled("debug_tools", true)).resolves.toMatchObject({
+      kind: "updated",
+    });
+    expect(application.semantic).toBe(semantic);
+    expect(resolved.gameSimulation).toBe(simulation);
     expect(fixture.calls()).toEqual({
       define: 2,
       simulationMaterializer: 1,
@@ -106,8 +114,9 @@ describe("E2e Game Application runtime", () => {
   });
 
   it("composes six frozen ports around one real SemanticGamePort", async () => {
-    const application = createE2eGameRuntimeV1({
-      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
       host: createWebHostV1({
         seeds: [0x0002_3049, 0x0002_3050],
         uuids: ["00000000-0000-4000-8000-000000000001"],
@@ -193,13 +202,30 @@ describe("E2e Game Application runtime", () => {
     expect(application).not.toHaveProperty("player");
     expect(application).not.toHaveProperty("developer");
     expect(application).not.toHaveProperty("snapshot");
-    expect(application.capabilities).toEqual({ kind: "unavailable" });
-    expect(application.debugTools).toEqual({
-      kind: "unavailable",
-      code: "phase3_not_installed",
+    expect(application.capabilities.state.getCurrent()).toEqual({
+      debugTools: false,
+      cheats: false,
+      automationBridge: false,
     });
     expect(Object.isFrozen(application.capabilities)).toBe(true);
     expect(Object.isFrozen(application.debugTools)).toBe(true);
+    const disabledResults = await Promise.all([
+      application.debugTools.listFixtures(),
+      application.debugTools.executeDebugCommand({
+        kind: "debug.e2e.counter.add",
+        amount: parsePositiveSafeInteger(1),
+      }),
+      application.debugTools.anchorFixture("fixture.e2e.initial"),
+      application.debugTools.inspectDebugBundle(new Uint8Array()),
+      application.debugTools.anchorDebugBundle(new Uint8Array()),
+      application.debugTools.replayAuthoritatively(new Uint8Array()),
+      application.debugTools.inspectReplayBestEffort(new Uint8Array()),
+      application.debugTools.queryDiagnostics(undefined as never),
+    ]);
+    for (const result of disabledResults) {
+      expect(result).toEqual({ kind: "capability_disabled" });
+      expect(result).toBe(disabledResults[0]);
+    }
     expect(application.lifecycle.createNewSession).toHaveLength(0);
     expect(application.lifecycle.restartSession).toHaveLength(0);
     await expect(application.persistence.getStatus()).resolves.toMatchObject({ available: false });
@@ -211,6 +237,26 @@ describe("E2e Game Application runtime", () => {
       mediaType: "application/json",
       filename: "project-tavern-e2e-current.json",
     });
+  });
+
+  it("restores Host capability preferences before exposing the next runtime", async () => {
+    const host = createWebHostV1({
+      seeds: [0x0002_3049, 0x0002_3050],
+      uuids: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
+      now: () => "2026-07-12T00:00:00.000Z",
+    });
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const first = await createE2eGameRuntimeV1({ resolved, host });
+    await first.capabilities.setEnabled("debug_tools", true);
+    await first.capabilities.setEnabled("cheats", true);
+
+    const next = await createE2eGameRuntimeV1({ resolved, host });
+    expect(next.capabilities.state.getCurrent()).toEqual({
+      debugTools: true,
+      cheats: true,
+      automationBridge: false,
+    });
+    expect(next.semantic.observe().game.counterLabel).toBe("计数 0");
   });
 
   it("keeps four closed canonical command fixtures in the separate tooling entry", () => {

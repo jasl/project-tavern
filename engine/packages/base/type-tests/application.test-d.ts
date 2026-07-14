@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: MIT
 import type {
+  DebugFixtureListResultV1,
+  DebugToolsOperationResultV1,
+  DebugToolsPortV1,
   GameApplicationPortV1,
   PlayerPersistencePortV1,
   PresentationReadPortV1,
   ReadonlyViewSourceV1,
+  RuntimeCapabilitiesV1,
+  RuntimeCapabilityPortV1,
   UiRendererBindingV1,
 } from "@sillymaker/base";
+import {
+  createCapabilityDisabledDebugToolsPortV1,
+  createGameApplicationV1,
+  createRuntimeCapabilityPortV1,
+} from "@sillymaker/base/runtime";
 
 declare const persistence: PlayerPersistencePortV1<
   { id: string },
@@ -42,6 +52,53 @@ application.persistence;
 application.diagnostics;
 application.capabilities;
 application.debugTools;
+
+declare const capabilityPort: RuntimeCapabilityPortV1;
+export const capabilityState: ReadonlyViewSourceV1<RuntimeCapabilitiesV1> = capabilityPort.state;
+// @ts-expect-error capability state is read-only
+capabilityPort.state.publish;
+
+export type DisabledDebugOperation = DebugToolsOperationResultV1<{
+  readonly kind: "allowed";
+}>;
+export type FixtureList = DebugFixtureListResultV1<"fixture.one">;
+declare const fixtureList: FixtureList;
+if (fixtureList.kind === "listed") fixtureList.fixtureIds;
+
+export const typedDebugTools: DebugToolsPortV1<
+  string,
+  never,
+  string,
+  never,
+  never,
+  never,
+  never,
+  never,
+  never
+> = createCapabilityDisabledDebugToolsPortV1<
+  string,
+  never,
+  string,
+  never,
+  never,
+  never,
+  never,
+  never,
+  never
+>();
+
+const syntheticCapabilityPort = createRuntimeCapabilityPortV1({
+  initialState: { debugTools: false, cheats: false, automationBridge: false },
+  persist: async () => ({ kind: "committed" as const }),
+});
+export const composedApplication = createGameApplicationV1({
+  semantic: application.semantic,
+  lifecycle: application.lifecycle,
+  persistence: application.persistence,
+  diagnostics: application.diagnostics,
+  capabilities: syntheticCapabilityPort,
+  debugTools: typedDebugTools,
+});
 
 export const renderer: UiRendererBindingV1<
   "hud",
