@@ -1759,6 +1759,8 @@ git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 - Create: game/stories/e2e/src/test/fixtures/runtime/debug-flow-command-log.v1.json
 - Create: game/stories/e2e/src/test/fixtures/runtime/manifest.v1.json
 - Create: game/stories/e2e/src/runtime/runtime-fixture-provenance.ts
+- Create: game/stories/e2e/src/runtime/e2e-debug-bundle.ts
+- Modify: game/stories/e2e/src/application/create-e2e-game-runtime.ts
 - Create: game/stories/e2e/scripts/runtime-fixture-builder.mts
 - Create: game/stories/e2e/scripts/regenerate-runtime-fixtures.mts
 - Create: game/stories/e2e/scripts/verify-runtime-fixtures.mts
@@ -1849,6 +1851,8 @@ runtime-fixture-provenance.ts freezes：
 
 Builder uses fixed seed、fixed UTC times、fixed tooling commands and frozen provenance；it calls real public Save/Debug encoders and returns filename-to-bytes map。modified fixture must be produced by real successful DebugCommand，not by directly editing integrity。Corrupt/future files derive from one legal record by changing exactly one declared field and canonical re-encoding。
 
+现有 strict E2E Debug Bundle codec、authoritative replay driver/input 和 unexpected-fault normalization 必须先机械抽取到 Node-type-strip-safe `game/stories/e2e/src/runtime/e2e-debug-bundle.ts`；统一 Application 保持原有导出/行为并改为复用该 owner，fixture builder 也只复用同一 owner。不得为了 direct writer 穿过 `@sillymaker/web` 的 TSX/JSX closure，不得引入内部 `src/**` resolver shim，也不得在 builder 复制或放宽第二套 Debug Bundle ABI parser。
+
 `manifest.v1.json` is canonical JSON and contains exactly：`formatRevision: 1`、sorted ten payload entries `{ path, byteLength, sha256, classification, integrityMode }`、the complete blocking provenance tuple、diagnostic-at-generation tuple and generator source digest。Manifest不得自我列出；verifier computes every payload SHA-256/size/classification and rejects missing/extra files, unsorted entries or provenance drift。
 
 regenerate script is sole tracked writer。启动时先只处理下段定义的 recognized transaction residue；recovery 完成后要求 target runtime-fixtures directory 下没有 pre-existing tracked、untracked、intent-to-add change。Task-authored `runtime-fixture-provenance.ts` 可以是本任务的 untracked/modified source，但必须通过 strict parser，且其 blocking identity 与 live ResolvedGame 精确匹配后 writer 才能开始。它不得逐文件覆盖 target：先在 sibling `.runtime-fixtures.next-<pid>` 写完整十个 payload 与 manifest，fsync/close、用 verifier 校验；若 target 已存在，将它 rename 为 `.runtime-fixtures.previous`，首次生成则跳过该 rename；再将 next rename 为 target，复验后删除 previous。`.gitignore` 精确忽略 `game/stories/e2e/src/test/fixtures/.runtime-fixtures.next-*`、`.runtime-fixtures.previous` 和 `.runtime-fixtures.transaction.v1.json`。
@@ -1921,7 +1925,7 @@ Expected: explicit writer creates exactly ten payload files plus manifest；`git
 - [ ] **Step 7: Commit runtime fixtures and gate**
 
 ```bash
-git add -- .gitignore game/stories/e2e/src/test/fixtures/runtime game/stories/e2e/src/runtime/runtime-fixture-provenance.ts game/stories/e2e/scripts/runtime-fixture-builder.mts game/stories/e2e/scripts/regenerate-runtime-fixtures.mts game/stories/e2e/scripts/verify-runtime-fixtures.mts game/stories/e2e/src/runtime/runtime-fixtures.test.ts game/stories/e2e/package.json package.json scripts/verify-persistence-diagnostics.mts scripts/verify-persistence-diagnostics.test.mjs scripts/run-script-tests.test.mjs engine/packages/base/package.json engine/packages/web/package.json
+git add -- .gitignore game/stories/e2e/src/test/fixtures/runtime game/stories/e2e/src/runtime/runtime-fixture-provenance.ts game/stories/e2e/src/runtime/e2e-debug-bundle.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/scripts/runtime-fixture-builder.mts game/stories/e2e/scripts/regenerate-runtime-fixtures.mts game/stories/e2e/scripts/verify-runtime-fixtures.mts game/stories/e2e/src/runtime/runtime-fixtures.test.ts game/stories/e2e/package.json package.json scripts/verify-persistence-diagnostics.mts scripts/verify-persistence-diagnostics.test.mjs scripts/run-script-tests.test.mjs engine/packages/base/package.json engine/packages/web/package.json
 git diff --cached --check
 git commit -m "test(runtime): freeze persistence diagnostics evidence"
 ```
