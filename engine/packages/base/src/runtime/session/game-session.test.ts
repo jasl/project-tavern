@@ -287,6 +287,35 @@ describe("GameSession FIFO", () => {
     expect(session.getStatus()).toBe("ready");
   });
 
+  it("prepares replacement side effects only after the candidate is finalized", async () => {
+    const { session, runtimeControl } = fixture();
+    const before = session.getCurrentSnapshot();
+    const invalid = Object.freeze({
+      ...createSnapshot(9),
+      integrity: Object.freeze({ mode: "invalid" }),
+    }) as unknown as Snapshot;
+    let prepared = 0;
+
+    await expect(
+      runtimeControl.enqueueAuthoritative(
+        async () => ({
+          kind: "replace" as const,
+          snapshot: invalid,
+          result: "anchored" as const,
+          anchor: "replace_replay_base" as const,
+        }),
+        () => "faulted" as const,
+        () => {
+          prepared += 1;
+        },
+      ),
+    ).resolves.toBe("faulted");
+
+    expect(prepared).toBe(0);
+    expect(session.getCurrentSnapshot()).toBe(before);
+    expect(session.getStatus()).toBe("fault_paused");
+  });
+
   it("rejects invalid admission without an attempt", async () => {
     const { session, calls } = fixture();
     await expect(session.dispatch({ kind: "invalid" } as never)).resolves.toEqual({
@@ -418,6 +447,55 @@ describe("GameSession FIFO", () => {
     );
     expect(getterCalls).toBe(0);
     expect(session.getStatus()).toBe("ready");
+  });
+
+  it("notifies runtime commit listeners after publication and before dispatch resolves", async () => {
+    const listenerFailure = new Error("runtime commit listener failed");
+    const observerFailures: unknown[] = [];
+    const observations: Array<{
+      readonly listener: "throwing" | "following";
+      readonly count: number;
+      readonly dispatchResolved: boolean;
+    }> = [];
+    const { session, runtimeControl } = fixture(false, (error) => observerFailures.push(error));
+    let dispatchResolved = false;
+    runtimeControl.subscribeCommittedSnapshots((snapshot) => {
+      observations.push({
+        listener: "throwing",
+        count: snapshot.state.count,
+        dispatchResolved,
+      });
+      throw listenerFailure;
+    });
+    runtimeControl.subscribeCommittedSnapshots((snapshot) => {
+      observations.push({
+        listener: "following",
+        count: snapshot.state.count,
+        dispatchResolved,
+      });
+      expect(session.getCurrentSnapshot()).toBe(snapshot);
+    });
+
+    const dispatch = session.dispatch({ kind: "increment" }).then((result) => {
+      dispatchResolved = true;
+      return result;
+    });
+    await expect(dispatch).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "committed" },
+    });
+    expect(observations).toEqual([
+      { listener: "throwing", count: 1, dispatchResolved: false },
+      { listener: "following", count: 1, dispatchResolved: false },
+    ]);
+    expect(observerFailures).toEqual([listenerFailure]);
+
+    await expect(session.dispatch({ kind: "fault" })).resolves.toMatchObject({
+      kind: "executed",
+      execution: { kind: "faulted" },
+    });
+    expect(observations).toHaveLength(2);
+    expect(session).not.toHaveProperty("subscribeCommittedSnapshots");
   });
 
   it("isolates throwing subscribers and an observer-failure hook", async () => {

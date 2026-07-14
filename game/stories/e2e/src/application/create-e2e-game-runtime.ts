@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
-  canonicalJsonBytes,
+  createGameSnapshotEnvelopeSchemaV1,
   createTransactionalRngV1,
-  digestBytes,
-  digestCanonical,
   parseNonNegativeSafeInteger,
-  parsePositiveSafeInteger,
+  rngStateV1Schema,
 } from "@sillymaker/base";
 import type {
   DebugToolsPortV1,
@@ -13,6 +11,7 @@ import type {
   ExportedSaveV1,
   GameApplicationPortV1,
   GameHostV1,
+  LeaseHandoffRequestId,
   PersistenceOperationResultV1,
   PersistenceStatusV1,
   RuntimeCapabilityPortV1,
@@ -26,14 +25,17 @@ import {
   createCapabilityDisabledDebugToolsPortV1,
   createGameApplicationV1,
   createGameSessionV1,
+  createPersistenceServiceV1,
 } from "@sillymaker/base/runtime";
 import { createGameRuntimeV1 } from "@sillymaker/web";
 
 import type {
   E2eDebugCommandV1,
+  E2eGameStateV1,
   E2eGameSimulationTypesV1,
   E2eGameSnapshotV1,
 } from "../gameplay/contracts/index.js";
+import { e2eStateContractManifestV1 } from "../story-definition.js";
 import { createE2eSemanticGamePortV1 } from "../runtime/e2e-semantic-game-port.js";
 import type { E2eSemanticGamePortV1 } from "../runtime/e2e-semantic-game-port.js";
 import { createE2eInitialSnapshotV1 } from "../session.js";
@@ -55,7 +57,7 @@ type E2ePersistencePortV1 = {
   readonly lease: {
     getStatus(): Promise<SessionLeaseStatusV1>;
     requestHandoff(): Promise<SessionLeaseOperationResultV1>;
-    approveHandoff(requestId: never): Promise<SessionLeaseOperationResultV1>;
+    approveHandoff(requestId: LeaseHandoffRequestId): Promise<SessionLeaseOperationResultV1>;
     takeOver(): Promise<SessionLeaseOperationResultV1>;
     release(): Promise<SessionLeaseOperationResultV1>;
   };
@@ -87,11 +89,6 @@ export type E2eGameApplicationPortV1 = GameApplicationPortV1<
   E2eDisabledDebugToolsPortV1
 >;
 
-const unavailablePersistence = (): PersistenceOperationResultV1 =>
-  Object.freeze({ kind: "rejected", code: "unavailable" });
-const unavailableLease = (): SessionLeaseOperationResultV1 =>
-  Object.freeze({ kind: "rejected", code: "unavailable" });
-
 function createE2eUnexpectedFaultAttemptV1(snapshot: DeepReadonly<E2eGameSnapshotV1>) {
   const rng = createTransactionalRngV1(snapshot.rng);
   return Object.freeze({
@@ -109,13 +106,59 @@ function createE2eUnexpectedFaultAttemptV1(snapshot: DeepReadonly<E2eGameSnapsho
   });
 }
 
+const noValidationCodesV1 = Object.freeze([]) as readonly string[];
+const e2eFlowNodeReferencesV1 = Object.freeze(
+  e2eStateContractManifestV1.stableReferenceSets.find(
+    ({ setId }) => setId === "references.e2e.flow-node",
+  )?.ids ?? [],
+);
+
+function validateE2eReferencesV1(state: DeepReadonly<E2eGameStateV1>): readonly string[] {
+  const reference = `flow_node.e2e.${state.simulation.flow.nodeId}`;
+  return e2eFlowNodeReferencesV1.includes(reference)
+    ? noValidationCodesV1
+    : Object.freeze(["reference.e2e.flow_node_unknown"]);
+}
+
+function validateE2eInvariantsV1(
+  gameSimulation: E2eResolvedGameV1["gameSimulation"],
+  terminalThreshold: E2eResolvedGameV1["simulationProgram"]["values"]["terminalThreshold"],
+  state: DeepReadonly<E2eGameStateV1>,
+): readonly string[] {
+  const [counterModule, flowModule, runModule] = gameSimulation.modules;
+  const counter = counterModule.stateSchema.parse(state.simulation.counter);
+  const flow = flowModule.stateSchema.parse(state.simulation.flow);
+  const run = runModule.stateSchema.parse(state.simulation.run);
+  const counterPort = counterModule.createReadPort(counter);
+  const flowPort = flowModule.createReadPort(flow);
+  const runPort = runModule.createReadPort(run);
+  const violations = [
+    ...counterModule.localInvariants.flatMap((invariant) => invariant.check(counter, counterPort)),
+    ...flowModule.localInvariants.flatMap((invariant) => invariant.check(flow, flowPort)),
+    ...runModule.localInvariants.flatMap((invariant) => invariant.check(run, runPort)),
+  ];
+  if (
+    runPort.status === "complete" &&
+    (flowPort.status !== "resolved" ||
+      flowPort.nodeId !== "done" ||
+      counterPort.value < terminalThreshold)
+  ) {
+    violations.push(
+      Object.freeze({ code: "run.terminal_state_invalid", details: Object.freeze({}) }),
+    );
+  }
+  return violations.length === 0
+    ? noValidationCodesV1
+    : Object.freeze(violations.map(({ code }) => code));
+}
+
 export async function createE2eGameRuntimeV1(input: {
   readonly resolved: E2eResolvedGameV1;
   readonly host: GameHostV1;
 }): Promise<E2eGameApplicationPortV1> {
   return createGameRuntimeV1({
     host: input.host,
-    createApplication({ capabilities }) {
+    async createApplication({ capabilities, persistenceIdentity }) {
       const gameSimulation = input.resolved.gameSimulation;
       const bootstrap = gameSimulation.createBootstrapInput(input.host.bootstrapEntropy);
       const reportRuntimeFailure = (_error: unknown): void => {
@@ -139,6 +182,28 @@ export async function createE2eGameRuntimeV1(input: {
         runtimeControl: created.runtimeControl,
         reportSubscriberFailure: reportRuntimeFailure,
       });
+      const persistenceService = await createPersistenceServiceV1({
+        runtimeControl: created.runtimeControl,
+        records: input.host.records,
+        snapshotSchema: createGameSnapshotEnvelopeSchemaV1(
+          gameSimulation.stateSchema,
+          rngStateV1Schema,
+        ),
+        provenance: input.resolved.provenance,
+        adoptionDeclaration: null,
+        ownerId: persistenceIdentity.ownerId,
+        nextHandoffRequestId: persistenceIdentity.nextHandoffRequestId,
+        validateReferences: validateE2eReferencesV1,
+        validateInvariants: (state) =>
+          validateE2eInvariantsV1(
+            gameSimulation,
+            input.resolved.simulationProgram.values.terminalThreshold,
+            state,
+          ),
+        initialSimulationLineage: Object.freeze([]),
+        metadataClock: input.host.metadataClock,
+        exportFilename: "project-tavern-e2e-current.json",
+      });
 
       const lifecycleOperation = () =>
         created.runtimeControl.enqueueAuthoritative<SessionAnchorResultV1>(
@@ -156,76 +221,8 @@ export async function createE2eGameRuntimeV1(input: {
             });
           },
           () => Object.freeze({ kind: "faulted" as const, code: "runtime.anchor_failed" }),
+          (snapshot) => persistenceService.establishAnchor(snapshot, Object.freeze([])),
         );
-
-      const exportCurrentSave = () =>
-        created.runtimeControl.enqueueAuthoritative(
-          async (snapshot) => {
-            const savedAt = input.host.metadataClock.now();
-            const record = Object.freeze({
-              formatRevision: 1 as const,
-              recordRevision: parsePositiveSafeInteger(1),
-              provenance: input.resolved.provenance,
-              slot: Object.freeze({
-                storyId: input.resolved.provenance.story.id,
-                slotId: "manual" as const,
-                writeReason: "manual" as const,
-                capturedCommandSequence: snapshot.commandSequence,
-              }),
-              savedAt,
-              stateDigest: digestCanonical("sillymaker:state:v1", snapshot),
-              snapshot,
-              simulationLineage: Object.freeze([]),
-            });
-            const bytes = canonicalJsonBytes(record);
-            const file: ExportedSaveV1 = Object.freeze({
-              filename: "project-tavern-e2e-current.json",
-              mediaType: "application/json",
-              digest: digestBytes(bytes),
-              bytes,
-            });
-            return Object.freeze({ kind: "preserve" as const, result: file });
-          },
-          () => {
-            const bytes = canonicalJsonBytes({ kind: "faulted" });
-            return Object.freeze({
-              filename: "project-tavern-e2e-current.json",
-              mediaType: "application/json" as const,
-              digest: digestBytes(bytes),
-              bytes,
-            });
-          },
-        );
-
-      const leaseStatus: SessionLeaseStatusV1 = Object.freeze({
-        kind: "unavailable",
-        ownerId: null,
-        fencingToken: null,
-        code: "persistence.unavailable",
-      });
-      const persistence: E2ePersistencePortV1 = Object.freeze({
-        lease: Object.freeze({
-          getStatus: async () => leaseStatus,
-          requestHandoff: async () => unavailableLease(),
-          approveHandoff: async () => unavailableLease(),
-          takeOver: async () => unavailableLease(),
-          release: async () => unavailableLease(),
-        }),
-        listSlots: async () => Object.freeze([]),
-        getStatus: async () =>
-          Object.freeze({
-            available: false,
-            busy: false,
-            safelySavedCommandSequence: null,
-            lastFailureCode: "persistence.unavailable",
-          }),
-        save: async () => unavailablePersistence(),
-        load: async () => unavailablePersistence(),
-        clear: async () => unavailablePersistence(),
-        exportSave: async () => Object.freeze({ kind: "rejected", code: "unavailable" }),
-        exportCurrentSave,
-        importSave: async () => unavailablePersistence(),
-      });
 
       const debugTools = createCapabilityDisabledDebugToolsPortV1<
         E2eDebugCommandV1,
@@ -244,7 +241,7 @@ export async function createE2eGameRuntimeV1(input: {
           createNewSession: lifecycleOperation,
           restartSession: lifecycleOperation,
         }),
-        persistence,
+        persistence: persistenceService.port,
         diagnostics: Object.freeze({
           exportDebugBundle: async () =>
             Object.freeze({ kind: "unavailable" as const, code: "diagnostics.unavailable" }),

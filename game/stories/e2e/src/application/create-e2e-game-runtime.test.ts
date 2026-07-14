@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, it, vi } from "vitest";
-import { parsePositiveSafeInteger } from "@sillymaker/base";
+import {
+  canonicalJsonBytes,
+  digestCanonical,
+  parseNonNegativeSafeInteger,
+  parsePositiveSafeInteger,
+} from "@sillymaker/base";
 import { createWebHostV1 } from "@sillymaker/web";
 import {
   createMemoryHostRecordStoreV1,
@@ -8,6 +13,7 @@ import {
   validateToolingFixturesV1,
 } from "@sillymaker/base/testkit";
 import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
+import type { E2eGameSnapshotV1 } from "../gameplay/contracts/index.js";
 import { e2eGameCommandSchemaV1 } from "../gameplay/contracts/index.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
 import { e2eToolingEntryV1 } from "../tooling.js";
@@ -234,15 +240,150 @@ describe("E2e Game Application runtime", () => {
     }
     expect(application.lifecycle.createNewSession).toHaveLength(0);
     expect(application.lifecycle.restartSession).toHaveLength(0);
-    await expect(application.persistence.getStatus()).resolves.toMatchObject({ available: false });
+    await vi.waitFor(async () => {
+      await expect(application.persistence.getStatus()).resolves.toMatchObject({
+        available: true,
+        busy: false,
+      });
+    });
+    await expect(application.persistence.lease.getStatus()).resolves.toEqual({
+      kind: "owned",
+      ownerId: "00000000-0000-4000-8000-000000000001",
+      fencingToken: 1,
+    });
     await expect(application.persistence.exportSave("manual")).resolves.toEqual({
       kind: "rejected",
-      code: "unavailable",
+      code: "empty_slot",
     });
     await expect(application.persistence.exportCurrentSave()).resolves.toMatchObject({
       mediaType: "application/json",
       filename: "project-tavern-e2e-current.json",
     });
+  });
+
+  it("wires the real lease, save, export, load, and import ports around the one Session FIFO", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049, 0x0002_3050, 0x0002_3051],
+        uuids: ["00000000-0000-4000-8000-000000000011"],
+        now: () => "2026-07-12T00:00:00.000Z",
+      }),
+    });
+
+    await expect(application.persistence.lease.getStatus()).resolves.toEqual({
+      kind: "owned",
+      ownerId: "00000000-0000-4000-8000-000000000011",
+      fencingToken: 1,
+    });
+    await expect(
+      application.semantic.dispatch({ actionId: "action.e2e.increment", parameters: {} }),
+    ).resolves.toEqual({ kind: "committed" });
+    await expect(application.persistence.save("quick")).resolves.toEqual({
+      kind: "saved",
+      slotId: "quick",
+    });
+    await expect(application.persistence.getStatus()).resolves.toMatchObject({
+      available: true,
+      safelySavedCommandSequence: 1,
+      lastFailureCode: null,
+    });
+
+    const exported = await application.persistence.exportSave("quick");
+    expect(exported).toMatchObject({
+      kind: "exported",
+      slotId: "quick",
+      file: {
+        filename: expect.any(String),
+        mediaType: "application/json",
+        bytes: expect.any(Uint8Array),
+      },
+    });
+    if (exported.kind !== "exported") throw new TypeError("expected exported Quick Save");
+    await expect(application.capabilities.setEnabled("debug_tools", true)).resolves.toMatchObject({
+      kind: "updated",
+    });
+
+    await expect(application.lifecycle.restartSession()).resolves.toEqual({
+      kind: "anchored",
+      commandSequence: 0,
+    });
+    expect(application.semantic.observe().game.counterLabel).toBe("计数 0");
+    await expect(application.persistence.load("quick")).resolves.toEqual({
+      kind: "loaded",
+      compatibility: "exact",
+      commandSequence: 1,
+    });
+    expect(application.semantic.observe().game.counterLabel).toBe("计数 1");
+    expect(application.capabilities.state.getCurrent().debugTools).toBe(true);
+
+    await expect(application.lifecycle.restartSession()).resolves.toMatchObject({
+      kind: "anchored",
+      commandSequence: 0,
+    });
+    await expect(application.persistence.importSave(exported.file.bytes)).resolves.toEqual({
+      kind: "imported",
+      compatibility: "exact",
+      commandSequence: 1,
+    });
+    expect(application.semantic.observe().game.counterLabel).toBe("计数 1");
+    expect(application.capabilities.state.getCurrent()).toEqual({
+      debugTools: true,
+      cheats: false,
+      automationBridge: false,
+    });
+  });
+
+  it("rejects an exact-identity Save whose terminal State violates cross-module invariants", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000012"],
+        now: () => "2026-07-12T00:00:00.000Z",
+      }),
+    });
+    const before = application.semantic.observe();
+    const exported = await application.persistence.exportCurrentSave();
+    const malformed = JSON.parse(new TextDecoder().decode(exported.bytes)) as {
+      snapshot: E2eGameSnapshotV1;
+      slot: {
+        storyId: string;
+        slotId: "manual";
+        writeReason: "manual";
+        capturedCommandSequence: number;
+      };
+      stateDigest: string;
+    };
+    const commandSequence = parseNonNegativeSafeInteger(4);
+    const belowTerminalThreshold = parseNonNegativeSafeInteger(
+      Number(resolved.simulationProgram.values.terminalThreshold) - 1,
+    );
+    malformed.snapshot = Object.freeze({
+      ...malformed.snapshot,
+      commandSequence,
+      state: Object.freeze({
+        simulation: Object.freeze({
+          counter: Object.freeze({ value: belowTerminalThreshold }),
+          flow: Object.freeze({ status: "resolved", branch: "right", nodeId: "done" }),
+          run: Object.freeze({ status: "complete" }),
+        }),
+      }),
+    });
+    malformed.slot = Object.freeze({ ...malformed.slot, capturedCommandSequence: commandSequence });
+    malformed.stateDigest = digestCanonical("sillymaker:state:v1", malformed.snapshot);
+
+    await expect(
+      application.persistence.importSave(canonicalJsonBytes(malformed)),
+    ).resolves.toEqual({
+      kind: "rejected",
+      code: "invalid_record",
+    });
+    expect(application.semantic.observe()).toStrictEqual(before);
   });
 
   it("restores Host capability preferences before exposing the next runtime", async () => {

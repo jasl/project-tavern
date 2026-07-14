@@ -9,6 +9,9 @@ export {
   validateSaveImportCandidateV1,
 } from "./persistence/compatibility.js";
 export { decodeSaveRecordV1, encodeSaveRecordV1 } from "./persistence/save-codec.js";
+export { createAutoSaveQueueV1 } from "./persistence/auto-save-queue.js";
+export { createPersistenceServiceV1 } from "./persistence/persistence-service.js";
+export type { PersistenceServiceV1 } from "./persistence/persistence-service.js";
 export { createSemanticGamePortV1 } from "./application/semantic-game-port.js";
 export { createGameSessionV1 } from "./session/index.js";
 export type {

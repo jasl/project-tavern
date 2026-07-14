@@ -45,6 +45,10 @@ export interface GameSessionRuntimeControlV1<TSnapshot> {
       current: DeepReadonly<TSnapshot>,
     ) => Promise<AuthoritativeOutcomeV1<TSnapshot, TResult>>,
     normalizeUnexpectedFault: (error: unknown) => TResult,
+    prepareReplacementCommit?: (
+      snapshot: DeepReadonly<TSnapshot>,
+      anchor: "preserve_log" | "replace_replay_base",
+    ) => void,
   ): Promise<TResult>;
   readAtQueueFront<TResult>(
     reader: (snapshot: DeepReadonly<TSnapshot>) => TResult,
@@ -53,6 +57,7 @@ export interface GameSessionRuntimeControlV1<TSnapshot> {
     readonly snapshot: DeepReadonly<TSnapshot>;
     readonly status: RuntimeSessionStatusV1;
   };
+  subscribeCommittedSnapshots(listener: (snapshot: DeepReadonly<TSnapshot>) => void): () => void;
 }
 
 type AttemptFor<TTypes extends GameSimulationTypeMapV1> = CommandExecutionAttemptEnvelopeV1<
@@ -127,6 +132,9 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
   let pending = 0;
   let tail: Promise<void> = Promise.resolve();
   const listeners = new Set<() => void>();
+  const committedSnapshotListeners = new Set<
+    (snapshot: DeepReadonly<TTypes["snapshot"]>) => void
+  >();
 
   const status = (): RuntimeSessionStatusV1 => (pending > 0 ? "busy" : stableStatus);
   const reportObserverFailure = (error: unknown): void => {
@@ -140,6 +148,16 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
     for (const listener of [...listeners]) {
       try {
         listener();
+      } catch (error) {
+        reportObserverFailure(error);
+      }
+    }
+  };
+  const publishCommittedSnapshot = (): void => {
+    const committed = snapshot as DeepReadonly<TTypes["snapshot"]>;
+    for (const listener of [...committedSnapshotListeners]) {
+      try {
+        listener(committed);
       } catch (error) {
         reportObserverFailure(error);
       }
@@ -166,16 +184,25 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
         current: DeepReadonly<TTypes["snapshot"]>,
       ) => Promise<AuthoritativeOutcomeV1<TTypes["snapshot"], TResult>>,
       normalizeUnexpectedFault: (error: unknown) => TResult,
+      prepareReplacementCommit?: (
+        snapshot: DeepReadonly<TTypes["snapshot"]>,
+        anchor: "preserve_log" | "replace_replay_base",
+      ) => void,
     ): Promise<TResult> {
       return enqueue(async () => {
         try {
           const outcome = await operation(snapshot as DeepReadonly<TTypes["snapshot"]>);
           if (outcome.kind === "replace") {
-            snapshot = finalizeSnapshotIntegrityV1<TTypes["snapshot"]>(
+            const finalized = finalizeSnapshotIntegrityV1<TTypes["snapshot"]>(
               snapshot as DeepReadonly<TTypes["snapshot"]>,
               outcome.snapshot,
               { kind: "accept_replacement" },
             );
+            prepareReplacementCommit?.(
+              finalized as DeepReadonly<TTypes["snapshot"]>,
+              outcome.anchor,
+            );
+            snapshot = finalized;
             if (outcome.anchor === "replace_replay_base") stableStatus = "ready";
             publish();
           }
@@ -203,6 +230,10 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
         snapshot: snapshot as DeepReadonly<TTypes["snapshot"]>,
         status: status(),
       });
+    },
+    subscribeCommittedSnapshots(listener: (snapshot: DeepReadonly<TTypes["snapshot"]>) => void) {
+      committedSnapshotListeners.add(listener);
+      return () => committedSnapshotListeners.delete(listener);
     },
   });
 
@@ -260,6 +291,7 @@ function createInternal<TTypes extends GameSimulationTypeMapV1>(
         if (execution.result.kind === "committed") {
           snapshot = execution.result.snapshot;
           publish();
+          publishCommittedSnapshot();
         } else if (execution.result.kind === "faulted") {
           stableStatus = "fault_paused";
           publish();
