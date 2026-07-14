@@ -1592,12 +1592,16 @@ git commit -m "feat(runtime): gate same-artifact debug tools"
 - Modify: engine/packages/web/src/application/create-game-runtime.ts
 - Modify: engine/packages/web/src/application/create-game-runtime.test.ts
 - Modify: engine/packages/web/src/index.ts
+- Modify: scripts/build-e2e-identity.mjs
+- Modify: scripts/build-e2e-identity.test.mjs
+- Modify: vite.config.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
 - Modify: game/stories/e2e/src/application/entry.tsx
 - Create: game/stories/e2e/src/runtime/hmr-integration.test.ts
 - Test: engine/packages/base/src/runtime/session/runtime-invalidation.test.ts
 - Test: engine/packages/web/src/application/resolved-game-hmr.test.ts
+- Test: scripts/build-e2e-identity.test.mjs
 - Test: game/stories/e2e/src/runtime/hmr-integration.test.ts
 
 **Interfaces:**
@@ -1678,6 +1682,8 @@ Full rebootstrap must call the same game/stories/e2e/src/application/entry.tsx c
 
 The Story runtime factory must expose the Base invalidation and PersistenceService rebootstrap lifecycle that it creates to that same entry-side composition factory through an explicit Story-local contract；`entry.tsx` cannot reconstruct those owner-only controls from the player-facing `GameApplicationPortV1`。
 
+The E2E entry must contain a literal Vite-recognized `import.meta.hot.accept(...)` self-accept boundary。During dev-server HMR, the virtual BuildIdentity plugin must recompute live source closures, update and invalidate its virtual module only when the rendered identity changes, and propagate that module through the same boundary；the build path still consumes one deterministic live payload。
+
 HMR identity changes also freeze one persistence-owner lifecycle: equal-tuple CSS/UI update does nothing to lease ownership；digest-changing accept creates a fresh owner ID from Host bootstrap entropy, invalidates old Session synchronously, calls `disposeForRebootstrap()` on old PersistenceService, and does not expose the replacement as writable until an explicit lease transfer succeeds。
 
 - [ ] **Step 3: Run focused tests and confirm unified HMR is absent**
@@ -1709,6 +1715,7 @@ Run:
 ```bash
 pnpm --filter @sillymaker/base exec vitest run src/runtime/session src/runtime/persistence/persistence-service.test.ts src/runtime/persistence/session-lease.test.ts src/runtime/diagnostics/runtime-failures.test.ts
 pnpm --filter @sillymaker/web exec vitest run src/application
+node --test scripts/build-e2e-identity.test.mjs
 pnpm --filter @project-tavern/story-e2e exec vitest run src/runtime/hmr-integration.test.ts
 pnpm build:e2e
 pnpm verify:bundle
@@ -1721,7 +1728,7 @@ Expected: all commands exit 0；same Artifact/root reboots；no second app build
 - [ ] **Step 6: Commit HMR invalidation**
 
 ```bash
-git add -- engine/packages/base/src/runtime/session engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/src/index.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application engine/packages/web/src/index.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/runtime/hmr-integration.test.ts
+git add -- engine/packages/base/src/runtime/session engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/src/index.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application engine/packages/web/src/index.ts scripts/build-e2e-identity.mjs scripts/build-e2e-identity.test.mjs vite.config.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/runtime/hmr-integration.test.ts
 git diff --cached --check
 git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 ```
