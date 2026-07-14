@@ -494,3 +494,46 @@ export type {
   PocAuraCountdownResultV1,
   PocStatusGameplayModuleV1,
 } from "./modules/status/module.js";
+
+export {
+  parsePocInventoryChangeReasonV1,
+  parsePocInventorySourceRefV1,
+  parsePocInventoryBatchV1,
+  parsePocInventoryItemStackV1,
+  parsePocInventoryLedgerSubjectV1,
+  parsePocInventoryLedgerEntryV1,
+  parsePocInventoryLedgerEntryDraftV1,
+  parsePocInventoryStateV1,
+  pocInventoryStateSchemaV1,
+  pocInventoryOwnerOperationSchemaV1,
+  comparePocInventoryBatchIdsV1,
+  pocInventoryDependencyPortsSchemaV1,
+  pocInventoryOwnerProposalSchemaV1,
+  comparePocInventoryLedgerEntryIdsV1,
+  comparePocInventoryFifoBatchesV1,
+  sortPocInventoryBatchesV1,
+  sortPocInventoryItemStacksV1,
+  pocInventoryStatesEqualV1,
+  pocInventoryInvariantV1,
+  assertValidInitialPocInventoryStateV1,
+} from "./modules/inventory/contract.js";
+
+export type {
+  PocInventoryIngredientPortV1,
+  PocInventoryShelfLifeExtensionV1,
+  PocInventoryLedgerAppendContextV1,
+  PocInventoryOwnerOperationV1,
+  PocInventoryDependencyPortsV1,
+  PocInventoryGameplayFactV1,
+  PocInventoryOwnerProposalPayloadV1,
+  PocInventoryOwnerProposalV1,
+  PocInventoryReadPortV1,
+} from "./modules/inventory/contract.js";
+
+export {
+  createPocInventoryReadPortV1,
+  pocInventoryOwnerV1,
+  createPocInventoryGameplayModuleV1,
+} from "./modules/inventory/module.js";
+
+export type { PocInventoryGameplayModuleV1 } from "./modules/inventory/module.js";
