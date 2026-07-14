@@ -1592,6 +1592,8 @@ git commit -m "feat(runtime): gate same-artifact debug tools"
 - Modify: engine/packages/web/src/application/create-game-runtime.ts
 - Modify: engine/packages/web/src/application/create-game-runtime.test.ts
 - Modify: engine/packages/web/src/index.ts
+- Modify: game/stories/e2e/src/application/create-e2e-game-runtime.ts
+- Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
 - Modify: game/stories/e2e/src/application/entry.tsx
 - Create: game/stories/e2e/src/runtime/hmr-integration.test.ts
 - Test: engine/packages/base/src/runtime/session/runtime-invalidation.test.ts
@@ -1674,6 +1676,8 @@ HMR tuple exactly includes Story ID/revision/digest、Engine digest、state-cont
 
 Full rebootstrap must call the same game/stories/e2e/src/application/entry.tsx composition factory；test asserts no developer-entry、player-entry、second HTML or second Vite mode。
 
+The Story runtime factory must expose the Base invalidation and PersistenceService rebootstrap lifecycle that it creates to that same entry-side composition factory through an explicit Story-local contract；`entry.tsx` cannot reconstruct those owner-only controls from the player-facing `GameApplicationPortV1`。
+
 HMR identity changes also freeze one persistence-owner lifecycle: equal-tuple CSS/UI update does nothing to lease ownership；digest-changing accept creates a fresh owner ID from Host bootstrap entropy, invalidates old Session synchronously, calls `disposeForRebootstrap()` on old PersistenceService, and does not expose the replacement as writable until an explicit lease transfer succeeds。
 
 - [ ] **Step 3: Run focused tests and confirm unified HMR is absent**
@@ -1717,7 +1721,7 @@ Expected: all commands exit 0；same Artifact/root reboots；no second app build
 - [ ] **Step 6: Commit HMR invalidation**
 
 ```bash
-git add -- engine/packages/base/src/runtime/session engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/src/index.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application engine/packages/web/src/index.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/runtime/hmr-integration.test.ts
+git add -- engine/packages/base/src/runtime/session engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/src/index.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application engine/packages/web/src/index.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/runtime/hmr-integration.test.ts
 git diff --cached --check
 git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 ```
