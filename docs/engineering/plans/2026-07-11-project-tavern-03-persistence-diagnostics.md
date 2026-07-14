@@ -1242,6 +1242,8 @@ git commit -m "feat(base): replay bounded game commands"
 - Modify: engine/packages/base/src/runtime/application/game-application.test.ts
 - Modify: engine/packages/base/src/runtime/session/game-session.ts
 - Modify: engine/packages/base/src/runtime/session/game-session.test.ts
+- Modify: engine/packages/base/src/runtime/persistence/persistence-service.ts
+- Modify: engine/packages/base/src/runtime/persistence/persistence-service.test.ts
 - Modify: engine/packages/base/src/runtime/index.ts
 - Modify: engine/packages/base/public-exports.v1.json
 - Modify: engine/packages/web/src/application/create-game-runtime.ts
@@ -1257,7 +1259,7 @@ git commit -m "feat(base): replay bounded game commands"
 **Interfaces:**
 
 - Consumes: ResolvedGame provenance、RuntimeCapabilities current state、GameSession Snapshot/RunIntegrity and Phase 2 `onObserverFailure` hook、CommandLog、runtime failures and Host metadata clock。
-- Produces: DebugBundleEnvelopeV1 with capabilities/integrity、encodeDebugBundleV1、decodeDebugBundleV1、createGameDiagnosticsServiceV1 and bounded privacy scrubber。
+- Produces: DebugBundleEnvelopeV1 with capabilities/integrity、encodeDebugBundleV1、decodeDebugBundleV1、createGameDiagnosticsServiceV1、PersistenceServiceV1 的 frozen current-lineage read seam and bounded privacy scrubber。
 
 - [ ] **Step 1: Write failing envelope, digest, limit, and privacy tests**
 
@@ -1333,6 +1335,8 @@ optional closed UI context
 
 Both Snapshot digests independently include RunIntegrity and must be checked even for empty CommandLog。Capabilities are diagnostic-only and do not participate in either digest。
 
+`PersistenceServiceV1.getSimulationLineage()` 只向 bootstrap composition 暴露当前已提交 lineage 的 frozen read-only snapshot；它不进入 player persistence port，也不提供写入或 adoption 权限。exact/adopted load 与 lifecycle anchor 后分别返回已提交的 preserved/appended/reset lineage，失败操作保持原引用内容不变。
+
 Limits：
 
 - raw Debug input 20 MiB；
@@ -1376,7 +1380,7 @@ Expected: all commands exit 0；bundle round-trip preserves capability state and
 - [ ] **Step 6: Commit DebugBundle export**
 
 ```bash
-git add -- engine/packages/base/src/contracts/diagnostics.ts engine/packages/base/src/contracts/diagnostics.test.ts engine/packages/base/src/runtime/diagnostics engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+git add -- engine/packages/base/src/contracts/diagnostics.ts engine/packages/base/src/contracts/diagnostics.test.ts engine/packages/base/src/runtime/diagnostics engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(base): export bounded debug bundles"
 ```
