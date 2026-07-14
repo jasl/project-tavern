@@ -1232,6 +1232,8 @@ git commit -m "feat(base): replay bounded game commands"
 
 - Modify: engine/packages/base/src/contracts/diagnostics.ts
 - Modify: engine/packages/base/src/contracts/diagnostics.test.ts
+- Modify: engine/packages/base/src/contracts/index.ts
+- Modify: engine/packages/base/src/index.ts
 - Create: engine/packages/base/src/runtime/diagnostics/debug-bundle.ts
 - Create: engine/packages/base/src/runtime/diagnostics/debug-bundle.test.ts
 - Create: engine/packages/base/src/runtime/diagnostics/runtime-failures.ts
@@ -1380,7 +1382,7 @@ Expected: all commands exit 0；bundle round-trip preserves capability state and
 - [ ] **Step 6: Commit DebugBundle export**
 
 ```bash
-git add -- engine/packages/base/src/contracts/diagnostics.ts engine/packages/base/src/contracts/diagnostics.test.ts engine/packages/base/src/runtime/diagnostics engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+git add -- engine/packages/base/src/contracts/diagnostics.ts engine/packages/base/src/contracts/diagnostics.test.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/src/runtime/diagnostics engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(base): export bounded debug bundles"
 ```
