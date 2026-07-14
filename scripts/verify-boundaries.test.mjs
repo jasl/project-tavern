@@ -51,6 +51,29 @@ async function fixture(source) {
   return root;
 }
 
+async function addE2eStory(root, source, exports) {
+  await mkdir(join(root, "game", "stories", "e2e", "src"), { recursive: true });
+  await writeFile(
+    join(root, "game", "stories", "e2e", "package.json"),
+    JSON.stringify({
+      name: "@project-tavern/story-e2e",
+      license: "PolyForm-Noncommercial-1.0.0",
+      exports,
+      dependencies: {
+        "@project-tavern/assets": "workspace:*",
+        "@sillymaker/base": "workspace:*",
+        "@sillymaker/ui": "workspace:*",
+        "@sillymaker/web": "workspace:*",
+      },
+    }),
+  );
+  await writeFile(join(root, "game", "stories", "e2e", "src", "index.ts"), source);
+  await writeFile(
+    join(root, "game", "stories", "e2e", "src", "tooling.ts"),
+    "export const tooling = true;\n",
+  );
+}
+
 test("rejects Base importing a Story", async (t) => {
   const root = await fixture('import "@project-tavern/story-e2e";\n');
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -94,6 +117,38 @@ test("recognizes SillyMaker workspace imports", async (t) => {
   t.after(() => rm(root, { recursive: true, force: true }));
   assert(
     (await verifyBoundaries(root)).includes("engine/packages/base may not import @sillymaker/ui"),
+  );
+});
+
+test("allows a package to import its own reviewed export without a self dependency", async (t) => {
+  const root = await fixture("export {};\n");
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await addE2eStory(
+    root,
+    'const tooling = import("@project-tavern/story-e2e/tooling");\nvoid tooling;\n',
+    { ".": "./src/index.ts", "./tooling": "./src/tooling.ts" },
+  );
+
+  assert.equal(
+    (await verifyBoundaries(root)).some((error) =>
+      error.includes("game/stories/e2e may not import @project-tavern/story-e2e"),
+    ),
+    false,
+  );
+});
+
+test("rejects an unreviewed self-package subpath", async (t) => {
+  const root = await fixture("export {};\n");
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await addE2eStory(root, 'import "@project-tavern/story-e2e/private";\n', {
+    ".": "./src/index.ts",
+    "./tooling": "./src/tooling.ts",
+  });
+
+  assert(
+    (await verifyBoundaries(root)).includes(
+      "game/stories/e2e/src/index.ts: package-internal deep import @project-tavern/story-e2e/private",
+    ),
   );
 });
 

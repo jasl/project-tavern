@@ -239,7 +239,7 @@ export async function verifyBoundaries(root) {
       if (owner.kind === "engine" && target.kind === "game") {
         errors.push(`${owner.path}: engine package may not import game package ${target.name}`);
       }
-      if (!owner.edges.includes(parsed.packageName)) {
+      if (owner.name !== parsed.packageName && !owner.edges.includes(parsed.packageName)) {
         errors.push(`${owner.path} may not import ${parsed.packageName}`);
       }
       const manifest = manifests.get(target.name);
