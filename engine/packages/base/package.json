@@ -9,6 +9,9 @@
     "./runtime": "./src/runtime/index.ts",
     "./testkit": "./src/testkit/index.ts"
   },
+  "scripts": {
+    "test:runtime": "pnpm --dir ../../.. exec vitest run engine/packages/base/src/runtime"
+  },
   "dependencies": {
     "zod": "4.4.3"
   }

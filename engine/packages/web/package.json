@@ -8,7 +8,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "pnpm --workspace-root exec vitest run engine/packages/web/src"
+    "test": "pnpm --workspace-root exec vitest run engine/packages/web/src",
+    "test:host": "pnpm --dir ../../.. exec vitest run engine/packages/web/src/host engine/packages/web/src/capabilities engine/packages/web/src/application"
   },
   "dependencies": {
     "@sillymaker/base": "workspace:*",

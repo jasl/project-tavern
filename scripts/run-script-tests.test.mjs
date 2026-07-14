@@ -125,6 +125,21 @@ test("registers the final Phase 2 runtime gate test exactly once", async () => {
   assert(!discovered.vitest.includes("scripts/verify-phase2-checkpoint.test.mjs"));
 });
 
+test("registers the cumulative Phase 3 persistence diagnostics gate test exactly once", async () => {
+  const root = join(import.meta.dirname, "..");
+  const discovered = await discoverScriptTestsV1(root);
+  assert.equal(
+    discovered.node.filter((path) => path === "scripts/verify-persistence-diagnostics.test.mjs")
+      .length,
+    1,
+  );
+  assert.equal(
+    discovered.vitest.filter((path) => path === "scripts/verify-persistence-diagnostics.test.mjs")
+      .length,
+    0,
+  );
+});
+
 test("registers the semantic verifier test exactly once", async () => {
   const root = join(import.meta.dirname, "..");
   const discovered = await discoverScriptTestsV1(root);

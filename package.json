@@ -42,6 +42,8 @@
     "verify:materialization": "node --experimental-strip-types scripts/preflight/verify-materialization.mts",
     "verify:semantic": "node --experimental-strip-types scripts/verify-semantic.mts",
     "verify:phase2": "node --experimental-strip-types scripts/verify-phase2-runtime.mts",
+    "verify:runtime-fixtures": "pnpm --filter @project-tavern/story-e2e verify:runtime-fixtures",
+    "verify:persistence-diagnostics": "node --experimental-strip-types scripts/verify-persistence-diagnostics.mts",
     "release:prepare": "pnpm build:e2e && node scripts/prepare-artifact.mjs dist/e2e",
     "regenerate:fixtures": "pnpm --filter @project-tavern/story-e2e regenerate:fixtures",
     "update:golden": "pnpm --filter @project-tavern/story-e2e update:golden",
