@@ -16,7 +16,7 @@
 - `docs/engineering/specs/2026-07-12-game-runtime-design.md` and `docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md` are authoritative. The only current boundaries are atomic `SemanticPublicationV1`, exact-ID asset demand, one `GameApplicationPort`, and Story-owned Gameplay availability; no alternate view shape, coarse asset load group API, build flavor split or UI-owned Gameplay gate is allowed.
 - Current Story roots remain exactly `game/stories/poc` and `game/stories/e2e`. Phase 5A does not create a Story Web root or create/modify a PoC-specific character, StageScene renderer, HitMap, interaction behavior, content-maturity preference, DevDock, Cheat UI, Automation Bridge, or browser test facade. It may adapt the existing neutral Phase-2 E2E root only to keep each generic UI contract migration independently buildable.
 - `engine/packages/ui/**` and game-neutral `engine/packages/web/**` remain MIT and contain no PoC/E2E identifiers or semantics. The runtime asset verifier may enumerate the closed Story entries only to inspect their resolved manifests; it must not import Story presentation renderers or content into UI/Web.
-- `SemanticPublicationV1` is the only atomic semantic snapshot exposed to the UI bridge. Its `game` and `actions` values come from the same Queries, authoritative token, and semantic revision; `availableActions()` is never called to create a second action catalog for rendering.
+- `SemanticPublicationV1` is the only atomic semantic snapshot exposed to the UI bridge. Its `game`, `narrative`, and `actions` values come from the same Queries, authoritative token, and semantic revision; `availableActions()` is never called to create a second action catalog for rendering.
 - UI may retain local focus, open Overlay, VN reveal, hover, pointer capture, and animation progress. None enters Gameplay State, Snapshot, Save, CommandLog, Replay comparison, semantic revision, or any game identity.
 - Asset demand is an ordered, first-occurrence-unique list of exact `AssetId` values selected by the current presentation. `AssetRegistry.preload` has no `bootstrap | scene | overlay` overload and never loads a manifest group merely because one member is visible.
 - A filtered or unselected asset is not fetched, decoded, or diagnosed. One final URL plus exact SHA-256 is fetched/decoded at most once per registry lifetime; a failed item falls back independently without rejecting other demanded items.
@@ -357,6 +357,7 @@ it("publishes the complete SemanticPublication as one immutable reference", () =
 
   expect(bridge.getSnapshot()).toBe(publication1);
   expect(bridge.getSnapshot().game).toBe(publication1.game);
+  expect(bridge.getSnapshot().narrative).toBe(publication1.narrative);
   expect(bridge.getSnapshot().actions).toBe(publication1.actions);
   expect(semantic.availableActions).not.toHaveBeenCalled();
   expect(listener).toHaveBeenCalledOnce();
@@ -364,11 +365,12 @@ it("publishes the complete SemanticPublication as one immutable reference", () =
   bridge.dispose();
 });
 
-it("keeps game/actions references for a status-only publication", () => {
+it("keeps game/narrative/actions references for a status-only publication", () => {
   const fixture = createStatusOnlyPublicationFixtureV1();
   fixture.publishBusy();
   expect(fixture.bridge.getSnapshot()).toMatchObject({ revision: 4, status: "busy" });
   expect(fixture.bridge.getSnapshot().game).toBe(fixture.publication0.game);
+  expect(fixture.bridge.getSnapshot().narrative).toBe(fixture.publication0.narrative);
   expect(fixture.bridge.getSnapshot().actions).toBe(fixture.publication0.actions);
 });
 
@@ -441,9 +443,9 @@ export function useSemanticPublicationV1<TPublication>(
 ): DeepReadonly<TPublication>;
 ```
 
-`getSnapshot()` delegates to the one `source.observe()` and returns that complete object unchanged. Each bridge listener delegates through `source.subscribe`, so the Base Semantic source retains subscriber-failure isolation; the bridge never creates a second fan-out loop. Never call `availableActions()`, split `game` from `actions`, derive a second semantic revision, or synthesize a status publication. `useSemanticPublicationV1` calls `useSyncExternalStore(bridge.subscribe, bridge.getSnapshot, bridge.getSnapshot)` and therefore consumes the source's cached immutable snapshot under React concurrent rendering. `dispose()` invokes all retained source unsubscribe functions once and makes later subscribe calls fail with `ui.semantic_bridge_disposed`.
+`getSnapshot()` delegates to the one `source.observe()` and returns that complete object unchanged. Each bridge listener delegates through `source.subscribe`, so the Base Semantic source retains subscriber-failure isolation; the bridge never creates a second fan-out loop. Never call `availableActions()`, split `game`, `narrative`, or `actions`, derive a second semantic revision, or synthesize a status publication. `useSemanticPublicationV1` calls `useSyncExternalStore(bridge.subscribe, bridge.getSnapshot, bridge.getSnapshot)` and therefore consumes the source's cached immutable snapshot under React concurrent rendering. `dispose()` invokes all retained source unsubscribe functions once and makes later subscribe calls fail with `ui.semantic_bridge_disposed`.
 
-Keep the existing generic `createViewSourceV1/useReadonlyViewV1` only for non-authoritative UI session state already used by the Phase-2 checkpoint. It is not accepted by `useSemanticPublicationV1`, and no Story renderer may use it to split `SemanticPublicationV1.game` from `actions`.
+Keep the existing generic `createViewSourceV1/useReadonlyViewV1` only for non-authoritative UI session state already used by the Phase-2 checkpoint. It is not accepted by `useSemanticPublicationV1`, and no Story renderer may use it to split `SemanticPublicationV1.game`, `.narrative`, or `.actions`.
 
 - [ ] **Step 4: Implement seven renderer namespaces and the generic semantic control**
 
@@ -561,7 +563,7 @@ pnpm verify
 git diff --check
 ```
 
-Expected: every command exits 0; status-only publications retain the exact `game` and `actions` references, and UI has no Story Gameplay import.
+Expected: every command exits 0; status-only publications retain the exact `game`, `narrative`, and `actions` references, and UI has no Story Gameplay import.
 
 - [ ] **Step 6: Stage the exact publication/contribution slice and commit**
 
@@ -1186,7 +1188,7 @@ export interface VnLayerPropsV1<TInvocation, TResult> {
   readonly choices: readonly VnChoiceV1<TInvocation>[];
   readonly advance: VnChoiceV1<TInvocation> | null;
   readonly semantic: Pick<
-    SemanticGamePortV1<unknown, unknown, TInvocation, unknown, TResult>,
+    SemanticGamePortV1<unknown, unknown, unknown, TInvocation, unknown, TResult>,
     "dispatch"
   >;
   readonly inputRouter: InputRouterV1;
@@ -1590,7 +1592,7 @@ Expected staged paths are only `scripts/assets/**`, `scripts/ui/**`, the listed 
 - [ ] One final URL+digest is loaded once per registry lifetime; each demanded ID receives an ordered `loaded | fallback | aborted` result, and one failure never rejects unrelated demand.
 - [ ] Shared load completion swaps one cached readiness publication and rerenders `usePresentationAssetV1` consumers from fallback to runtime image without changing Semantic or RuntimePresentation revision; caller cancellation cannot suppress that shared publication.
 - [ ] `PresentationReadPortV1` exposes resolved text/assets and validated fallbacks without catalogs, runtime paths, providers, or manifests.
-- [ ] React consumes one immutable `SemanticPublicationV1`; `game`, `actions`, `status`, and `revision` never come from separate observations or a second availability calculation.
+- [ ] React consumes one immutable `SemanticPublicationV1`; `game`, `narrative`, `actions`, `status`, and `revision` never come from separate observations or a second availability calculation.
 - [ ] The renderer registry has seven independent neutral namespaces and renderer context is exactly `{ viewSlice, semantic, presentation }`.
 - [ ] `GameSymbol` is a separate neutral Story-supplied registry with 16/20/24/32 px and accessible/code-native fallback contracts; Lucide remains limited to system UI and no PoC/E2E symbol ID enters UI.
 - [ ] Input includes the reserved `interaction` context plus viewport point, pointer cancel, and focus-loss events; browser code owns Pointer lifecycle while Stage/renderer geometry remains unimplemented until Phase 5B.

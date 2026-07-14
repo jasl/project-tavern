@@ -77,6 +77,7 @@ export type E2eSemanticActionResultV1 =
 
 export type E2eSemanticGamePortV1 = SemanticGamePortV1<
   E2eGameViewV1,
+  null,
   E2eSemanticActionDescriptorV1,
   E2eSemanticInvocationV1,
   E2eSemanticPreviewV1,
@@ -350,6 +351,7 @@ export function createE2eSemanticGamePortV1(
     }),
     createQueries: gameSimulation.createQueries,
     projectGameView: gameSimulation.projectGameView,
+    projectNarrativeView: () => null,
     actions: createE2eSemanticActionCatalogV1,
     preview: previewE2eSemanticInvocationV1,
     dispatch: async (invocationValue) => {

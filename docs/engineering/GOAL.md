@@ -54,17 +54,17 @@ Phase 0 目标：
 
 ## 4. 强制阶段图
 
-| 阶段                                                                                  | 前置                       | 当前阶段必须读取                                                           | 完成 gate/产物                                         |
-| ------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------ |
-| [Phase 0](plans/2026-07-12-project-tavern-00-goal-materialization.md)                 | 已提交的可为空素材 handoff | Phase 0、交付边界、素材 handoff 文档                                       | Materialization Acceptance 与本机 attestation          |
-| [Phase 2](plans/2026-07-11-project-tavern-02-modules-e2e-story.md)                    | Phase 0                    | Phase 2、runtime design、scene/interaction design、相关 Contract Catalog   | `pnpm verify:phase2` 与 E2E/PoC 目标布局               |
-| [Phase 3](plans/2026-07-11-project-tavern-03-persistence-diagnostics.md)              | Phase 2                    | Phase 3、runtime design、persistence/diagnostics catalog                   | `pnpm verify:phase3` 与持久化/诊断 fixtures            |
-| [Phase 4A](plans/2026-07-11-project-tavern-04a-poc-gameplay-simulation.md)            | Phase 3                    | Phase 4A、runtime design、Contract Catalog、`docs/poc/simulation-rules.md` | `pnpm verify:phase4a` 与 PoC GameSimulation            |
-| [Phase 4B](plans/2026-07-11-project-tavern-04b-poc-story-golden.md)                   | Phase 4A                   | Phase 4B、scene/interaction design、全部 `docs/poc/` 当前合同              | `pnpm verify:phase4`、golden 与 balance evidence       |
-| [Phase 5A](plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md)             | Phase 4B                   | Phase 5A、runtime design、scene/interaction design                         | `pnpm verify:phase5a` 与中性 UI runtime                |
-| [Phase 5B](plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md) | Phase 5A                   | Phase 5B、scene/interaction design、Phase 4B catalog                       | `pnpm verify:phase5b` 与两个 Story presentation roots  |
-| [Phase 5C](plans/2026-07-12-project-tavern-05c-tooling-automation-acceptance.md)      | Phase 5B                   | Phase 5C、交付边界、runtime/scene specs                                    | `pnpm verify:phase5c`、Automation/a11y/visual evidence |
-| [Phase 6](plans/2026-07-11-project-tavern-06-local-artifact.md)                       | Phase 5C                   | Phase 6、交付边界、许可设计                                                | `pnpm verify:release` 与 exact `dist/poc` Artifact     |
+| 阶段                                                                                  | 前置                       | 当前阶段必须读取                                                           | 完成 gate/产物                                               |
+| ------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Phase 0](plans/2026-07-12-project-tavern-00-goal-materialization.md)                 | 已提交的可为空素材 handoff | Phase 0、交付边界、素材 handoff 文档                                       | Materialization Acceptance 与本机 attestation                |
+| [Phase 2](plans/2026-07-11-project-tavern-02-modules-e2e-story.md)                    | Phase 0                    | Phase 2、runtime design、scene/interaction design、相关 Contract Catalog   | `pnpm verify:phase2` 与 E2E/PoC 目标布局                     |
+| [Phase 3](plans/2026-07-11-project-tavern-03-persistence-diagnostics.md)              | Phase 2                    | Phase 3、runtime design、persistence/diagnostics catalog                   | `pnpm verify:persistence-diagnostics` 与持久化/诊断 fixtures |
+| [Phase 4A](plans/2026-07-11-project-tavern-04a-poc-gameplay-simulation.md)            | Phase 3                    | Phase 4A、runtime design、Contract Catalog、`docs/poc/simulation-rules.md` | `pnpm verify:poc-gameplay` 与 PoC GameSimulation             |
+| [Phase 4B](plans/2026-07-11-project-tavern-04b-poc-story-golden.md)                   | Phase 4A                   | Phase 4B、scene/interaction design、全部 `docs/poc/` 当前合同              | `pnpm verify:phase4`、golden 与 balance evidence             |
+| [Phase 5A](plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md)             | Phase 4B                   | Phase 5A、runtime design、scene/interaction design                         | `pnpm verify:phase5a` 与中性 UI runtime                      |
+| [Phase 5B](plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md) | Phase 5A                   | Phase 5B、scene/interaction design、Phase 4B catalog                       | `pnpm verify:phase5b` 与两个 Story presentation roots        |
+| [Phase 5C](plans/2026-07-12-project-tavern-05c-tooling-automation-acceptance.md)      | Phase 5B                   | Phase 5C、交付边界、runtime/scene specs                                    | `pnpm verify:phase5c`、Automation/a11y/visual evidence       |
+| [Phase 6](plans/2026-07-11-project-tavern-06-local-artifact.md)                       | Phase 5C                   | Phase 6、交付边界、许可设计                                                | `pnpm verify:release` 与 exact `dist/poc` Artifact           |
 
 精确路径、依赖关系和范围由 [`plan-set.v1.json`](plan-set.v1.json) 冻结。若表格、manifest 和 Roadmap 不一致，文档 gate 必须失败，不能由执行者选择其中一个猜测。
 

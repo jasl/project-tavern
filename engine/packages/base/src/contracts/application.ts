@@ -151,29 +151,35 @@ export interface PlayerDiagnosticsPortV1<TDebugBundle> {
   exportDebugBundle(): Promise<TDebugBundle>;
 }
 
-export interface SemanticPublicationV1<TGameView, TActionDescriptor, TStatus> {
+export interface SemanticPublicationV1<TGameView, TNarrativeView, TActionDescriptor, TStatus> {
   readonly revision: NonNegativeSafeInteger;
   readonly status: DeepReadonly<TStatus>;
   readonly game: DeepReadonly<TGameView>;
+  readonly narrative: DeepReadonly<TNarrativeView>;
   readonly actions: readonly DeepReadonly<TActionDescriptor>[];
 }
 
 export interface SemanticGamePortV1<
   TGameView,
+  TNarrativeView,
   TActionDescriptor,
   TInvocation,
   TPreview,
   TResult,
   TStatus = RuntimeSessionStatusV1,
 > {
-  observe(): DeepReadonly<SemanticPublicationV1<TGameView, TActionDescriptor, TStatus>>;
+  observe(): DeepReadonly<
+    SemanticPublicationV1<TGameView, TNarrativeView, TActionDescriptor, TStatus>
+  >;
   subscribe(listener: () => void): () => void;
   availableActions(): readonly DeepReadonly<TActionDescriptor>[];
   preview(invocation: DeepReadonly<TInvocation>): Promise<TPreview>;
   dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;
   waitForIdle(
     afterRevision?: NonNegativeSafeInteger,
-  ): Promise<DeepReadonly<SemanticPublicationV1<TGameView, TActionDescriptor, TStatus>>>;
+  ): Promise<
+    DeepReadonly<SemanticPublicationV1<TGameView, TNarrativeView, TActionDescriptor, TStatus>>
+  >;
 }
 
 export interface SemanticGamePortSourceV1<TState, TStatus> {
@@ -192,6 +198,7 @@ export interface SemanticGamePortInputV1<
   TStatus,
   TQueries,
   TGameView,
+  TNarrativeView,
   TActionDescriptor,
   TInvocation,
   TPreview,
@@ -200,6 +207,7 @@ export interface SemanticGamePortInputV1<
   readonly source: SemanticGamePortSourceV1<TState, TStatus>;
   createQueries(state: DeepReadonly<TState>): TQueries;
   projectGameView(queries: TQueries): TGameView;
+  projectNarrativeView(queries: TQueries): TNarrativeView;
   actions(queries: TQueries): readonly TActionDescriptor[];
   preview(queries: TQueries, invocation: DeepReadonly<TInvocation>): TPreview;
   dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;

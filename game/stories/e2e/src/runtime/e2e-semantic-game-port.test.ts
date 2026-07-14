@@ -420,6 +420,7 @@ describe("E2E SemanticGamePort", () => {
         flow: { status: "idle", nodeId: "intro" },
         terminal: false,
       },
+      narrative: null,
       actions: expect.any(Array),
     });
     expect(port.availableActions()).toBe(publication.actions);
@@ -459,6 +460,7 @@ describe("E2E SemanticGamePort", () => {
       revision: 1,
       status: "ready",
       game: { counterLabel: "计数 1" },
+      narrative: null,
     });
     expect(port.observe()).toBe(committed);
     expect(port.availableActions()).toBe(committed.actions);
@@ -466,6 +468,8 @@ describe("E2E SemanticGamePort", () => {
       (publication) => publication.revision === 0 && publication.status === "busy",
     );
     expect(initialBusy?.game).toBe(initial.game);
+    expect(initialBusy?.narrative).toBe(initial.narrative);
+    expect(initialBusy?.narrative).toBeNull();
     expect(initialBusy?.actions).toBe(initial.actions);
     expect(observed.at(-1)).toBe(committed);
   });

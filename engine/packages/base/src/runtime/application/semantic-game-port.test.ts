@@ -22,6 +22,14 @@ interface GameView {
   readonly queryWitness: object;
 }
 
+interface NarrativeView {
+  readonly active: boolean;
+  readonly queryWitness: object;
+  readonly details: {
+    readonly source: "queries";
+  };
+}
+
 interface ActionDescriptor {
   readonly actionId: "increment";
   readonly queryWitness: object;
@@ -104,11 +112,23 @@ function createSourceFixture(options?: { readonly reporterThrows?: boolean }): S
 
 function createFixture(options?: {
   readonly source?: SourceFixture;
+  readonly projectNarrativeView?: SemanticGamePortInputV1<
+    State,
+    Status,
+    Queries,
+    GameView,
+    NarrativeView,
+    ActionDescriptor,
+    Invocation,
+    Preview,
+    Result
+  >["projectNarrativeView"];
   readonly preview?: SemanticGamePortInputV1<
     State,
     Status,
     Queries,
     GameView,
+    NarrativeView,
     ActionDescriptor,
     Invocation,
     Preview,
@@ -126,6 +146,13 @@ function createFixture(options?: {
     },
     projectGameView: (queries) =>
       Object.freeze({ value: queries.value, queryWitness: queries.witness }),
+    projectNarrativeView:
+      options?.projectNarrativeView ??
+      ((queries) => ({
+        active: queries.value > 0,
+        queryWitness: queries.witness,
+        details: { source: "queries" as const },
+      })),
     actions: (queries) =>
       Object.freeze([
         Object.freeze({ actionId: "increment" as const, queryWitness: queries.witness }),
@@ -147,7 +174,7 @@ function createFixture(options?: {
 }
 
 describe("createSemanticGamePortV1", () => {
-  it("publishes game and actions atomically from one Queries instance", () => {
+  it("publishes game, narrative, and actions atomically from one Queries instance", () => {
     const fixture = createFixture();
     const first = fixture.port.observe();
 
@@ -155,17 +182,26 @@ describe("createSemanticGamePortV1", () => {
       revision: 0,
       status: "ready",
       game: { value: 0, queryWitness: expect.any(Object) },
+      narrative: {
+        active: false,
+        queryWitness: expect.any(Object),
+        details: { source: "queries" },
+      },
       actions: [{ actionId: "increment", queryWitness: expect.any(Object) }],
     });
+    expect(first.game.queryWitness).toBe(first.narrative.queryWitness);
     expect(first.game.queryWitness).toBe(first.actions[0]?.queryWitness);
     expect(fixture.port.availableActions()).toBe(first.actions);
     expect(fixture.createQueriesCalls()).toBe(1);
     expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.narrative)).toBe(true);
+    expect(Object.isFrozen(first.narrative.details)).toBe(true);
 
     fixture.sourceFixture.publishStatus("busy");
     const statusOnly = fixture.port.observe();
     expect(statusOnly.revision).toBe(first.revision);
     expect(statusOnly.game).toBe(first.game);
+    expect(statusOnly.narrative).toBe(first.narrative);
     expect(statusOnly.actions).toBe(first.actions);
     expect(fixture.createQueriesCalls()).toBe(1);
 
@@ -173,7 +209,9 @@ describe("createSemanticGamePortV1", () => {
     const replaced = fixture.port.observe();
     expect(replaced.revision).toBe(1);
     expect(replaced.game).not.toBe(first.game);
+    expect(replaced.narrative).not.toBe(first.narrative);
     expect(replaced.actions).not.toBe(first.actions);
+    expect(replaced.game.queryWitness).toBe(replaced.narrative.queryWitness);
     expect(replaced.game.queryWitness).toBe(replaced.actions[0]?.queryWitness);
     expect(fixture.createQueriesCalls()).toBe(2);
   });
@@ -245,6 +283,36 @@ describe("createSemanticGamePortV1", () => {
     await expect(afterTeardown).resolves.toBe(fixture.port.observe());
   });
 
+  it("rejects a Narrative projector then accessor without replacing the publication", () => {
+    let projectionCalls = 0;
+    let getterCalls = 0;
+    const accessor = {};
+    Reflect.defineProperty(accessor, ["th", "en"].join(""), {
+      get() {
+        getterCalls += 1;
+        return () => undefined;
+      },
+    });
+    const fixture = createFixture({
+      projectNarrativeView(queries) {
+        projectionCalls += 1;
+        if (projectionCalls > 1) return accessor as NarrativeView;
+        return {
+          active: false,
+          queryWitness: queries.witness,
+          details: { source: "queries" },
+        };
+      },
+    });
+    const before = fixture.port.observe();
+
+    expect(() => fixture.sourceFixture.replaceState(1)).toThrow(
+      "Semantic projectNarrativeView returned thenable",
+    );
+    expect(getterCalls).toBe(0);
+    expect(fixture.port.observe()).toBe(before);
+  });
+
   it("rejects a thenable returned from the synchronous preview callback", async () => {
     const thenable = {};
     Reflect.defineProperty(thenable, ["th", "en"].join(""), {
@@ -258,6 +326,7 @@ describe("createSemanticGamePortV1", () => {
         Status,
         Queries,
         GameView,
+        NarrativeView,
         ActionDescriptor,
         Invocation,
         Preview,
@@ -285,6 +354,7 @@ describe("createSemanticGamePortV1", () => {
         Status,
         Queries,
         GameView,
+        NarrativeView,
         ActionDescriptor,
         Invocation,
         Preview,

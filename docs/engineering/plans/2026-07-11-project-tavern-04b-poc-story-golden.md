@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - Phase 4A `pnpm verify:poc-gameplay` is a hard prerequisite. Consume `PocGameSimulationV1`, its ten Story-local GameplayModules, Rules/Resolvers, `PocGameCommandExecutorV1`, `PocGameDebugCommandExecutorV1`, `PocGameQueriesV1`, and `PocGameViewV1`; do not copy or replace them in content/presentation/tooling code.
+- Consume the exact Phase 4A surfaces: the seven `PocRulesV1` slots, the separate Scheduling resolver, all seventeen `PocGameQueriesV1` methods, and the Narrative-free `PocGameViewV1`. Story integration publishes `PocGameViewV1`, `NarrativeProjectionV1 | null`, and semantic actions as three atomic channels built from one Queries instance.
 - `docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md` is authoritative for StageScene/variant/rig/HitMap/Interaction/content-policy boundaries and atomic SemanticPublication. Phase 4B registers PoC data and mappings against the Phase 2 contracts; it must not create engine contracts or a second GameView.
 - Story identity is exactly `{ id: "week.poc_001", revision: 1 }`; state-contract revision begins at `1`. Package/build key is `poc`, and the package name is `@project-tavern/story-poc`.
 - The run is exactly D1–D7: D1–D6 are service days, D7 has no service, levy is due D7 afternoon, and D7 evening is not actionable.
@@ -19,7 +20,7 @@
 - Story source `define()` is synchronous and side-effect-free. It does not read Host state, wall-clock time, storage, network, environment randomness, or tooling configuration.
 - StoryDefinition carries `createGameSimulation(program)`, never a pre-resolved GameSimulation. The resolver materializes and freezes the Simulation/Presentation Programs once, creates GameSimulation once, preserves resolved SceneGraph, and returns a frozen `ResolvedGameV1`.
 - The default Story/Headless closure contains only a data-only `.ts` SceneGraph: stable renderer IDs, layout/slot descriptors, and Strict JSON presentation data. It contains no JSX, React component, function, DOM/browser object, or import of the Phase 5 Web-only `.tsx` renderer registry.
-- Every test that exercises player behavior uses the real `GameSessionV1` and Story `SemanticGamePortV1`. Tests may inspect bounded same-attempt evidence through a test-only harness, but cannot call owners, Rules/Resolvers, transaction candidates, or the executor directly to bypass application behavior.
+- Every Task 8–12 test that exercises player behavior uses the real `GameSessionV1` and Story `SemanticGamePortV1`. Tasks 3–7 may call deep-readonly public Rule/Resolver/Query factories only as pure data/provider contract tests; they never call an owner, transaction candidate, normal/debug executor, or mutate Gameplay State to bypass application behavior. Tests may inspect bounded same-attempt evidence only through a test-only harness.
 - Semantic actions expose only visible information and legal Gameplay Commands. Automation/reference strategies do not enable DebugTools or Cheats and do not change RunIntegrity.
 - Story tooling is part of the same Story×Web Artifact and is capability-gated at runtime. It may be a lazy package export, but it must not create a separate application root, HTML file, build mode, GameSimulation, or Story identity.
 - Player-facing text is Chinese; stable identifiers are English. Real text remains in TextCatalogs and does not enter semantic Narrative control flow.
@@ -68,9 +69,12 @@ game/stories/poc/
     index.ts
     story-definition.ts
     patch-surfaces.ts
+    tooling-fixtures.ts
     content/
       identity.ts
       ids.ts
+      core-definitions.ts
+      story-data.ts
       state-definitions.ts
       balance.ts
       ingredients-recipes.ts
@@ -115,6 +119,7 @@ game/stories/poc/
       relationship-content.test.ts
       investigation-content.test.ts
       ending-forecast.test.ts
+      story-data.test.ts
       semantic-flow.integration.test.ts
       relationship-route.integration.test.ts
       investigation-route.integration.test.ts
@@ -136,8 +141,6 @@ game/stories/poc/
 
 **Files:**
 
-- Modify: `game/stories/poc/package.json`
-- Modify: `game/stories/poc/tsconfig.json`
 - Create: `game/stories/poc/src/content/identity.ts`
 - Create: `game/stories/poc/src/content/ids.ts`
 - Create: `game/stories/poc/src/test/story-validation.test.ts`
@@ -145,7 +148,7 @@ game/stories/poc/
 **Interfaces:**
 
 - Consumes: Base identity/safe-integer parsers, PoC stable-ID parsers from Phase 4A, Story source identity contract, and the exact tables in `docs/poc/content-and-playtest.md`.
-- Produces: `pocStoryIdentityV1`, `pocStateContractRevisionV1`, `pocReferenceSeedV1`, six fixed `pocReferenceRunIdsV1`, `pocNoContentFilterOptionsTextIdV1`, and closed readonly ID arrays/registries consumed by every later content file.
+- Produces: `pocStoryIdentityV1`, `pocStateContractRevisionV1`, `pocReferenceSeedV1`, six fixed `pocReferenceRunIdsV1`, `pocStoryTitleTextIdV1`, `pocNoContentFilterOptionsTextIdV1`, complete closed readonly ID arrays/registries consumed by every later content file, and the explicitly empty `itemIdsV1`.
 
 - [ ] **Step 1: Write the failing identity and namespace test**
 
@@ -165,8 +168,11 @@ import {
   pocHeroineAppearanceLayerOrderV1,
   pocHeroinePresentationIdsV1,
   pocNoContentFilterOptionsTextIdV1,
+  pocStoryTitleTextIdV1,
   pocSemanticWorkflowActionIdsV1,
+  itemIdsV1,
   recipeIdsV1,
+  textIdsV1,
 } from "../content/ids.js";
 
 describe("week.poc_001 identity", () => {
@@ -213,6 +219,9 @@ describe("week.poc_001 identity", () => {
 
   it("freezes the truthful empty content-filter setting label before UI composition", () => {
     expect(pocNoContentFilterOptionsTextIdV1).toBe("text.poc.settings.content_filter.none");
+    expect(pocStoryTitleTextIdV1).toBe("text.poc.story.title");
+    expect(textIdsV1).toContain(pocStoryTitleTextIdV1);
+    expect(itemIdsV1).toEqual([]);
   });
 });
 ```
@@ -244,7 +253,7 @@ export const pocReferenceRunIdsV1 = Object.freeze({
 } as const);
 ```
 
-`ids.ts` parses and freezes every policy, actor, character, ingredient, recipe, segment, mode, facility, aura, action, event, check/band, fact, quest, outcome, ending, reason, modifier source, Narrative scene/node/choice/checkpoint, Text, Asset, StageScene, StageSceneVariant, Character/rig/pose/expression/activity/appearance/HitMap, InteractionSurface, InteractionTarget, and InteractionBehavior ID from the PoC documents. No later Story file constructs one of those stable IDs from an unregistered raw string. Narrative `SceneId` and Presentation `StageSceneId` remain distinct branded namespaces。十四个 `symbol.poc.*` 值在这里仅作为严格、唯一、冻结的 Story 字符串登记；`pocNoContentFilterOptionsTextIdV1` 精确解析 `text.poc.settings.content_filter.none`，为 Phase 5B 的空策略 Settings 提供上游权威 ID。Phase 4B 不导入 UI，也不调用尚由 Phase 5A 才提供的 `parseGameSymbolIdV1`。
+`ids.ts` parses and freezes every policy, actor, character, ingredient, recipe, segment, mode, facility, aura, action, event, check/band, fact, quest, outcome, ending, reason, modifier source, Narrative scene/node/choice/checkpoint, Text, Asset, StageScene, StageSceneVariant, Character/rig/pose/expression/activity/appearance/HitMap, InteractionSurface, InteractionTarget, and InteractionBehavior ID from the PoC documents. This Task is the complete ID authority: Tasks 2–13 may consume these registries but never modify `ids.ts` or construct a stable ID from an unregistered raw string. `itemIdsV1` is deliberately empty for revision 1. Narrative `SceneId` and Presentation `StageSceneId` remain distinct branded namespaces。十四个 `symbol.poc.*` 值在这里仅作为严格、唯一、冻结的 Story 字符串登记；`pocStoryTitleTextIdV1` 与 `pocNoContentFilterOptionsTextIdV1` 精确解析 `text.poc.story.title` / `text.poc.settings.content_filter.none`，后者为 Phase 5B 的空策略 Settings 提供上游权威 ID。Phase 4B 不导入 UI，也不调用尚由 Phase 5A 才提供的 `parseGameSymbolIdV1`。
 
 The presentation catalog is closed to these exact Stage identities:
 
@@ -349,7 +358,7 @@ Expected: PASS; identity/revision/seed/run IDs and every content namespace are e
 - [ ] **Step 5: Commit identity and IDs**
 
 ```bash
-git add -- game/stories/poc/package.json game/stories/poc/tsconfig.json game/stories/poc/src/content/identity.ts game/stories/poc/src/content/ids.ts game/stories/poc/src/test/story-validation.test.ts
+git add -- game/stories/poc/src/content/identity.ts game/stories/poc/src/content/ids.ts game/stories/poc/src/test/story-validation.test.ts
 git commit -m "feat(story-poc): freeze story identity catalog"
 ```
 
@@ -357,6 +366,7 @@ git commit -m "feat(story-poc): freeze story identity catalog"
 
 **Files:**
 
+- Create: `game/stories/poc/src/content/core-definitions.ts`
 - Create: `game/stories/poc/src/content/state-definitions.ts`
 - Create: `game/stories/poc/src/content/balance.ts`
 - Create: `game/stories/poc/src/content/ingredients-recipes.ts`
@@ -364,32 +374,154 @@ git commit -m "feat(story-poc): freeze story identity catalog"
 
 **Interfaces:**
 
-- Consumes: exact `docs/poc/balance-v0.md` values, Task 1 IDs, Phase 4A strict data/State schemas, and the single `createPocGameSimulationV1(program).createInitialState(bootstrap)` path.
-- Produces: `pocStateDefinitionsV1`, `pocBalanceV1`, `pocIngredientDefinitionsV1`, `pocRecipeDefinitionsV1`, and `pocSimulationDataBaseV1`; it does not create a second initial-state factory.
+- Consumes: exact `docs/poc/balance-v0.md` values, Task 1's complete ID registries, and Phase 4A strict value/definition/State schemas.
+- Produces: `pocStoryManifestV1: StoryManifestV1`, `pocStateDefinitionsV1`, `pocInitialStateV1`, exact `pocBalanceV1: StoryBalanceV1`, and the sole named source-definition arrays `pocTextEntriesV1`, `pocCharacterDefinitionsV1`, `pocReasonDefinitionsV1`, `pocCustomerSegmentDefinitionsV1`, `pocModifierSourceDefinitionsV1`, `pocItemDefinitionsV1`, `pocIngredientDefinitionsV1`, and `pocRecipeDefinitionsV1`. It does not create a partial production SimulationData object or a second initial-state factory.
 
-- [ ] **Step 1: Write failing exact-count and sequence-zero tests**
+- [ ] **Step 1: Write failing exact source-component tests**
 
 ```ts
-it("encodes the closed economy and sequence-zero replay base", () => {
+it("encodes the closed source economy components", () => {
   expect(pocIngredientDefinitionsV1).toHaveLength(5);
   expect(pocRecipeDefinitionsV1).toHaveLength(4);
   expect(pocBalanceV1.lifePolicies).toHaveLength(2);
-  expect(pocBalanceV1.customerSegments).toHaveLength(2);
-  expect(pocBalanceV1.serviceModes).toHaveLength(4);
-
-  const fixtureProgram = withPocSimulationDataBaseV1(
-    createPocGameplayFixtureV1().program,
-    pocSimulationDataBaseV1,
-  );
-  const state = createPocGameSimulationV1(fixtureProgram).createInitialState(fixedPocBootstrapV1());
-  expect(state.simulation.run.status).toBe("setup");
-  expect(state.simulation.calendar).toMatchObject({
-    day: 1,
-    phase: "morning",
-    lifePolicyId: null,
-    apRemaining: 0,
+  expect(pocCustomerSegmentDefinitionsV1).toHaveLength(2);
+  expect(pocStoryManifestV1).toEqual({
+    titleTextId: "text.poc.story.title",
+    initialSceneId: "scene.poc.manifest_start",
+    playableDays: 7,
   });
-  expect(state.story.narrative.status).toBe("idle");
+  expect(pocTextEntriesV1.map(({ textId }) => textId)).toEqual(textIdsV1);
+  expect(pocTextEntriesV1.every((entry) => Object.keys(entry).join() === "textId")).toBe(true);
+  expect(pocCharacterDefinitionsV1).toHaveLength(3);
+  expect(pocCharacterDefinitionsV1.map(({ characterId }) => characterId)).toEqual(characterIdsV1);
+  expect(pocReasonDefinitionsV1.map(({ reasonId }) => reasonId)).toEqual(reasonIdsV1);
+  expect(pocCustomerSegmentDefinitionsV1.map(({ segmentId }) => segmentId)).toEqual(
+    customerSegmentIdsV1,
+  );
+  expect(pocModifierSourceDefinitionsV1.map(({ sourceId }) => sourceId)).toEqual(
+    modifierSourceIdsV1,
+  );
+  expect(pocModifierSourceDefinitionsV1).toHaveLength(2);
+  expect(pocItemDefinitionsV1.map(({ itemId }) => itemId)).toEqual(itemIdsV1);
+  expect(pocItemDefinitionsV1).toEqual([]);
+  expect(pocBalanceV1.serviceModes).toHaveLength(4);
+  expect(Object.keys(pocBalanceV1)).toEqual([
+    "lifePolicies",
+    "actionCosts",
+    "serviceModes",
+    "serviceDays",
+    "baseDemand",
+    "ledgerReasons",
+    "emergencyClosure",
+    "plannedClosureReasonId",
+    "heroineNightRecovery",
+    "heroineNightRecoveryReasonId",
+    "restRecovery",
+    "purchaseLineLimit",
+    "menuRecipeLimit",
+    "dailyPreparationLimit",
+    "openingFee",
+    "levyAmount",
+    "levyDue",
+    "obligationForecast",
+    "endingPolicy",
+    "maxNarrativeStepsPerCommand",
+    "maxNarrativeCallDepth",
+  ]);
+  expect(pocBalanceV1.actionCosts).toEqual([
+    {
+      action: "inventory.buy",
+      apCost: 1,
+      playerStaminaCost: 1,
+      heroineStaminaCost: 0,
+      reasonId: "reason.action.purchase",
+    },
+    {
+      action: "actor.prepare_food",
+      apCost: 1,
+      playerStaminaCost: 1,
+      heroineStaminaCost: 0,
+      reasonId: "reason.action.prepare_food",
+    },
+    {
+      action: "actor.rest",
+      apCost: 1,
+      playerStaminaCost: 0,
+      heroineStaminaCost: 0,
+      reasonId: "reason.action.rest",
+    },
+    {
+      action: "facility.choose.build",
+      apCost: 2,
+      playerStaminaCost: 1,
+      heroineStaminaCost: 0,
+      reasonId: "reason.action.facility_build",
+    },
+  ]);
+  expect(pocBalanceV1.baseDemand).toEqual(
+    [
+      [1, 6, 2],
+      [2, 5, 3],
+      [3, 7, 2],
+      [4, 4, 5],
+      [5, 3, 7],
+      [6, 6, 4],
+    ].flatMap(([day, locals, travelers]) => [
+      { day, segmentId: "segment.locals", customers: locals },
+      { day, segmentId: "segment.travelers", customers: travelers },
+    ]),
+  );
+  expect(pocBalanceV1.ledgerReasons).toEqual({
+    purchase: "reason.ledger.purchase",
+    serviceWage: "reason.ledger.wage",
+    openingFee: "reason.ledger.opening_fee",
+    revenue: "reason.ledger.revenue",
+    discardedFood: "reason.ledger.discarded_food",
+    spoiledIngredient: "reason.ledger.spoiled_ingredient",
+    facilityBuild: "reason.ledger.facility_build",
+    worldActionCost: "reason.ledger.world_action_cost",
+    levy: "reason.ledger.levy",
+  });
+  expect(pocBalanceV1).toMatchObject({
+    emergencyClosure: {
+      reputationPenalty: 1,
+      reasonId: "reason.service.emergency_closed",
+    },
+    plannedClosureReasonId: "reason.service.closed",
+    heroineNightRecovery: 3,
+    heroineNightRecoveryReasonId: "reason.recovery.heroine_night",
+    restRecovery: 3,
+    purchaseLineLimit: 5,
+    menuRecipeLimit: 2,
+    dailyPreparationLimit: 2,
+    openingFee: 2,
+    levyAmount: 140,
+    levyDue: { day: 7, phase: "afternoon" },
+    obligationForecast: {
+      visibleFrom: { day: 3, phase: "morning" },
+      conservativeFrom: { day: 5, phase: "morning" },
+      reasonId: "reason.obligation.levy_forecast",
+    },
+    endingPolicy: {
+      stableMinimumCashAfterLevy: 20,
+      stableMinimumReputation: 50,
+      stableMinimumBuiltFacilities: 1,
+      reputationCrisisBelow: 45,
+    },
+    maxNarrativeStepsPerCommand: 128,
+    maxNarrativeCallDepth: 8,
+  });
+  expect(pocBalanceV1.obligationForecast.recommendations).toHaveLength(5);
+  expect(Object.values(pocBalanceV1.endingPolicy).slice(4)).toEqual([
+    "reason.ending.stable",
+    "reason.ending.danger",
+    "reason.ending.arrears",
+    "reason.ending.reputation_crisis",
+  ]);
+
+  expect(pocInitialStateV1.ingredientBatches).toEqual([]);
+  expect(pocInitialStateV1.itemStacks).toEqual([]);
+  expect(pocInitialStateV1.auras).toEqual([]);
 });
 ```
 
@@ -397,42 +529,62 @@ it("encodes the closed economy and sequence-zero replay base", () => {
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/daily-gates.test.ts`
 
-Expected: FAIL because balance/state/ingredient/recipe files do not exist.
+Expected: FAIL because core-definition/balance/state/ingredient/recipe files do not exist.
 
 - [ ] **Step 3: Implement strict frozen data**
 
 ```ts
 export const pocServiceDaysV1 = Object.freeze([1, 2, 3, 4, 5, 6].map(parseDayIndex));
 
-export const pocBalanceV1: DeepReadonly<PocStoryBalanceV1> = deepFreeze(
+export const pocStoryManifestV1: DeepReadonly<StoryManifestV1> = deepFreeze({
+  titleTextId: pocStoryTitleTextIdV1,
+  initialSceneId: pocManifestStartSceneIdV1,
+  playableDays: parsePositiveSafeInteger(7),
+});
+
+export const pocCustomerSegmentDefinitionsV1 = buildPocCustomerSegmentsV1();
+
+export const pocBalanceV1: DeepReadonly<StoryBalanceV1> = deepFreeze(
   pocStoryBalanceSchemaV1.parse({
-    playableDays: 7,
-    serviceDays: pocServiceDaysV1,
-    levyDue: { day: 7, phase: "afternoon" },
     lifePolicies: buildPocLifePoliciesV1(),
-    customerSegments: buildPocCustomerSegmentsV1(),
+    actionCosts: buildPocActionCostsV1(),
     serviceModes: buildPocServiceModesV1(),
+    serviceDays: pocServiceDaysV1,
+    baseDemand: buildPocBaseDemandV1(pocServiceDaysV1, pocCustomerSegmentDefinitionsV1),
+    ledgerReasons: pocLedgerReasonsV1,
+    emergencyClosure: pocEmergencyClosureV1,
+    plannedClosureReasonId: pocPlannedClosureReasonIdV1,
+    heroineNightRecovery: 3,
+    heroineNightRecoveryReasonId: pocHeroineNightRecoveryReasonIdV1,
+    restRecovery: 3,
     purchaseLineLimit: 5,
-    menuRecipeLimit: 4,
+    menuRecipeLimit: 2,
+    dailyPreparationLimit: 2,
+    openingFee: 2,
+    levyAmount: 140,
+    levyDue: { day: 7, phase: "afternoon" },
+    obligationForecast: pocObligationForecastPolicyV1,
+    endingPolicy: pocEndingPolicyV1,
     maxNarrativeStepsPerCommand: 128,
     maxNarrativeCallDepth: 8,
-    ledgerReasons: pocLedgerReasonsV1,
   }),
 );
 ```
 
-Copy every numeric value and formula input exactly from the current balance document. `maxNarrativeStepsPerCommand=128` and `maxNarrativeCallDepth=8` use the exact `StoryBalance` field names consumed by the Phase 4A interpreter; tests compare the concrete program and fixture program and reject a stale `64`/`4` literal or alias field. Ingredients include price, shelf life, valuation, and stable reason IDs; recipes include required quantities, menu value, and equipment gates. Initial State contains no demand seeds/current demand, no workflow, empty progression collections, no Aura, and no active Narrative.
+`core-definitions.ts` is the one authority for the complete source `texts`, `characters`, `reasons`, `customerSegments`, `modifierSources`, and `items` arrays. Each array follows its Task 1 closed ID order, is strict-validated/deep-frozen, and has exact ID/TextId/reference tests; there are exactly three Story characters and two Story modifier sources, while the PoC `items` array is empty rather than omitted. A `TextEntryV1` contains only its stable `textId`, never the real Chinese string. No later task recreates one of these definitions.
+
+Copy every numeric value, Reason binding, formula input, and recommendation exactly from the current balance document. `playableDays` belongs to source `StoryManifestV1` and later projects into `PocSimulationManifestV1`; `customerSegments` belongs only to Story/simulation content; neither is a `StoryBalanceV1` field. Phase 4A owns and exports the exact strict `pocStoryBalanceSchemaV1` used here. Balance uses the exact 21-key Catalog shape above, with four action-cost rows, the complete 6-day × 2-segment base-demand matrix, nine ledger bindings, emergency/planned closure policy, both recovery bindings, preparation/menu/purchase limits, opening fee, levy/forecast/ending policies, and Narrative limits. Strict schema and exact-key tests reject every missing/extra field and prove all Reason/Text/Action/segment references resolve. `maxNarrativeStepsPerCommand=128` and `maxNarrativeCallDepth=8` use the exact `StoryBalanceV1` field names consumed by the Phase 4A interpreter and reject a stale `64`/`4` literal or alias field. Ingredients include price, shelf life, valuation, and stable reason IDs; recipes include required quantities, menu value, and equipment gates. `pocInitialStateV1` contains no ingredient batch, item, or Aura and initializes every source-owned value exactly once. Complete concrete sequence-zero GameSimulation validation waits until Task 6 has assembled all eighteen Story content fields.
 
 - [ ] **Step 4: Run balance/schema and full checks**
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/daily-gates.test.ts && pnpm typecheck && pnpm verify`
 
-Expected: PASS; exact counts/values, referential closure, strict schemas, sequence-zero Gameplay State, and canonical round-trip pass. RunIntegrity is tested only on a complete GameSnapshot/GameSession, never inferred from this State factory.
+Expected: PASS; exact source manifests/definitions/counts/values, referential closure, strict schemas, source initial values, and canonical round-trip pass. RunIntegrity is tested only on a complete GameSnapshot/GameSession, never inferred from source initial data.
 
 - [ ] **Step 5: Commit initial data**
 
 ```bash
-git add -- game/stories/poc/src/content/state-definitions.ts game/stories/poc/src/content/balance.ts game/stories/poc/src/content/ingredients-recipes.ts game/stories/poc/src/test/daily-gates.test.ts
+git add -- game/stories/poc/src/content/core-definitions.ts game/stories/poc/src/content/state-definitions.ts game/stories/poc/src/content/balance.ts game/stories/poc/src/content/ingredients-recipes.ts game/stories/poc/src/test/daily-gates.test.ts
 git commit -m "feat(story-poc): encode initial economy data"
 ```
 
@@ -451,7 +603,7 @@ git commit -m "feat(story-poc): encode initial economy data"
 **Interfaces:**
 
 - Consumes: Task 1 IDs, Task 2 balance/data, Narrative IR schemas, Action/Event/Aura/Facility definitions, and the D1–D4 scenario in `docs/poc/content-and-playtest.md`.
-- Produces: `pocActionDefinitionsV1`, `pocFacilityDefinitionsV1`, `pocAuraDefinitionsV1`, `pocEventDefinitionsV1`, and `pocNarrativeD1D4V1`.
+- Produces: `pocActionDefinitionsV1`, `pocFacilityDefinitionsV1`, the sole `pocFacilityOpportunityDefinitionsV1`, `pocAuraDefinitionsV1`, `pocEventDefinitionsV1`, and `pocNarrativeD1D4V1`.
 
 - [ ] **Step 1: Write failing chronology and count tests**
 
@@ -460,6 +612,12 @@ it("freezes the D1-D4 authored surface", () => {
   expect(pocAuraDefinitionsV1).toHaveLength(3);
   expect(pocEventDefinitionsV1).toHaveLength(5);
   expect(pocFacilityDefinitionsV1).toHaveLength(2);
+  expect(pocFacilityOpportunityDefinitionsV1).toEqual([
+    expect.objectContaining({
+      opportunityId: "action.facility_window",
+      facilityIds: ["facility.cold_storage", "facility.comfortable_bed"],
+    }),
+  ]);
   expect(pocEventDefinitionsV1.map((event) => event.eventId)).toEqual([
     "event.tutorial_first_service",
     "event.supplier_invoice",
@@ -479,7 +637,7 @@ Expected: FAIL with unresolved action/facility/Aura/event/Narrative imports.
 
 - [ ] **Step 3: Add exact D1–D4 content and activate mixed licensing atomically**
 
-Actions encode purchase, preparation, rest, service plan/opening, and facility opportunity gates/costs. The D2 invoice `[智力 B]` choice consumes zero AP and zero RNG, appends the exact +4 ledger effect, and sets the weekly fact. D4 facility build/skip reasons and modifiers are authored once. Scheduler events use the fixed total order and stable blocking arbitration; Event IDs are never reused as player Action IDs.
+Actions encode purchase, preparation, rest, service-plan, phase/levy, StoryAction, WorldAction, and facility-opportunity gates/costs. Opening start/continue/finalize are deliberately absent from generic `StoryContent.actions`: `PocGameQueriesV1.getTavernOpeningControl()` is their only UI projection and exposes exactly one context-valid branch. The D2 invoice `[智力 B]` choice consumes zero AP and zero RNG, appends the exact +4 ledger effect, and sets the weekly fact. `facilities-auras.ts` owns the only `FacilityOpportunityDefinitionV1` array: exactly one `action.facility_window` entry references both facilities in authored order and freezes build/skip confirmation, availability and skip Reason once. D4 facility definitions own their costs/modifiers and never duplicate the opportunity. The three Aura definitions freeze the exact duration policies: anger is `day_end × 2`, repaired-sign is applicable-successful `opening × 1`, and adventure strain is `night_recovery × 1`; no content carries `expiresAt` or invents a condition expiry. Scheduler events use the fixed total order and stable blocking arbitration; Event IDs are never reused as player Action IDs.
 
 ```ts
 export const pocEventDefinitionsV1 = deepFreeze(
@@ -515,12 +673,11 @@ git commit -m "feat(story-poc): add early-week content"
 - Create: `game/stories/poc/src/content/narrative/relationship.ts`
 - Create: `game/stories/poc/src/test/relationship-content.test.ts`
 - Modify: `game/stories/poc/src/content/actions.ts`
-- Modify: `game/stories/poc/src/content/ids.ts`
 
 **Interfaces:**
 
 - Consumes: relationship State/Effect contracts, StoryAction/Narrative IR, exact conditions in the PoC content document, and Task 3 Narrative definitions.
-- Produces: `pocRelationshipNarrativeV1`, relationship/apology StoryActions, and exact pending/completed/abandoned/unresolved/reconciled outcomes.
+- Produces: `pocRelationshipNarrativeV1`, the exact `pocRelationshipStoryActionDefinitionsV1` relationship/apology entries, and exact pending/completed/abandoned/unresolved/reconciled outcomes.
 
 - [ ] **Step 1: Write failing route and Aura tests**
 
@@ -559,7 +716,7 @@ Expected: FAIL because relationship Narrative/actions do not exist.
 
 - [ ] **Step 3: Encode the complete branch without a second relationship system**
 
-Use the existing Actors relationship State and Status Aura. Content defines conditions/effects only: cold/friendly/trust/affection/lover/disgust stage outcomes remain derived by the Phase 4A relationship rule. Starting this branch blocks investigation; not starting it is valid. Offending choices apply explicit affection loss and anger Aura; apology/expiry uses Aura policy and does not overwrite mood or relationship stage.
+Use the existing Actors relationship State and Status Aura. Content defines conditions/effects only. The engine enum remains exactly `stranger | dislike | cold | friendly | trust | admiration | lovers`, while this seven-day PoC initializes and keeps the derived stage at `cold`; affection and teamwork may change but are not stage names. Starting this branch blocks investigation; not starting it is valid. Offending choices apply explicit affection loss and the `day_end × 2` anger Aura; apology clears the matching Aura target, while natural expiry follows its countdown policy. Neither path overwrites mood or relationship stage.
 
 - [ ] **Step 4: Run content and full checks**
 
@@ -570,7 +727,7 @@ Expected: PASS; all route outcomes, sign/range constraints, mutual-exclusion gat
 - [ ] **Step 5: Commit relationship content**
 
 ```bash
-git add -- game/stories/poc/src/content/narrative/relationship.ts game/stories/poc/src/content/actions.ts game/stories/poc/src/content/ids.ts game/stories/poc/src/test/relationship-content.test.ts
+git add -- game/stories/poc/src/content/narrative/relationship.ts game/stories/poc/src/content/actions.ts game/stories/poc/src/test/relationship-content.test.ts
 git commit -m "feat(story-poc): add relationship branch"
 ```
 
@@ -582,19 +739,18 @@ git commit -m "feat(story-poc): add relationship branch"
 - Create: `game/stories/poc/src/content/checks-endings.ts`
 - Create: `game/stories/poc/src/test/investigation-content.test.ts`
 - Modify: `game/stories/poc/src/content/actions.ts`
-- Modify: `game/stories/poc/src/content/ids.ts`
 
 **Interfaces:**
 
 - Consumes: WorldAction/Workflow/Check/Outcome IR, PoC check resolver contract, mutual-exclusion facts/outcomes, and reference seed.
-- Produces: `pocInvestigationNarrativeV1`, two-stage WorldAction content, one threshold choice, one four-band 2D6 check, investigation outcomes/effects, and D6 consequences.
+- Produces: `pocInvestigationNarrativeV1`, the sole `pocWorldActionDefinitionsV1`, the sole `pocCheckDefinitionsV1`, one threshold choice, one four-band 2D6 check, investigation outcomes/effects, and D6 consequences.
 
 - [ ] **Step 1: Write failing content and fixed-vector tests**
 
 ```ts
 it("defines one two-stage investigation and one persisted check", () => {
   expect(pocInvestigationNarrativeV1.worldAction.steps).toHaveLength(2);
-  expect(pocInvestigationNarrativeV1.check.formula).toBe("2d6+bonuses");
+  expect(pocInvestigationNarrativeV1.check.dice).toBe("2d6");
   expect(pocInvestigationNarrativeV1.check.bands).toHaveLength(4);
   expect(pocInvestigationNarrativeV1.start.conditions).toContainEqual({
     kind: "outcome.equals",
@@ -631,7 +787,7 @@ Expected: PASS; route reachability, four Workflow progress states, one persisted
 - [ ] **Step 5: Commit investigation content**
 
 ```bash
-git add -- game/stories/poc/src/content/narrative/investigation.ts game/stories/poc/src/content/checks-endings.ts game/stories/poc/src/content/actions.ts game/stories/poc/src/content/ids.ts game/stories/poc/src/test/investigation-content.test.ts
+git add -- game/stories/poc/src/content/narrative/investigation.ts game/stories/poc/src/content/checks-endings.ts game/stories/poc/src/content/actions.ts game/stories/poc/src/test/investigation-content.test.ts
 git commit -m "feat(story-poc): add investigation branch"
 ```
 
@@ -641,28 +797,30 @@ git commit -m "feat(story-poc): add investigation branch"
 
 - Modify: `game/stories/poc/src/content/checks-endings.ts`
 - Modify: `game/stories/poc/src/content/balance.ts`
+- Create: `game/stories/poc/src/content/narrative/index.ts`
+- Create: `game/stories/poc/src/content/story-data.ts`
 - Create: `game/stories/poc/src/test/ending-forecast.test.ts`
+- Create: `game/stories/poc/src/test/story-data.test.ts`
 
 **Interfaces:**
 
-- Consumes: Phase 4A Rules/Resolvers, completed concrete data, exact forecast/ending policy from `docs/poc/simulation-rules.md`, and ending IDs/reasons/outcomes.
-- Produces: referentially complete ending definitions, forecast thresholds, stable/danger/arrears vectors, and the final `pocSimulationDataV1` data object consumed by Story materialization.
+- Consumes: Phase 4A Rules/Resolvers and state-only Queries; every named source-definition array from Tasks 2–5; exact forecast/ending policy from `docs/poc/simulation-rules.md`; and ending IDs/reasons/outcomes.
+- Produces: referentially complete `pocEndingDefinitionsV1`, combined `pocNarrativeScenesV1`, `StoryBalanceV1.obligationForecast`/`endingPolicy`, stable/danger/arrears vectors, the sole complete source `pocStoryDataV1: PocStoryDataV1`, the explicit `projectPocSimulationDataV1(source, resolvedBalance)` projector, and its concrete `pocSimulationDataV1: PocSimulationDataV1` output consumed by Story materialization.
 
 - [ ] **Step 1: Write failing forecast and ending tests**
 
 ```ts
 it("uses current, committed-plan, and final forecast bases", () => {
-  const rules = createPocRulesV1(pocSimulationDataV1);
-  expect(rules.ending.forecast(forecastFixtureV1({ day: 2 }))).toMatchObject({ kind: "hidden" });
-  expect(rules.ending.forecast(forecastFixtureV1({ day: 4 }))).toMatchObject({
+  expect(createForecastQueriesV1({ day: 2 }).getObligationForecast()).toBeNull();
+  expect(createForecastQueriesV1({ day: 4 }).getObligationForecast()).toMatchObject({
     kind: "current_gap",
   });
-  expect(rules.ending.forecast(forecastFixtureV1({ day: 5, committedPlan: true }))).toMatchObject({
-    kind: "committed_plan_conservative",
-  });
-  expect(rules.ending.forecast(forecastFixtureV1({ allServiceDaysResolved: true }))).toMatchObject({
-    kind: "final",
-  });
+  expect(
+    createForecastQueriesV1({ day: 5, committedPlan: true }).getObligationForecast(),
+  ).toMatchObject({ kind: "committed_plan_conservative" });
+  expect(
+    createForecastQueriesV1({ allServiceDaysResolved: true }).getObligationForecast(),
+  ).toMatchObject({ kind: "final" });
 });
 
 it.each([
@@ -670,33 +828,221 @@ it.each([
   [dangerEndingInputV1(), "ending.danger", "completed_danger"],
   [arrearsEndingInputV1(), "ending.failed_arrears", "failed_arrears"],
 ])("maps one ending vector", (input, endingId, status) => {
-  expect(createPocRulesV1(pocSimulationDataV1).ending.evaluate(input)).toMatchObject({
+  expect(createPocRulesV1(pocSimulationDataV1).endings.evaluate(input)).toMatchObject({
     endingId,
     status,
   });
+});
+
+it("owns complete Story source data and projects the exact simulation shape", () => {
+  expect(Object.keys(pocStoryDataV1)).toEqual([
+    "dataRevision",
+    "manifest",
+    "stateDefinitions",
+    "initialState",
+    "balance",
+    "content",
+  ]);
+  expect(Object.keys(pocStoryDataV1.content)).toEqual([
+    "texts",
+    "characters",
+    "reasons",
+    "actions",
+    "storyActions",
+    "customerSegments",
+    "modifierSources",
+    "ingredients",
+    "items",
+    "recipes",
+    "facilities",
+    "facilityOpportunities",
+    "auras",
+    "worldActions",
+    "events",
+    "checks",
+    "endings",
+    "scenes",
+  ]);
+  expect(pocStoryDataV1.content).toEqual({
+    texts: pocTextEntriesV1,
+    characters: pocCharacterDefinitionsV1,
+    reasons: pocReasonDefinitionsV1,
+    actions: pocActionDefinitionsV1,
+    storyActions: pocRelationshipStoryActionDefinitionsV1,
+    customerSegments: pocCustomerSegmentDefinitionsV1,
+    modifierSources: pocModifierSourceDefinitionsV1,
+    ingredients: pocIngredientDefinitionsV1,
+    items: pocItemDefinitionsV1,
+    recipes: pocRecipeDefinitionsV1,
+    facilities: pocFacilityDefinitionsV1,
+    facilityOpportunities: pocFacilityOpportunityDefinitionsV1,
+    auras: pocAuraDefinitionsV1,
+    worldActions: pocWorldActionDefinitionsV1,
+    events: pocEventDefinitionsV1,
+    checks: pocCheckDefinitionsV1,
+    endings: pocEndingDefinitionsV1,
+    scenes: pocNarrativeScenesV1,
+  });
+  expect(Object.keys(pocSimulationDataV1)).toEqual([
+    "dataRevision",
+    "manifest",
+    "stateDefinitions",
+    "initialState",
+    "balance",
+    "content",
+    "narrative",
+  ]);
+  expect(pocSimulationDataV1.manifest).toEqual({
+    initialSceneId: pocStoryDataV1.manifest.initialSceneId,
+    playableDays: pocStoryDataV1.manifest.playableDays,
+  });
+  expect(Object.keys(pocSimulationDataV1.content)).toEqual([
+    "characters",
+    "reasons",
+    "actions",
+    "storyActions",
+    "customerSegments",
+    "modifierSources",
+    "ingredients",
+    "items",
+    "recipes",
+    "facilities",
+    "facilityOpportunities",
+    "auras",
+    "worldActions",
+    "events",
+    "checks",
+    "endings",
+  ]);
+  expect(pocSimulationDataV1.manifest).not.toHaveProperty("titleTextId");
+  expect(pocSimulationDataV1.content).not.toHaveProperty("texts");
+  expect(pocSimulationDataV1.content).not.toHaveProperty("scenes");
+  expect(pocSimulationDataV1.narrative).toEqual({ scenes: pocStoryDataV1.content.scenes });
+  expect(Object.isFrozen(pocStoryDataV1)).toBe(true);
+  expect(Object.isFrozen(pocSimulationDataV1)).toBe(true);
+});
+
+it("creates the sequence-zero replay base from complete concrete data", () => {
+  const program = deepFreeze({
+    data: pocSimulationDataV1,
+    rules: createPocRulesV1(pocSimulationDataV1),
+  });
+  const state = createPocGameSimulationV1(program).createInitialState(fixedPocBootstrapV1());
+  expect(state.simulation.run.status).toBe("setup");
+  expect(state.simulation.calendar).toMatchObject({
+    day: 1,
+    phase: "morning",
+    lifePolicyId: null,
+    apRemaining: 0,
+  });
+  expect(state.story.narrative.status).toBe("idle");
+});
+
+it("keeps the production projector structural and field-by-field", async () => {
+  const source = await readFile(new URL("../content/story-data.ts", import.meta.url), "utf8");
+  expect(source).not.toMatch(/\.\.\.|Omit\s*</u);
 });
 ```
 
 - [ ] **Step 2: Run and confirm incomplete ending data**
 
-Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/ending-forecast.test.ts`
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/ending-forecast.test.ts src/test/story-data.test.ts`
 
-Expected: FAIL because final forecast/ending definitions are incomplete.
+Expected: FAIL because final forecast/ending definitions, combined Narrative, and complete Story source/projection files are incomplete.
 
-- [ ] **Step 3: Complete strict data without duplicating algorithms**
+- [ ] **Step 3: Complete strict source data and its field-by-field simulation projection**
 
-Add only definitions, thresholds, reason IDs, and effect lists. Invoke the Phase 4A factories in tests; do not add a new `rules/` or `resolvers/` implementation under `content`. Stable requires paid levy, exact cash/reputation/facility thresholds, and three-dimensional relationship/investigation summary. Arrears never deducts unavailable cash and records exact shortfall.
+Add only definitions, the exact `endingPolicy`/forecast policy, reason IDs, and effect lists. Invoke the Phase 4A factories and `createPocGameQueriesV1` in pure provider tests; do not add a new `rules/` or `resolvers/` implementation under `content`. `PocRulesV1.endings.evaluate` reads the one Balance-owned ending policy and has no forecast method or private threshold copy. Forecast is exclusively `getObligationForecast()` over the latest Gameplay State plus the same Tavern preview calculator: before `visibleFrom` it returns `null`, then `current_gap`, only an eligible frozen D5+ plan yields `committed_plan_conservative`, and all service days resolved yields `final`. Stable requires paid levy plus the exact cash/reputation/facility thresholds and persists the two-field relationship/investigation summary. Arrears never deducts unavailable cash and records exact shortfall.
+
+`narrative/index.ts` combines the D1–D4, relationship and investigation scenes once in authored order. `story-data.ts` owns strict source schemas and the only complete source object:
+
+```ts
+export const pocStoryDataV1: DeepReadonly<PocStoryDataV1> = deepFreeze(
+  pocStoryDataSchemaV1.parse({
+    dataRevision: 1,
+    manifest: pocStoryManifestV1,
+    stateDefinitions: pocStateDefinitionsV1,
+    initialState: pocInitialStateV1,
+    balance: pocBalanceV1,
+    content: {
+      texts: pocTextEntriesV1,
+      characters: pocCharacterDefinitionsV1,
+      reasons: pocReasonDefinitionsV1,
+      actions: pocActionDefinitionsV1,
+      storyActions: pocRelationshipStoryActionDefinitionsV1,
+      customerSegments: pocCustomerSegmentDefinitionsV1,
+      modifierSources: pocModifierSourceDefinitionsV1,
+      ingredients: pocIngredientDefinitionsV1,
+      items: pocItemDefinitionsV1,
+      recipes: pocRecipeDefinitionsV1,
+      facilities: pocFacilityDefinitionsV1,
+      facilityOpportunities: pocFacilityOpportunityDefinitionsV1,
+      auras: pocAuraDefinitionsV1,
+      worldActions: pocWorldActionDefinitionsV1,
+      events: pocEventDefinitionsV1,
+      checks: pocCheckDefinitionsV1,
+      endings: pocEndingDefinitionsV1,
+      scenes: pocNarrativeScenesV1,
+    },
+  }),
+);
+
+export function projectPocSimulationDataV1(
+  source: DeepReadonly<PocStoryDataV1>,
+  resolvedBalance: DeepReadonly<StoryBalanceV1>,
+): DeepReadonly<PocSimulationDataV1> {
+  const validatedSource = pocStoryDataSchemaV1.parse(source);
+  return deepFreeze(
+    pocSimulationDataSchemaV1.parse({
+      dataRevision: validatedSource.dataRevision,
+      manifest: {
+        initialSceneId: validatedSource.manifest.initialSceneId,
+        playableDays: validatedSource.manifest.playableDays,
+      },
+      stateDefinitions: validatedSource.stateDefinitions,
+      initialState: validatedSource.initialState,
+      balance: resolvedBalance,
+      content: {
+        characters: validatedSource.content.characters,
+        reasons: validatedSource.content.reasons,
+        actions: validatedSource.content.actions,
+        storyActions: validatedSource.content.storyActions,
+        customerSegments: validatedSource.content.customerSegments,
+        modifierSources: validatedSource.content.modifierSources,
+        ingredients: validatedSource.content.ingredients,
+        items: validatedSource.content.items,
+        recipes: validatedSource.content.recipes,
+        facilities: validatedSource.content.facilities,
+        facilityOpportunities: validatedSource.content.facilityOpportunities,
+        auras: validatedSource.content.auras,
+        worldActions: validatedSource.content.worldActions,
+        events: validatedSource.content.events,
+        checks: validatedSource.content.checks,
+        endings: validatedSource.content.endings,
+      },
+      narrative: { scenes: validatedSource.content.scenes },
+    }),
+  );
+}
+
+export const pocSimulationDataV1 = projectPocSimulationDataV1(
+  pocStoryDataV1,
+  pocStoryDataV1.balance,
+);
+```
+
+There is no partial `pocSimulationDataBaseV1`, source spread, `Omit`, implicit merge, or second definition array. `pocStoryDataSchemaV1` is Phase-4B-owned and strict at its six top-level fields, `StoryManifestV1`, and all eighteen `StoryContentV1` fields; it composes the already strict Phase 4A leaf schemas rather than redefining Gameplay types. The projector validates the source first, then spells all seven simulation fields, both manifest fields, all sixteen simulation-content fields, and `narrative.scenes` explicitly before canonical round-trip/deep freeze. `story-data.test.ts` structurally rejects spread/`Omit`, proves the exact source/projection key sets and exclusions, and only then creates the concrete sequence-zero GameSimulation. Tests reject missing/extra source and projection keys, executable/module/presentation/tooling values, and any unresolved reference.
 
 - [ ] **Step 4: Run forecast, rule, and full checks**
 
-Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/ending-forecast.test.ts src/test/investigation-content.test.ts && pnpm typecheck && pnpm verify`
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/ending-forecast.test.ts src/test/story-data.test.ts src/test/investigation-content.test.ts && pnpm typecheck && pnpm verify`
 
-Expected: PASS; every forecast transition, recommendation nulling, all three endings, no mutation/thenable/NaN, and strict schema validation pass.
+Expected: PASS; every forecast transition, recommendation nulling, all three endings, exact source/projection shapes, complete sequence-zero initialization, no mutation/thenable/NaN, and strict schema validation pass.
 
 - [ ] **Step 5: Commit final simulation data**
 
 ```bash
-git add -- game/stories/poc/src/content/checks-endings.ts game/stories/poc/src/content/balance.ts game/stories/poc/src/test/ending-forecast.test.ts
+git add -- game/stories/poc/src/content/checks-endings.ts game/stories/poc/src/content/balance.ts game/stories/poc/src/content/narrative/index.ts game/stories/poc/src/content/story-data.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/src/test/story-data.test.ts
 git commit -m "feat(story-poc): freeze ending and forecast data"
 ```
 
@@ -704,7 +1050,6 @@ git commit -m "feat(story-poc): freeze ending and forecast data"
 
 **Files:**
 
-- Create: `game/stories/poc/src/content/narrative/index.ts`
 - Create: `game/stories/poc/src/presentation/text-catalogs/zh-CN.ts`
 - Create: `game/stories/poc/src/presentation/text-catalogs/index.ts`
 - Create: `game/stories/poc/src/presentation/assets.ts`
@@ -715,8 +1060,6 @@ git commit -m "feat(story-poc): freeze ending and forecast data"
 - Create: `game/stories/poc/src/patch-surfaces.ts`
 - Create: `game/stories/poc/src/story-definition.ts`
 - Modify: `game/stories/poc/src/index.ts`
-- Modify: `game/stories/poc/package.json`
-- Modify: `game/stories/poc/tsconfig.json`
 - Modify: `game/stories/poc/LICENSE.md`
 - Modify: `game/stories/poc/src/test/story-validation.test.ts`
 - Inspect unchanged: `game/packages/assets/src/index.ts`
@@ -725,7 +1068,7 @@ git commit -m "feat(story-poc): freeze ending and forecast data"
 
 **Interfaces:**
 
-- Consumes: complete Story data/Narrative, `createPocRulesV1`, `createPocGameSimulationV1`, Base ResolvedGame/Story/Patch/asset contracts, the Node-safe data-only renderer/layout descriptor contract proven by Phase 2, stable Text/Asset/Action IDs, and the predecessor track's immutable `approvedPocAssetPacksV1` export from `@project-tavern/assets`. The default Story closure does not import `@sillymaker/ui` or a Web renderer registry.
+- Consumes: Task 6's sole complete `pocStoryDataV1` source and field-by-field projector, `createPocRulesV1`, `createPocGameSimulationV1`, Base ResolvedGame/Story/Patch/asset contracts, the Node-safe data-only renderer/layout descriptor contract proven by Phase 2, stable Text/Asset/Action IDs, and the predecessor track's immutable `approvedPocAssetPacksV1` export from `@project-tavern/assets`. The default Story closure does not import `@sillymaker/ui` or a Web renderer registry.
 - Produces: `pocStoryEntryV1`, `definePocStoryV1`, `materializePocSimulationProgramV1`, `materializePocPresentationV1`, typed Patch Surfaces, one complete Chinese TextCatalog, fallback-complete assets with optional approved providers, `PocPresentationV1`, `PocStageSceneGraphV1`, `PocResolvedAssetsV1`, `PocResolvedGameV1`, `pocSceneGraphV1`, `pocHeroineStandardAppearanceV1`, `pocResolvedPresentationCatalogV1`, `pocContentMaturityPolicyV1`, the derived single-source `pocStandardRequiredAssetIdsByVariantV1` mapping, a data-only resolved StageScene/variant/rig/hitmap/interaction catalog, the empty-flag/zero-requirement PoC content policy, and the complete `PocSemantic*V1` contract plus `createPocSemanticActionCatalogV1(queries)`.
 
 - [ ] **Step 1: Write the failing complete-Story contract test**
@@ -811,10 +1154,7 @@ Expected: FAIL because StoryDefinition, presentation, Patch Surfaces, and defaul
 export function materializePocSimulationProgramV1(
   values: DeepReadonly<ResolvedPatchValuesV1<typeof pocSimulationPatchSurfaceV1>>,
 ): PocSimulationProgramV1 {
-  const data = pocSimulationDataSchemaV1.parse({
-    ...pocSimulationDataV1,
-    balance: values.balance,
-  });
+  const data = projectPocSimulationDataV1(pocStoryDataV1, values.balance);
   return deepFreeze({
     data,
     rules: materializePocRulesFromPatchValuesV1(data, values),
@@ -830,7 +1170,7 @@ export const pocStoryEntryV1 = defineGamePackage({
 export default pocStoryEntryV1;
 ```
 
-`materializePocRulesFromPatchValuesV1` is implemented in `patch-surfaces.ts` and maps every declared Demand, Settlement, Check, Ending, and Scheduling rule slot exactly once into `PocRulesV1`; it performs no implicit merge of unknown keys. The source simulation facet exposes `stateContractRevision`, base data/rules/Narrative, simulation PatchSurface, `materializeProgram`, and `createGameSimulation: createPocGameSimulationV1`. Presentation exposes source SceneGraph/text/assets, presentation PatchSurface, and one materializer. Resolved SceneGraph comes from resolved Presentation and is not recreated by an application root. Simulation slots expose Balance plus named Rule/Resolver providers; presentation slots expose complete TextCatalog and replaceable fallback assets. The canonical simulation source projection includes `PocGameDebugCommandExecutorV1`, its strict command/error schemas, owner-routing table, and validation/rule providers, so changing those sources changes `simulationDigest`; tooling form adapters and fixture definitions are excluded from that projection.
+`materializePocRulesFromPatchValuesV1` is implemented in `patch-surfaces.ts` and maps exactly seven declared slots—`demand.preview`, `demand.resolve`, `tavern.preview`, `tavern.settle`, `checks.describe`, `checks.resolve`, and `endings.evaluate`—into `PocRulesV1`; it performs no implicit merge of unknown keys. Scheduling remains a separate deterministic resolver over validated event data, enters simulation source identity, and is not a `PocRulesV1` member or PatchSurface rule slot. The source simulation facet exposes `stateContractRevision`, the explicitly projected `PocSimulationDataV1`, base rule providers, simulation PatchSurface, `materializeProgram`, and `createGameSimulation: createPocGameSimulationV1`. `pocStoryDataV1` is the authoring source but never enters the simulation root wholesale: `projectPocSimulationDataV1` rebuilds the exact field-level projection for the resolved Balance without spread, `Omit`, or implicit merge. That projection excludes real text/presentation/assets/tooling and contains no module instances or owner capabilities. Presentation consumes the source TextId declarations for closure validation and separately exposes source SceneGraph/text/assets, presentation PatchSurface, and one materializer. Resolved SceneGraph comes from resolved Presentation and is not recreated by an application root. Simulation value slots expose Balance plus the exact named rule providers; presentation slots expose complete TextCatalog and replaceable fallback assets. The canonical simulation source projection includes `PocGameDebugCommandExecutorV1`, its strict command/error schemas, owner-routing table, Scheduling resolver, and validation/rule providers, so changing those sources changes `simulationDigest`; tooling form adapters and fixture definitions are excluded from that projection.
 
 - [ ] **Step 4: Add the data-only SceneGraph, Chinese text, and semantic action descriptors**
 
@@ -901,7 +1241,7 @@ The outer `surface.poc.tavern` contains a contextual binding from `target.poc.he
 
 `content-maturity-policy.ts` exports `pocContentMaturityPolicyV1` with `policyRevision=1`、an empty flag/preset catalog and `defaultAllowedFlags=emptyContentMaturityFlagsV1`. `scene-graph.ts` exports `pocSceneGraphV1`. Every runtime asset, variant, target, behavior, text, and fallback in this Story uses `requiredFlags=emptyContentMaturityFlagsV1`; no authored field uses a raw numeric zero to bypass the brand. No filtered AssetId or alternative suggestive asset enters the resolved graph. The complete `zh-CN` catalog maps `pocNoContentFilterOptionsTextIdV1` to the provisional truthful text `当前故事没有可调整的内容过滤选项。`; Story validation requires that exact ID to be nonblank, while later UI still resolves it through `PresentationReadPortV1` rather than importing a raw string.
 
-`semantic-actions.ts` owns these exact closed types; none may remain an implied name:
+`semantic-actions.ts` owns these exact closed types; none may remain an implied name. Its catalog consumes all relevant Phase 4A getters rather than inspecting State: generic actions come from `getAvailableActions()`, run/policy controls from their dedicated getters, Narrative commands from `getNarrativeProjection()`, and Opening commands only from `getTavernOpeningControl()`. An active Narrative or WorldAction produces no Opening descriptor; otherwise the control contributes exactly one of start/continue/finalize with the exact command and preview carried by that branch:
 
 ```ts
 type PocCommandOptionsV1<TKind extends PocGameCommandV1["kind"]> = Omit<
@@ -971,9 +1311,9 @@ export type PocSemanticActionDescriptorV1 = {
 }[keyof PocSemanticInvocationOptionsByActionV1];
 
 export type PocSemanticConfirmationV1 = NonNullable<
-  Extract<PocCommandPreviewV1, { readonly allowed: true }>["confirmation"]
+  Extract<CommandPreviewV1, { readonly allowed: true }>["confirmation"]
 >;
-export type PocSemanticPreviewV1 = PocCommandPreviewV1;
+export type PocSemanticPreviewV1 = CommandPreviewV1;
 export type PocSemanticActionResultV1 =
   | { readonly kind: "committed" }
   | {
@@ -1005,7 +1345,7 @@ Expected: PASS; all stable references/reachability/catalog/rule/slot/fallback ch
 - [ ] **Step 6: Commit complete Story composition**
 
 ```bash
-git add -- game/stories/poc/src/content/narrative/index.ts game/stories/poc/src/presentation game/stories/poc/src/patch-surfaces.ts game/stories/poc/src/story-definition.ts game/stories/poc/src/index.ts game/stories/poc/package.json game/stories/poc/tsconfig.json game/stories/poc/LICENSE.md game/stories/poc/src/test/story-validation.test.ts
+git add -- game/stories/poc/src/presentation game/stories/poc/src/patch-surfaces.ts game/stories/poc/src/story-definition.ts game/stories/poc/src/index.ts game/stories/poc/LICENSE.md game/stories/poc/src/test/story-validation.test.ts
 git commit -m "feat(story-poc): compose seven-day story"
 ```
 
@@ -1025,8 +1365,8 @@ git commit -m "feat(story-poc): compose seven-day story"
 
 **Interfaces:**
 
-- Consumes: resolved Story, `createGameSessionV1`, Phase 2 atomic `SemanticPublicationV1`/`SemanticGamePortV1` plus the state-only/FIFO-read `SemanticGamePortSourceV1`, the shared bounded observer/subscriber-failure callback, `PocGameSimulationV1.projectGameView`, `PocGameQueriesV1`, Story semantic action descriptors, fixed bootstrap, and runtime-owned bounded CommandLog.
-- Produces: the exact `PocSemanticGamePortV1` specialization, `createPocSemanticGamePortV1`, test-only `createPocStoryHarnessV1`, atomic same-Queries GameView/action publications, all real D1–D7 command-through route evidence, and the root `verify:semantic` aggregator ordered E2E then PoC. It does not produce a second semantic GameView projector.
+- Consumes: resolved Story, `createGameSessionV1`, its internal `GameSessionRuntimeControlV1`, Phase 2 atomic `SemanticPublicationV1`/`SemanticGamePortV1` plus the state-only/FIFO-read `SemanticGamePortSourceV1`, the shared bounded observer/subscriber-failure callback, `PocGameSimulationV1.projectGameView`, `PocGameQueriesV1`, Story semantic action descriptors, fixed bootstrap, and runtime-owned bounded CommandLog.
+- Produces: the exact `PocSemanticGamePortV1` specialization, `createPocSemanticGamePortV1`, test-only `createPocStoryHarnessV1`, atomic same-Queries Gameplay/Narrative/action publications, all real D1–D7 command-through route evidence, and the root `verify:semantic` aggregator ordered E2E then PoC. It does not produce a second Gameplay or Narrative projector.
 
 - [ ] **Step 1: Write the failing semantic harness contract**
 
@@ -1042,6 +1382,8 @@ it("exposes only legal visible actions and waits by revision", async () => {
   const before = harness.semantic.observe();
   expect(before.revision).toBe(0);
   expect(harness.semantic.availableActions()).toBe(before.actions);
+  expect(before.narrative).toBeNull();
+  expect(before.game).not.toHaveProperty("narrative");
   expect(before.actions.map((entry) => entry.actionId)).toContain("action.run_start");
   const nextIdle = harness.semantic.waitForIdle(before.revision);
   const published: number[] = [];
@@ -1081,16 +1423,18 @@ it.each(["lifecycle", "load"] as const)(
   },
 );
 
-it("publishes the Gameplay view and action catalog from the same Queries instance", async () => {
+it("publishes Gameplay, Narrative, and actions from the same Queries instance", async () => {
   const harness = createQueriesCountingPocStoryHarnessV1();
   const initial = harness.semantic.observe();
   expect(harness.createQueriesCalls()).toBe(1);
   expect(initial.game).toEqual(harness.projectedGameViewFromWitness());
+  expect(initial.narrative).toBe(harness.projectedNarrativeFromWitness());
   expect(initial.actions).toEqual(harness.projectedActionsFromWitness());
 
   await harness.publishBusyReadyWithoutReplacement();
   const statusOnly = harness.semantic.observe();
   expect(statusOnly.game).toBe(initial.game);
+  expect(statusOnly.narrative).toBe(initial.narrative);
   expect(statusOnly.actions).toBe(initial.actions);
   expect(harness.createQueriesCalls()).toBe(1);
 });
@@ -1107,6 +1451,17 @@ it.each([
     expect.arrayContaining(["snapshot", "state", "rng", "facts", "fault", "attempt", "commandLog"]),
   );
 });
+
+it("rejects malformed runtime invocations before dispatch admission", async () => {
+  const harness = createPocStoryHarnessV1({ bootstrap: fixedPocBootstrapV1() });
+  const before = harness.semantic.observe();
+  const attemptsBefore = harness.executedAttempts().length;
+  await expect(
+    Reflect.apply(harness.semantic.dispatch, harness.semantic, [extraSemanticInvocationV1()]),
+  ).resolves.toEqual({ kind: "not_executed", code: "validation_failed" });
+  expect(harness.semantic.observe()).toBe(before);
+  expect(harness.executedAttempts()).toHaveLength(attemptsBefore);
+});
 ```
 
 - [ ] **Step 2: Run and confirm the missing semantic adapter/harness**
@@ -1120,6 +1475,7 @@ Expected: FAIL with missing `create-poc-semantic-port.js` and `poc-story-harness
 ```ts
 export type PocSemanticGamePortV1 = SemanticGamePortV1<
   PocGameViewV1,
+  NarrativeProjectionV1 | null,
   PocSemanticActionDescriptorV1,
   PocSemanticInvocationV1,
   PocSemanticPreviewV1,
@@ -1127,36 +1483,53 @@ export type PocSemanticGamePortV1 = SemanticGamePortV1<
   RuntimeSessionStatusV1
 >;
 
+interface PocSemanticGamePortInputV1 {
+  readonly session: GameSessionV1<PocGameSimulationTypesV1>;
+  readonly runtimeControl: GameSessionRuntimeControlV1<PocGameSnapshotV1>;
+  readonly gameSimulation: PocGameSimulationV1;
+  reportSubscriberFailure(error: unknown): void;
+}
+
 export function createPocSemanticGamePortV1(
-  session: GameSessionV1<PocGameSimulationTypesV1>,
-  gameSimulation: PocGameSimulationV1,
-  reportSubscriberFailure: (error: unknown) => void,
+  input: PocSemanticGamePortInputV1,
 ): PocSemanticGamePortV1 {
+  const { gameSimulation, runtimeControl, session } = input;
   return createSemanticGamePortV1({
     source: {
       getCurrentState: () => session.getCurrentSnapshot().state,
       getAuthoritativeRevisionToken: () => session.getCurrentSnapshot(),
       getStatus: () => session.getStatus(),
       subscribe: (listener) => session.subscribe(listener),
-      reportSubscriberFailure,
+      reportSubscriberFailure: (error) => input.reportSubscriberFailure(error),
       readStateAtQueueFront: (reader) =>
-        session.readAtQueueFront((snapshot) => reader(snapshot.state)),
+        runtimeControl.readAtQueueFront((snapshot) => reader(snapshot.state)),
     },
     createQueries: (state) => gameSimulation.createQueries(state),
     projectGameView: (queries) => gameSimulation.projectGameView(queries),
+    projectNarrativeView: (queries) => queries.getNarrativeProjection(),
     actions: (queries) => createPocSemanticActionCatalogV1(queries),
     preview: (queries, invocation) => previewPocSemanticInvocationV1(queries, invocation),
-    dispatch: async (invocation) =>
-      projectPocSemanticActionResultV1(
+    dispatch: async (invocationValue) => {
+      let invocation: PocSemanticInvocationV1;
+      try {
+        invocation = parsePocSemanticInvocationV1(invocationValue);
+      } catch {
+        return Object.freeze({
+          kind: "not_executed" as const,
+          code: "validation_failed" as const,
+        });
+      }
+      return projectPocSemanticActionResultV1(
         await session.dispatch(commandFromPocSemanticInvocationV1(invocation)),
-      ),
+      );
+    },
   });
 }
 ```
 
-The adapter directly reuses `gameSimulation.projectGameView(queries)`; there is no `PocSemanticGameViewV1`, `projectPocSemanticGameViewV1`, second State reader, or second Gameplay gate. For each new authoritative token the Base factory creates exactly one `PocGameQueriesV1`, then atomically publishes its renderer-neutral `PocGameViewV1` and `createPocSemanticActionCatalogV1(queries)` result. A status-only publication reuses both references, and `availableActions()` returns the current publication's exact `actions` reference.
+The adapter directly reuses `gameSimulation.projectGameView(queries)` and `queries.getNarrativeProjection()`; there is no `PocSemanticGameViewV1`, second Narrative/GameView projector, second State reader, or second Gameplay gate. For each new authoritative token the Base factory creates exactly one `PocGameQueriesV1`, then calls `projectGameView`, `projectNarrativeView`, and `actions` once each with that same Queries reference before atomically publishing renderer-neutral `game`, `narrative`, and `actions` channels. `PocGameViewV1` never contains Narrative. A status-only publication reuses all three exact references, and `availableActions()` returns the current publication's exact `actions` reference.
 
-`getAuthoritativeRevisionToken` returns the immutable current Snapshot reference only as an opaque Base-internal identity token; Base compares it by reference and never passes it to `createQueries`, `projectGameView`, actions, preview, UI, or Automation. Preview is a non-mutating FIFO read: the Base factory enqueues it, obtains the latest Gameplay State only when it reaches the queue front, rebuilds Queries there, and creates no attempt, RNG draw, sequence increment, or CommandLog entry. Dispatch maps the strict invocation and the GameCommandExecutor performs the final guard at its own FIFO execution point with the same Rules/Queries semantics. Disabled/unknown/stale option invocations return stable non-executed/rejection results. `subscribe` publishes immutable publication/status changes while incrementing semantic revision only when the authoritative Snapshot token changes; every listener is isolated and forwards failures through the same bounded callback injected into GameSession/Application composition. Lifecycle and load replacement therefore publish even when the replacement Gameplay State is structurally equal, while busy/ready-only publication does not increment revision. Task 12 adds the equivalent assertion for fixture anchor replacement once PoC tooling fixtures exist. `waitForIdle(afterRevision)` subscribes before dispatch in the race-sensitive test, follows semantic publication revisions, and uses no sleep. Automation uses ordinary commands and leaves RunIntegrity normal.
+`getAuthoritativeRevisionToken` returns the immutable current Snapshot reference only as an opaque Base-internal identity token; Base compares it by reference and never passes it to `createQueries`, `projectGameView`, actions, preview, UI, or Automation. Preview is a non-mutating FIFO read: the Base factory enqueues it through the injected internal runtime control, obtains the latest Gameplay State only when it reaches the queue front, rebuilds Queries there, and creates no attempt, RNG draw, sequence increment, or CommandLog entry. Dispatch first strict-parses the runtime value; malformed/extra/unknown input returns stable `not_executed/validation_failed` without opening an attempt or publishing a revision. Only a parsed invocation reaches the command mapper, and the GameCommandExecutor performs the final guard at its own FIFO execution point with the same Rules/Queries semantics. Disabled/stale valid invocations return stable rejection results. `subscribe` publishes immutable publication/status changes while incrementing semantic revision only when the authoritative Snapshot token changes; every listener is isolated and forwards failures through the same bounded callback injected into GameSession/Application composition. Lifecycle and load replacement therefore publish even when the replacement Gameplay State is structurally equal, while busy/ready-only publication does not increment revision. Task 12 adds the equivalent assertion for fixture anchor replacement once PoC tooling fixtures exist. `waitForIdle(afterRevision)` subscribes before dispatch in the race-sensitive test, follows semantic publication revisions, and uses no sleep. Automation uses ordinary commands and leaves RunIntegrity normal.
 
 - [ ] **Step 4: Port complete D1–D7 routes through semantic invocations**
 
@@ -1177,7 +1550,7 @@ Set the PoC package script to `vitest run src/test/semantic-flow.integration.tes
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/semantic-flow.integration.test.ts src/test/relationship-route.integration.test.ts src/test/investigation-route.integration.test.ts src/test/terminal-route.integration.test.ts && node --test scripts/verify-semantic.test.mjs && pnpm verify:semantic && pnpm verify:stories && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all routes use SemanticGamePort/GameSession, each authoritative token creates one Queries and atomically publishes the Phase 4A GameView/actions, status-only publications reuse both references, blocked-queue preview reads the latest queue-front State, subscribe/revision behavior is deterministic across commit/lifecycle/load replacement, opaque revision tokens never reach Story callbacks, preview/dispatch agree, D7 ends in afternoon, both E2E and PoC are covered by the public semantic gate, and normal automation leaves RunIntegrity unchanged.
+Expected: PASS; all routes use SemanticGamePort/GameSession, each authoritative token creates one Queries and atomically publishes the Phase 4A Gameplay/Narrative/action channels, status-only publications reuse all three references, blocked-queue preview reads the latest queue-front State, subscribe/revision behavior is deterministic across commit/lifecycle/load replacement, opaque revision tokens never reach Story callbacks, preview/dispatch agree, D7 ends in afternoon, both E2E and PoC are covered by the public semantic gate, and normal automation leaves RunIntegrity unchanged.
 
 - [ ] **Step 6: Commit semantic Story integration**
 
@@ -1462,6 +1835,7 @@ If calibration did not change the two balance files, omit them from `git add`; s
 
 **Files:**
 
+- Create: `game/stories/poc/src/tooling-fixtures.ts`
 - Create: `game/stories/poc/src/testing/golden-artifact.ts`
 - Create: `game/stories/poc/src/test/golden-week.test.ts`
 - Create: `game/stories/poc/scripts/update-golden.mjs`
@@ -1471,26 +1845,31 @@ If calibration did not change the two balance files, omit them from `git add`; s
 - Create: `game/stories/poc/src/test/fixtures/golden/strategy.full_delegation.json`
 - Create: `game/stories/poc/src/test/fixtures/golden/strategy.two_closures_recovery.json`
 - Create: `game/stories/poc/src/test/fixtures/golden/strategy.explicit_failure.json`
+- Modify: `game/stories/poc/src/testing/compile-reference-strategy.ts`
+- Modify: `game/stories/poc/src/test/reference-strategies.test.ts`
 - Modify: `game/stories/poc/package.json`
 - Modify: `scripts/verify-golden.mjs`
 - Modify: `scripts/verify-golden.test.mjs`
 
 **Interfaces:**
 
-- Consumes: the passed Task 10 balance gate, six literal command envelopes, fixed bootstraps, same-attempt CommandLog evidence, state digest, six nightly service rows, and terminal completion.
-- Produces: `PocGoldenArtifactV1`, `buildPocGoldenArtifactV1`, six agent-reviewed canonical golden files, explicit `update:golden`, package read-only `verify:golden`, and the stable root aggregator ordered E2E then PoC.
+- Consumes: the passed Task 10 balance gate, the Contract Catalog's exact `PocStoryToolingFixtureV1`, six reviewed semantic invocation envelopes, fixed bootstraps, same-attempt CommandLog evidence, state digest, six nightly service rows, and terminal completion.
+- Produces: the sole frozen synchronous TS-literal `pocStoryToolingFixturesV1`, a closed reference-strategy-to-fixture mapping, `PocGoldenArtifactV1`, `buildPocGoldenArtifactV1`, command-derived verification output for the six reviewed invocation envelopes, six agent-reviewed canonical golden files, explicit `update:golden`, package read-only `verify:golden`, and the stable root aggregator ordered E2E then PoC.
 
 - [ ] **Step 1: Write the failing golden equality test**
 
 ```ts
 for (const strategyId of pocReferenceStrategyIdsV1) {
   it(`${strategyId} equals its reviewed golden artifact`, async () => {
-    const commands = await readPocCommandFixtureV1(strategyId);
-    const actual = await buildPocGoldenArtifactV1(strategyId, commands.entries);
+    const source = pocReferenceToolingFixtureByStrategyIdV1[strategyId];
+    const commands = await compilePocToolingCommandsV1(strategyId, source.commands);
+    const storedCommands = await readPocCommandFixtureV1(strategyId);
+    expect(canonicalJsonBytes(commands)).toEqual(canonicalJsonBytes(storedCommands));
+    const actual = await buildPocGoldenArtifactV1(strategyId, source.commands);
     const stored = await readPocGoldenFixtureV1(strategyId);
     expect(canonicalJsonBytes(actual)).toEqual(canonicalJsonBytes(stored));
     expect(actual.attempts.map(({ order }) => order)).toEqual(
-      commands.entries.map(({ order }) => order),
+      source.commands.map((_, order) => order),
     );
     expect(actual.nights).toHaveLength(6);
     expect(actual.integrity.mode).toBe("normal");
@@ -1517,7 +1896,7 @@ export interface PocGoldenArtifactV1 {
   readonly attempts: readonly {
     readonly order: NonNegativeSafeInteger;
     readonly day: DayIndex;
-    readonly phase: PhaseId;
+    readonly phase: CalendarPhase;
     readonly commandSequenceBefore: NonNegativeSafeInteger;
     readonly invocation: PocSemanticInvocationV1;
     readonly preStateDigest: Digest;
@@ -1531,7 +1910,9 @@ export interface PocGoldenArtifactV1 {
 }
 ```
 
-The builder validates the command envelope, awaits entries sequentially, checks each pre-dispatch day/phase/sequence, and pairs it with exactly one same-attempt CommandLog entry. It never re-executes to recover RNG/facts. Nightly rows come from authoritative service history/ledger; terminal data comes from persisted Run completion.
+`src/tooling-fixtures.ts` is Story-owned PolyForm code and the only authority for every PoC tooling fixture. It exports deeply frozen, synchronous, Node-type-strip-safe TS literals satisfying the exact `PocStoryToolingFixtureV1` shape `{ fixtureId, seed, commands: readonly PocGameCommandV1[] }`, plus one closed mapping from the six reference strategy IDs to their corresponding entries. It performs no I/O, imports no test module, is absent from the default Story closure, and contains no filesystem path or JSON reader. The reference compiler deterministically maps those exact commands to the already reviewed legal Semantic invocations and verifies the command JSON envelope as output; it does not make a runtime/test JSON file authoritative. Task 12 imports these same frozen fixture references into the tooling export and must not restate any command literal.
+
+The golden builder validates each source command, awaits commands sequentially through the real GameSession/Semantic mapping, checks each pre-dispatch day/phase/sequence, and pairs it with exactly one same-attempt CommandLog entry. It never reads commands from `src/test/fixtures`, loads the filesystem at runtime, or re-executes to recover RNG/facts. Nightly rows come from authoritative service history/ledger; terminal data comes from persisted Run completion. The six command-envelope JSON files and six golden JSON files are deterministic reviewed verification outputs derived from the same TS command source.
 
 - [ ] **Step 4: Generate, agent-review, hash, and verify twice**
 
@@ -1556,7 +1937,7 @@ Expected: exactly six canonical artifacts appear in the full intent-to-add diff.
 - [ ] **Step 5: Commit the exact golden corpus**
 
 ```bash
-git add -- game/stories/poc/src/testing/golden-artifact.ts game/stories/poc/src/test/golden-week.test.ts game/stories/poc/scripts/update-golden.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/package.json scripts/verify-golden.mjs scripts/verify-golden.test.mjs
+git add -- game/stories/poc/src/tooling-fixtures.ts game/stories/poc/src/testing/compile-reference-strategy.ts game/stories/poc/src/testing/golden-artifact.ts game/stories/poc/src/test/reference-strategies.test.ts game/stories/poc/src/test/golden-week.test.ts game/stories/poc/scripts/update-golden.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/package.json scripts/verify-golden.mjs scripts/verify-golden.test.mjs
 git diff --cached --name-only
 git commit -m "test(story-poc): freeze calibrated golden weeks"
 ```
@@ -1589,14 +1970,15 @@ git commit -m "test(story-poc): freeze calibrated golden weeks"
 
 **Interfaces:**
 
-- Consumes: Phase 3 `StoryToolingEntryV1`, capability-gated DebugTools/fixture anchor, the resolved `PocGameSimulationV1.debugCommandExecutor`, Save codec/compatibility, Auto rotation repository, DebugBundle/replay, resolved PoC identity, fixed command fixtures, Snapshot-owned RunIntegrity, Canonical JSON, and an injected fixed-specifier tooling loader.
-- Produces: `pocStoryToolingEntryV1`, test-only `createPocRuntimeTestFixtureV1`, frozen PoC fixture provenance/clock, command-derived fixture anchors/notes available from the same Artifact, actual-Story ten-kind replayable-debug evidence, exact import/slot-health classifications, successful-anchor integrity round-trip evidence, eight reviewed Save fixtures, explicit `update:fixtures`, package read-only `verify:fixtures`, and a stable root `pnpm verify:fixtures` aggregator that checks E2E then PoC.
+- Consumes: Phase 3 `StoryToolingEntryV1`, the exact Catalog `PocStoryToolingFixtureV1`, Task 11's sole frozen `pocStoryToolingFixturesV1` references, capability-gated DebugTools/fixture anchor, the resolved `PocGameSimulationV1.debugCommandExecutor`, Save codec/compatibility, Auto rotation repository, DebugBundle/replay, resolved PoC identity, Snapshot-owned RunIntegrity, Canonical JSON, and an injected fixed-specifier tooling loader.
+- Produces: `pocStoryToolingEntryV1`, test-only `createPocRuntimeTestFixtureV1`, frozen PoC fixture provenance/clock, command-derived fixture anchors/notes available from the same Artifact without redefining commands, actual-Story ten-kind replayable-debug evidence, exact import/slot-health classifications, successful-anchor integrity round-trip evidence, eight reviewed Save fixtures, explicit `update:fixtures`, package read-only `verify:fixtures`, and a stable root `pnpm verify:fixtures` aggregator that checks E2E then PoC.
 
 - [ ] **Step 1: Write failing tooling capability and Save classification tests**
 
 ```ts
 it("keeps tooling in the same Story identity and denies it while disabled", async () => {
   expect(pocStoryToolingEntryV1.storyIdentity).toEqual(pocStoryIdentityV1);
+  expect(pocStoryToolingEntryV1.defineToolingSupport().fixtures).toBe(pocStoryToolingFixturesV1);
   const fixture = createPocRuntimeTestFixtureV1({ debugTools: false, cheats: false });
   await expect(
     fixture.application.debugTools.anchorFixture("fixture.poc_d5_relationship"),
@@ -1651,9 +2033,14 @@ it("loads one fixed tooling export and persists a successful anchor mark", async
 
   const beforeRevision = fixture.application.semantic.observe().revision;
   const publication = fixture.nextSemanticPublication();
+  const expectedAnchorSequence =
+    pocStoryToolingFixtureByIdV1["fixture.poc_d5_relationship"].commands.length;
   await expect(
     fixture.application.debugTools.anchorFixture("fixture.poc_d5_relationship"),
-  ).resolves.toMatchObject({ kind: "anchored" });
+  ).resolves.toEqual({
+    kind: "anchor_established",
+    commandSequence: expectedAnchorSequence,
+  });
   await expect(publication).resolves.toMatchObject({ revision: beforeRevision + 1 });
   expect(fixture.snapshotForTest().integrity.mode).toBe("modified");
   await expect(fixture.roundTripExactSave()).resolves.toMatchObject({
@@ -1749,11 +2136,13 @@ export const pocStoryToolingEntryV1 = defineStoryToolingEntry({
   storyIdentity: pocStoryIdentityV1,
   defineToolingSupport: () =>
     Object.freeze({
-      fixtures: pocToolingFixturesV1,
+      fixtures: pocStoryToolingFixturesV1,
       notes: pocToolingNotesV1,
     }),
 });
 ```
+
+`src/tooling/fixtures.ts` re-exports Task 11's exact `pocStoryToolingFixturesV1` array reference and derives the frozen `pocStoryToolingFixtureByIdV1` lookup over those same object references, but contains no fixture or command literal and performs no JSON/test/filesystem read. The tooling entry therefore exposes the same `PocStoryToolingFixtureV1` objects consumed by the reference/golden tests rather than reconstructing equivalent values. A successful public DebugTools fixture operation returns `anchor_established` with the exact replayed command count; the lower-level Session-only `anchored` result never leaks through this API.
 
 Add `"./tooling": "./src/tooling/index.ts"` only now. Tooling is dynamically loadable by the same application when runtime capability permits; there is no second HTML/application/build. The loader accepts only the statically selected `@project-tavern/story-poc/tooling` specifier, performs zero loads while disabled, and caches the first successful load.
 
@@ -1844,7 +2233,7 @@ test("keeps Phase 4A and 4B test leaves disjoint", async () => {
   );
   assert.equal(
     packageJson.scripts["test:story"],
-    "vitest run src/test/story-validation.test.ts src/test/daily-gates.test.ts src/test/relationship-content.test.ts src/test/investigation-content.test.ts src/test/ending-forecast.test.ts src/test/semantic-flow.integration.test.ts src/test/relationship-route.integration.test.ts src/test/investigation-route.integration.test.ts src/test/terminal-route.integration.test.ts src/test/tooling.test.ts src/test/tooling-runtime.integration.test.ts",
+    "vitest run src/test/story-validation.test.ts src/test/daily-gates.test.ts src/test/relationship-content.test.ts src/test/investigation-content.test.ts src/test/ending-forecast.test.ts src/test/story-data.test.ts src/test/semantic-flow.integration.test.ts src/test/relationship-route.integration.test.ts src/test/investigation-route.integration.test.ts src/test/terminal-route.integration.test.ts src/test/tooling.test.ts src/test/tooling-runtime.integration.test.ts",
   );
   assert(!packageJson.scripts["test:story"].includes("gameplay-contract.test.ts"));
   assert(!packageJson.scripts["test:gameplay"].includes("story-validation.test.ts"));
@@ -1876,7 +2265,7 @@ Expected: FAIL because `verify-poc-story.mts` and cumulative scripts do not exis
 
 - [ ] **Step 3: Implement sequential fail-fast verification**
 
-Export the deeply frozen Phase 4B command array above, run it in order, stop on first nonzero status, and expose root scripts. Add the exact eleven-file `test:story` command frozen above; it includes content/application/tooling integration but excludes all Phase 4A files plus commands/golden/balance/Save baselines, whose named read-only gates run separately:
+Export the deeply frozen Phase 4B command array above, run it in order, stop on first nonzero status, and expose root scripts. Add the exact twelve-file `test:story` command frozen above; it includes content/source-data/application/tooling integration but excludes all Phase 4A files plus commands/golden/balance/Save baselines, whose named read-only gates run separately:
 
 ```json
 {
@@ -1889,23 +2278,31 @@ Export the deeply frozen Phase 4B command array above, run it in order, stop on 
 
 `verify:poc-story` does not call `verify:poc-gameplay`, so the cumulative mapping runs each subphase exactly once. It invokes only the PoC headless semantic leaf, not the root `verify:semantic` aggregator; this prevents Phase 5's later browser-parity extension from being nested before its required builds. Update `coreVerificationCommandsV1` and `scripts/verify.test.mjs` to contain exactly one `pnpm verify:phase4` child and exactly one direct `pnpm verify:semantic` child. At this phase both are read-only/headless; Phase 5 may move the direct semantic child after `build:poc`/`build:e2e` without changing `verify:phase4`. The structural test rejects omission, duplication, a writer command, nested root-semantic recursion, or recursion back to `pnpm verify`. No update/generator command may be reachable from either verifier.
 
-- [ ] **Step 4: Run the gate twice and prove tracked bytes are immutable**
+- [ ] **Step 4: Run task-local read-only checks without invoking the clean-tree phase gate**
 
 Run:
 
 ```bash
-before="$(git ls-files -z | xargs -0 shasum -a 256)"
-pnpm verify:poc-story
-pnpm verify:phase4
-pnpm verify
-pnpm verify:phase4
-after="$(git ls-files -z | xargs -0 shasum -a 256)"
+before="$(git status --porcelain=v1)"
+node --test scripts/verify-poc-story.test.mjs
+pnpm --filter @project-tavern/story-poc test:story
+pnpm --filter @project-tavern/story-poc verify:commands
+pnpm verify:balance
+pnpm verify:golden
+pnpm verify:fixtures
+pnpm --filter @project-tavern/story-poc verify:semantic
+pnpm verify:stories
+pnpm verify:public-exports
+pnpm verify:boundaries
+pnpm verify:cycles
+pnpm typecheck
+pnpm build
+after="$(git status --porcelain=v1)"
 test "$before" = "$after"
 git diff --check
-git status --short --branch
 ```
 
-Expected: the Phase 4B gate, cumulative Phase 4 gate, and full root gate pass; the cumulative gate passes twice; all tracked-file hashes remain byte-for-byte identical; final status contains no generated artifact or unexpected file.
+Expected: every structural/leaf/public/type/build command exits 0 and status is byte-for-byte unchanged. `verify:poc-story`, `verify:phase4`, and root `verify` are deliberately not run while the Task 13 files are dirty because each now reaches the strict materialization clean-tree guard; they run only after the commit in Phase 4B Acceptance.
 
 - [ ] **Step 5: Commit only the Phase 4B gate**
 
@@ -1916,17 +2313,34 @@ git commit -m "test(story-poc): add phase four story gate"
 
 ## Phase 4B Acceptance
 
+After the Task 13 commit, run the cumulative phase gates only from the clean checkpoint:
+
+```bash
+test -z "$(git status --porcelain=v1)"
+before="$(git ls-files -z | xargs -0 shasum -a 256)"
+pnpm verify:poc-story
+pnpm verify:phase4
+pnpm verify
+pnpm verify:phase4
+after="$(git ls-files -z | xargs -0 shasum -a 256)"
+test "$before" = "$after"
+test -z "$(git status --porcelain=v1)"
+git diff --check
+```
+
 - [ ] `week.poc_001` revision 1 resolves as one frozen `ResolvedGameV1` containing one `PocGameSimulationV1`, SimulationProgram, Presentation, resolved SceneGraph, fallback assets, and provenance.
 - [ ] The PoC Story owns all concrete Gameplay data/content/Narrative/presentation/semantic mappings; Base/UI/Web/E2E contain no PoC stable ID, relationship, facility, Tavern, or seven-day rule.
+- [ ] One strict `pocStoryDataV1` owns all six source fields and all eighteen `StoryContentV1` fields through exactly one named definition source per field. Its no-spread/no-`Omit` projector produces the exact seven-field `PocSimulationDataV1`, sixteen-field simulation content, two-field manifest, and separate `narrative.scenes`; `titleTextId`, source `texts`, real strings, Presentation, tooling, modules and callbacks are excluded.
 - [ ] The Story contains exactly 2 policies, 5 ingredients, 4 recipes, 2 segments, 4 service modes, 2 facilities in 1 opportunity, 3 Auras, 5 events, 1 relationship opportunity, 1 two-stage WorldAction, 1 threshold choice, 1 four-band 2D6 check, and 3 endings.
 - [ ] D1–D6 each materialize one frozen service-day demand; D7 has no service and terminates at afternoon.
 - [ ] D2 `[智力 B]` consumes no AP/RNG, appends the exact +4 ledger effect, and persists its weekly fact.
 - [ ] Relationship pending/completed/abandoned/unresolved/reconciled routes and anger Aura application/apology/expiry pass without conflating mood, affection, teamwork, or stage.
 - [ ] Reference-seed basic/prepared investigation totals are exactly 8/9 from dice `[4,3]`; one persisted check maps to the correct outcome and rewards.
-- [ ] All `current_gap`, `committed_plan_conservative`, and `final` forecasts pass; stable/danger/arrears endings persist exact three-dimensional summaries.
-- [ ] Story SemanticGamePort exposes only visible legal actions, creates exactly one Queries per authoritative token, atomically publishes the Phase 4A `PocGameViewV1` and action catalog, makes `availableActions()` return that same actions reference, reuses GameView/actions for status-only publications, and never defines a second semantic GameView projector. Lifecycle/load/anchor replacement changes the opaque authoritative token and semantic revision even for structurally equal Gameplay State; preview reads the latest State at the shared FIFO front, preview/dispatch use the same state-only GameQueries/rules, `waitForIdle` uses revisions rather than sleeps, and automation leaves RunIntegrity normal. Dispatch exhaustively maps the GameSession result to `PocSemanticActionResultV1`; no Snapshot/State/RNG/facts/internal fault/attempt/log field reaches UI or Automation.
+- [ ] All `current_gap`, `committed_plan_conservative`, and `final` forecasts pass; stable/danger/arrears endings persist the exact two-field relationship/investigation summary, while stable classification reads the three cash/reputation/facility thresholds from `EndingPolicyV1`.
+- [ ] Story SemanticGamePort exposes only visible legal actions, creates exactly one Queries per authoritative token, atomically publishes the Phase 4A `PocGameViewV1`, separate `NarrativeProjectionV1 | null`, and action catalog, makes `availableActions()` return that same actions reference, reuses all three references for status-only publications, and never defines a second Gameplay or Narrative projector. `PocGameViewV1` contains no Narrative. Lifecycle/load/anchor replacement changes the opaque authoritative token and semantic revision even for structurally equal Gameplay State; preview reads the latest State at the shared FIFO front, preview/dispatch use the same state-only GameQueries/rules, `waitForIdle` uses revisions rather than sleeps, and automation leaves RunIntegrity normal. Dispatch exhaustively maps the GameSession result to `PocSemanticActionResultV1`; no Snapshot/State/RNG/facts/internal fault/attempt/log field reaches UI or Automation.
 - [ ] The resolved default Story uses one complete `zh-CN` catalog, fallback-complete slots plus the exact optional committed approved pack, the exact closed PoC StageScene/variant/rig/HitMap/Interaction catalog, and a Node-importable data-only `.ts` SceneGraph; its default/Headless closure may contain frozen provider metadata/runtime paths but contains no `.tsx`, React/DOM, browser asset loader, tooling import, or `references/`/AIGC source dependency. Its content policy registers no restricted flags or presets, every requirement is zero, and `PocGameViewV1` contains no StageScene/variant/Asset ID.
 - [ ] `pocGameSymbolIdsV1` freezes exactly fourteen `symbol.poc.*` IDs for Phase 5B Story-owned providers; no provider/component enters Phase 4B, Base/UI, Gameplay, SceneGraph, AssetId, or semantic publication.
+- [ ] `src/tooling-fixtures.ts` is the sole Story-owned static authority for exact `PocStoryToolingFixtureV1` command arrays. Reference/golden verification and same-Artifact tooling share the same frozen object references; command/golden JSON files are deterministic reviewed outputs, and runtime/tooling performs no test-file, JSON-baseline, or filesystem read.
 - [ ] Exactly 6 literal semantic command envelopes and 6 golden artifacts verify byte-for-byte without writes; every command entry contains order/day/phase/pre-dispatch sequence/invocation, and every golden contains matching same-attempt state/RNG/GameplayFact evidence, 6 nightly rows, terminal summary, and normal integrity.
 - [ ] Seeds 1–1000 meet all frozen thresholds: primary strategies at least 900 paid; delegation 850–950 paid with median cash 0–35; two-closure at least 700 paid; explicit failure at most 200 paid; D4 pressure primary strategies at least 750 paid; maximum strict dominance at most 800.
 - [ ] Bed and cold-storage counterfactuals pass exactly as specified by the PoC documents.

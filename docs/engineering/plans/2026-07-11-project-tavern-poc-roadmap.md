@@ -171,7 +171,7 @@ Stop if PoC Gameplay enters Base/UI/Web, a GameplayModule writes another owner, 
 
 **Consumes:** accepted PocGameSimulation and existing seven-day design documents.
 
-**Produces:** PoC Story identity/data/content/Narrative/PatchSurfaces, exact StageScene/variant/rig/HitMap/Interaction catalog, an empty-flag/zero-requirement content policy, one atomic GameView/action Semantic publication path, six reference strategies, reviewed golden artifacts, 1..1000 seed metrics and persistence/tooling fixtures.
+**Produces:** PoC Story identity/data/content/Narrative/PatchSurfaces, exact StageScene/variant/rig/HitMap/Interaction catalog, an empty-flag/zero-requirement content policy, one atomic GameView/NarrativeView/action Semantic publication path, six reference strategies, reviewed golden artifacts, 1..1000 seed metrics and persistence/tooling fixtures.
 
 - [ ] Implement D1–D7 content and Story composition without changing E2E.
 - [ ] Review every explicit generated baseline diff before commit.
@@ -245,7 +245,7 @@ The engineering Goal is complete only when all of the following are true:
 - E2E and PoC are independently resolvable and buildable;
 - E2E covers module dependencies, transactions, Narrative, Hotfix, Save, Replay and Semantic automation without importing PoC;
 - PoC runs the complete seven-day week through GameSession and SemanticGamePort;
-- each authoritative token creates one Queries-backed atomic GameView/action publication, and one RuntimePresentationStore joins only that publication, the resolved catalog, content preference, and UI session state;
+- each authoritative token creates one Queries-backed atomic GameView/NarrativeView/action publication, and one RuntimePresentationStore joins only that publication, the resolved catalog, content preference, and UI session state;
 - StageScene/variant, Character/HitMap/Interaction and GameSymbol remain presentation concerns; GameSimulation/GameView contain no renderer, StageScene, asset, coordinate or Host preference authority;
 - Auto/Quick/Manual Save, strict import, State Dump, DebugBundle and replay work with RunIntegrity;
 - Debug/Cheat/Automation default off and can be enabled in the same PoC Artifact;

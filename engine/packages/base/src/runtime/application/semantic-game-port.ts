@@ -7,8 +7,8 @@ import type {
 import type { DeepReadonly, NonNegativeSafeInteger } from "../../contracts/values.js";
 import { parseNonNegativeSafeInteger } from "../../contracts/values.js";
 
-type PublicationFor<TGameView, TActionDescriptor, TStatus> = DeepReadonly<
-  SemanticPublicationV1<TGameView, TActionDescriptor, TStatus>
+type PublicationFor<TGameView, TNarrativeView, TActionDescriptor, TStatus> = DeepReadonly<
+  SemanticPublicationV1<TGameView, TNarrativeView, TActionDescriptor, TStatus>
 >;
 
 interface IdleWaiterV1<TPublication> {
@@ -72,6 +72,7 @@ export function createSemanticGamePortV1<
   TStatus,
   TQueries,
   TGameView,
+  TNarrativeView,
   TActionDescriptor,
   TInvocation,
   TPreview,
@@ -82,13 +83,22 @@ export function createSemanticGamePortV1<
     TStatus,
     TQueries,
     TGameView,
+    TNarrativeView,
     TActionDescriptor,
     TInvocation,
     TPreview,
     TResult
   >,
-): SemanticGamePortV1<TGameView, TActionDescriptor, TInvocation, TPreview, TResult, TStatus> {
-  type Publication = PublicationFor<TGameView, TActionDescriptor, TStatus>;
+): SemanticGamePortV1<
+  TGameView,
+  TNarrativeView,
+  TActionDescriptor,
+  TInvocation,
+  TPreview,
+  TResult,
+  TStatus
+> {
+  type Publication = PublicationFor<TGameView, TNarrativeView, TActionDescriptor, TStatus>;
 
   const listeners = new Set<() => void>();
   const idleWaiters = new Set<IdleWaiterV1<Publication>>();
@@ -96,6 +106,7 @@ export function createSemanticGamePortV1<
 
   const projectCurrentState = (): {
     readonly game: DeepReadonly<TGameView>;
+    readonly narrative: DeepReadonly<TNarrativeView>;
     readonly actions: readonly DeepReadonly<TActionDescriptor>[];
   } => {
     const queries = requireSynchronousResult(
@@ -105,22 +116,30 @@ export function createSemanticGamePortV1<
     const game = deepFreezeSemanticValueV1(
       requireSynchronousResult(input.projectGameView(queries), "Semantic projectGameView"),
     );
+    const narrative = deepFreezeSemanticValueV1(
+      requireSynchronousResult(
+        input.projectNarrativeView(queries),
+        "Semantic projectNarrativeView",
+      ),
+    );
     const actionValues = requireSynchronousResult(input.actions(queries), "Semantic actions");
     if (!Array.isArray(actionValues)) throw new TypeError("Semantic actions must return an array");
     const actions = deepFreezeSemanticValueV1([...actionValues]);
-    return Object.freeze({ game, actions });
+    return Object.freeze({ game, narrative, actions });
   };
 
   const createPublication = (
     revision: NonNegativeSafeInteger,
     status: DeepReadonly<TStatus>,
     game: DeepReadonly<TGameView>,
+    narrative: DeepReadonly<TNarrativeView>,
     actions: readonly DeepReadonly<TActionDescriptor>[],
   ): Publication =>
     Object.freeze({
       revision,
       status: deepFreezeSemanticValueV1(status),
       game,
+      narrative,
       actions,
     }) as Publication;
 
@@ -129,6 +148,7 @@ export function createSemanticGamePortV1<
     parseNonNegativeSafeInteger(0),
     input.source.getStatus(),
     initialProjection.game,
+    initialProjection.narrative,
     initialProjection.actions,
   );
 
@@ -169,6 +189,7 @@ export function createSemanticGamePortV1<
         publication.revision,
         nextStatus,
         publication.game as DeepReadonly<TGameView>,
+        publication.narrative as DeepReadonly<TNarrativeView>,
         publication.actions as readonly DeepReadonly<TActionDescriptor>[],
       );
     } else {
@@ -177,6 +198,7 @@ export function createSemanticGamePortV1<
         parseNonNegativeSafeInteger(publication.revision + 1),
         nextStatus,
         projection.game,
+        projection.narrative,
         projection.actions,
       );
       authoritativeToken = nextToken;

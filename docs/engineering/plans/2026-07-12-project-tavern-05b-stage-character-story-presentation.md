@@ -671,10 +671,15 @@ git commit -m "feat(web): persist story content preference"
 ```ts
 it("projects one view from the exact atomic Semantic publication", () => {
   const fixture = createRuntimePresentationStoreFixtureV1();
-  const semantic1 = fixture.publishSemantic({ game: game1, actions: actions1 });
+  const semantic1 = fixture.publishSemantic({
+    game: game1,
+    narrative: narrative1,
+    actions: actions1,
+  });
   const published = fixture.store.getSnapshot();
   expect(published.semantic).toBe(semantic1);
   expect(published.view.gameToken).toBe(game1);
+  expect(published.view.narrativeToken).toBe(narrative1);
   expect(published.view.actionToken).toBe(actions1);
   expect(fixture.projectInputs.at(-1)?.semantic).toBe(semantic1);
 });
@@ -694,7 +699,7 @@ it("reprojects preference and UI state without inventing a Semantic revision", a
 
 it("publishes the exact allowed asset list in first-use order", () => {
   const fixture = createRuntimePresentationStoreFixtureV1();
-  fixture.publishSemantic({ game: extraSceneGameView, actions: [] });
+  fixture.publishSemantic({ game: extraSceneGameView, narrative: narrative1, actions: [] });
   expect(fixture.store.getSnapshot().requiredAssetIds).toEqual([
     "asset.e2e.background.base",
     "asset.e2e.character.base",
@@ -710,7 +715,7 @@ it("isolates a throwing subscriber and keeps the committed publication", () => {
     throw new Error("presentation-listener");
   });
   fixture.store.subscribe(second);
-  fixture.publishSemantic({ game: game1, actions: actions1 });
+  fixture.publishSemantic({ game: game1, narrative: narrative1, actions: actions1 });
   expect(second).toHaveBeenCalledOnce();
   expect(fixture.failures()).toEqual([
     expect.objectContaining({ code: "presentation.subscriber_failed" }),
@@ -735,7 +740,9 @@ it("isolates a throwing failure sink and preserves the prior snapshot", () => {
   });
   const before = fixture.store.getSnapshot();
   fixture.throwOnNextProjection();
-  expect(() => fixture.publishSemantic({ game: game1, actions: actions1 })).not.toThrow();
+  expect(() =>
+    fixture.publishSemantic({ game: game1, narrative: narrative1, actions: actions1 }),
+  ).not.toThrow();
   expect(fixture.store.getSnapshot()).toBe(before);
 });
 
@@ -746,7 +753,7 @@ it("rejects construction when no valid initial projection exists", () => {
 });
 ```
 
-`createRuntimePresentationStoreFixtureV1` is fully test-local and returns the semantic/UI sources, the pending store, a strict in-memory `ContentPreferencePortV1`, and `testContentFlag`, which is descriptor alpha=`1` from its frozen two-flag policy. The projector records every exact input reference. These fields are part of the test fixture contract, not production exports; Step 1 defines them before running the expected-red test.
+`createRuntimePresentationStoreFixtureV1` is fully test-local and returns the semantic/UI sources, the pending store, a strict in-memory `ContentPreferencePortV1`, and `testContentFlag`, which is descriptor alpha=`1` from its frozen two-flag policy. `narrative1` is a frozen test-only Narrative token. The projector records every exact input reference, including that token. These fields are part of the test fixture contract, not production exports; Step 1 defines them before running the expected-red test.
 
 - [ ] **Step 2: Run the focused UI runtime test and confirm the store is absent**
 
@@ -1657,7 +1664,7 @@ git commit -m "feat(ui): route accessible interaction surfaces"
 
 **Interfaces:**
 
-- Consumes: the Phase 2 `E2eSceneGraphV1` with `stage_scene.e2e.main/summary`, `surface.e2e.counter`, the rect/circle/polygon HitMap, the exported `e2eAlphaFlagV1`/`e2eBetaFlagV1`/`e2eBothFlagsV1`/`e2eStreamSafeContentPresetIdV1` constants from its two independent neutral content flags and Story presets, E2E `SemanticPublicationV1<E2eGameViewV1, E2eSemanticActionDescriptorV1, ...>`, Task 2 RuntimePresentation projector input/output, Tasks 3–6 Stage/Character/Interaction types, and the existing `action.e2e.increment` descriptor/invocation.
+- Consumes: the Phase 2 `E2eSceneGraphV1` with `stage_scene.e2e.main/summary`, `surface.e2e.counter`, the rect/circle/polygon HitMap, the exported `e2eAlphaFlagV1`/`e2eBetaFlagV1`/`e2eBothFlagsV1`/`e2eStreamSafeContentPresetIdV1` constants from its two independent neutral content flags and Story presets, E2E `SemanticPublicationV1<E2eGameViewV1, null, E2eSemanticActionDescriptorV1, ...>`, Task 2 RuntimePresentation projector input/output, Tasks 3–6 Stage/Character/Interaction types, and the existing `action.e2e.increment` descriptor/invocation.
 - Produces: additive data-only active variant plus alpha/beta cue descriptors and their neutral TextCatalog entries in the existing `E2eSceneGraphV1`, exact inferred `E2eSemanticGamePortV1`/publication/action-descriptor aliases, `e2eInteractionFixtureV1` runtime fixtures, `E2ePresentationUiStateV1`, `E2eRuntimePresentationViewV1`, `E2eRuntimePresentationPublicationV1`, `projectE2eRuntimePresentationV1`, Web-only `e2eUiContributionsV1`, and `E2eSettingsSectionV1`; it does not replace the Phase 2 catalog, policy, Story entry, root, or Gameplay.
 
 - [ ] **Step 1: Write the failing neutral catalog and startup-validation tests**
@@ -1835,6 +1842,7 @@ export type E2eSemanticActionDescriptorV1 = E2eSemanticPublicationV1["actions"][
 
 export interface E2eRuntimePresentationViewV1 {
   readonly game: DeepReadonly<E2eGameViewV1>;
+  readonly narrative: null;
   readonly stage: RuntimeStageSceneV1;
   readonly characters: readonly RuntimeCharacterPresentationV1[];
   readonly interactionSurfaces: readonly RuntimeInteractionSurfaceV1<
@@ -1966,7 +1974,7 @@ git commit -m "feat(story-e2e): add neutral interaction presentation"
 
 **Interfaces:**
 
-- Consumes: the Phase 4B frozen `pocResolvedPresentationCatalogV1` with its StageScene/variant/rig/HitMap/behavior graph and explicit heroine layer-to-asset selection, atomic `SemanticPublicationV1<PocGameViewV1, PocSemanticActionDescriptorV1, ...>`, `PocGameViewV1.hud.day`, `PocGameViewV1.hud.phase`, Phase 5B runtime types, the empty-flag/zero-mask PoC content policy, and application UI/Overlay/Interaction state.
+- Consumes: the Phase 4B frozen `pocResolvedPresentationCatalogV1` with its StageScene/variant/rig/HitMap/behavior graph and explicit heroine layer-to-asset selection, atomic `SemanticPublicationV1<PocGameViewV1, NarrativeProjectionV1 | null, PocSemanticActionDescriptorV1, ...>`, `PocGameViewV1.hud.day`, `PocGameViewV1.hud.phase`, Phase 5B runtime types, the empty-flag/zero-mask PoC content policy, and application UI/Overlay/Interaction state.
 - Produces: `PocPresentationRouteV1`, `PocPresentationUiStateV1`, `PocRuntimePresentationViewV1`, `PocRuntimePresentationPublicationV1`, typed `PocRuntimePresentationProjectorV1`, `projectPocRuntimePresentationV1`, and exact PoC Interaction behavior mappings.
 
 - [ ] **Step 1: Write failing route/variant tests using UI state plus only frozen HUD fields**
@@ -2083,6 +2091,7 @@ export type PocPresentationRouteV1 = "main_menu" | "play";
 
 export type PocSemanticPublicationV1 = SemanticPublicationV1<
   PocGameViewV1,
+  NarrativeProjectionV1 | null,
   PocSemanticActionDescriptorV1,
   RuntimeSessionStatusV1
 >;
@@ -2104,6 +2113,7 @@ export type PocOverlayIdV1 =
 
 export interface PocRuntimePresentationViewV1 {
   readonly game: DeepReadonly<PocGameViewV1>;
+  readonly narrative: DeepReadonly<NarrativeProjectionV1 | null>;
   readonly stage: RuntimeStageSceneV1;
   readonly characters: readonly RuntimeCharacterPresentationV1[];
   readonly interactionSurfaces: readonly RuntimeInteractionSurfaceV1<
@@ -2135,7 +2145,7 @@ export const pocRuntimePresentationProjectorV1: PocRuntimePresentationProjectorV
 });
 ```
 
-`projectPocRuntimePresentationV1` builds indices from `input.semantic.actions` once, selects a Stage from route/Overlay state, selects only the tavern light variant from `input.semantic.game.hud.phase`, and joins registered characters/surfaces from `input.resolvedCatalog.sceneGraph`. It copies Runtime appearance pairs only from `input.resolvedCatalog.heroineStandardAppearance` and reads exact demand only from `input.resolvedCatalog.requiredAssetIdsByVariant[selectedVariantId]`; it never ambient-imports a parallel mapping, zips a layer list to an AssetId list, or imports a second appearance catalog. It never imports or calls `createPocGameQueriesV1`, `createPocSemanticActionCatalogV1`, any module Read Port, or any availability function. Missing/duplicate action descriptors create bounded presentation faults and a disabled DOM behavior; they never create a substitute invocation.
+`projectPocRuntimePresentationV1` copies `input.semantic.narrative` unchanged into the Runtime view, builds indices from `input.semantic.actions` once, selects a Stage from route/Overlay state, selects only the tavern light variant from `input.semantic.game.hud.phase`, and joins registered characters/surfaces from `input.resolvedCatalog.sceneGraph`. It copies Runtime appearance pairs only from `input.resolvedCatalog.heroineStandardAppearance` and reads exact demand only from `input.resolvedCatalog.requiredAssetIdsByVariant[selectedVariantId]`; it never ambient-imports a parallel mapping, zips a layer list to an AssetId list, or imports a second appearance catalog. It never imports or calls `createPocGameQueriesV1`, `createPocSemanticActionCatalogV1`, any module Read Port, or any availability function. Missing/duplicate action descriptors create bounded presentation faults and a disabled DOM behavior; they never create a substitute invocation.
 
 `surface.poc.tavern` maps its service target to the exact `action.service_plan` descriptor. The heroine placement uses `surface_activation/open_surface`; within `surface.poc.heroine`, the single figure target is `direct` for profile alone and `choose` when either existing relationship action descriptor is visible. Repair/apology use exact direct invocations from their descriptors. Purchase/WorldAction/service-plan retain their parameterized descriptors and open the controlled overlay. Profile is the only PoC Presentation-only behavior.
 
@@ -3131,7 +3141,7 @@ git commit -m "test(ui): add phase five stage gate"
 
 - [ ] `RuntimePresentationStoreV1` is the only presentation join and atomically publishes one cached immutable `RuntimePresentationPublicationV1` from the exact current Semantic publication, resolved catalog, content preference, and UI session state.
 - [ ] Each Story owns one immutable Presentation UI-state source; route, Overlay, Interaction, and cue controllers are narrow lenses over it rather than independent state authorities.
-- [ ] `RuntimePresentationPublicationV1.semantic` retains the same `SemanticPublicationV1` reference used by the projector; GameView and action catalog cannot be mixed across authoritative revisions, and status/preference/UI changes never invent a Semantic revision.
+- [ ] `RuntimePresentationPublicationV1.semantic` retains the same `SemanticPublicationV1` reference used by the projector; GameView, NarrativeView, and action catalog cannot be mixed across authoritative revisions, and status/preference/UI changes never invent a Semantic revision.
 - [ ] Story Web projectors cannot receive GameQueries, Snapshot, RunIntegrity, RNG, command sequence, owner ports, persistence, capabilities, DebugTools, or arbitrary readers, and renderer contributions receive only narrow view/semantic/presentation/interaction inputs.
 - [ ] Runtime Stage/Character/Interaction views retain validated `TextId` values; projectors receive no locale/text service, and only final renderers resolve player-visible strings through `PresentationReadPortV1.text()`.
 - [ ] StageScene and StageSceneVariant catalogs remain frozen Strict JSON in ResolvedGame. Runtime variant/route/Overlay switching does not recreate GameSession/GameSimulation, advance RNG/commandSequence, or change Artifact identity; presentation catalog changes do not change simulation identity.

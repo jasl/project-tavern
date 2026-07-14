@@ -2202,6 +2202,17 @@ interface ObligationForecastPolicyV1 {
   readonly recommendations: readonly ObligationRecommendationDefinitionV1[];
 }
 
+interface EndingPolicyV1 {
+  readonly stableMinimumCashAfterLevy: Money;
+  readonly stableMinimumReputation: NonNegativeSafeInteger;
+  readonly stableMinimumBuiltFacilities: PositiveSafeInteger;
+  readonly reputationCrisisBelow: NonNegativeSafeInteger;
+  readonly stableReasonId: ReasonId;
+  readonly dangerReasonId: ReasonId;
+  readonly arrearsReasonId: ReasonId;
+  readonly reputationCrisisReasonId: ReasonId;
+}
+
 interface StoryBalanceV1 {
   readonly lifePolicies: readonly [LifePolicyDefinitionV1, ...LifePolicyDefinitionV1[]];
   readonly actionCosts: readonly ActionCostDefinitionV1[];
@@ -2221,6 +2232,7 @@ interface StoryBalanceV1 {
   readonly levyAmount: Money;
   readonly levyDue: { readonly day: DayIndex; readonly phase: CalendarPhase };
   readonly obligationForecast: ObligationForecastPolicyV1;
+  readonly endingPolicy: EndingPolicyV1;
   readonly maxNarrativeStepsPerCommand: PositiveSafeInteger;
   readonly maxNarrativeCallDepth: PositiveSafeInteger;
 }
@@ -2230,6 +2242,29 @@ interface StoryBalanceV1 {
 // facility.choose 的 skip 分支是结构性零成本（AP、双方体力和现金均为 0），不进入 actionCosts；只有
 // build 分支读取 facility.choose.build，preview 与 execute 不得另行发明数值。
 ```
+
+七日 PoC 的 `endingPolicy` 不是 Rule provider 内的私有常量。其 concrete value 精确为：
+
+```ts
+const pocEndingPolicyV1: EndingPolicyV1 = {
+  stableMinimumCashAfterLevy: 20,
+  stableMinimumReputation: 50,
+  stableMinimumBuiltFacilities: 1,
+  reputationCrisisBelow: 45,
+  stableReasonId: "reason.ending.stable",
+  dangerReasonId: "reason.ending.danger",
+  arrearsReasonId: "reason.ending.arrears",
+  reputationCrisisReasonId: "reason.ending.reputation_crisis",
+};
+```
+
+`EndingInputV1.cash` 是 levy proposal 已应用后的候选现金。`levy.kind="arrears"` 固定产生
+`failed_arrears` 与 `[arrearsReasonId]`；已缴税且现金、人气、已建设施数同时达到三个 stable minimum
+时产生 `completed_stable` 与 `[stableReasonId]`；其余已缴税结果产生 `completed_danger` 与
+`[dangerReasonId]`。危险结果的人气严格小于 `reputationCrisisBelow` 时，按第二项追加
+`reputationCrisisReasonId`。`stableMinimumBuiltFacilities` 统计唯一 `FacilityId`，不得把 opportunity
+decision、重复状态或未建设施计入。上述阈值、Reason binding 与 `levyAmount` 一起属于强类型 Balance，
+进入 Simulation Program 与 `simulationDigest`；Forecast 只读取同一 policy，不维护另一份 ending 阈值。
 
 Action presentation 的映射是封闭的：`policy.choose`、`inventory.buy`、`actor.prepare_food`、`actor.rest`、
 `tavern.plan.set`、`calendar.advance_phase`、`levy.pay` 各恰好有一个按 `commandKind` 解析的通用 presentation；
@@ -2395,6 +2430,49 @@ interface PocStoryDataV1 {
   readonly content: StoryContentV1;
 }
 
+interface PocSimulationManifestV1 {
+  readonly initialSceneId: SceneId;
+  readonly playableDays: PositiveSafeInteger;
+}
+
+interface PocSimulationContentV1 {
+  readonly characters: readonly StoryCharacterDefinitionV1[];
+  readonly reasons: readonly ReasonDefinitionV1[];
+  readonly actions: readonly ActionPresentationDefinitionV1[];
+  readonly storyActions: readonly StoryActionDefinitionV1[];
+  readonly customerSegments: readonly CustomerSegmentDefinitionV1[];
+  readonly modifierSources: readonly ModifierSourceDefinitionV1[];
+  readonly ingredients: readonly IngredientDefinitionV1[];
+  readonly items: readonly ItemDefinitionV1[];
+  readonly recipes: readonly RecipeDefinitionV1[];
+  readonly facilities: readonly FacilityDefinitionV1[];
+  readonly facilityOpportunities: readonly FacilityOpportunityDefinitionV1[];
+  readonly auras: readonly AuraDefinitionV1[];
+  readonly worldActions: readonly WorldActionDefinitionV1[];
+  readonly events: readonly StoryEventDefinitionV1[];
+  readonly checks: readonly CheckDefinitionV1[];
+  readonly endings: readonly EndingDefinitionV1[];
+}
+
+interface PocNarrativeProgramV1 {
+  readonly scenes: readonly NarrativeSceneV1[];
+}
+
+interface PocSimulationDataV1 {
+  readonly dataRevision: 1;
+  readonly manifest: PocSimulationManifestV1;
+  readonly stateDefinitions: StoryStateDefinitionsV1;
+  readonly initialState: StoryInitialStateV1;
+  readonly balance: StoryBalanceV1;
+  readonly content: PocSimulationContentV1;
+  readonly narrative: PocNarrativeProgramV1;
+}
+
+interface PocSimulationProgramV1 {
+  readonly data: PocSimulationDataV1;
+  readonly rules: PocRulesV1;
+}
+
 interface StoryToolingSupportV1<TFixture, TNote> {
   readonly fixtures: readonly TFixture[];
   readonly notes: readonly TNote[];
@@ -2410,6 +2488,23 @@ type PocStoryToolingSupportV1<TNote> = StoryToolingSupportV1<PocStoryToolingFixt
 ```
 
 `PocStoryDataV1` 是 `game/stories/poc` 的可序列化源数据，不是 Loader 接收的完整 GamePackage，也不能未经编译就整体算作 simulation facet。Builder 将其中的控制流/数值与文本/视觉引用投影到两个 resolved roots。完整 StoryEntry 还要选择 PoC GameplayModules，并声明 SimulationProgram materializer、GameSimulation factory、PocRules、data-only SceneGraph、Asset Slots/Packs 和两套 PatchSurface；这些启动期源码合同由当前架构与本节字段合同约束，不进入 Save JSON。通用 `StoryToolingSupportV1` 只冻结 fixtures/notes 容器；Story-specific form adapter 可以作为该 support 的额外强类型成员，但不能进入 Base 的 Gameplay 合同。开发 fixtures/notes/form adapters 由同 Artifact 的 `./tooling` entry 延迟提供。`ResolvedAssetManifestV1` 是 Asset resolver 的构建输出，也不由 Story source 手填。
+
+`PocSimulationDataV1` 是上述 Builder 的唯一 simulation-data 输出，不与 `PocStoryDataV1` 同形，也不允许用
+spread 或 `Omit` 在运行时临时形成一个开放对象。投影逐字段固定为：保留 `dataRevision`；从 `manifest` 只取
+`initialSceneId/playableDays`；完整保留 State definitions、初始 State 与 Balance；从 `content` 排除 `texts/scenes`，
+其余字段按 `PocSimulationContentV1` 的声明顺序显式复制；最后把 source `content.scenes` 显式复制为
+`narrative.scenes`。materializer 对完整结果执行 strict Schema validation、canonical round-trip 与 deep freeze，
+`PocSimulationProgramV1` 再将这份 data 与已解析的具名 Rule providers 闭合。GameplayModule tuple 仍只由 Story
+静态选择，data 不得携带 module instance、owner capability 或可执行 callback。
+
+`PocStoryDataV1.manifest.titleTextId`、`StoryContentV1.texts`、真实 TextCatalog 字符串、resolved SceneGraph、
+Asset Slot/Pack/provider/bytes、content-maturity/Interaction/renderer catalog 与 tooling/fixture/note 不进入
+`PocSimulationDataV1`。但 simulation data 中被命令预览、Queries 或 Narrative 发布的逻辑 `TextId`，以及
+Narrative IR 中的 `CharacterId`、`SceneId` 与 `StageCueV1.AssetId` 必须保留：它们是确定控制流和只读语义
+publication 的 stable references，不是文本或图片 bytes。每个保留的 TextId 必须在 resolved Presentation 的
+default TextCatalog 闭包中，每个 Narrative AssetId 必须在 resolved asset slots 中，每个 CharacterId 与 ActionId
+也必须分别与 Presentation character catalog、Semantic/Interaction mapping 闭包。改变这些逻辑引用会改变
+simulation identity；只替换同一 TextId 的字符串或同一 AssetId 的 provider 只改变 presentation/asset identity。
 
 `AssetProviderEntryV1` 只描述已经人工复制到运行时资产根目录的技术交付文件，不记录生成服务、模型、prompt、许可判断、选择状态或 AIGC 反向来源。`art-source/aigc/**` 是独立的人工作业档案，Resolver、Asset Pack、E2E/PoC Web Artifact 与未来分发适配器均不得读取它。
 
@@ -3003,13 +3098,13 @@ Story npm 包的默认入口只暴露一个 `GamePackageV1`，即 StoryEntry；`
 
 `stateContractDigest` 精确使用 `digestCanonical("sillymaker:state-contract:v1", { story: storyIdentity, revision: stateContractRevision, manifest: validatedStateContractManifest })`。它不包含整个 simulation source/import closure、Rule provider、公式、平衡、Patch provider 或 Presentation；实际 GameSimulation bindings 用于交叉验证该显式 manifest，完整 GameSimulation manifest 则继续进入 `simulationDigest`。`RuntimeSchemaV1.parse` 是 opaque executable，Resolver 不反射其结构：任何 State/持久 IR Schema 语义变化都必须由 Story 作者提升对应 schema descriptor revision，可持久稳定引用集合变化必须更新对应 reference set。
 
-`presentationDigest` 必须覆盖 post-Hotfix resolved Presentation Program 与从同一 validated source presentation facet 取得的完整 SceneGraph 的上述 tagged canonical bytes；不能只依赖 Story/source import-closure digest。只改变 Presentation Program、SceneGraph 的 decimal geometry、文本、素材或布局必须改变 `presentationDigest`，同时保持 `stateContractDigest` 与 `simulationDigest` 不变。SceneGraph 不进入 Snapshot、Save、CommandLog、Replay anchor 或 authoritative replay 比较。
+`presentationDigest` 必须覆盖 post-Hotfix resolved Presentation Program 与从同一 validated source presentation facet 取得的完整 SceneGraph 的上述 tagged canonical bytes；不能只依赖 Story/source import-closure digest。只改变同一逻辑 TextId 的真实字符串、同一逻辑 AssetId 的 provider/bytes，或 Presentation Program/SceneGraph 的 decimal geometry、renderer、布局时，必须改变 `presentationDigest`，同时保持 `stateContractDigest` 与 `simulationDigest` 不变。改变 Narrative/Query 会发布的逻辑 TextId、CharacterId、SceneId 或 AssetId 引用则是 Simulation Program 变化，不能伪装成纯 presentation edit。SceneGraph 不进入 Snapshot、Save、CommandLog、Replay anchor 或 authoritative replay 比较。
 
 combined `story.digest` 只用于 source provenance 诊断，不作为两个 resolved root 的共同父摘要。`simulationDigest` 直接覆盖 Story identity、simulation source digest、define-twice executable/provider 投影、post-Hotfix SimulationProgram、validated GameSimulation manifest、state-contract digest 与 simulation PatchSet；`presentationDigest` 直接覆盖 Story identity、presentation source digest、post-Hotfix Presentation Program、完整 SceneGraph、resolved Asset Pack identities 与 presentation PatchSet。这样只改变任一 build source facet 时，另一个 resolved root 的 digest 必须保持不变。
 
 `@sillymaker/base/testkit` 的 `resolveStoryForTestV1(entry)` 只为测试 driver 提供一个未打补丁的 `ResolvedGameV1`：它仍调用真实 `resolveGamePackageV1`、运行全部 Schema/reference/invariant 校验，并使用确定性的测试专用 build/governance 输入。其摘要只用于测试稳定性，不得写入生产 Save/Debug provenance。source `StoryDefinitionV1.simulation` 不含可运行 GameSimulation 或 `simulationDigest`；测试 Session 必须先取得 `resolved.gameSimulation`。Resolved identity 由 GameSession/Save/Replay 边界绑定，不作为 PoC 玩法 GameCommandExecutor 的输入。
 
-ResolvedGame 的 simulation root 包含 post-Hotfix GameSimulation、SimulationProgram、规则、Balance、State definitions，以及 Narrative 的分支、condition、check、command、Effect 和完整控制流。可持久 cursor/IR 的 Schema descriptor 与 Gameplay State/持久 IR 可以引用的封闭 authored scene/node 等稳定 ID 集合同时进入 state-contract manifest；完整 Narrative 语义进入 simulation manifest。Presentation root 包含 React `UiSceneGraph`、真实文本、视觉 cue 映射、素材和布局；它不能作为 simulation root 的依赖。这样“Scene”不会被粗略归入 presentation：authoring `NarrativeSceneV1`/`StoryContentV1` 可以混合书写，但 validator 必须把它编译成无表现值的 NarrativeProgram 与按稳定 ID 索引的 NarrativePresentationMap，再分别摘要；同一源文件可以贡献多个 canonical projections。
+ResolvedGame 的 simulation root 包含 post-Hotfix GameSimulation、SimulationProgram、规则、Balance、State definitions，以及 Narrative 的分支、condition、check、command、Effect 和完整控制流。可持久 cursor/IR 的 Schema descriptor 与 Gameplay State/持久 IR 可以引用的封闭 authored scene/node 等稳定 ID 集合同时进入 state-contract manifest；完整 Narrative 语义进入 simulation manifest。Presentation root 包含 React `UiSceneGraph`、真实文本、素材 provider/bytes 和布局；它不能作为 simulation root 的依赖。这样“Scene”不会被粗略归入 presentation：authoring `NarrativeSceneV1`/`StoryContentV1` 可以混合书写，但 validator 必须按 §7.2 的显式 shape 把完整 scenes 编译进 `PocSimulationDataV1.narrative.scenes`，其中只保留逻辑 TextId/CharacterId/AssetId 而不包含真实文本、图片 bytes、renderer 或布局；这些逻辑引用再与 resolved Presentation catalogs 做双边闭包验证。同一源文件可以贡献多个 canonical projections，但两边不得复制同一可变对象或让 Presentation 值回流 simulation。
 
 `StoryContentV1.texts` 只声明稳定 TextId；真实字符串位于 `TextCatalogSetV1`。Locale ID 必须是规范化 BCP 47、深值唯一；default locale 的 catalog 必须覆盖全部 TextId。非默认 catalog 可以是部分翻译，但 fallback 链必须存在、无环并最终到达 default；走完整条链仍缺失是 Story validation error，不把 TextId 本身显示给 Player。v1 的 Presentation PatchSurface 暴露一个强类型 `text.catalogs` slot，替换值是完整 `TextCatalogSetV1`；不做隐式对象 merge。Hotfix 可以通过替换整套 catalog 添加语言或覆盖部分文本，但解析后仍重新验证完整 fallback 合同。
 
@@ -3160,29 +3255,35 @@ interface PlayerDiagnosticsPortV1<TDebugBundle> {
   exportDebugBundle(): Promise<TDebugBundle>;
 }
 
-interface SemanticPublicationV1<TGameView, TActionDescriptor, TStatus> {
+interface SemanticPublicationV1<TGameView, TNarrativeView, TActionDescriptor, TStatus> {
   readonly revision: NonNegativeSafeInteger;
   readonly status: DeepReadonly<TStatus>;
   readonly game: DeepReadonly<TGameView>;
+  readonly narrative: DeepReadonly<TNarrativeView>;
   readonly actions: readonly DeepReadonly<TActionDescriptor>[];
 }
 
 interface SemanticGamePortV1<
   TGameView,
+  TNarrativeView,
   TActionDescriptor,
   TInvocation,
   TPreview,
   TResult,
   TStatus = RuntimeSessionStatusV1,
 > {
-  observe(): DeepReadonly<SemanticPublicationV1<TGameView, TActionDescriptor, TStatus>>;
+  observe(): DeepReadonly<
+    SemanticPublicationV1<TGameView, TNarrativeView, TActionDescriptor, TStatus>
+  >;
   subscribe(listener: () => void): () => void;
   availableActions(): readonly DeepReadonly<TActionDescriptor>[];
   preview(invocation: DeepReadonly<TInvocation>): Promise<TPreview>;
   dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;
   waitForIdle(
     afterRevision?: NonNegativeSafeInteger,
-  ): Promise<DeepReadonly<SemanticPublicationV1<TGameView, TActionDescriptor, TStatus>>>;
+  ): Promise<
+    DeepReadonly<SemanticPublicationV1<TGameView, TNarrativeView, TActionDescriptor, TStatus>>
+  >;
 }
 
 interface SemanticGamePortSourceV1<TState, TStatus> {
@@ -3201,6 +3302,7 @@ interface SemanticGamePortInputV1<
   TStatus,
   TQueries,
   TGameView,
+  TNarrativeView,
   TActionDescriptor,
   TInvocation,
   TPreview,
@@ -3209,6 +3311,7 @@ interface SemanticGamePortInputV1<
   readonly source: SemanticGamePortSourceV1<TState, TStatus>;
   createQueries(state: DeepReadonly<TState>): TQueries;
   projectGameView(queries: TQueries): TGameView;
+  projectNarrativeView(queries: TQueries): TNarrativeView;
   actions(queries: TQueries): readonly TActionDescriptor[];
   preview(queries: TQueries, invocation: DeepReadonly<TInvocation>): TPreview;
   dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;
@@ -3313,6 +3416,13 @@ interface UiContributionSetV1<TSceneBinding, TOverlayBinding, THudBinding, TGame
 Policy parser 要求 positive `policyRevision`、flag ID/bit 唯一、preset ID/mask 唯一，并证明 preset/default mask 不含未登记位。`parseContentPreferenceV1` 只接受 exact object `{ allowedFlags }`，拒绝额外字段和非 canonical uint32 值。Resolved Presentation catalog validator 负责证明全部 flag/preset TextId 存在以及每个 requirement 不含未登记位；Host adapter 对 preference 做相同 unknown-mask 检查。Flags 没有隐式顺序或蕴含关系；Story 若希望某项露骨性内容同时受 sexual 与 explicit 控制，必须把两位都写进该内容的 `requiredFlags`。改变 flag ID↔bit 对应或位语义必须递增 `policyRevision`。
 
 Preset 只是 Story-owned 的已命名 mask；应用 preset 等价于对同一 Port 调用 `set({ allowedFlags: preset.allowedFlags })`。`ContentPreferenceRecordV1` 是 `engine/packages/web` adapter 的 private DTO，不属于 Base public exports；Base 只拥有 policy/preference/port 与纯 helper。Host record 不保存 preset ID。读取时 contract/story/policy revision 不匹配、非 canonical/额外字段、非法 uint32 或未知位都回退 `defaultAllowedFlags` 并产生一次有界 warning；`set()` 先用 `parseContentPreferenceV1` 拒绝 malformed/extra-field 输入为 `content_maturity.invalid_preference`，再在打开 Host transaction 前把未登记位拒绝为 `content_maturity.unknown_flags`。静态 policy、preset 和 requirements 进入 presentation identity；当前 preference 只属于 Story-scoped Host/Application state，不进入 Snapshot、Save、Replay、Semantic revision、simulation digest 或 Artifact identity。
+
+`SemanticPublicationV1` 的 `game`、`narrative` 与 `actions` 是同一 authoritative revision 的三个独立、
+不可变语义通道；Narrative 不嵌入 GameView，也不能由 renderer 从 GameView 或 action availability 反推。
+每次 authoritative revision token 改变时，factory 恰好创建一次 Queries，并把同一 Queries reference 分别交给
+`projectGameView`、`projectNarrativeView` 与 `actions` 各一次；三者都必须同步返回且在 publication swap 前完成
+deep freeze。status-only publication 复用上一次 `game/narrative/actions` 三个精确引用，只替换 `status`，不得
+伪造 Gameplay revision。PoC 的 `TNarrativeView` 精确为 `NarrativeProjectionV1 | null`。
 
 Base 实现 `ReadonlyViewSourceV1`、SemanticGamePort、闭合的 RuntimeCapability result 与统一 GameApplication 子端口协议；Story-specific operation/result DTO 由当前 GameSimulation specialization 提供。公开 lifecycle `createNewSession`/`restartSession` 不接收可由 UI 伪造的 seed/runId；Application 在该 FIFO operation 到达队首后调用 `gameSimulation.createBootstrapInput(host.bootstrapEntropy)`，随后把同一 immutable input 交给 GameSimulation/stateful Modules，只建立 commandSequence 0 的新 replay anchor，不冒充 PoC 的第一条 `run.start` GameCommand，也不复用上次 seed。PoC specialization 产生 `PocGameBootstrapInputV1 { rngSeed, runId }`：Web Host 的 entropy adapter 在模拟外使用 `crypto.getRandomValues()`/`crypto.randomUUID()`，测试 Host 返回显式固定序列。`RunState.runId/initialSeed` 与初始 `RngState.cursor` 均由该 input 确定；runId 不参与规则随机，重放从已保存 Snapshot 读取它。公开 lifecycle/Story renderer 拿不到 entropy adapter；固定现场使用 fixture anchor，而不是另开 seed setter。
 
@@ -3589,7 +3699,15 @@ interface RuntimeViewModelEnvelopeV1<
 
 GameSession 的 concrete command dispatch result 必须是 `SessionDispatchOperationResultV1<CommandExecutionResultEnvelopeV1<...>>`。只有操作到达 FIFO 队首、针对当时 committed Snapshot 完成同一次 `executeAttempt` 后才返回 `executed`；其中领域结果才可能是 `committed | rejected | faulted`。若 admission Schema 失败，或排队期间 Session 被前项 fault/HMR 变成不可执行，则返回 `not_executed`，不打开候选事务、不消费 RNG/sequence、不写 CommandLog。SemanticGamePort 将该结果投影为 player-safe 结果而不暴露原始 Command、Snapshot、Facts 或 fault。FIFO 可以接受同 tick 多个普通 dispatch；`busy` 是 UI/Save capture 状态，不把已接收 dispatch 伪造为领域拒绝。
 
-PoC specialization 必须以 `RuntimeViewModelEnvelopeV1<SceneId,...,TextId>` 包裹 `PocGameQueriesV1` 的只读结果：game view 至少含 HUD（日/时段/AP、现金、人气、双方 stamina、女主 mood、关系阶段/好感/默契）、`ActionViewV1[]`、run-start/policy/opening controls、Demand/Obligation forecast、当前 Overlay 所需的 Inventory/Tavern/Facility/Ledger projection 和完成总结；narrative 使用 `NarrativeProjectionV1 | null`。所有字符串与图片在 renderer 中只通过 `PresentationReadPortV1<TextId,AssetId,AssetUsageV1,LocaleId,FallbackToken>` 解析；RuntimeViewModel 不携带原始 TextCatalog、Asset Pack、runtimePath、规则或 Snapshot fragment。普通 UI contribution renderer context 精确为 `{ viewSlice, semantic, presentation }`；只有 DevDock 接收独立的 capability-gated DebugTools port。
+PoC specialization 的 `SemanticPublicationV1.game` 精确使用本 Catalog 的 `PocGameViewV1`：它包含 HUD、
+Action、run-start/policy/opening controls、Demand/Obligation forecast、Inventory/Tavern/Facilities/Ledger
+projection、resolved checks 与 completion，但不包含 Narrative。独立 `SemanticPublicationV1.narrative` 精确使用
+`NarrativeProjectionV1 | null`。Application 可以把这两个同 revision 通道与 persistence/application UI state
+组合成 `RuntimeViewModelEnvelopeV1<SceneId,...,TextId>`，但不得把 Narrative 复制回 GameView 或形成第二个
+semantic revision。所有字符串与图片在 renderer 中只通过
+`PresentationReadPortV1<TextId,AssetId,AssetUsageV1,LocaleId,FallbackToken>` 解析；RuntimeViewModel 不携带原始
+TextCatalog、Asset Pack、runtimePath、规则或 Snapshot fragment。普通 UI contribution renderer context 精确为
+`{ viewSlice, semantic, presentation }`；只有 DevDock 接收独立的 capability-gated DebugTools port。
 
 `@sillymaker/base` 实现上述 Host/结果/envelope 泛型；Web Host 实现 records/files/navigation/log，`game/stories/poc` 冻结 PoC game-view specialization并提供 Text/Asset presentation 数据，`@sillymaker/ui` 只消费投影与 renderer context。任何具体 DTO 新增字段先更新本节和对应 contract test，不能让 React 组件临时读取 `ResolvedGame`、Snapshot 或 Gameplay State。
 
@@ -3818,6 +3936,12 @@ type StoryRuleSlotV1 =
 
 `levy.pay` 由 GameCommandExecutor 使用 `StoryBalance.levyAmount` 编排：Inventory owner 在现金足够时追加 levy ledger/扣款，不足时保持 cash 并构造 `shortfall = levyAmount - availableCash`；Progression 以该 `LevyResolutionV1` 和各 read-port projection 调用 Ending rule、应用其 Fact/Quest/Outcome effects 并返回 terminal proposal；最后只有 Run owner 能把同一 levy resolution 与 `EndingResultV1` 物化为 `RunCompletionV1` 并写 `simulation.run.status/completion`。任一步失败全部回滚。终局 UI 与重载后查询读取 completion，不重新调用 Ending rule。
 
+`PocRulesV1.endings.evaluate` 必须只读取 `PocSimulationDataV1.balance.endingPolicy` 的阈值/Reason binding
+与闭合 ending/outcome definitions，不得在 provider closure 内保留第二份 `20/50/1/45` 或 ReasonId literal。
+`PocRulesV1` 不提供 `ending.forecast`/`endings.forecast`：义务 Forecast 是对最新 Gameplay State、同一 Tavern
+preview calculator 与 `balance.obligationForecast/endingPolicy` 的只读 Query projection，唯一公开入口是
+`PocGameQueriesV1.getObligationForecast()`。
+
 `EndingResultV1.effects` 只能使用 `ProgressionEffectIntentV1` 的 Fact/Quest/Outcome 三种 kind；终局规则不得借通用 `EffectIntentV1` 改 AP、Actors、Aura、Inventory、Ledger、Tavern 或 Workflow。需要的税负现金变化已经由前置 Inventory owner proposal 完成。
 
 ### 8.1 PocGameQueriesV1
@@ -4041,12 +4165,83 @@ type TavernOpeningControlProjectionV1 =
       >;
     };
 
+interface PocHudProjectionV1 {
+  readonly day: DayIndex;
+  readonly phase: CalendarPhase;
+  readonly apRemaining: NonNegativeSafeInteger;
+  readonly cash: Money;
+  readonly reputation: NonNegativeSafeInteger;
+  readonly playerStamina: StaminaStateV1;
+  readonly heroineStamina: StaminaStateV1;
+  readonly heroineMood: MoodPoint;
+  readonly relationship: RelationshipStateV1;
+  readonly levyAmount: Money;
+}
+
+interface PocInventoryBatchProjectionV1 {
+  readonly batchId: BatchId;
+  readonly ingredientId: IngredientId;
+  readonly quantity: Quantity;
+  readonly acquiredDay: DayIndex;
+  readonly lastUsableDay: AbsoluteDayIndex;
+  readonly refrigerationExtended: boolean;
+}
+
+interface PocInventoryProjectionV1 {
+  readonly ingredientBatches: readonly PocInventoryBatchProjectionV1[];
+  readonly itemStacks: readonly ItemStackV1[];
+}
+
+interface PocTavernProjectionV1 {
+  readonly unlockedRecipeIds: readonly RecipeId[];
+  readonly helper: HelperStateV1;
+  readonly preparation: DailyPreparationStateV1;
+  readonly servicePlan: TavernPlanV1 | null;
+  readonly currentPlanPreview: TavernPreviewV1 | null;
+  readonly serviceHistory: readonly ServiceHistoryEntryV1[];
+}
+
+interface PocFacilitiesProjectionV1 {
+  readonly built: readonly FacilityStateV1[];
+  readonly decisions: readonly FacilityDecisionRecordV1[];
+}
+
+interface PocLedgerProjectionV1 {
+  readonly startingCash: Money;
+  readonly currentCash: Money;
+  readonly entries: readonly LedgerEntryV1[];
+}
+
+type PocGameViewStatusV1 = "setup" | "active" | "terminal";
+
+interface PocGameViewV1 {
+  readonly status: PocGameViewStatusV1;
+  readonly hud: PocHudProjectionV1;
+  readonly actions: readonly ActionViewV1[];
+  readonly runStartControl: RunStartControlProjectionV1 | null;
+  readonly lifePolicySelection: LifePolicySelectionProjectionV1 | null;
+  readonly tavernOpeningControl: TavernOpeningControlProjectionV1 | null;
+  readonly demandForecast: DemandForecastV1 | null;
+  readonly obligationForecast: ObligationForecastV1 | null;
+  readonly inventory: PocInventoryProjectionV1;
+  readonly tavern: PocTavernProjectionV1;
+  readonly facilities: PocFacilitiesProjectionV1;
+  readonly ledger: PocLedgerProjectionV1;
+  readonly resolvedChecks: readonly ResolvedCheckV1[];
+  readonly completion: RunCompletionV1 | null;
+}
+
 interface PocGameQueriesV1 {
   getAvailableActions(): readonly ActionViewV1[];
   explainAvailability(actionId: ActionId): AvailabilityExplanationV1;
   previewCommand<C extends PocGameCommandV1>(command: C): CommandPreviewV1<C>;
   previewTavernPlan(plan: TavernPlanV1): TavernPreviewV1;
-  getNarrativeProjection(): NarrativeProjectionV1;
+  getHudProjection(): PocHudProjectionV1;
+  getInventoryProjection(): PocInventoryProjectionV1;
+  getTavernProjection(): PocTavernProjectionV1;
+  getFacilitiesProjection(): PocFacilitiesProjectionV1;
+  getLedgerProjection(): PocLedgerProjectionV1;
+  getNarrativeProjection(): NarrativeProjectionV1 | null;
   getRunStartControl(): RunStartControlProjectionV1 | null;
   getLifePolicySelection(): LifePolicySelectionProjectionV1 | null;
   getTavernOpeningControl(): TavernOpeningControlProjectionV1 | null;
@@ -4056,6 +4251,24 @@ interface PocGameQueriesV1 {
   getRunCompletion(): RunCompletionV1 | null;
 }
 ```
+
+`PocGameViewV1.status` 只折叠生命周期：`RunState.status="setup"` 映射为 `setup`，`active` 映射为
+`active`，三个 terminal RunStatus 都映射为 `terminal`；精确 terminal 结果只从同一 view 的 `completion`
+读取。GameView 的每个字段必须从上面同名 Query/getter 的同一次 immutable Queries 投影建立：`actions` 等于
+`getAvailableActions()`，五个 control/forecast、resolved checks 与 completion 分别复用对应 getter，五个新 DTO
+分别复用 `get*Projection()`。projector 不接收 Snapshot，不读取 State path，也不重新实现 availability、preview、
+forecast 或 ending 规则。
+
+五个 DTO 是 player-visible、Strict JSON、deep-frozen projection，不是 Snapshot slice。Inventory batch 刻意移除
+`source`；Tavern 刻意移除 `demandSeeds`、`currentDemand` 与未结算的 `actualCustomers`；Ledger 只投影已提交
+entries。`PocTavernProjectionV1.currentPlanPreview` 在 `servicePlan=null` 时必须为 `null`，否则等于针对该 exact
+plan 调用 `previewTavernPlan(servicePlan)` 的结果。已经提交到 `serviceHistory` 的 opening orders/sales 是历史结果，
+可以保留；它们不能用来泄漏当前或未来 materialized demand。HUD 的 `cash` 必须等于 Ledger 的
+`currentCash`，`levyAmount` 精确来自同一 `StoryBalanceV1.levyAmount`。
+
+`getNarrativeProjection()` 在没有当前可呈现 Narrative 时返回 `null`；非 null 值只投影同一权威 Narrative
+runtime state 的 cursor/stage/speaker/text/choices/check evidence。它由 Semantic port 的独立 `narrative` 通道发布，
+不进入 `PocGameViewV1`，也不允许 GameView projector 调用后再复制一份。
 
 `getRunStartControl()` 是 sequence-0 replay base 进入游戏的唯一 Player UI 投影：只在 Catalog Bootstrap 初始状态（sequence 0、setup、idle Narrative、空 demand seeds/currentDemand、无 workflow）返回非 null，携带精确 `{kind:"run.start"}` 与同值、`allowed=true`、`confirmation=null` 的 preview；成功 Start 或任一非初始状态都返回 null。`run.start` 仍有零个 Action presentation，React 不得自行拼装该系统命令。
 
@@ -5043,7 +5256,7 @@ declare function validateSaveImportCandidateV1<
 1. `PocGameSnapshotV1` 是唯一权威容器；Narrative 只在 `state.story.narrative`，workflow 只在 `state.simulation.activeWorkflow`，设施建设/机会决策只在 `state.simulation.facilities`，Tavern 不复制这些状态。
 2. RNG cursor 是合法 `Uint32`，新局 `initialSeed` 非零；`rawDrawCount` 和 `commandSequence` 单调不减。每次 `RuleRng.nextInt` 满足 `1 <= exclusiveMax <= 2^32` 且 `0 <= result < exclusiveMax`。成功命令 sequence 恰加 1；拒绝/故障保持原 Snapshot 引用、RNG 和 sequence。
 3. cash、AP、stamina、reputation、teamwork、quantity 不为负；stamina 不超过 maximum；mood 只在 -2..2。
-4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= storyManifest.playableDays`。terminal status 的 day/phase 必须等于当前 Story 的 `levyDue`/Ending policy，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 PoC Story/GameSimulation invariant。
+4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= PocSimulationDataV1.manifest.playableDays`。terminal status 的 day/phase 必须精确等于 `StoryBalance.levyDue`，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在，并精确满足 `StoryBalance.endingPolicy` 的 stable/danger/arrears 分类与有序 Reason binding；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 PoC Story/GameSimulation invariant。
 5. 只有 `calendar.advance_phase` 改变 day/phase；AP 不跨时段结转。不可行动时段与营业日由当前 Story 的 serviceDays、levyDue 和 Event/Condition 数据决定。当前 day/phase 已等于 `levyDue` 时，该命令固定拒绝为 `calendar.phase_blocked { blocker:"levy_due" }`，不能越过终局等待点；D7 普通动作则由 Action visibility/availability 的日界 gate 关闭。
 6. 只有明确作为集合的定义/状态数组按其 stable ID 升序规范化；同类 ID、BatchId、AuraInstanceId、LedgerEntryId、Facility opportunityId、Narrative slot 不重复。authored-order 数组（Confirmation、gates、recommendations、Scene nodes/options/steps，以及 AssetPack 的 `sources`/`licenses`/`providers`）保持 Story/pack 声明顺序；causal/reference 数组（GameplayFact、ledger、CommandLog、triggeredEventIds、start/entry/paid-cost ledger IDs、expiredAuraIds、AppliedModifier/components）保持应用/collector 顺序。不得为了“统一排序”把后两类改成字典序；每个具体 Schema 必须声明自己属于哪一类。
 7. Ingredient batch quantity 为正，`acquiredDay <= lastUsableDay`；expiry 可以超过七日 PoC 的 day 7；initial batch 必须使用 `batch:initial:<index>` 与 `source.kind=initial`，事务创建批次必须使用 `batch:<commandSequence>:<lineIndex>` 且不能冒充 initial；FIFO 消耗顺序为 `lastUsableDay, acquiredDay, batchId`。`inventory.grant` 必须创建确定性 batch IDs、按 Story ingredient unitPrice 追加 `story_reward`、cashDelta 0、正 valuationDelta 的 entries，并在 `inventory.ingredient_granted` 中携带 lines/createdBatchIds/entries/reason；不能要求 UI 从 Snapshot diff 猜奖励。
@@ -5071,8 +5284,8 @@ declare function validateSaveImportCandidateV1<
 29. 每个 `IntegerRangeV1` 都满足 `min <= max`；数量/客流/销量范围还必须满足 `min >= 0`。Story integer definition 的 defaultValue 必须落在其 range 内；Demand actual 必须落在 preview range，Tavern actual sales 必须落在对应 expectedSales range，Obligation 的 lower/upper 也不得倒置。Obligation policy 的 reason/text/action 引用必须存在，recommendation appliesTo 非空、唯一且按 Forecast kind 顺序规范化。
 30. Aura countdown policy 满足 `defaultRemaining <= maximumRemaining`。initial 与普通 authored `aura.apply` 必须使用 definition 的 kind/unit/defaultRemaining；`debug.aura.apply` 可以在同一 countdown unit 内选择 `1..maximumRemaining`，但不能换 unit，until-cleared definition 也只能创建 until-cleared instance。持久实例的 kind/unit 必须匹配 definition，remaining 不超过 maximum；因此 PoC 的 angry/sign/strain 生命周期不会被合法但错误的 Effect payload 改写。
 31. Aura allowedTargets 按 `kind`、actorId 规范化且深值唯一，instance target 必须精确命中一项，不能只因同为 actor 就把 heroine Aura 加给 player。所有 collector 的适用 Modifier 使用同一全序：base component（若有）最先；随后 source-kind 为 `story < facility < aura < event`。story 以 sourceId、rule-output index 排序；facility 以 facilityId、definition index 排序；aura 以 appliedAtSequence、instanceId、definition index 排序；event/session 以 triggeredEventIds 的既有因果次序、append index 排序。筛选不改变相对顺序；AppliedModifier、OpeningBaseline、OpeningLedger、Demand explanation 与 stamina components 都保留该序，不能按 target/kind/数值重新排序。
-32. 每个 ResolvedGame 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；GameSimulation 的 State/Command/Fact/Rejection/DebugCommand schemas、normal/debug executors、queries 和 ViewModel projection 必须来自同一 type witness。显式 State-contract manifest 必须与全部且仅有 stateful binding 的 module ID/revision/state slots 精确匹配，stateless binding 不得登记。Base generic contract tests 使用 synthetic GamePackage，不能以 PoC 联合类型代替泛型边界。
-33. Resolved simulation root 只能依赖 Base、Module core 和自身 simulation sources；source presentation facet 及 resolved presentation root 可以消费只读 GameView/SemanticGamePort，但 GameSimulation/GameCommandExecutor 不得导入它们。Narrative 可持久 cursor/IR Schema descriptor 与持久状态可引用的稳定 scene/node 等 ID 集进入 state-contract manifest；conditions/checks/commands/effects 和完整控制流进入 simulation manifest；TextCatalog、UiSceneGraph renderer、视觉 cue、CSS 和 Asset providers 进入 presentation manifest。
+32. 每个 ResolvedGame 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；GameSimulation 的 State/Command/Fact/Rejection/DebugCommand schemas、normal/debug executors、queries 和 ViewModel projection 必须来自同一 type witness。PoC ViewModel 精确为 `PocGameViewV1`；独立 `NarrativeProjectionV1 | null` 从同一 Queries 进入 `SemanticPublicationV1.narrative`，不得嵌入 GameView。显式 State-contract manifest 必须与全部且仅有 stateful binding 的 module ID/revision/state slots 精确匹配，stateless binding 不得登记。Base generic contract tests 使用 synthetic GamePackage，不能以 PoC 联合类型代替泛型边界。
+33. Resolved simulation root 只能依赖 Base、Module core 和自身 simulation sources；source presentation facet 及 resolved presentation root 可以消费只读 GameView/SemanticGamePort，但 GameSimulation/GameCommandExecutor 不得导入它们。Narrative 可持久 cursor/IR Schema descriptor 与持久状态可引用的稳定 scene/node 等 ID 集进入 state-contract manifest；conditions/checks/commands/effects、完整控制流和 Narrative `StageCueV1` 中会写入持久 stage/projection 的逻辑 CharacterId/AssetId 进入 simulation manifest。真实 TextCatalog 字符串、UiSceneGraph renderer、CSS、Asset providers/bytes 与仅由 resolved Presentation 拥有的视觉布局/cue descriptors 进入 presentation manifest。
 34. Simulation Patch Registry 只接受 `rule | value`，Presentation Registry 只接受 `value | text | asset`；slot surface 不能由 Hotfix 改写。Provider/Hotfix/PatchSet digest 必须使用 §7.3 和 §10 的冻结算法；安装完成立即撤销写权限。TextCatalog default 完整、Locale/fallback 无环且最终到达 default。Asset slot definition 不可被 provider 覆盖；packs 后才应用 asset Hotfix，sealed slot 不暴露 patch slot；Resolved assets 与 slots 一一对应。
 35. PatchSet adoption declaration 必须精确匹配 Story ID/revision、stateContractRevision/digest、from/to simulation digests 和当前 simulationPatchSetDigest；不得由其中任一 Hotfix 泛化授权，纯 presentation PatchSet 差异不阻断。新局 lineage 为空，exact load 保留，adoption 只追加；当前 DebugBundle 的 replay base/log/current Snapshot 始终属于同一 simulation digest。
 

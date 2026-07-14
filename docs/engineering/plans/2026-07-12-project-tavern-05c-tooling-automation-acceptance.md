@@ -20,7 +20,7 @@
 - Read-only DebugTools require `debug_tools`; mutating DebugCommand/fixture/DebugBundle anchor operations require both `debug_tools` and `cheats`. Every operation rechecks authority at call time and, where Phase 3 requires it, at the GameSession FIFO front.
 - Story tooling is loaded only through two fixed active-Story package exports after an allowed operation needs it: existing Node-safe `./tooling` for fixtures/notes/form values and browser-only `./tooling-ui` for React contributions. The Node-safe export never reaches TSX/React, neither loader accepts a runtime specifier, and tooling owns no debug command Schema, reference/range validation, Rule, owner proposal, executor, integrity transition, or CommandLog behavior.
 - Automation Bridge is absent while disabled. When enabled it exposes only a frozen, versioned facade over `SemanticGamePortV1`; it never exposes DebugTools, ContentPreference mutation, Interaction/HitMap execution, Snapshot, State paths, owner capabilities, fixtures, arbitrary commands, or renderer internals.
-- `SemanticPublicationV1.game` and `.actions` come from the same Queries, authoritative token, and semantic revision. DOM and Automation parity always compare one complete publication; `availableActions()` must reuse the current publication's `actions` reference.
+- `SemanticPublicationV1.game`, `.narrative`, and `.actions` come from the same Queries, authoritative token, and semantic revision. DOM and Automation parity always compare one complete publication; `availableActions()` must reuse the current publication's `actions` reference.
 - Phase 5B's `RuntimePresentationPublicationV1` remains the only Story presentation source. Phase 5C does not create another RuntimePresentationStore, query GameQueries, recalculate Gameplay gates, or place StageScene/Asset IDs into GameView.
 - `DebugBundle.uiContext` is optional, Strict JSON, bounded, privacy-scrubbed, and non-authoritative. It does not enter Snapshot, state digest, CommandLog, authoritative replay comparison, Save compatibility, or simulation identity. Identity mismatch makes it diagnostic-only and never restores UI automatically.
 - Phase 5B already proves rect/circle/polygon HitMap, Interaction mode, Pointer/keyboard/semantic-control equivalence, focus, cancel/focus-loss cleanup, and no input-through. Phase 5C reuses that gate and tests only the complete-application capability, publication, DOM, Automation, responsive, and cross-browser surfaces.
@@ -1211,7 +1211,9 @@ git commit -m "test(web): add two root browser harness"
 - [ ] **Step 1: Write the failing publication-to-DOM parity test**
 
 ```ts
-test("one publication supplies GameView, actions, DOM state, and Automation", async ({ page }) => {
+test("one publication supplies GameView, NarrativeView, actions, DOM state, and Automation", async ({
+  page,
+}) => {
   await page.goto(`${pocWebUrl}/?capability=automation_bridge#/play`);
   const result = await page.evaluate(() => globalThis.__SILLYMAKER_AUTOMATION_V1__!.observe());
   expect(result.kind).toBe("ok");
@@ -1398,7 +1400,7 @@ pnpm verify
 git diff --check
 ```
 
-Expected: all commands exit 0; one publication drives GameView/actions/DOM, DOM and Automation produce equivalent results, normal Automation preserves integrity, and no basic Interaction test is duplicated.
+Expected: all commands exit 0; one publication drives GameView/NarrativeView/actions/DOM, DOM and Automation produce equivalent results, normal Automation preserves integrity, and no basic Interaction test is duplicated.
 
 - [ ] **Step 8: Commit publication and primary-flow evidence**
 
@@ -1984,7 +1986,7 @@ Acceptance criteria:
 - DevDock is absent while disabled, reachable from normal/Overlay/Narrative/System/fault surfaces when enabled, separates read-only DebugTools from Cheats, restores focus, and cannot leak input to Stage or Semantic dispatch.
 - Story tooling loads only the fixed active-Story Node-safe `./tooling` and browser-only `./tooling-ui` exports after an allowed operation needs them. The PoC form adapter exhaustively constructs the ten existing debug command variants without owning Gameplay validation/execution, and Node/headless paths never parse TSX.
 - Automation global is absent by default, revocable after capture, and exposes exactly one versioned Semantic facade. It never exposes DebugTools, Snapshot, State, ContentPreference mutation, Interaction/HitMap execution, fixtures, or arbitrary commands.
-- `observe().game`, `observe().actions`, DOM Gameplay controls, `availableActions()`, preview, dispatch, rejection, and `waitForIdle` are tied to complete atomic publications. DOM and direct Automation produce equivalent Story results without sleeps or coordinate scripts.
+- `observe().game`, `observe().narrative`, `observe().actions`, DOM Gameplay controls, `availableActions()`, preview, dispatch, rejection, and `waitForIdle` are tied to complete atomic publications. DOM and direct Automation produce equivalent Story results without sleeps or coordinate scripts.
 - Normal Automation and read-only diagnostics keep RunIntegrity normal. Successful existing Cheat/anchor behavior remains capability-gated, marked modified, and durable through the already accepted Save/Replay path.
 - Exactly four executable browser cases retain the `@smoke` compatibility tag: fresh capability defaults, Automation Bridge shape, the PoC first ordinary action, and one E2E Semantic command.
 - `DebugBundle.uiContext` contains only bounded StageScene/variant/renderer/appearance/interaction/content-preference summaries. Current export receives the active policy explicitly, validates the preference and records its revision/mask; strict import preserves bounded older policy summaries for diagnosis, while presentation/application identity mismatch prevents restoration. It is privacy-safe and non-authoritative and changes no state digest/replay result.
