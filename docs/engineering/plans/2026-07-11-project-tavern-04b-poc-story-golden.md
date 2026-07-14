@@ -1638,8 +1638,14 @@ it("offers the valid previous slot only after the current Auto record is corrupt
 it("loads one fixed tooling export and persists a successful anchor mark", async () => {
   const fixture = createPocRuntimeTestFixtureV1({ debugTools: true, cheats: true });
   expect(fixture.toolingLoads()).toBe(0);
-  await fixture.application.debugTools.listFixtures();
-  await fixture.application.debugTools.listFixtures();
+  await expect(fixture.application.debugTools.listFixtures()).resolves.toEqual({
+    kind: "listed",
+    fixtureIds: pocFixtureIdsV1,
+  });
+  await expect(fixture.application.debugTools.listFixtures()).resolves.toEqual({
+    kind: "listed",
+    fixtureIds: pocFixtureIdsV1,
+  });
   expect(fixture.toolingLoads()).toBe(1);
   expect(fixture.loadedSpecifier()).toBe("@project-tavern/story-poc/tooling");
 

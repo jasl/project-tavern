@@ -479,6 +479,18 @@ it("consumes debug input without dispatching through the stage", async () => {
   expect(fixture.stageActivation).not.toHaveBeenCalled();
   expect(fixture.semantic.dispatch).not.toHaveBeenCalled();
 });
+
+it("distinguishes an empty authorized fixture list from capability revocation", async () => {
+  const fixture = createDevDockFixtureV1({ debugTools: true, cheats: false });
+  fixture.debugTools.listFixtures
+    .mockResolvedValueOnce({ kind: "listed", fixtureIds: [] })
+    .mockResolvedValueOnce({ kind: "capability_disabled" });
+  render(<DevDockHarness fixture={fixture} />);
+  await userEvent.click(screen.getByRole("button", { name: "夹具" }));
+  expect(await screen.findByText("没有可用夹具")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "刷新夹具" }));
+  expect(await screen.findByText("调试工具已关闭")).toBeVisible();
+});
 ```
 
 - [ ] **Step 2: Run the focused test and confirm the DevDock is absent**
@@ -513,7 +525,7 @@ Each existing Story root owns one dock-open state source and passes it both to `
 
 - [ ] **Step 4: Implement concrete neutral panels without Story knowledge**
 
-- `FixtureBrowserV1` lists typed fixture IDs and delegates inspect/anchor through injected callbacks; it never accepts a path, URL, Story ID, or free-form fixture name.
+- `FixtureBrowserV1` branches on DebugFixtureListResultV1 before reading fixtureIds，distinguishes authorized `{ kind: "listed", fixtureIds: [] }` from a call-time `{ kind: "capability_disabled" }` revocation，and delegates inspect/anchor through injected callbacks; it never accepts a path, URL, Story ID, or free-form fixture name.
 - `DiagnosticInspectorV1` renders player-safe diagnostics and Task 1's `restorable | diagnostic_only` classification; diagnostic-only presentation context has no restore button.
 - `DebugCommandPanelV1` renders fields supplied by one Story contribution and submits only the already typed command returned by that adapter.
 - `CapabilityPanelV1` renders exactly the three persisted switches, requires explicit confirmation before enabling `cheats`, and displays session-requested capabilities as read-only overrides.

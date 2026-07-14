@@ -251,6 +251,8 @@ git commit -m "feat(base): track run integrity in snapshots"
 
 **Files:**
 
+- Modify: docs/engineering/specs/2026-07-12-game-runtime-design.md
+- Modify: docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md
 - Modify: engine/packages/base/src/contracts/application.ts
 - Modify: engine/packages/base/src/contracts/application.test.ts
 - Modify: engine/packages/base/src/contracts/index.ts
@@ -270,13 +272,21 @@ git commit -m "feat(base): track run integrity in snapshots"
 - Modify: engine/packages/web/type-tests/application-exports.test-d.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
+- Modify: game/stories/e2e/src/application/entry.tsx
+- Modify: game/stories/e2e/src/application/e2e-application-root.test.tsx
+- Modify: game/stories/e2e/src/presentation/e2e-renderers.test.tsx
+- Modify: game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts
+- Modify: game/stories/e2e/src/runtime/headless-runner.test.ts
+- Modify: game/stories/e2e/src/runtime/hotfix-integration.test.ts
+- Modify: game/stories/e2e/fixtures/session-zero.json
+- Modify: game/stories/e2e/golden/semantic-flow.json
 - Test: engine/packages/base/src/runtime/capabilities/runtime-capabilities.test.ts
 - Test: engine/packages/base/src/runtime/application/game-application.test.ts
 
 **Interfaces:**
 
 - Consumes: Phase 2 SemanticGamePort、ReadonlyViewSource、Host settings records、lifecycle/persistence/diagnostics subports。
-- Produces: RuntimeCapabilityIdV1、RuntimeCapabilitiesV1、RuntimeCapabilityPortV1、GameApplicationPortV1、createRuntimeCapabilityPortV1 and generic createGameRuntimeV1。
+- Produces: RuntimeCapabilityIdV1、RuntimeCapabilitiesV1、RuntimeCapabilityPortV1、DebugToolsOperationResultV1、DebugFixtureListResultV1、DebugToolsPortV1、GameApplicationPortV1、createRuntimeCapabilityPortV1 and generic async createGameRuntimeV1。
 
 - [ ] **Step 1: Write failing defaults, persistence, and no-rebootstrap tests**
 
@@ -291,7 +301,7 @@ it("starts with every runtime capability disabled", async () => {
 });
 
 it("changes a preference without rebuilding game identity or session", async () => {
-  const fixture = createGameRuntimeFixture();
+  const fixture = await createGameRuntimeFixture();
   const session = fixture.gameSession;
   const simulation = fixture.resolvedGame.gameSimulation;
   await fixture.application.capabilities.setEnabled("debug_tools", true);
@@ -303,18 +313,38 @@ it("changes a preference without rebuilding game identity or session", async () 
 
 it("restores a valid saved preference in the next runtime", async () => {
   const store = createCapabilityPreferenceStore();
-  const first = createGameRuntimeFixture({ capabilityStore: store });
+  const first = await createGameRuntimeFixture({ capabilityStore: store });
   await first.application.capabilities.setEnabled("debug_tools", true);
   await first.application.capabilities.setEnabled("cheats", true);
 
-  const next = createGameRuntimeFixture({ capabilityStore: store });
+  const next = await createGameRuntimeFixture({ capabilityStore: store });
   expect(next.application.capabilities.state.getCurrent()).toEqual({
     debugTools: true,
     cheats: true,
     automationBridge: false,
   });
 });
+
+it("does not expose an application before preference hydration finishes", async () => {
+  const pendingRead = createDeferredCapabilityRead();
+  const runtime = createGameRuntimeFixture({ pendingRead });
+  let settled = false;
+  void runtime.then(() => {
+    settled = true;
+  });
+  expect(pendingRead.calls()).toBe(1);
+  await Promise.resolve();
+  expect(settled).toBe(false);
+  pendingRead.resolve({ debugTools: true, cheats: false, automationBridge: false });
+  await expect(runtime).resolves.toMatchObject({
+    application: {
+      capabilities: { state: expect.any(Object) },
+    },
+  });
+});
 ```
+
+Host record read 是异步边界；createGameRuntimeV1 与 Story wrapper 必须 await 有效 preference 后才返回 Application。不得先暴露全 false 状态再后台 hydration，也不得增加 readiness/loading ABI。E2E entry 和全部 live 同步调用点在本任务改为 await；createWebHostV1 本身保持同步 construction。
 
 application type tests 必须证明统一端口没有 player/developer wrapper，也没有 Snapshot：
 
@@ -400,9 +430,46 @@ export interface GameApplicationPortV1<
   readonly capabilities: TCapabilities;
   readonly debugTools: TDebugTools;
 }
+
+export type DebugToolsOperationResultV1<TAllowedResult> =
+  TAllowedResult | { readonly kind: "capability_disabled" };
+
+export type DebugFixtureListResultV1<TFixtureId> = DebugToolsOperationResultV1<{
+  readonly kind: "listed";
+  readonly fixtureIds: readonly TFixtureId[];
+}>;
+
+export interface DebugToolsPortV1<
+  TDebugCommand,
+  TDebugResult,
+  TFixtureId,
+  TAnchorResult,
+  TDebugInspection,
+  TAuthoritativeReplayResult,
+  TBestEffortReplayInspection,
+  TDiagnosticQuery,
+  TDiagnosticQueryResult,
+> {
+  listFixtures(): Promise<DebugFixtureListResultV1<TFixtureId>>;
+  executeDebugCommand(
+    command: DeepReadonly<TDebugCommand>,
+  ): Promise<DebugToolsOperationResultV1<TDebugResult>>;
+  anchorFixture(fixtureId: TFixtureId): Promise<DebugToolsOperationResultV1<TAnchorResult>>;
+  inspectDebugBundle(bytes: Uint8Array): Promise<DebugToolsOperationResultV1<TDebugInspection>>;
+  anchorDebugBundle(bytes: Uint8Array): Promise<DebugToolsOperationResultV1<TAnchorResult>>;
+  replayAuthoritatively(
+    bytes: Uint8Array,
+  ): Promise<DebugToolsOperationResultV1<TAuthoritativeReplayResult>>;
+  inspectReplayBestEffort(
+    bytes: Uint8Array,
+  ): Promise<DebugToolsOperationResultV1<TBestEffortReplayInspection>>;
+  queryDiagnostics(
+    query: DeepReadonly<TDiagnosticQuery>,
+  ): Promise<DebugToolsOperationResultV1<TDiagnosticQueryResult>>;
+}
 ```
 
-Task 9 会提供真实 DebugTools。当前 composition 注入一个完整、稳定的 capability-gated DebugTools port interface，其所有方法返回 capability_disabled；不得使用 undefined、optional field 或 throw new Error 作为临时行为。
+本任务冻结并公开完整 DebugTools ABI；Task 9 只提供真实实现。当前 composition 注入稳定的 capability-gated stub，八个方法均 resolve 精确 `{ kind: "capability_disabled" }`；不得使用空 fixture list、undefined、optional field、Promise rejection 或 throw new Error 伪装临时行为。Story-specific admitted-operation result 不包含 capability policy；权限拒绝留在 Base/Application 的 DebugToolsOperationResultV1 外层。
 
 确认 Phase 2 已删除 DeveloperApplicationPort、DeveloperControlPort 和 PlayerApplicationPort，且本任务不得重新引入。PlayerPersistencePort、PlayerWritableSaveSlotId 等表达低权限的子端口可以保留。engine/packages/web/package.json 不得新增 ./developer export。
 
@@ -417,16 +484,22 @@ pnpm verify:public-exports
 pnpm verify:boundaries
 pnpm typecheck
 pnpm build:e2e
+pnpm regenerate:fixtures
+pnpm update:golden
+git diff -- game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+shasum -a 256 game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+pnpm verify:fixtures
+pnpm verify:golden
 pnpm verify
 git diff --check
 ```
 
-Expected: 所有命令退出 0；一个 E2E application exposes semantic/lifecycle/persistence/diagnostics/capabilities/debugTools；capability default false；没有 Developer application export 或 build。
+Expected: 所有命令退出 0；一个 E2E application exposes semantic/lifecycle/persistence/diagnostics/capabilities/debugTools；capability default false；没有 Developer application export 或 build。显式 writers 只更新 fixture/golden 内的 engine provenance/digest，执行 agent 审查 exact bytes、size、SHA-256 和语义投影；普通 verifier/verify 保持只读。
 
 - [ ] **Step 6: Commit unified application capabilities**
 
 ```bash
-git add -- engine/packages/base/src/contracts/application.ts engine/packages/base/src/contracts/application.test.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/src/runtime/capabilities engine/packages/base/src/runtime/application engine/packages/base/src/runtime/index.ts engine/packages/base/type-tests/application.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/capabilities engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts engine/packages/web/src/index.ts engine/packages/web/type-tests/application-exports.test-d.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
+git add -- docs/engineering/specs/2026-07-12-game-runtime-design.md docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md engine/packages/base/src/contracts/application.ts engine/packages/base/src/contracts/application.test.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/src/runtime/capabilities engine/packages/base/src/runtime/application engine/packages/base/src/runtime/index.ts engine/packages/base/type-tests/application.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/capabilities engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts engine/packages/web/src/index.ts engine/packages/web/type-tests/application-exports.test-d.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/application/e2e-application-root.test.tsx game/stories/e2e/src/presentation/e2e-renderers.test.tsx game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts game/stories/e2e/src/runtime/headless-runner.test.ts game/stories/e2e/src/runtime/hotfix-integration.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(runtime): unify application capabilities"
 ```
@@ -1255,7 +1328,7 @@ git commit -m "feat(base): export bounded debug bundles"
 **Interfaces:**
 
 - Consumes: RuntimeCapabilityPort、GameSession FIFO、ResolvedGame.gameSimulation-owned debug command/error schemas plus validator/executor、RunIntegrity、CommandLog/replay、DebugBundle codec and StoryToolingEntry。
-- Produces: DebugToolsPortV1、createDebugToolsPortV1、fixture/debug bundle anchor and lazy same-artifact fixtures/notes/form-adapter resolution。`E2eDebugCommandV1` and all debug semantics were already produced by Phase 2 Gameplay，not by tooling。
+- Produces: createDebugToolsPortV1、fixture/debug bundle anchor and lazy same-artifact fixtures/notes/form-adapter resolution；consumes the Task 2-frozen DebugToolsPortV1 ABI。`E2eDebugCommandV1` and all debug semantics were already produced by Phase 2 Gameplay，not by tooling。
 
 - [ ] **Step 1: Write failing capability matrix and integrity tests**
 
@@ -1309,7 +1382,10 @@ it("loads the fixed tooling export only after DebugTools is enabled", async () =
   const fixture = createE2eGameRuntimeFixture();
   expect(fixture.toolingLoads()).toBe(0);
   await fixture.application.capabilities.setEnabled("debug_tools", true);
-  await fixture.application.debugTools.listFixtures();
+  await expect(fixture.application.debugTools.listFixtures()).resolves.toEqual({
+    kind: "listed",
+    fixtureIds: e2eFixtureIdsV1,
+  });
   expect(fixture.toolingLoads()).toBe(1);
   expect(fixture.loadedSpecifier()).toBe("@project-tavern/story-e2e/tooling");
 });
@@ -1330,29 +1406,11 @@ Expected: FAIL because real capability-gated DebugTools and Story adapters do no
 
 - [ ] **Step 4: Implement read-only and mutating authority separately**
 
-DebugToolsPort methods：
+Task 2 已冻结 DebugToolsPortV1、DebugToolsOperationResultV1 和 DebugFixtureListResultV1；本任务消费该 ABI，只实现 createDebugToolsPortV1。成功列表 resolve `{ kind: "listed", fixtureIds }`，关闭 capability resolve `{ kind: "capability_disabled" }`：
 
 ```ts
-interface DebugToolsPortV1<
-  TDebugCommand,
-  TDebugResult,
-  TFixtureId,
-  TAnchorResult,
-  TDebugInspection,
-  TAuthoritativeReplayResult,
-  TBestEffortReplayInspection,
-  TDiagnosticQuery,
-  TDiagnosticQueryResult,
-> {
-  listFixtures(): Promise<readonly TFixtureId[]>;
-  queryDiagnostics(query: DeepReadonly<TDiagnosticQuery>): Promise<TDiagnosticQueryResult>;
-  inspectDebugBundle(bytes: Uint8Array): Promise<TDebugInspection>;
-  inspectReplayBestEffort(bytes: Uint8Array): Promise<TBestEffortReplayInspection>;
-  replayAuthoritatively(bytes: Uint8Array): Promise<TAuthoritativeReplayResult>;
-  executeDebugCommand(command: DeepReadonly<TDebugCommand>): Promise<TDebugResult>;
-  anchorFixture(fixtureId: TFixtureId): Promise<TAnchorResult>;
-  anchorDebugBundle(bytes: Uint8Array): Promise<TAnchorResult>;
-}
+declare const listed: DebugFixtureListResultV1<FixtureId>;
+if (listed.kind === "listed") listed.fixtureIds;
 ```
 
 Read-only methods require debug_tools。execute/anchor methods require debug_tools + cheats。admission 顺序固定为：
