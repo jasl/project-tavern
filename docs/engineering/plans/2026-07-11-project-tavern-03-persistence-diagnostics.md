@@ -1913,15 +1913,16 @@ NODE
 shasum -a 256 game/stories/e2e/src/test/fixtures/runtime/*.json
 pnpm --filter @project-tavern/story-e2e verify:runtime-fixtures
 before="$(git status --porcelain=v1)"
-pnpm verify:persistence-diagnostics
+pnpm verify:runtime-fixtures
 pnpm verify
-pnpm verify:persistence-diagnostics
+pnpm verify:runtime-fixtures
+pnpm verify
 after="$(git status --porcelain=v1)"
 test "$before" = "$after"
 git diff --check
 ```
 
-Expected: explicit writer creates exactly ten payload files plus manifest；`git add -N` makes every new artifact visible to review without accepting its content；executing agent checks exact file set、manifest hashes/sizes、blocking and diagnostic provenance、normal/modified/classification matrix and records SHA-256 evidence；recovery residue is absent；all cumulative read-only gates exit 0 twice and status comparison passes。该技术 review 不等待人工批准。
+Expected: explicit writer creates exactly ten payload files plus manifest；`git add -N` makes every new artifact visible to review without accepting its content；executing agent checks exact file set、manifest hashes/sizes、blocking and diagnostic provenance、normal/modified/classification matrix and records SHA-256 evidence；recovery residue is absent；the task-local read-only fixture verifier and ordinary full verify exit 0 twice and status comparison passes。`verify:persistence-diagnostics` begins with the strict clean-tree materialization precondition, so its two cumulative runs occur only after the Task commit in Phase 3 Acceptance。该技术 review 不等待人工批准。
 
 - [ ] **Step 7: Commit runtime fixtures and gate**
 
