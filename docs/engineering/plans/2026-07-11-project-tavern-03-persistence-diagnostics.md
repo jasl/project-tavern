@@ -1874,13 +1874,13 @@ Exact package scripts：
     "verify:persistence-diagnostics": "node --experimental-strip-types scripts/verify-persistence-diagnostics.mts"
   },
   "engine/packages/base": {
-    "test:runtime": "pnpm --dir ../.. exec vitest run engine/packages/base/src/runtime"
+    "test:runtime": "pnpm --dir ../../.. exec vitest run engine/packages/base/src/runtime"
   },
   "engine/packages/web": {
-    "test:host": "pnpm --dir ../.. exec vitest run engine/packages/web/src/host engine/packages/web/src/capabilities engine/packages/web/src/application"
+    "test:host": "pnpm --dir ../../.. exec vitest run engine/packages/web/src/host engine/packages/web/src/capabilities engine/packages/web/src/application"
   },
   "game/stories/e2e": {
-    "test:runtime": "pnpm --dir ../.. exec vitest run game/stories/e2e/src/runtime game/stories/e2e/src/tooling",
+    "test:runtime": "pnpm --dir ../../.. exec vitest run game/stories/e2e/src/runtime game/stories/e2e/src/tooling",
     "regenerate:runtime-fixtures": "node --experimental-strip-types scripts/regenerate-runtime-fixtures.mts",
     "verify:runtime-fixtures": "node --experimental-strip-types scripts/verify-runtime-fixtures.mts"
   }
