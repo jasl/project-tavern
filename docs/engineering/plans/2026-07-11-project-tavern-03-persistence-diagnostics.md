@@ -286,7 +286,7 @@ git commit -m "feat(base): track run integrity in snapshots"
 **Interfaces:**
 
 - Consumes: Phase 2 SemanticGamePort、ReadonlyViewSource、Host settings records、lifecycle/persistence/diagnostics subports。
-- Produces: RuntimeCapabilityIdV1、RuntimeCapabilitiesV1、RuntimeCapabilityPortV1、DebugToolsOperationResultV1、DebugFixtureListResultV1、DebugToolsPortV1、GameApplicationPortV1、createRuntimeCapabilityPortV1 and generic async createGameRuntimeV1。
+- Produces: RuntimeCapabilityIdV1、RuntimeCapabilitiesV1、RuntimeCapabilityPortV1、DebugToolsOperationResultV1、DebugFixtureListResultV1、DebugToolsPortV1、GameApplicationPortV1、createRuntimeCapabilityPortV1、createGameApplicationV1、createCapabilityDisabledDebugToolsPortV1 and generic async createGameRuntimeV1。
 
 - [ ] **Step 1: Write failing defaults, persistence, and no-rebootstrap tests**
 
@@ -470,6 +470,8 @@ export interface DebugToolsPortV1<
 ```
 
 本任务冻结并公开完整 DebugTools ABI；Task 9 只提供真实实现。当前 composition 注入稳定的 capability-gated stub，八个方法均 resolve 精确 `{ kind: "capability_disabled" }`；不得使用空 fixture list、undefined、optional field、Promise rejection 或 throw new Error 伪装临时行为。Story-specific admitted-operation result 不包含 capability policy；权限拒绝留在 Base/Application 的 DebugToolsOperationResultV1 外层。
+
+Base runtime 的 createGameApplicationV1 是纯六端口组合 factory：返回冻结外壳并保持每个注入端口的引用，不解析 Story、不创建 Session、不提供 optional/default field。createCapabilityDisabledDebugToolsPortV1 返回泛型完整 stub，并让八个方法共享同一个冻结的 capability_disabled result。两个 value 只从 `@sillymaker/base/runtime` 导出并进入 reviewed runtime inventory；Base root 保持 type/contract surface，Web 不跨包导入 `src/**`。
 
 确认 Phase 2 已删除 DeveloperApplicationPort、DeveloperControlPort 和 PlayerApplicationPort，且本任务不得重新引入。PlayerPersistencePort、PlayerWritableSaveSlotId 等表达低权限的子端口可以保留。engine/packages/web/package.json 不得新增 ./developer export。
 
