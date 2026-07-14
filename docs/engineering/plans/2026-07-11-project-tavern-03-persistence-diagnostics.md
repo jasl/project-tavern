@@ -1129,6 +1129,7 @@ git commit -m "feat(runtime): persist and recover game sessions"
 - Modify: engine/packages/base/src/runtime/index.ts
 - Modify: engine/packages/base/public-exports.v1.json
 - Create: game/stories/e2e/src/runtime/diagnostics-replay.test.ts
+- Modify: game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts
 - Modify: game/stories/e2e/fixtures/session-zero.json
 - Modify: game/stories/e2e/golden/semantic-flow.json
 - Test: engine/packages/base/src/runtime/diagnostics/command-log.test.ts
@@ -1188,6 +1189,8 @@ logOrdinal increments for committed/rejected/faulted because commandSequence may
 
 establishAnchor replaces replay base、clears public/internal entries and resets ordinal 1。Successful load/import/adoption/lifecycle/fixture/debug bundle anchors call it；failed anchors preserve log。
 
+`preserve_log` 只允许 replacement 保持当前 Snapshot 的同一对象引用；任何未记录但改变 Snapshot 的测试 setup 或权威 replacement 都必须使用 `replace_replay_base`，否则 replay base/log/current continuity 无法成立。
+
 - [ ] **Step 5: Implement isolated replay**
 
 Authoritative replay verifies blocking identity first，then submits each logged parsed GameCommand/DebugCommand to the matching executor in an isolated GameSession and compares outputs。It never replays Semantic invocation，never anchors live Session or writes Save。Best-effort inspection returns authoritative false and stays read-only。
@@ -1200,7 +1203,7 @@ Run:
 
 ```bash
 pnpm --filter @sillymaker/base exec vitest run src/runtime/diagnostics src/runtime/session/game-session.test.ts src/runtime/persistence/persistence-service.test.ts
-pnpm --filter @project-tavern/story-e2e exec vitest run src/runtime/diagnostics-replay.test.ts
+pnpm --filter @project-tavern/story-e2e exec vitest run src/runtime/diagnostics-replay.test.ts src/runtime/e2e-semantic-game-port.test.ts
 pnpm verify:public-exports
 pnpm regenerate:fixtures
 pnpm update:golden
@@ -1213,12 +1216,12 @@ pnpm verify
 git diff --check
 ```
 
-Expected: all commands exit 0；201-entry replay exact；recorded Facts never applied；anchor resets log and preserves replacement integrity。显式 writers 只更新 fixture/golden 内因新 diagnostics public closure 产生的 engine provenance/digest；执行 agent 审查 exact bytes、size、SHA-256 和不变的 Snapshot/Facts/RNG/Story/simulation/presentation 语义，普通 verifier/verify 保持只读。
+Expected: all commands exit 0；201-entry replay exact；recorded Facts never applied；anchor resets log and preserves replacement integrity；`preserve_log` 不能产生未记录的 Snapshot replacement。显式 writers 只更新 fixture/golden 内因新 diagnostics public closure 产生的 engine provenance/digest；执行 agent 审查 exact bytes、size、SHA-256 和不变的 Snapshot/Facts/RNG/Story/simulation/presentation 语义，普通 verifier/verify 保持只读。
 
 - [ ] **Step 7: Commit CommandLog and replay**
 
 ```bash
-git add -- engine/packages/base/src/runtime/diagnostics engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/runtime/diagnostics-replay.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+git add -- engine/packages/base/src/runtime/diagnostics engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json game/stories/e2e/src/runtime/diagnostics-replay.test.ts game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(base): replay bounded game commands"
 ```
