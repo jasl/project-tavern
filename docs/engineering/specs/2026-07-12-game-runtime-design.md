@@ -233,6 +233,8 @@ interface GameSimulationV1<
 
 `GameCommandExecutor` 不提供 `createQueries`。GameSimulation 的 query factory 只接收 Gameplay State，projector 只接收已经创建的 Queries；Application 从 Snapshot 中取 `.state`，因此这两条 Story-owned 路径在类型和运行时都拿不到 RunIntegrity/RNG/sequence。Replayable DebugCommand 的 strict Schema、queue-front `validate`、owner proposal mapping 和 attempt semantics 由同一 Story/GameSimulation 的 `GameDebugCommandExecutor` 拥有，并进入 `simulationDigest`。Generic DebugTools 在 FIFO 队首先调用 `validate`；只有 `allowed` 才恰好调用一次 `executeAttempt`，而 `validation_failed` 不创建 attempt、不进入 CommandLog。Debug executor 不标记 RunIntegrity，GameSession 只在其 committed result 外层原子标记；被允许的 attempt 只能 committed 或 faulted，返回 rejected 属于 engine contract fault。Fixture/DebugBundle anchor 不是 replayable DebugCommand，不进入该 executor。具体执行顺序、Effect routing、Rules 和 Resolvers 由 Story 的 executor 实现。
 
+`createInitialState` 在 Session 时只接收 bootstrap entropy/identity，不把 Story Program 扩大成第二个 bootstrap 输入。若 post-Hotfix Simulation Program 含有一个 stateful Module 的初始值，`createGameSimulation(program)` 必须在 ResolvedGame 冻结前从已严格解析、深冻结的 owner-only 初始 Slice 构造该 binding 实例。Module 的类型、ID、数量、顺序、descriptor 和 State Slots 仍是静态封闭的；不得把完整 Program、可变全局、时间或随机能力捕获进单个 Module。Aggregate initializer 必须从 GameSimulation 中的同一 binding tuple 调用各 `createInitialState(bootstrap)` 并组装 State；不得先使用一组无 Program 的 singleton 初态，再以 sequence-zero owner proposal 改写。Base 会将 aggregate 中每个 owner Slice 与对应 Module 初态做 Canonical JSON byte equality，并在初始 State 创建时拒绝任何偏离。
+
 ### 6.3 原子事务
 
 一次命令：

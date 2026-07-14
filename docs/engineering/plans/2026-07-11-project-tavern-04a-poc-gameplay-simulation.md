@@ -14,6 +14,7 @@
 - The package is `@project-tavern/story-poc` at `game/stories/poc`. There is no Sandbox, separate preview Story, or shared gameplay package.
 - PoC Gameplay code may import only public Base contracts plus files inside `game/stories/poc/src/gameplay`; it must not import React, DOM, Web Host, Story presentation, application, tooling, `game/stories/e2e`, `references/`, or AIGC source archives.
 - Implement exactly ten stateful module bindings: Run, Calendar, Actors, Status, Inventory, Facilities, Tavern, Workflow, Progression, and Narrative. Demand, Settlement, Check, Ending, and Scheduling are Rules/Resolvers, not GameplayModules.
+- The ten-module graph is static in type, ID, count, order, descriptor, dependencies, and State Slots. `createPocGameplayModuleTupleV1(program)` may instantiate the fixed bindings once inside `createPocGameSimulationV1(program)`: Actors, Status, Inventory, Tavern, and Progression each close only their own strictly parsed, deeply frozen post-Hotfix initial State Slice; Run, Calendar, Facilities, Workflow, and Narrative remain data-independent bindings. The exact same tuple is passed to the candidate, normal/debug executors, and aggregate initializer. No path may rebuild an equivalent tuple, capture the complete Program in one Module, or apply sequence-zero initialization proposals after module initialization.
 - `PocGameCommandExecutorV1.executeAttempt` is the only normal Gameplay cross-owner execution entry. `PocGameDebugCommandExecutorV1.validate/executeAttempt` is the only replayable-debug cross-owner path. Neither executor exposes `createQueries`; `PocGameQueriesV1` is created separately by GameSimulation.
 - `PocDebugCommandV1` is the closed, PoC-prefixed specialization of the Contract Catalog's ten-kind `ReplayableDebugCommandV1`. It must not contain `debug.fixture.load`; fixture and DebugBundle anchoring remain Phase 4B tooling operations outside `GameSimulation` and outside replayable CommandLog entries.
 - The strict debug command/error schemas, queue-front semantic validation, owner proposal mapping, and replayable attempt semantics are owned by `PocGameSimulationV1`. Their implementation/source identity enters `simulationDigest`; tooling may only construct a declared command and may not replace these semantics.
@@ -65,6 +66,7 @@ game/stories/poc/
         module-catalog.ts             # ten module descriptors, slots, owners, order
         define-poc-gameplay-module.ts # one curried type witness for every binding
       modules/
+        index.ts                       # fixed program-bound ten-binding tuple composition
         run/{contract,module}.ts
         calendar/{contract,module}.ts
         actors/{contract,module}.ts
@@ -554,13 +556,13 @@ git commit -m "feat(story-poc): add run and calendar modules"
 
 **Interfaces:**
 
-- Consumes: Actors/Relationship/Aura types, exact range parsers, `PocGameplayFactV1`, authored Aura definitions, and Task 1 module helpers.
-- Produces: `pocActorsGameplayModuleV1`, `pocStatusGameplayModuleV1`, actor/status read ports, owner operations/proposals, lifecycle invariants, and facts.
+- Consumes: Actors/Relationship/Aura types, exact range parsers, `PocGameplayFactV1`, authored Aura definitions, the strictly parsed owner-specific initial Actors/Status slices, and Task 1 module helpers.
+- Produces: `PocActorsGameplayModuleV1`, `createPocActorsGameplayModuleV1(initialState)`, `PocStatusGameplayModuleV1`, `createPocStatusGameplayModuleV1(initialState)`, actor/status read ports, owner operations/proposals, lifecycle invariants, and facts.
 
 - [ ] **Step 1: Write failing clamps, fixed-stage, and Aura lifecycle tests**
 
 ```ts
-it("clamps relationship counters while preserving the PoC's fixed cold stage", () => {
+it("saturates relationship counters in their declared domains while preserving the fixed stage", () => {
   const current = createPocGameplayFixtureV1().snapshot.state.simulation.actors;
   const proposal = requireProposedV1(
     proposeActorsOperationV1(current, {
@@ -571,7 +573,7 @@ it("clamps relationship counters while preserving the PoC's fixed cold stage", (
     }),
   );
   const next = applyActorsProposalV1(current, proposal);
-  expect(next.relationship.affection).toBe(-100);
+  expect(next.relationship.affection).toBe(-200);
   expect(next.relationship.teamwork).toBe(3);
   expect(next.relationship.stage).toBe("cold");
 });
@@ -582,13 +584,14 @@ it("preserves stamina components and mood reasons in owner facts", () => {
     proposeActorsOperationV1(current, {
       kind: "actors.adjust_stamina",
       actorId: parseActorId("actor.player"),
+      application: "debit",
       components: [
         { requestedDelta: -2, reason: fixtureReasonV1("reason.fixture.action") },
         { requestedDelta: 1, reason: fixtureReasonV1("reason.fixture.aura") },
       ],
     }),
   );
-  expect(stamina.gameplayFacts).toContainEqual(
+  expect(stamina.facts).toContainEqual(
     expect.objectContaining({
       kind: "actor.stamina_changed",
       components: [
@@ -606,7 +609,7 @@ it("preserves stamina components and mood reasons in owner facts", () => {
       reason: moodReason,
     }),
   );
-  expect(mood.gameplayFacts).toContainEqual(
+  expect(mood.facts).toContainEqual(
     expect.objectContaining({ kind: "actor.mood_changed", reason: moodReason }),
   );
 });
@@ -654,6 +657,7 @@ export type PocActorsOwnerOperationV1 =
   | {
       readonly kind: "actors.adjust_stamina";
       readonly actorId: ActorId;
+      readonly application: "debit" | "recovery";
       readonly components: readonly [StaminaChangeComponentV1, ...StaminaChangeComponentV1[]];
     }
   | {
@@ -694,7 +698,11 @@ export type PocActorsOwnerOperationV1 =
     };
 
 export type PocStatusOwnerOperationV1 =
-  | { readonly kind: "status.apply"; readonly aura: AuraInstanceV1 }
+  | {
+      readonly kind: "status.apply";
+      readonly aura: AuraInstanceV1;
+      readonly reason: ChangeReasonV1;
+    }
   | {
       readonly kind: "status.clear";
       readonly auraId: AuraId;
@@ -718,7 +726,9 @@ export type PocStatusOwnerOperationV1 =
     };
 ```
 
-The actors owner applies stamina/mood/relationship changes and appends matching change history once. Stamina sums the ordered non-empty `components`, clamps once, and emits that exact component list in `actor.stamina_changed`; mood carries the derived `ChangeReasonV1` into `actor.mood_changed`. Numeric relationship adjustments clamp affection/teamwork but preserve the existing `stage`; there is no relationship-transition Rule or derived-stage table. The closed Catalog ABI still requires a normal `actors.relationship.stage.set` owner operation so Task 9 can exhaustively route the explicit `relationship.stage.set` EffectIntent, and replayable Debug has its separate absolute set operation. Both validate the complete Catalog `RelationshipStage` union. The concrete seven-day Story authors no normal stage-set effect, starts at `cold`, and therefore remains exactly `cold` throughout ordinary play. The status owner enforces uniqueness, target applicability, exact authored source identity, and only the Catalog's `countdown { unit, remaining } | until_cleared` duration forms; there is no calendar `expiresAt`, condition expiry, or generic fixed-duration policy. The executor supplies the exact applicable instance IDs at `phase_end`, `day_end`, successful applicable `opening`, or `night_recovery`: opening countdowns decrement only after a successful settlement that actually used the Aura, and night-recovery countdowns decrement only after their recovery modifier was collected. A rejected or faulted outer transaction rolls all countdown changes back. Debug-prefixed owner operations remain inaccessible to the normal executor and still pass the same range, reference, duration-policy, and local-invariant checks. An angry Aura remains independent of mood, affection, teamwork, and relationship stage.
+The actors owner applies stamina/mood/relationship changes and appends matching change history once. Stamina preserves the ordered non-empty `components` exactly. `application="debit"` sums them in authored order and rejects `actor.insufficient_stamina` when `before + sum < 0`; it never turns an unaffordable debit into a lower-clamped success. `application="recovery"` computes `effectiveRecovery = max(0, sum)` and then clamps once to `maximum`. Both forms emit the exact component list in `actor.stamina_changed`; mood carries the derived `ChangeReasonV1` into `actor.mood_changed`. Numeric relationship adjustments saturate affection at the declared SafeInteger limits and teamwork at `0..Number.MAX_SAFE_INTEGER`, while preserving the existing `stage`; tests cover both safe-integer ends and the teamwork zero floor, and there is no hidden `-100..100` scale, relationship-transition Rule, or derived-stage table. The closed Catalog ABI still requires a normal `actors.relationship.stage.set` owner operation so Task 9 can exhaustively route the explicit `relationship.stage.set` EffectIntent, and replayable Debug has its separate absolute set operation. Both validate the complete Catalog `RelationshipStage` union. The concrete seven-day Story authors no normal stage-set effect, starts at `cold`, and therefore remains exactly `cold` throughout ordinary play.
+
+`createPocActorsGameplayModuleV1(initialState)` and `createPocStatusGameplayModuleV1(initialState)` strictly parse, deep-freeze, and close only their corresponding owner Slice; their `createInitialState(bootstrap)` returns that owner value without reading any other Program field. The status owner enforces uniqueness, target applicability, exact authored source identity, and only the Catalog's `countdown { unit, remaining } | until_cleared` duration forms; there is no calendar `expiresAt`, condition expiry, or generic fixed-duration policy. `status.apply.reason` is the complete derived `ChangeReasonV1` used verbatim by `aura.applied`; expiry/clear facts likewise carry their exact producing reason. The executor supplies the exact applicable instance IDs at `phase_end`, `day_end`, successful applicable `opening`, or `night_recovery`: opening countdowns decrement only after a successful settlement that actually used the Aura, and night-recovery countdowns decrement only after their recovery modifier was collected. A rejected or faulted outer transaction rolls all countdown changes back. Debug-prefixed owner operations remain inaccessible to the normal executor and still pass the same range, reference, duration-policy, and local-invariant checks. An angry Aura remains independent of mood, affection, teamwork, and relationship stage.
 
 - [ ] **Step 4: Run focused, property, and full checks**
 
@@ -744,8 +754,8 @@ git commit -m "feat(story-poc): add actors and status modules"
 
 **Interfaces:**
 
-- Consumes: Inventory/batch/item/ledger types, Money/Quantity parsers, ingredient definitions, authored reasons, and owner contracts.
-- Produces: `pocInventoryGameplayModuleV1`, FIFO consume/spoil/grant/purchase/ledger operations, `PocInventoryReadPortV1`, strict proposals, and cash/valuation invariants.
+- Consumes: Inventory/batch/item/ledger types, Money/Quantity parsers, ingredient definitions, authored reasons, the strictly parsed owner-specific initial Inventory slice, and owner contracts.
+- Produces: `PocInventoryGameplayModuleV1`, `createPocInventoryGameplayModuleV1(initialState)`, FIFO consume/spoil/grant/purchase/ledger operations, `PocInventoryReadPortV1`, strict proposals, and cash/valuation invariants.
 
 - [ ] **Step 1: Write failing FIFO and ledger conservation tests**
 
@@ -837,7 +847,7 @@ export type PocInventoryOwnerOperationV1 =
     };
 ```
 
-The proposal materializes `ingredientBatches`, batch-consumption slices, and ledger entries atomically. `inventory.debug.adjust_cash` creates the same authoritative ledger evidence as any other cash change and rejects a negative or unsafe resulting balance. `cash` must always equal `startingCash + sum(ledger.cashDelta)`; quantity/value conservation, unique batch/ledger IDs, expiry ordering, and exact reason/source references are local invariants. Cold-storage extension is not an Inventory self-trigger: Task 10's `facility.choose` transaction supplies the affected batch IDs after the Facilities owner accepts the build, and Inventory marks each existing batch `refrigerationExtended=true` while extending `lastUsableDay` exactly once; future refrigeratable purchase/grant batches use the same facility read-port input.
+`createPocInventoryGameplayModuleV1(initialState)` strictly parses, deep-freezes, and closes only the complete Inventory owner Slice, including `startingCash === cash` and an empty initial ledger; its bootstrap initializer reads no other Program field. The proposal materializes `ingredientBatches`, batch-consumption slices, and ledger entries atomically. `inventory.debug.adjust_cash` creates the same authoritative ledger evidence as any other cash change and rejects a negative or unsafe resulting balance. `cash` must always equal `startingCash + sum(ledger.cashDelta)`; quantity/value conservation, unique batch/ledger IDs, expiry ordering, and exact reason/source references are local invariants. Cold-storage extension is not an Inventory self-trigger: Task 10's `facility.choose` transaction supplies the affected batch IDs after the Facilities owner accepts the build, and Inventory marks each existing batch `refrigerationExtended=true` while extending `lastUsableDay` exactly once; future refrigeratable purchase/grant batches use the same facility read-port input.
 
 - [ ] **Step 4: Run FIFO, property, and repository tests**
 
@@ -865,8 +875,8 @@ git commit -m "feat(story-poc): add inventory ledger module"
 
 **Interfaces:**
 
-- Consumes: facility opportunity/build types, Tavern plan/demand/opening/history types, strict stable IDs, and module owner helpers.
-- Produces: `pocFacilitiesGameplayModuleV1`, `pocTavernGameplayModuleV1`, exact opportunity/plan/demand/opening/history operations, read ports, proposals, and invariants.
+- Consumes: facility opportunity/build types, Tavern plan/demand/opening/history types, strict stable IDs, the strictly parsed owner-specific initial Tavern slice, and module owner helpers.
+- Produces: static `pocFacilitiesGameplayModuleV1`, `PocTavernGameplayModuleV1`, `createPocTavernGameplayModuleV1(initialState)`, exact opportunity/plan/demand/opening/history operations, read ports, proposals, and invariants.
 
 - [ ] **Step 1: Write failing facility and Tavern lifecycle tests**
 
@@ -918,7 +928,7 @@ Expected: FAIL because Facilities and Tavern bindings do not exist.
 
 - [ ] **Step 3: Implement exact owner operations**
 
-Facilities owns only the `built` and `decisions` arrays: opportunity publication remains authored Story content, and an accepted build/skip proposal records exactly one `FacilityDecisionRecordV1` plus an optional `FacilityStateV1`. Tavern owns only reputation, unlocked recipes, complete helper state, daily preparation, `servicePlan`, `demandSeeds`, `currentDemand`, and append-only `serviceHistory`. `OpeningSessionV1` and its immutable baseline never enter Tavern State; Task 6's Workflow owner holds them. Starting/finalizing an Opening consumes executor-prepared validated DTOs and coordinates Tavern/Workflow with the other owners; Tavern never reads Inventory, Actors, Calendar, or Rules directly.
+Facilities owns only the `built` and `decisions` arrays and keeps its fixed empty initializer: opportunity publication remains authored Story content, and an accepted build/skip proposal records exactly one `FacilityDecisionRecordV1` plus an optional `FacilityStateV1`. `createPocTavernGameplayModuleV1(initialState)` strictly parses, deep-freezes, and closes only the complete Tavern owner Slice. Tavern owns only reputation, unlocked recipes, complete helper state, daily preparation, `servicePlan`, `demandSeeds`, `currentDemand`, and append-only `serviceHistory`. `OpeningSessionV1` and its immutable baseline never enter Tavern State; Task 6's Workflow owner holds them. Starting/finalizing an Opening consumes executor-prepared validated DTOs and coordinates Tavern/Workflow with the other owners; Tavern never reads Inventory, Actors, Calendar, or Rules directly.
 
 ```ts
 export type PocTavernOwnerOperationV1 =
@@ -973,8 +983,8 @@ git commit -m "feat(story-poc): add facilities and tavern modules"
 
 **Interfaces:**
 
-- Consumes: active Workflow, WorldAction progress, Fact/Quest/Outcome/ResolvedCheck, Modifier, and Effect types.
-- Produces: `pocWorkflowGameplayModuleV1`, `pocProgressionGameplayModuleV1`, owner-local state machines, read ports, proposals, stable facts, and invariants.
+- Consumes: active Workflow, WorldAction progress, Fact/Quest/Outcome/ResolvedCheck, Modifier and Effect types, plus the strictly parsed owner-specific initial Progression slice.
+- Produces: static `pocWorkflowGameplayModuleV1`, `PocProgressionGameplayModuleV1`, `createPocProgressionGameplayModuleV1(initialState)`, owner-local state machines, read ports, proposals, stable facts, and invariants.
 
 - [ ] **Step 1: Write failing workflow and idempotency tests**
 
@@ -1034,7 +1044,7 @@ Expected: FAIL with unresolved module imports.
 
 - [ ] **Step 3: Implement closed state machines and stable references**
 
-Workflow owns the nullable `activeWorkflow` slice and therefore exactly one complete `OpeningSessionV1` or `WorldActionSessionV1` at a time. Opening uses only `started | middle | before_finalize | ready_to_finalize`; WorldAction uses only `begin_scene | awaiting_completion_phase | completion_scene | ready_to_complete`. Opening-session modifiers live only on the active Opening. Progression owns the definition-backed facts, quests, outcomes, and append-only resolved checks; it validates every authored reference/value, permits every declared Fact/Quest/Outcome replacement, and prevents duplicate CheckId resolution while enforcing the Catalog's resolved-check ordering/formula invariants. It does not invent terminal metadata for Fact, Quest, or Outcome definitions.
+Workflow owns the nullable `activeWorkflow` slice, keeps its fixed null initializer, and therefore permits exactly one complete `OpeningSessionV1` or `WorldActionSessionV1` at a time. Opening uses only `started | middle | before_finalize | ready_to_finalize`; WorldAction uses only `begin_scene | awaiting_completion_phase | completion_scene | ready_to_complete`. Opening-session modifiers live only on the active Opening. `createPocProgressionGameplayModuleV1(initialState)` strictly parses, deep-freezes, and closes only the complete Progression owner Slice. Progression owns the definition-backed facts, quests, outcomes, and append-only resolved checks; it validates every authored reference/value, permits every declared Fact/Quest/Outcome replacement, and prevents duplicate CheckId resolution while enforcing the Catalog's resolved-check ordering/formula invariants. It does not invent terminal metadata for Fact, Quest, or Outcome definitions.
 
 ```ts
 export type PocProgressionOwnerOperationV1 =
@@ -1346,6 +1356,7 @@ git commit -m "feat(story-poc): add gameplay rules and resolvers"
 
 **Files:**
 
+- Create: `game/stories/poc/src/gameplay/modules/index.ts`
 - Create: `game/stories/poc/src/gameplay/transaction/candidate.ts`
 - Create: `game/stories/poc/src/gameplay/transaction/effect-router.ts`
 - Create: `game/stories/poc/src/test/transaction.test.ts`
@@ -1353,8 +1364,8 @@ git commit -m "feat(story-poc): add gameplay rules and resolvers"
 
 **Interfaces:**
 
-- Consumes: ten module bindings, `PocEffectIntentV1`, owner operations/proposals, transactional RNG, aggregate State schema, and stable reference validators.
-- Produces: `PocTransactionCandidateV1`, `createPocTransactionCandidateV1`, `routePocEffectBatchV1`, exact effect-owner table, ordered GameplayFact/ledger accumulation, `commitPocCandidateV1`, and rollback diagnostics.
+- Consumes: all ten module exports, the five owner-specific initial slices from the frozen `PocSimulationProgramV1`, `PocEffectIntentV1`, owner operations/proposals, transactional RNG, aggregate State schema, and stable reference validators.
+- Produces: `PocGameplayModuleTupleV1`, `createPocGameplayModuleTupleV1(program)`, `PocTransactionCandidateV1`, `createPocTransactionCandidateV1(snapshot, program, modules)`, `routePocEffectBatchV1`, exact effect-owner table, ordered GameplayFact/ledger accumulation, `commitPocCandidateV1`, and rollback diagnostics.
 
 - [ ] **Step 1: Write failing atomicity and exhaustive-owner tests**
 
@@ -1365,7 +1376,8 @@ it("maps every effect kind to exactly one owner", () => {
 
 it("rolls back an earlier valid effect when a later effect rejects", () => {
   const fixture = createPocGameplayFixtureV1();
-  const candidate = createPocTransactionCandidateV1(fixture.snapshot, fixture.program);
+  const modules = createPocGameplayModuleTupleV1(fixture.program);
+  const candidate = createPocTransactionCandidateV1(fixture.snapshot, fixture.program, modules);
   const result = routePocEffectBatchV1(candidate, [
     {
       kind: "calendar.ap.adjust",
@@ -1404,6 +1416,8 @@ export function routePocEffectBatchV1(
 ): PocEffectBatchResultV1;
 ```
 
+`createPocGameplayModuleTupleV1(program)` creates the fixed tuple in catalog order. Actors, Status, Inventory, Tavern, and Progression factories each receive only their validated owner Slice projected from `program.data`; Run, Calendar, Facilities, Workflow, and Narrative reuse their static bindings. Tests prove two Programs retain identical descriptors/order while their corresponding initial owner values differ without cross-instance leakage. The candidate accepts this exact selected tuple rather than importing singletons or rebuilding an equivalent tuple.
+
 The candidate clones State/RNG once, retains RunIntegrity only as an opaque reference for the final envelope, exposes only owner-scoped internal methods, applies effects in authored order, validates source/reference before semantic proposal, derives the appropriate `ChangeReasonV1` from each exact `reasonId` plus the active command/event/action provenance, accumulates facts once, and commits only after complete aggregate schema/invariant validation. Effect payloads remain the Catalog's exact union: `calendar.ap.adjust` carries `reasonId`, `inventory.consume` carries only `lines + reasonId`, grants use their declared source type, and no effect substitutes an owner-internal `ChangeReasonV1` or unrelated Modifier source. It never passes integrity to a Rule, Resolver, owner, Query, or projector, and normal Gameplay can only reattach the exact input reference. No candidate or owner capability is exported from the Story default entry, GameSimulation, GameQueries, SemanticGamePort, or UI.
 
 - [ ] **Step 4: Run transaction and property checks**
@@ -1415,7 +1429,7 @@ Expected: PASS; all effect kinds are exhaustive, later failure rolls back all pr
 - [ ] **Step 5: Commit the transaction layer**
 
 ```bash
-git add -- game/stories/poc/src/gameplay/transaction game/stories/poc/src/test/transaction.test.ts game/stories/poc/src/gameplay/index.ts
+git add -- game/stories/poc/src/gameplay/modules/index.ts game/stories/poc/src/gameplay/transaction game/stories/poc/src/test/transaction.test.ts game/stories/poc/src/gameplay/index.ts
 git commit -m "feat(story-poc): add atomic effect transactions"
 ```
 
@@ -1432,14 +1446,15 @@ git commit -m "feat(story-poc): add atomic effect transactions"
 **Interfaces:**
 
 - Consumes: transaction candidate/router, ten module bindings, Rules/Resolvers, `PocGameCommandV1`, execution-attempt envelopes, and aggregate invariants.
-- Produces: `PocGameCommandExecutorV1`, `createPocGameCommandExecutorV1(program)`, and complete handling for `run.start`, `policy.choose`, `inventory.buy`, `actor.prepare_food`, `actor.rest`, `story.action.start`, `facility.choose`, `tavern.plan.set`, `narrative.advance`, `narrative.choose`, and `calendar.advance_phase`.
+- Produces: `PocGameCommandExecutorV1`, `createPocGameCommandExecutorV1(program, modules)`, and complete handling for `run.start`, `policy.choose`, `inventory.buy`, `actor.prepare_food`, `actor.rest`, `story.action.start`, `facility.choose`, `tavern.plan.set`, `narrative.advance`, `narrative.choose`, and `calendar.advance_phase`.
 
 - [ ] **Step 1: Write failing same-attempt and core-command tests**
 
 ```ts
 it("executes each admitted command exactly once and commits one sequence", () => {
   const fixture = createPocGameplayFixtureV1();
-  const executor = createPocGameCommandExecutorV1(fixture.program);
+  const modules = createPocGameplayModuleTupleV1(fixture.program);
+  const executor = createPocGameCommandExecutorV1(fixture.program, modules);
   const attempt = executor.executeAttempt(fixture.snapshot, { kind: "run.start" }, undefined);
   expect(attempt.result).toMatchObject({ kind: "committed" });
   if (attempt.result.kind === "committed") {
@@ -1451,7 +1466,8 @@ it("executes each admitted command exactly once and commits one sequence", () =>
 
 it("preserves the exact input Snapshot for rejection", () => {
   const fixture = createPocGameplayFixtureV1();
-  const executor = createPocGameCommandExecutorV1(fixture.program);
+  const modules = createPocGameplayModuleTupleV1(fixture.program);
+  const executor = createPocGameCommandExecutorV1(fixture.program, modules);
   const attempt = executor.executeAttempt(
     fixture.snapshot,
     { kind: "policy.choose", policyId: parsePolicyId("policy.fixture") },
@@ -1465,7 +1481,8 @@ it("preserves the exact input Snapshot for rejection", () => {
 
 it("treats modified RunIntegrity as opaque during normal gameplay", () => {
   const fixture = createPocGameplayFixtureV1({ integrity: "modified" });
-  const executor = createPocGameCommandExecutorV1(fixture.program);
+  const modules = createPocGameplayModuleTupleV1(fixture.program);
+  const executor = createPocGameCommandExecutorV1(fixture.program, modules);
   const attempt = executor.executeAttempt(fixture.snapshot, { kind: "actor.rest" }, undefined);
   expect(attempt.result.kind).toBe("committed");
   if (attempt.result.kind === "committed") {
@@ -1492,18 +1509,19 @@ export interface PocGameCommandExecutorV1 extends GameCommandExecutorV1<
 
 export function createPocGameCommandExecutorV1(
   program: DeepReadonly<PocSimulationProgramV1>,
+  modules: PocGameplayModuleTupleV1,
 ): PocGameCommandExecutorV1 {
   return Object.freeze({
     executeAttempt(snapshot, command, context) {
       if (context !== undefined) throw new TypeError("PoC execution context must be undefined");
       const parsed = pocGameCommandSchemaV1.parse(command);
-      return executePocCommandAttemptV1(snapshot, parsed, program);
+      return executePocCommandAttemptV1(snapshot, parsed, program, modules);
     },
   });
 }
 ```
 
-Implement the eleven named command handlers through the candidate. `run.start` consumes the exact demand RNG draws once, asks Tavern to persist all demand seeds plus D1 `currentDemand`, keeps Run in `setup`, and opens the manifest Narrative; only the later policy selection activates Run. `facility.choose` coordinates the Facilities decision, Inventory facility ledger/cash change, and one-time cold-storage extension of existing batches without letting either owner write the other. Narrative effects route atomically.
+Implement the eleven named command handlers through the candidate and pass the exact constructor-supplied `modules` tuple into every candidate; the executor never creates or imports a second tuple. `run.start` consumes the exact demand RNG draws once, asks Tavern to persist all demand seeds plus D1 `currentDemand`, keeps Run in `setup`, and opens the manifest Narrative; only the later policy selection activates Run. `facility.choose` coordinates the Facilities decision, Inventory facility ledger/cash change, and one-time cold-storage extension of existing batches without letting either owner write the other. Narrative effects route atomically.
 
 `calendar.advance_phase` follows the authoritative boundary order rather than one generic expiry pass. Every transition first validates blockers and applies old-phase direct effects, then the executor selects only the applicable `phase_end` countdown instances. Entering evening materializes planned closure or the exact emergency closure when required. Evening-to-next-morning additionally resolves an unstarted non-closed plan as emergency closure (or rejects an active Opening), spoils remaining ingredients, applies `phase_end`, then `day_end`, collects recovery while `night_recovery` Auras are still active and only then decrements them, clears the old plan, advances day/phase/AP, resets daily preparation, materializes the next service-day demand, resets `eveningResolved`, and finally evaluates `day.ended`/`week.ended`/`phase.entered` Scheduler contexts against their frozen post-transition observations. GameplayFacts preserve mutation/causal order and are never regrouped by kind or ID. Preview logic is not duplicated here; Task 12 builds it from the same guards, calculators, Rules, and resolvers.
 
@@ -1622,8 +1640,8 @@ git commit -m "feat(story-poc): complete workflow transactions"
 
 **Interfaces:**
 
-- Consumes: all ten module bindings, complete State/Command/Fact/Rejection/replayable-Debug schemas, normal executor, transaction candidate, post-Hotfix `program.rules`, Rules/Resolvers, Base `BootstrapEntropyV1`, `GameDebugCommandExecutorV1`, `defineGameSimulation<PocGameSimulationTypesV1>()`, and test-only `createGameSessionV1` from `@sillymaker/base/runtime`.
-- Produces: fixed `pocGameplayModuleTupleV1`, `createPocGameBootstrapInputV1(entropy)`, `createInitialPocGameStateV1(program, bootstrap)`, `PocGameDebugCommandExecutorV1`, `createPocGameDebugCommandExecutorV1(program)`, `createPocGameQueriesV1(state, program)`, `projectPocGameViewV1(queries)`, `createPocGameSimulationV1(program)`, exact `PocGameQueriesV1`, `PocGameViewV1`, `PocGameSimulationV1`, and real-session integrity-preservation tests.
+- Consumes: `PocGameplayModuleTupleV1` and `createPocGameplayModuleTupleV1(program)`, complete State/Command/Fact/Rejection/replayable-Debug schemas, normal executor, transaction candidate, post-Hotfix `program.rules`, Rules/Resolvers, Base `BootstrapEntropyV1`, `GameDebugCommandExecutorV1`, `defineGameSimulation<PocGameSimulationTypesV1>()`, and test-only `createGameSessionV1` from `@sillymaker/base/runtime`.
+- Produces: `createPocGameBootstrapInputV1(entropy)`, `createInitialPocGameStateV1(modules, bootstrap)`, `PocGameDebugCommandExecutorV1`, `createPocGameDebugCommandExecutorV1(program, modules)`, `createPocGameQueriesV1(state, program)`, `projectPocGameViewV1(queries)`, `createPocGameSimulationV1(program)`, exact `PocGameQueriesV1`, `PocGameViewV1`, `PocGameSimulationV1`, and real-session integrity-preservation tests.
 
 - [ ] **Step 1: Write failing query/executor orthogonality tests**
 
@@ -1728,7 +1746,8 @@ it.each(pocReplayableDebugCommandVectorsV1)(
   "validates and executes $kind through its declared owner path",
   ({ command, expectedOwner }) => {
     const fixture = createPocGameplayFixtureV1();
-    const executor = createPocGameDebugCommandExecutorV1(fixture.program);
+    const modules = createPocGameplayModuleTupleV1(fixture.program);
+    const executor = createPocGameDebugCommandExecutorV1(fixture.program, modules);
     expect(executor.validate(fixture.snapshot, command, undefined)).toEqual({ kind: "allowed" });
     const attempt = executor.executeAttempt(fixture.snapshot, command, undefined);
     expect(attempt.result.kind).toBe("committed");
@@ -1740,7 +1759,8 @@ it.each(pocReplayableDebugCommandVectorsV1)(
 
 it("returns stable queue-front validation errors without opening an attempt", () => {
   const fixture = createPocGameplayFixtureV1();
-  const executor = createCountingPocDebugExecutorV1(fixture.program);
+  const modules = createPocGameplayModuleTupleV1(fixture.program);
+  const executor = createCountingPocDebugExecutorV1(fixture.program, modules);
   const result = executor.validate(fixture.snapshot, unknownReasonDebugCommandV1(), undefined);
   expect(result).toMatchObject({
     kind: "validation_failed",
@@ -1855,7 +1875,7 @@ Every preview reuses the same guards, cost calculators, Rules/Resolvers, stable 
 
 - [ ] **Step 4: Implement queue-front debug validation and owner-routed attempts**
 
-`createPocGameDebugCommandExecutorV1(program)` implements `GameDebugCommandExecutorV1` and exhaustively switches over the exact ten-kind `PocDebugCommandV1`. `validate` parses no structural input—that already happened at admission—but checks the latest queued Snapshot for reason/actor/Aura/Aura-instance/fact/Narrative references, range policies, Aura target/duration/conflict rules, and active-Narrative requirements. It returns all deterministic errors in authored validation order. A validation failure creates no candidate, consumes no RNG/sequence, and cannot enter CommandLog.
+`createPocGameDebugCommandExecutorV1(program, modules)` implements `GameDebugCommandExecutorV1` and exhaustively switches over the exact ten-kind `PocDebugCommandV1`. `validate` parses no structural input—that already happened at admission—but checks the latest queued Snapshot for reason/actor/Aura/Aura-instance/fact/Narrative references, range policies, Aura target/duration/conflict rules, and active-Narrative requirements. It returns all deterministic errors in authored validation order. A validation failure creates no candidate, consumes no RNG/sequence, and cannot enter CommandLog.
 
 ```ts
 export interface PocGameDebugCommandExecutorV1 extends GameDebugCommandExecutorV1<
@@ -1868,10 +1888,11 @@ export interface PocGameDebugCommandExecutorV1 extends GameDebugCommandExecutorV
 
 export function createPocGameDebugCommandExecutorV1(
   program: DeepReadonly<PocSimulationProgramV1>,
+  modules: PocGameplayModuleTupleV1,
 ): PocGameDebugCommandExecutorV1;
 ```
 
-Only an `allowed` command reaches `executeAttempt`, exactly once. The executor clones the same transaction candidate used by normal Gameplay and maps the command to Calendar, Actors, Status, Inventory, Progression, or Narrative owner proposals; `debug.rng.set` uses the candidate's debug-only RNG replacement primitive. It validates every proposal and aggregate invariant before commit. The result is only `committed` or `faulted`; an owner-level domain rejection after `allowed` is normalized to a stable engine contract fault, never exposed as a debug rejection. The executor reattaches the exact opaque input `integrity` reference and never calls `markRunModifiedV1`; `GameSession` owns that outer atomic mark after a committed replayable debug attempt.
+Only an `allowed` command reaches `executeAttempt`, exactly once. The executor clones the same transaction candidate used by normal Gameplay using the exact constructor-supplied `modules` tuple, and maps the command to Calendar, Actors, Status, Inventory, Progression, or Narrative owner proposals; it never imports or reconstructs bindings. `debug.rng.set` uses the candidate's debug-only RNG replacement primitive. It validates every proposal and aggregate invariant before commit. The result is only `committed` or `faulted`; an owner-level domain rejection after `allowed` is normalized to a stable engine contract fault, never exposed as a debug rejection. The executor reattaches the exact opaque input `integrity` reference and never calls `markRunModifiedV1`; `GameSession` owns that outer atomic mark after a committed replayable debug attempt.
 
 `pocReplayableDebugCommandVectorsV1` supplies one referentially complete allowed vector and at least one semantic validation-failure vector for each kind. Tests prove owner routing, no rejected result, no extra execution, rollback/RNG diagnostics on fault, and that `debug.fixture.load` is absent from the schema, executor, and vectors.
 
@@ -1881,11 +1902,12 @@ Only an `allowed` command reaches `executeAttempt`, exactly once. The executor c
 export function createPocGameSimulationV1(
   program: DeepReadonly<PocSimulationProgramV1>,
 ): PocGameSimulationV1 {
-  const commandExecutor = createPocGameCommandExecutorV1(program);
-  const debugCommandExecutor = createPocGameDebugCommandExecutorV1(program);
+  const modules = createPocGameplayModuleTupleV1(program);
+  const commandExecutor = createPocGameCommandExecutorV1(program, modules);
+  const debugCommandExecutor = createPocGameDebugCommandExecutorV1(program, modules);
   return defineGameSimulation<PocGameSimulationTypesV1>()({
     contractRevision: 1,
-    modules: pocGameplayModuleTupleV1,
+    modules,
     stateSchema: pocGameStateSchemaV1,
     commandSchema: pocGameCommandSchemaV1,
     factSchema: pocGameplayFactSchemaV1,
@@ -1895,16 +1917,16 @@ export function createPocGameSimulationV1(
     commandExecutor,
     debugCommandExecutor,
     createBootstrapInput: createPocGameBootstrapInputV1,
-    createInitialState: (bootstrap) => createInitialPocGameStateV1(program, bootstrap),
+    createInitialState: (bootstrap) => createInitialPocGameStateV1(modules, bootstrap),
     createQueries: (state) => createPocGameQueriesV1(state, program),
     projectGameView: (queries) => projectPocGameViewV1(queries),
   });
 }
 ```
 
-`pocGameplayModuleTupleV1` is the frozen ten-binding tuple in the exact ownership-catalog order; the bindings are static, so it accepts no `program`. `createPocGameBootstrapInputV1` calls `nextNonZeroUint32()` and then `nextUuidV4()` exactly once each, validates both values, and freezes the result. `createInitialPocGameStateV1` calls each binding's bootstrap-only `createInitialState` in that same fixed order, then applies any Story-data initialization through explicit owner initialization proposals derived from `program.data`; it never passes the complete program into a module or writes a slice directly. Finally it assembles the aggregate State and runs all aggregate schemas/invariants. GameSimulation validation also proves the program's Narrative limits are positive safe integers and the Narrative interpreter observes the exact `128`/`8` fixture values.
+`createPocGameplayModuleTupleV1(program)` returns one frozen ten-binding tuple in the exact ownership-catalog order: five owner-slice-bound instances plus five static bindings, with identical descriptors, dependencies, and slots for every valid Program. `createPocGameBootstrapInputV1` calls `nextNonZeroUint32()` and then `nextUuidV4()` exactly once each, validates both values, and freezes the result. `createInitialPocGameStateV1(modules, bootstrap)` calls each binding's `createInitialState(bootstrap)` in that same fixed order and assembles the aggregate State from those exact ten results; it does not read Program data, write a Slice directly, or apply owner initialization proposals. Tests compare every aggregate owner Slice with the corresponding Module result, prove two Programs do not leak owner values, and prove descriptor/order stability. Base then independently verifies Canonical JSON byte equality for every owner. GameSimulation validation also proves the program's Narrative limits are positive safe integers and the Narrative interpreter observes the exact `128`/`8` fixture values.
 
-The tuple is assembled only here; no module, Rule, Resolver, query, or executor imports `story-definition.ts`. `createPocRulesV1(data)` is used only by the default Story materializer and test fixtures. `createPocGameSimulationV1(program)` consumes the supplied, already frozen `program.rules` and must never regenerate Rules from data, otherwise a resolved Hotfix could be silently bypassed. GameSimulation validation proves descriptor/slot uniqueness, dependency closure/DAG, owner triads, aggregate schemas, both executors, and the same type witness. The debug command schema, validation-error schema, executor provider, owner-routing tables, and rule inputs are part of the simulation source projection; changing any of them must change `simulationDigest`, while fixture/tooling adapters must not enter it. Phase 4B's resolved-Story contract test verifies that split. The integration test composes the public GameSession factory around this exact simulation; test helpers may read Snapshot, but production Gameplay exports no Session or integrity mutation capability.
+Production composition calls the tuple factory only here; focused tests may call it directly to prove descriptor/order stability and cross-Program isolation. No module, Rule, Resolver, query, or executor imports `story-definition.ts`. `createPocRulesV1(data)` is used only by the default Story materializer and test fixtures. `createPocGameSimulationV1(program)` consumes the supplied, already frozen `program.rules` and must never regenerate Rules from data, otherwise a resolved Hotfix could be silently bypassed. GameSimulation validation proves descriptor/slot uniqueness, dependency closure/DAG, owner triads, aggregate schemas, both executors, and the same type witness. The debug command schema, validation-error schema, executor provider, owner-routing tables, and rule inputs are part of the simulation source projection; changing any of them must change `simulationDigest`, while fixture/tooling adapters must not enter it. Phase 4B's resolved-Story contract test verifies that split. The integration test composes the public GameSession factory around this exact simulation; test helpers may read Snapshot, but production Gameplay exports no Session or integrity mutation capability.
 
 - [ ] **Step 6: Run complete Phase 4A focused tests and full verification**
 
@@ -2047,7 +2069,7 @@ git diff --check
 - [ ] Rejected/faulted attempts preserve the exact input Snapshot, RNG, integrity, and sequence; committed normal Gameplay applies once, preserves the exact opaque input integrity reference, and returns ordered GameplayFacts/ledger evidence from the same attempt. A real GameSession integration test proves the same behavior from dispatch through commit.
 - [ ] Opening interruption, WorldAction progress/check, phase scheduling, and levy terminal materialization are atomic and strict-JSON round-trippable.
 - [ ] `PocSimulationDataV1` has the exact strict Catalog projection (including manifest/content/narrative exclusions), complete validated `EndingPolicyV1`, and no module/callback/presentation/tooling value. `PocGameQueriesV1` has exactly the seventeen Catalog methods, is immutable, consumes no RNG, exposes no hidden results or Snapshot, and preview/execute use the same guards, calculators, and rejection codes. The five exact `Poc*ProjectionV1` DTOs and `PocGameViewV1` have strict key/schema/private-field tests; GameView deliberately excludes Narrative, which Phase 4B publishes separately from the same Queries instance.
-- [ ] `PocGameSimulationV1` closes the ten-module tuple, aggregate schemas, normal/debug executors, state-only query factory, query-only projector, bootstrap, and initial-state factory from one `PocGameSimulationTypesV1` witness.
+- [ ] `PocGameSimulationV1` creates exactly one program-bound fixed ten-module tuple, passes that same tuple through aggregate initialization, candidate, and normal/debug executors, and closes aggregate schemas, state-only query factory, query-only projector, and bootstrap from one `PocGameSimulationTypesV1` witness. Exactly five bindings close only their deeply frozen owner initial Slice and five remain static; every aggregate owner Slice is Canonical-JSON-equal to its corresponding Module initial State, with no sequence-zero initialization proposal or cross-Program value leakage.
 - [ ] No Story identity, SceneGraph, React, TextCatalog, asset, tooling, application, golden, or Save fixture is introduced before Phase 4B.
 - [ ] Phase 2 and Phase 3 prerequisite gates passed before Task 1, every task used exact-path staging/resume rules, and `pnpm-lock.yaml` remained byte-identical with no mid-Goal registry operation.
 - [ ] Narrative limits are program-owned and exactly `128` automatic nodes / `8` call frames in both fixture and concrete-program contracts; boundary tests prove the interpreter has no stale `64`/`4` literal.

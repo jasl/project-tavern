@@ -927,7 +927,9 @@ it("creates the sequence-zero replay base from complete concrete data", () => {
     data: pocSimulationDataV1,
     rules: createPocRulesV1(pocSimulationDataV1),
   });
-  const state = createPocGameSimulationV1(program).createInitialState(fixedPocBootstrapV1());
+  const bootstrap = fixedPocBootstrapV1();
+  const simulation = createPocGameSimulationV1(program);
+  const state = simulation.createInitialState(bootstrap);
   expect(state.simulation.run.status).toBe("setup");
   expect(state.simulation.calendar).toMatchObject({
     day: 1,
@@ -935,7 +937,26 @@ it("creates the sequence-zero replay base from complete concrete data", () => {
     lifePolicyId: null,
     apRemaining: 0,
   });
+  expect(state.simulation.actors.player.attributes.intellect).toBe("B");
+  expect(state.simulation.inventory).toMatchObject({ startingCash: 70, cash: 70 });
   expect(state.story.narrative.status).toBe("idle");
+  expect(simulation.modules.map((module) => module.createInitialState(bootstrap))).toEqual([
+    state.simulation.run,
+    state.simulation.calendar,
+    state.simulation.actors,
+    state.simulation.status,
+    state.simulation.inventory,
+    state.simulation.facilities,
+    state.simulation.tavern,
+    state.simulation.activeWorkflow,
+    {
+      facts: state.story.facts,
+      quests: state.story.quests,
+      outcomes: state.story.outcomes,
+      resolvedChecks: state.story.resolvedChecks,
+    },
+    state.story.narrative,
+  ]);
 });
 
 it("keeps the production projector structural and field-by-field", async () => {
@@ -952,7 +973,7 @@ Expected: FAIL because final forecast/ending definitions, combined Narrative, an
 
 - [ ] **Step 3: Complete strict source data and its field-by-field simulation projection**
 
-Add only definitions, the exact `endingPolicy`/forecast policy, reason IDs, and effect lists. Invoke the Phase 4A factories and `createPocGameQueriesV1` in pure provider tests; do not add a new `rules/` or `resolvers/` implementation under `content`. `PocRulesV1.endings.evaluate` reads the one Balance-owned ending policy and has no forecast method or private threshold copy. Forecast is exclusively `getObligationForecast()` over the latest Gameplay State plus the same Tavern preview calculator: before `visibleFrom` it returns `null`, then `current_gap`, only an eligible frozen D5+ plan yields `committed_plan_conservative`, and all service days resolved yields `final`. Stable requires paid levy plus the exact cash/reputation/facility thresholds and persists the two-field relationship/investigation summary. Arrears never deducts unavailable cash and records exact shortfall.
+Add only definitions, the exact `endingPolicy`/forecast policy, reason IDs, and effect lists. Invoke the Phase 4A factories and `createPocGameQueriesV1` in pure provider tests; do not add a new `rules/` or `resolvers/` implementation under `content`. The concrete initial-state vector above must differ from the Phase 4A fixture where authored data differs (`intellect="B"`/cash `70` here versus `"C"`/`100` there), while both Simulation instances keep the same ten descriptors/order and every aggregate owner Slice equals the corresponding binding initializer. This proves that no fixture singleton or cross-Program owner data leaks into the resolved Story. `PocRulesV1.endings.evaluate` reads the one Balance-owned ending policy and has no forecast method or private threshold copy. Forecast is exclusively `getObligationForecast()` over the latest Gameplay State plus the same Tavern preview calculator: before `visibleFrom` it returns `null`, then `current_gap`, only an eligible frozen D5+ plan yields `committed_plan_conservative`, and all service days resolved yields `final`. Stable requires paid levy plus the exact cash/reputation/facility thresholds and persists the two-field relationship/investigation summary. Arrears never deducts unavailable cash and records exact shortfall.
 
 `narrative/index.ts` combines the D1–D4, relationship and investigation scenes once in authored order. `story-data.ts` owns strict source schemas and the only complete source object:
 
