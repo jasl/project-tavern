@@ -1595,6 +1595,8 @@ git commit -m "feat(runtime): gate same-artifact debug tools"
 - Modify: scripts/build-e2e-identity.mjs
 - Modify: scripts/build-e2e-identity.test.mjs
 - Modify: vite.config.ts
+- Modify: game/stories/e2e/fixtures/session-zero.json
+- Modify: game/stories/e2e/golden/semantic-flow.json
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
 - Modify: game/stories/e2e/src/application/entry.tsx
@@ -1719,16 +1721,23 @@ node --test scripts/build-e2e-identity.test.mjs
 pnpm --filter @project-tavern/story-e2e exec vitest run src/runtime/hmr-integration.test.ts
 pnpm build:e2e
 pnpm verify:bundle
+pnpm regenerate:fixtures
+pnpm update:golden
+git diff -- game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+wc -c game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+shasum -a 256 game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+pnpm verify:fixtures
+pnpm verify:golden
 pnpm verify
 git diff --check
 ```
 
-Expected: all commands exit 0；same Artifact/root reboots；no second app build；capability toggles never invalidate；old HMR owner is fenced before replacement writes and takeover failure yields a read-only replacement rather than a stuck or shared owner。
+Expected: all commands exit 0；same Artifact/root reboots；no second app build；capability toggles never invalidate；old HMR owner is fenced before replacement writes and takeover failure yields a read-only replacement rather than a stuck or shared owner。显式 writers 只更新 fixture/golden 内因新 Base runtime public closure 产生的 engine provenance/digest；执行 agent 审查 exact bytes、size、SHA-256 和不变的 Snapshot/Facts/RNG/Story/simulation/presentation 语义，普通 verifier/verify 保持只读。
 
 - [ ] **Step 6: Commit HMR invalidation**
 
 ```bash
-git add -- engine/packages/base/src/runtime/session engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/src/index.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application engine/packages/web/src/index.ts scripts/build-e2e-identity.mjs scripts/build-e2e-identity.test.mjs vite.config.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/runtime/hmr-integration.test.ts
+git add -- engine/packages/base/src/runtime/session engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/persistence/session-lease.ts engine/packages/base/src/runtime/persistence/session-lease.test.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.ts engine/packages/base/src/runtime/diagnostics/runtime-failures.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/src/index.ts engine/packages/base/type-tests/public-exports.test-d.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application engine/packages/web/src/index.ts scripts/build-e2e-identity.mjs scripts/build-e2e-identity.test.mjs vite.config.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/runtime/hmr-integration.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(runtime): rebootstrap unified hmr sessions"
 ```
