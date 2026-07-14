@@ -984,6 +984,8 @@ git commit -m "feat(base): add fenced save slots"
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.ts
 - Modify: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
 - Create: game/stories/e2e/src/runtime/persistence-roundtrip.test.ts
+- Modify: game/stories/e2e/fixtures/session-zero.json
+- Modify: game/stories/e2e/golden/semantic-flow.json
 - Test: engine/packages/base/src/runtime/persistence/persistence-service.test.ts
 - Test: game/stories/e2e/src/application/create-e2e-game-runtime.test.ts
 - Test: game/stories/e2e/src/runtime/persistence-roundtrip.test.ts
@@ -1091,16 +1093,23 @@ Run:
 pnpm --filter @sillymaker/base exec vitest run src/runtime/persistence src/runtime/application/game-application.test.ts
 pnpm --filter @sillymaker/web exec vitest run src/application/create-game-runtime.test.ts
 pnpm --filter @project-tavern/story-e2e exec vitest run src/runtime/persistence-roundtrip.test.ts
+pnpm regenerate:fixtures
+pnpm update:golden
+git diff -- game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+wc -c game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+shasum -a 256 game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
+pnpm verify:fixtures
+pnpm verify:golden
 pnpm verify
 git diff --check
 ```
 
-Expected: all commands exit 0；normal Save round-trips pristine integrity；no operation creates a second mutation queue。
+Expected: all commands exit 0；normal Save round-trips pristine integrity；no operation creates a second mutation queue。显式 writers 只更新 fixture/golden 内因新 persistence public closure 产生的 engine provenance/digest；执行 agent 审查 exact bytes、size、SHA-256 和不变的 Snapshot/Facts/RNG/Story/simulation/presentation 语义，普通 verifier/verify 保持只读。
 
 - [ ] **Step 8: Commit persistence orchestration**
 
 ```bash
-git add -- engine/packages/base/src/runtime/persistence/auto-save-queue.ts engine/packages/base/src/runtime/persistence/auto-save-queue.test.ts engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/runtime/persistence-roundtrip.test.ts
+git add -- engine/packages/base/src/runtime/persistence/auto-save-queue.ts engine/packages/base/src/runtime/persistence/auto-save-queue.test.ts engine/packages/base/src/runtime/persistence/persistence-service.ts engine/packages/base/src/runtime/persistence/persistence-service.test.ts engine/packages/base/src/runtime/application/game-application.ts engine/packages/base/src/runtime/application/game-application.test.ts engine/packages/base/src/runtime/session/game-session.ts engine/packages/base/src/runtime/session/game-session.test.ts engine/packages/base/src/runtime/index.ts engine/packages/base/public-exports.v1.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/runtime/persistence-roundtrip.test.ts game/stories/e2e/fixtures/session-zero.json game/stories/e2e/golden/semantic-flow.json
 git diff --cached --check
 git commit -m "feat(runtime): persist and recover game sessions"
 ```
