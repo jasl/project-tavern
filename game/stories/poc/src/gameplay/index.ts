@@ -376,3 +376,57 @@ export {
 } from "./contracts/schemas.js";
 
 export { definePocGameplayModuleV1 } from "./contracts/define-poc-gameplay-module.js";
+
+export {
+  parsePocRunCompletionV1,
+  pocRunCompletionSchemaV1,
+  parsePocRunStateV1,
+  pocRunStateSchemaV1,
+  parsePocRunBootstrapInputV1,
+  pocRunOwnerOperationSchemaV1,
+  pocRunStatesEqualV1,
+  pocRunOwnerProposalSchemaV1,
+  parsePocRunDependencyPortsV1,
+  pocRunInvariantV1,
+} from "./modules/run/contract.js";
+
+export type {
+  PocRunOwnerOperationV1,
+  PocRunOwnerProposalV1,
+  PocRunReadPortV1,
+  PocRunDependencyPortsV1,
+} from "./modules/run/contract.js";
+
+export {
+  createInitialPocRunStateV1,
+  createPocRunReadPortV1,
+  pocRunOwnerV1,
+  pocRunGameplayModuleV1,
+} from "./modules/run/module.js";
+
+export {
+  pocCalendarStateSchemaV1,
+  pocCalendarInvariantV1,
+  pocCalendarOwnerOperationSchemaV1,
+  pocCalendarDependencyPortsSchemaV1,
+  pocCalendarStatesEqualV1,
+  pocCalendarOwnerProposalSchemaV1,
+} from "./modules/calendar/contract.js";
+
+export type {
+  PocCalendarPhasePointV1,
+  PocCalendarDebugChangeReasonV1,
+  PocCalendarOwnerOperationV1,
+  PocCalendarOwnerProposalPayloadV1,
+  PocCalendarGameplayFactV1,
+  PocCalendarOwnerProposalV1,
+  PocCalendarReadPortV1,
+  PocCalendarDependencyPortsV1,
+} from "./modules/calendar/contract.js";
+
+export {
+  createInitialPocCalendarStateV1,
+  createPocCalendarReadPortV1,
+  pocCalendarOwnerV1,
+  pocCalendarGameplayModuleV1,
+} from "./modules/calendar/module.js";
