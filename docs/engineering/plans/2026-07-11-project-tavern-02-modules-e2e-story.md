@@ -2381,6 +2381,45 @@ Repair TDD and contract:
    git commit -m "fix(tooling): run script tests with strip types"
    ```
 
+**Accepted-owner repair during the Phase 4B Task 10 verification:** the Phase 1 script-test runner
+discovers every Node `.test.mjs` file and passes the complete list to one `node --test` process, but
+does not override Node's default test-file concurrency. `scripts/build-e2e-identity.test.mjs`
+intentionally and reversibly injects forbidden imports into live E2E Story source while checking
+build identity. A concurrently running verifier such as `scripts/verify-bundle.test.mjs` can
+therefore observe those temporary bytes, fail for the wrong reason, or retain a platform watcher
+after its peer has already restored the source. Per the execution protocol's unique-answer
+earlier-owner rule, serialize Node script-test files in the shared runner; do not weaken assertions,
+change Vitest concurrency, add a file-specific exception, or change production behavior.
+
+Repair files:
+
+- Modify: docs/engineering/plans/2026-07-11-project-tavern-02-modules-e2e-story.md
+- Modify: scripts/run-script-tests.mjs
+- Modify: scripts/run-script-tests.test.mjs
+
+Repair TDD and contract:
+
+1. Extend the runner command assertions to freeze
+   `node --experimental-strip-types --test --test-concurrency=1 <authored test paths>` while
+   retaining deterministic discovery order and the separate Vitest command.
+2. Run `node --test --test-concurrency=1 scripts/run-script-tests.test.mjs` with the exact Goal
+   checkpoint toolchain and confirm the command assertions fail only because the implementation
+   omits the child `--test-concurrency=1` argument.
+3. Add only `--test-concurrency=1` after the child `--test` argument. Do not serialize tests within
+   one file, alter authored test behavior, introduce a dependency, or use shell execution.
+4. Re-run the focused runner test, then run
+   `node --experimental-strip-types --test --test-concurrency=1 scripts/build-e2e-identity.test.mjs scripts/verify-bundle.test.mjs`
+   twice, `pnpm test:node`, `pnpm verify:docs`, Prettier on the repair files, and
+   `git diff --check`; every command must exit 0 and the live source must be restored after each run.
+5. Commit the accepted-owner repair exactly:
+
+   ```bash
+   git add -- docs/engineering/plans/2026-07-11-project-tavern-02-modules-e2e-story.md scripts/run-script-tests.mjs scripts/run-script-tests.test.mjs
+   git diff --cached --name-status
+   git diff --cached --check
+   git commit -m "fix(tooling): serialize script test files"
+   ```
+
 **Accepted-owner repair before the Task 10 implementation commit:** Task 7 froze Queries before
 Task 10 introduced option-specific Semantic preview. The original Query spine omitted the adopted
 choice Resolver output, while Task 10 also prohibited direct Module access and hard-coded rule

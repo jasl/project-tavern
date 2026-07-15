@@ -84,6 +84,7 @@ test("discovers every nested script test exactly once", async (t) => {
       [
         "--experimental-strip-types",
         "--test",
+        "--test-concurrency=1",
         "scripts/release/deep/workflow.test.mjs",
         "scripts/root.test.mjs",
       ],
@@ -92,9 +93,12 @@ test("discovers every nested script test exactly once", async (t) => {
   ]);
 });
 
-test("runs Node script tests with strip-only TypeScript support", () => {
+test("runs Node script tests with strip-only TypeScript support and serial file isolation", () => {
   assert.deepEqual(scriptTestCommandsV1({ node: ["scripts/typed.test.mjs"], vitest: [] }), [
-    ["node", ["--experimental-strip-types", "--test", "scripts/typed.test.mjs"]],
+    [
+      "node",
+      ["--experimental-strip-types", "--test", "--test-concurrency=1", "scripts/typed.test.mjs"],
+    ],
   ]);
 });
 
