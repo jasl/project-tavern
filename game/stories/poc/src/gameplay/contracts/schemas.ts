@@ -1462,6 +1462,35 @@ function validateUniqueEntriesV1<T>(
   });
 }
 
+function compareStableIdsV1(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function validateStableIdAscendingOrderV1<T>(
+  entries: readonly T[],
+  readId: (entry: T) => string,
+  idField: string,
+  context: AggregateValidationContextV1,
+  path: AggregateValidationPathV1,
+  label: string,
+): void {
+  for (let index = 1; index < entries.length; index += 1) {
+    const previous = entries[index - 1];
+    const current = entries[index];
+    if (
+      previous !== undefined &&
+      current !== undefined &&
+      compareStableIdsV1(readId(previous), readId(current)) > 0
+    ) {
+      addAggregateValidationIssueV1(
+        context,
+        [...path, index, idField],
+        `${label} entries must use strict stable-ID ascending order`,
+      );
+    }
+  }
+}
+
 function validateReferenceV1(
   knownIds: ReadonlySet<string>,
   value: string,
@@ -2306,6 +2335,14 @@ const pocSimulationDataZodSchemaV1 = z
       ["stateDefinitions", "facts"],
       "FactId",
     );
+    validateStableIdAscendingOrderV1(
+      data.stateDefinitions.facts,
+      ({ factId }) => factId,
+      "factId",
+      context,
+      ["stateDefinitions", "facts"],
+      "FactId",
+    );
     validateUniqueEntriesV1(
       data.stateDefinitions.quests,
       ({ questId }) => questId,
@@ -2314,7 +2351,23 @@ const pocSimulationDataZodSchemaV1 = z
       ["stateDefinitions", "quests"],
       "QuestId",
     );
+    validateStableIdAscendingOrderV1(
+      data.stateDefinitions.quests,
+      ({ questId }) => questId,
+      "questId",
+      context,
+      ["stateDefinitions", "quests"],
+      "QuestId",
+    );
     validateUniqueEntriesV1(
+      data.stateDefinitions.outcomes,
+      ({ outcomeId }) => outcomeId,
+      "outcomeId",
+      context,
+      ["stateDefinitions", "outcomes"],
+      "OutcomeId",
+    );
+    validateStableIdAscendingOrderV1(
       data.stateDefinitions.outcomes,
       ({ outcomeId }) => outcomeId,
       "outcomeId",

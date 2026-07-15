@@ -65,7 +65,7 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
       ],
       outcomes: [
         {
-          outcomeId: "outcome.fixture.relationship",
+          outcomeId: "outcome.fixture.investigation",
           value: {
             kind: "token",
             defaultValue: "token.fixture.neutral",
@@ -73,7 +73,7 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
           },
         },
         {
-          outcomeId: "outcome.fixture.investigation",
+          outcomeId: "outcome.fixture.relationship",
           value: {
             kind: "token",
             defaultValue: "token.fixture.neutral",
@@ -656,11 +656,11 @@ function createContractFixtureRulesV1(data: PocSimulationDataV1): PocRulesV1 {
       evaluate(input) {
         const ending = requiredValueV1(data.content.endings[0], "ending");
         const relationship = requiredValueV1(
-          data.stateDefinitions.outcomes[0],
+          data.stateDefinitions.outcomes[1],
           "relationship outcome",
         );
         const investigation = requiredValueV1(
-          data.stateDefinitions.outcomes[1],
+          data.stateDefinitions.outcomes[0],
           "investigation outcome",
         );
         const policy = data.balance.endingPolicy;

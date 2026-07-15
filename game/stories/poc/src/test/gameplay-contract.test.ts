@@ -546,6 +546,69 @@ describe("PoC gameplay contract", () => {
     ).not.toThrow();
   });
 
+  it("rejects reversed stable-ID order in explicit state-definition collections", () => {
+    const data = createPocGameplayFixtureV1().program.data;
+    const fact = data.stateDefinitions.facts[0];
+    const quest = data.stateDefinitions.quests[0];
+    if (fact === undefined || quest === undefined) {
+      throw new TypeError("incomplete state-definition fixture");
+    }
+
+    function parseStateDefinitionsError(stateDefinitions: unknown): Error {
+      try {
+        pocSimulationDataSchemaV1.parse({ ...data, stateDefinitions });
+      } catch (error) {
+        if (error instanceof Error) return error;
+        throw error;
+      }
+      throw new TypeError("expected state-definition rejection");
+    }
+
+    function expectStableOrderFailure(stateDefinitions: unknown, label: string): void {
+      expect(parseStateDefinitionsError(stateDefinitions).message).toContain(
+        `${label} entries must use strict stable-ID ascending order`,
+      );
+    }
+
+    expectStableOrderFailure(
+      {
+        ...data.stateDefinitions,
+        facts: [{ ...fact, factId: "fact.fixture_second" }, fact],
+      },
+      "FactId",
+    );
+    expectStableOrderFailure(
+      {
+        ...data.stateDefinitions,
+        quests: [
+          {
+            ...quest,
+            questId: "quest.fixture_second",
+            initial: { ...quest.initial, questId: "quest.fixture_second" },
+          },
+          quest,
+        ],
+      },
+      "QuestId",
+    );
+    expectStableOrderFailure(
+      {
+        ...data.stateDefinitions,
+        outcomes: data.stateDefinitions.outcomes.toReversed(),
+      },
+      "OutcomeId",
+    );
+
+    const duplicateError = parseStateDefinitionsError({
+      ...data.stateDefinitions,
+      facts: [fact, fact],
+    });
+    expect(duplicateError.message).toContain(`duplicate FactId: ${fact.factId}`);
+    expect(duplicateError.message).not.toContain(
+      "FactId entries must use strict stable-ID ascending order",
+    );
+  });
+
   it("deep-freezes non-enumerable rule-provider state", () => {
     const hiddenState = { calls: 0 };
     const provider = () => undefined;
