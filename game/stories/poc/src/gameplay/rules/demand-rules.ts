@@ -408,7 +408,8 @@ function nonNegativeSafeSumV1(values: readonly number[], label: string): NonNega
 
 function reputationContributionV1(reputation: NonNegativeSafeInteger): SafeInteger {
   const raw = Math.trunc((reputation - 50) / 4);
-  return parseSafeInteger(raw < -2 ? -2 : raw > 2 ? 2 : raw);
+  const clamped = raw < -2 ? -2 : raw > 2 ? 2 : raw;
+  return parseSafeInteger(clamped === 0 ? 0 : clamped);
 }
 
 function hasDemandBindingV1(

@@ -608,6 +608,56 @@ describe("PoC pure rules and resolvers", () => {
     ).toMatchObject({ lines: [{ range: { min: 3, max: 3 }, actualCustomers: 3 }] });
   });
 
+  it("canonicalizes a zero reputation contribution instead of producing negative zero", () => {
+    const fixture = createPocGameplayFixtureV1();
+    const data = pocSimulationDataSchemaV1.parse({
+      ...fixture.program.data,
+      balance: {
+        ...fixture.program.data.balance,
+        serviceDays: [1, 2],
+        baseDemand: [
+          ...fixture.program.data.balance.baseDemand,
+          { day: 1, segmentId: "segment.locals", customers: 5 },
+          { day: 2, segmentId: "segment.fixture", customers: 1 },
+          { day: 2, segmentId: "segment.locals", customers: 5 },
+        ],
+      },
+      content: {
+        ...fixture.program.data.content,
+        customerSegments: [
+          ...fixture.program.data.content.customerSegments,
+          { segmentId: "segment.locals", nameTextId: "text.fixture" },
+        ],
+        modifierSources: [
+          ...fixture.program.data.content.modifierSources,
+          { sourceId: "modifier_source.reputation", nameTextId: "text.fixture" },
+        ],
+        reasons: [
+          ...fixture.program.data.content.reasons,
+          { reasonId: "reason.modifier.reputation_demand", textId: "text.fixture" },
+        ],
+      },
+    });
+
+    expect(
+      createPocRulesV1(data).demand.preview({
+        day: parseDayIndex(2),
+        seeds: [
+          {
+            segmentId: parseCustomerSegmentId("segment.locals"),
+            baseCustomers: parseNonNegativeSafeInteger(5),
+            randomOffset: 0,
+          },
+        ],
+        reputation: parseNonNegativeSafeInteger(49),
+        facts: fixture.snapshot.state.story.facts,
+        modifiers: [],
+      }),
+    ).toMatchObject({
+      lines: [{ range: { min: 4, max: 6 }, actualCustomers: 5, modifiers: [] }],
+    });
+  });
+
   it("keeps current-state trial calculation distinct from an active opening", () => {
     const resolver = createPocTavernSettlementResolverV1(createTavernDataV1());
     expect(resolver.preview(createCurrentTavernInputV1())).toMatchObject({
