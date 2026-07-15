@@ -301,7 +301,7 @@ export async function createE2eGameRuntimeV1(input: {
         ownerId: persistenceIdentity.ownerId,
         nextHandoffRequestId: persistenceIdentity.nextHandoffRequestId,
         validateReferences: validateE2eReferencesV1,
-        validateInvariants: (state) =>
+        validateInvariants: ({ state }) =>
           validateE2eInvariantsV1(
             gameSimulation,
             input.resolved.simulationProgram.values.terminalThreshold,

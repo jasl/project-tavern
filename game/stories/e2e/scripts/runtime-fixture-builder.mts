@@ -650,7 +650,11 @@ async function validateSaveV1(bytes: Uint8Array, context: RuntimeFixtureVerifica
     validateReferences(state: DeepReadonly<E2eGameStateV1>): readonly string[] {
       return validateE2eReferencesV1(state, stableReferenceSets);
     },
-    validateInvariants(state: DeepReadonly<E2eGameStateV1>): readonly string[] {
+    validateInvariants({
+      state,
+    }: {
+      readonly state: DeepReadonly<E2eGameStateV1>;
+    }): readonly string[] {
       return validateE2eInvariantsV1(state, context);
     },
   });

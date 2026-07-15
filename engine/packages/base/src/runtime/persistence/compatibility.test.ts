@@ -8,6 +8,7 @@ import type { BuildProvenanceV1 } from "../../contracts/provenance.js";
 import type {
   SaveCodecContextV1,
   SaveCompatibilityClassificationV1,
+  SaveImportInvariantViewV1,
   SaveImportValidationContextV1,
   SaveRecordEnvelopeV1,
   SimulationAdoptionV1,
@@ -356,7 +357,8 @@ function validationContextV1(input: {
     return input.referenceErrors ?? Object.freeze([]);
   });
   const validateInvariants = vi.fn(
-    (_state: Readonly<ValidationStateV1>) => input.invariantErrors ?? Object.freeze([]),
+    (_view: Readonly<SaveImportInvariantViewV1<ValidationStateV1>>) =>
+      input.invariantErrors ?? Object.freeze([]),
   );
   const context: SaveImportValidationContextV1<
     ValidationStateV1,
@@ -383,7 +385,7 @@ const exactV1: Extract<SaveCompatibilityClassificationV1, { readonly kind: "exac
   });
 
 describe("Save import candidate validation", () => {
-  it("passes only decoded Gameplay State through references then invariants", () => {
+  it("passes State to references and an exact frozen sequence view to invariants", () => {
     const fixture = validationContextV1({ classification: exactV1 });
     const result = validateSaveImportCandidateV1(validationBytesV1(), fixture.context);
 
@@ -395,6 +397,15 @@ describe("Save import candidate validation", () => {
       referenceId: "reference.synthetic",
     });
     expect(fixture.validateReferences.mock.calls[0]?.[0]).not.toHaveProperty("commandSequence");
+    const invariantView = fixture.validateInvariants.mock.calls[0]?.[0];
+    expect(invariantView).toEqual({
+      state: { referenceId: "reference.synthetic" },
+      commandSequence: 7,
+    });
+    expect(Object.keys(invariantView ?? {})).toEqual(["state", "commandSequence"]);
+    expect(Object.isFrozen(invariantView)).toBe(true);
+    expect(invariantView).not.toHaveProperty("rng");
+    expect(invariantView).not.toHaveProperty("integrity");
   });
 
   it("stops before invariants when stable references fail", () => {

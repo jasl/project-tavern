@@ -215,6 +215,7 @@ export type {
   SaveCompatibilityKeyV1,
   SaveCompatibilityMismatchV1,
   SaveExportOperationResultV1,
+  SaveImportInvariantViewV1,
   SaveImportValidationContextV1,
   SaveImportValidationResultV1,
   SaveRecordDecodeRejectionCodeV1,

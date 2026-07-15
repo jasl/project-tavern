@@ -288,15 +288,23 @@ export type SaveImportValidationResultV1<TSaveRecord> =
     })
   | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "inspect_only" | "rejected" }>;
 
+export interface SaveImportInvariantViewV1<TState> {
+  readonly state: TState;
+  readonly commandSequence: NonNegativeSafeInteger;
+}
+
 export interface SaveImportValidationContextV1<
   TState,
-  TSnapshot extends { readonly state: TState },
+  TSnapshot extends {
+    readonly state: TState;
+    readonly commandSequence: NonNegativeSafeInteger;
+  },
   TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
 > {
   readonly codec: SaveCodecContextV1<TSnapshot, TSaveRecord>;
   classifyCompatibility(record: DeepReadonly<TSaveRecord>): SaveCompatibilityClassificationV1;
   validateReferences(state: DeepReadonly<TState>): readonly string[];
-  validateInvariants(state: DeepReadonly<TState>): readonly string[];
+  validateInvariants(view: DeepReadonly<SaveImportInvariantViewV1<TState>>): readonly string[];
 }
 
 type SaveRecordEnvelopeSchemaFailureCodeV1 =

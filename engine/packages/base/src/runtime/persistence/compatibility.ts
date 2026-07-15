@@ -18,7 +18,7 @@ import type {
   SaveRecordEnvelopeV1,
   SimulationAdoptionV1,
 } from "../../contracts/persistence.js";
-import type { DeepReadonly } from "../../contracts/values.js";
+import type { DeepReadonly, NonNegativeSafeInteger } from "../../contracts/values.js";
 import {
   parseDigest,
   parseNonNegativeSafeInteger,
@@ -667,7 +667,10 @@ function normalizeCompatibilityClassificationV1(value: unknown): SaveCompatibili
 
 export function validateSaveImportCandidateV1<
   TState,
-  TSnapshot extends { readonly state: TState },
+  TSnapshot extends {
+    readonly state: TState;
+    readonly commandSequence: NonNegativeSafeInteger;
+  },
   TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
 >(
   bytes: Uint8Array,
@@ -695,8 +698,12 @@ export function validateSaveImportCandidateV1<
   if (referenceErrors.length > 0) {
     return Object.freeze({ kind: "rejected", code: "reference.unknown_id" });
   }
+  const invariantView = Object.freeze({
+    state: decoded.record.snapshot.state,
+    commandSequence: decoded.record.snapshot.commandSequence,
+  });
   const invariantErrors = validateStoryErrorsV1(
-    context.validateInvariants(decoded.record.snapshot.state),
+    context.validateInvariants(invariantView),
     "invariant validation",
   );
   if (invariantErrors.length > 0) {

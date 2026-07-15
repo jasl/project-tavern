@@ -7,6 +7,7 @@ import type {
   RuntimeSchemaV1,
   SaveCodecContextV1,
   SaveCompatibilityClassificationV1,
+  SaveImportInvariantViewV1,
   SaveImportValidationContextV1,
   SaveImportValidationResultV1,
   SaveRecordEnvelopeV1,
@@ -72,8 +73,20 @@ export const validationContext = {
     state.count = 2;
     return [];
   },
-  validateInvariants(state) {
-    state.count;
+  validateInvariants(view) {
+    view.state.count;
+    view.commandSequence;
+
+    // @ts-expect-error invariant view has no engine integrity
+    view.integrity;
+    // @ts-expect-error invariant view has no RNG
+    view.rng;
+    // @ts-expect-error Gameplay State does not contain engine integrity
+    view.state.integrity;
+    // @ts-expect-error command sequence is not duplicated into Gameplay State
+    view.state.commandSequence;
+    // @ts-expect-error invariant view is DeepReadonly
+    view.state.count = 2;
     return [];
   },
 } satisfies SaveImportValidationContextV1<
@@ -81,6 +94,12 @@ export const validationContext = {
   SyntheticSnapshotV1,
   SyntheticSaveRecordV1
 >;
+
+declare const invariantView: SaveImportInvariantViewV1<SyntheticStateV1>;
+invariantView.commandSequence;
+invariantView.state.referenceId;
+// @ts-expect-error invariant view is readonly
+invariantView.commandSequence = 2;
 
 export const encoded: Uint8Array = encodeSaveRecordV1(record, codec);
 export const decoded = decodeSaveRecordV1(encoded, codec);

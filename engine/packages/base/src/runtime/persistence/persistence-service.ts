@@ -21,6 +21,7 @@ import type {
   PersistenceStatusV1,
   SaveExportOperationResultV1,
   SaveCodecContextV1,
+  SaveImportInvariantViewV1,
   SaveImportValidationContextV1,
   SaveRecordEnvelopeV1,
   SaveSlotSummaryV1,
@@ -147,7 +148,7 @@ export interface CreateStandardPersistenceServiceOptionsV1<
   readonly ownerId: SessionLeaseOwnerId;
   nextHandoffRequestId(): LeaseHandoffRequestId;
   validateReferences(state: DeepReadonly<TState>): readonly string[];
-  validateInvariants(state: DeepReadonly<TState>): readonly string[];
+  validateInvariants(view: DeepReadonly<SaveImportInvariantViewV1<TState>>): readonly string[];
   readonly initialSimulationLineage: readonly DeepReadonly<SimulationAdoptionV1>[];
   readonly metadataClock: { now(): IsoUtcInstant };
   readonly exportFilename: string;
