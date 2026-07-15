@@ -644,19 +644,19 @@ Expected: FAIL with unresolved action/facility/Aura/event/Narrative imports.
 
 - [ ] **Step 3: Add exact D1–D4 content and activate mixed licensing atomically**
 
-Actions encode purchase, preparation, rest, service-plan, phase/levy, StoryAction, WorldAction, and facility-opportunity gates/costs. Opening start/continue/finalize are deliberately absent from generic `StoryContent.actions`: `PocGameQueriesV1.getTavernOpeningControl()` is their only UI projection and exposes exactly one context-valid branch. The D2 invoice `[智力 B]` choice consumes zero AP and zero RNG, appends the exact +4 ledger effect, and sets the weekly fact. `facilities-auras.ts` owns the only `FacilityOpportunityDefinitionV1` array: exactly one `action.facility_window` entry references both facilities in authored order and freezes build/skip confirmation, availability and skip Reason once. D4 facility definitions own their costs/modifiers and never duplicate the opportunity. The three Aura definitions freeze the exact duration policies: anger is `day_end × 2`, repaired-sign is applicable-successful `opening × 1`, and adventure strain is `night_recovery × 1`; no content carries `expiresAt` or invents a condition expiry. Scheduler events use the fixed total order and stable blocking arbitration; Event IDs are never reused as player Action IDs.
+Actions encode purchase, preparation, rest, service-plan, phase/levy, StoryAction, WorldAction, and facility-opportunity presentation plus authored gates. `ActionPresentationDefinitionV1` has no cost fields: fixed action/service costs remain in Task 2 Balance, facility costs remain in D4 Facility definitions, and later StoryAction/WorldAction costs remain in their own definitions/effects. Opening start/continue/finalize are deliberately absent from generic `StoryContent.actions`: `PocGameQueriesV1.getTavernOpeningControl()` is their only UI projection and exposes exactly one context-valid branch. The shared `action.choose_life_policy` presentation uses the Catalog-required empty visibility/availability and an empty confirmation; current v1 has no per-policy confirmation field, so the four provisional policy-specific confirmation TextIds remain registered rather than being incorrectly merged into every option. The D2 invoice `[智力 B]` choice consumes zero AP and zero RNG, appends the exact +4 ledger effect, and sets the weekly fact. `facilities-auras.ts` owns the only `FacilityOpportunityDefinitionV1` array: exactly one `action.facility_window` entry references both facilities in authored order and freezes build/skip confirmation, availability and skip Reason once. D4 facility definitions own their costs/modifiers and never duplicate the opportunity. The three Aura definitions freeze the exact duration policies: anger is `day_end × 2`, repaired-sign is applicable-successful `opening × 1`, and adventure strain is `night_recovery × 1`; no content carries `expiresAt` or invents a condition expiry. Scheduler events use the fixed total order and stable blocking arbitration; Event IDs are never reused as player Action IDs.
 
 ```ts
-export const pocEventDefinitionsV1 = deepFreeze(
-  pocEventDefinitionsSchemaV1.parse([
-    buildTutorialFirstServiceEventV1(),
-    buildSupplierInvoiceEventV1(),
-    buildHelperAvailableEventV1(),
-    buildFacilityWindowEventV1(),
-    buildLevyDueEventV1(),
-  ]),
-);
+export const pocEventDefinitionsV1 = deepFreezePocValueV1([
+  buildTutorialFirstServiceEventV1(),
+  buildSupplierInvoiceEventV1(),
+  buildHelperAvailableEventV1(),
+  buildFacilityWindowEventV1(),
+  buildLevyDueEventV1(),
+] satisfies readonly StoryEventDefinitionV1[]);
 ```
+
+Phase 4A keeps the individual Action/Event/Facility/Aura Zod schemas private and exports only the complete Simulation-content schema. Task 3 therefore uses exact object-key/reference tests, `satisfies`, and recursive freezing for these partial arrays; it neither duplicates those schemas nor fabricates a partial `PocSimulationContentV1`. Task 6 performs their strict runtime parse once all eighteen content fields are present.
 
 Create `game/stories/poc/LICENSE.md` in the same commit: executable software remains PolyForm Noncommercial, while `src/content/narrative/**` is CC BY-NC-SA 4.0. Change package metadata and the frozen `scripts/workspace-policy.mjs` entry for `@project-tavern/story-poc` to `SEE LICENSE IN LICENSE.md`; the boundary verifier requires those two values to remain equal. Do not change another package policy and do not add a tooling export yet.
 

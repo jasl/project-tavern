@@ -231,9 +231,7 @@ query/preview/execute 都返回带 `{ current, limit }` 的 `tavern.preparation_
 `reason.unavailable.story_window_closed`，因此 D7 只保留推进到下午、缴税与 workflow controls；D7 afternoon 的
 `calendar.advance_phase` 由 PoC GameSimulation/Calendar GameplayModule 在 `levyDue` 以 `calendar.phase_blocked { blocker:"levy_due" }` 拒绝。
 D2 的智力选项使用 `reason.unavailable.intellect_b_required` 作为必填 disabledReasonId，即使 reference 初始属性已经满足。
-Action visibility 同步收束焦点：选择生活方针使用 reason `reason.unavailable.policy_not_ready` 的 authored conditions，
-仅在 `run.started + run.status=setup + narrative.not_active` 时可见，
-sequence 0、开局卡进行中和 policy 已选后都隐藏；普通经营动作仅在 active 的 D1–D6 可见；Facility 只在 D4 且 opportunity 未决定时可见；
+`policy.choose` 是 Action visibility 的生命周期例外：其唯一共享 Action presentation 按 Contract Catalog 固定为空 `visibility`/`availability`，由 `getLifePolicySelection()` 只在 manifest Scene 完成、run 仍为 setup 且 policy 为空时投影选项；sequence 0、开局卡进行中和 policy 已选后都不返回该 Overlay。当前 v1 没有 per-policy confirmation 字段，因此共享 Action confirmation 也保持为空，四个 provisional policy benefit/risk TextId 只登记而不错误地合并到每个选项。其他 Action visibility 同步收束焦点：普通经营动作仅在 active 的 D1–D6 可见；Facility 只在 D4 且 opportunity 未决定时可见；
 修招牌/调查只在 D5 对应窗口且两条 Outcome 均未决定时可见；道歉只在 D6 且 `heroine.angry` 存在时可见；
 缴税只在 D7 afternoon 可见。visibility 失败并不放宽安全守卫，直接构造命令仍由同一 gate 拒绝。
 run/Narrative lifecycle guard 优先，因此直接提交 policy 的结果依次是：pre-Start `run.not_started`；manifest active
