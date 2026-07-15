@@ -263,6 +263,13 @@ conservativeTaxAfter = currentCash
 - `investigation_first` 与 `full_delegation` 中，D6 必须消耗至少一份 D4 采购的鲜肉；移除冷藏而保持同一命令时，该批次必须在 D5 日终腐败；
 - 任一策略在不超过 800/1000 个种子中同时严格支配其他五种策略的现金、关系结果、调查结果和自由 AP。
 
+本节定义两级只读 gate，二者职责不可互换：
+
+- Story `pnpm --filter @project-tavern/story-poc verify:balance:smoke` 是 Phase 4B/5 的快速合同 gate。它用当前默认 Program 固定运行 seed 1 的六策略顺序/worker 等价与真实 worker structured admission，再用反向输入的 synthetic seeds 1–2 shards 证明排序/合并/间隙和 ending/sample 不变量而不重复昂贵 Simulation；seed 17 另行执行真实 `war_clue` committed-attempt → D6 plan 分支。它还覆盖设施 counterfactual、指标/Pareto/中位数、完整阈值边界、账本不变量、校准邻居排序与不可变 Program materialization。Root `pnpm verify:balance:smoke` 只是调用这一 Story leaf 的便捷别名。它必须快速、确定、无写入，但不对 1,000 个种子的总体阈值作抽样推断。
+- Root/Story `pnpm verify:balance` 是唯一完整 release gate。其 CLI 直接运行 seeds 1–1000、全部六策略、D4 压力、设施 counterfactual 和本节所有总体阈值，最终只输出一个包含 `deficit` 与精确 metrics/counterfactual evaluation 的 canonical report；它不通过 Vitest、`test:story` 或 smoke alias 间接运行。普通 Phase 4B/5、unit 与 full local verification 不得意外包含这条长 corpus。
+
+`pnpm --filter @project-tavern/story-poc calibrate:balance` 复用完整 corpus，但只读地枚举和评估 §14.4 的合法邻居，输出 canonical baseline/candidate/selection evidence；Phase 6 的后续轮通过 `-- --iteration=N` 显式传入已应用的变化数（`0..12`），使上限成为工具可验证输入。它不修改 balance、fixture、golden、Save 或任何计划文件。Task 10 另有无 package alias 的 `node scripts/verify-poc-balance.mjs --qualify-provisional`：它只在完整 reproduction range `1..1000` 的所有 metrics/counterfactual 与下述 2026-07-15 provisional report 精确相等时返回 0；默认 `verify:balance` 仍对同一 deficit 返回非零。该临时 qualifier 在 Phase 6 最终冻结 commit 中移除。Phase 4B/5 可在 strict full gate 保持“已记录且仅阈值失败”的状态下继续，但 smoke、schema、命令、算法、确定性、不变量、counterfactual、Pareto 与 provenance 失败一律不能 defer。
+
 ### 14.1 `PocBalanceMetricsV1` 的精确统计形状
 
 统计器返回一个深冻结、Strict JSON、按 seed 与策略稳定排序的值；不得把测试断言隐藏在临时 console 文本中：
@@ -292,7 +299,7 @@ interface PocBalanceMetricsV1 {
 }
 ```
 
-`medianPaidAfterTaxCash` 只对已缴税轮次的 `afterTaxCash` 升序计算；偶数个样本取中间两个整数的算术平均值，因此类型仍是有限 number，零个样本为 `null`。三种 ending count 之和必须等于 1000，`paidCount = stableCount + dangerCount`。
+`medianPaidAfterTaxCash` 只对已缴税轮次的 `afterTaxCash` 升序计算；偶数个样本取中间两个整数的算术平均值，因此类型仍是有限 number，零个样本为 `null`。三种 ending count 之和必须等于 1000，`paidCount = stableCount + dangerCount`。这个精确 shape 属于完整 release corpus；fast smoke 使用同一聚合语义的 bounded shard 值，不伪造 `firstSeed:1,lastSeed:1000`。
 
 ### 14.2 Pareto/严格支配定义
 
@@ -361,11 +368,15 @@ interface PocCounterfactualScenarioV1 {
 
 `overrides` 是上述 closed kind 对应的固定、按 `field` 排序的 before/after provenance；结果必须 deep-freeze、通过完整 Program schema，并在创建 `GameSessionV1` 之前完成。它只从 `game/stories/poc/src/testing/**` 导出，不进入 Story 默认入口、tooling、正式 Artifact、正式 Story simulation digest 或玩家存档；测试场景自身仍按其实际 Program 计算独立 simulation digest。counterfactual runner 仍提交相同 strategy compiler 生成的普通 Semantic invocation；床铺场景必须在 D6 因体力不足拒绝同一亲自营业 invocation，冷藏场景必须在 D5 日终腐败同一 D4 鲜肉批次。
 
-### 14.4 Golden 冻结前的确定校准路径
+### 14.4 Phase 6 Artifact 前的确定校准路径
 
-先完成 reference command fixture，再运行 1–1000 corpus，最后才允许生成 golden。若首轮阈值失败，agent 不暂停请求主观意见，也不改命令、算法、closed ID 或测试阈值；它输出完整 `PocBalanceMetricsV1`，按“现金/通过率 → 委托中位数 → 设施 counterfactual → Pareto”顺序定位，并且每轮只修改 `balance-v0.md` 与 `game/stories/poc/src/content/balance.ts` 中一个既有数值。每次修改都重跑 reference seed、1–1000 corpus 和 counterfactual，保留前后 metrics diff。
+Phase 4B 先完成 reference command fixture、完整 runner/calibration/counterfactual 基础设施与 fast smoke，并至少运行一次 strict 1–1000 gate 得到完整基线证据。2026-07-15 的 provisional technical baseline reproduction 是完整 seed range `1..1000`（这是总体计数失败，不伪称存在一个单独失败 seed），且只有一条冻结阈值失败：`strategy.full_delegation.paidCount=801`，低于未改变的下界 850，缺口 49；该策略已缴税样本中位数为 14，其他总体阈值和 counterfactual 均通过。只有 live 复跑仍证明“仅冻结阈值失败”时，Phase 4B/5 才可使用 provisional golden/Save 技术基线继续；任何其他失败都必须在所有者处先修复。
+
+完整校准延后到 Phase 5C Acceptance 之后，但必须在 Phase 6 Task 1 或任何 Phase 6 Artifact implementation/build 或 release evidence 之前闭环；此前 Phase 5 development builds 只属于 UI/interaction evidence，不能充当 release evidence。agent 从 clean checkpoint 运行 `pnpm verify:balance`，再运行只读 `pnpm --filter @project-tavern/story-poc calibrate:balance`；不暂停请求主观意见，也不改命令、算法、closed ID 或测试阈值。工具输出完整 `PocBalanceMetricsV1` 和 canonical candidate evidence，按“现金/通过率 → 委托中位数 → 设施 counterfactual → Pareto”顺序定位。每轮只将工具返回的一个既有数值同步应用到 `balance-v0.md` 与 `game/stories/poc/src/content/balance.ts`，然后重跑 reference seed、1–1000 corpus 和 counterfactual，保留前后 metrics diff。
 
 允许的 calibration field 按顺序固定为：`levy`、`openingFee`、`assistedWage`、`delegatedWage`、`manualGuestCapacity`、`manualPreparationBase`、`manualPreparationPerAction`、`assistedGuestCapacity`、`assistedPreparationBase`、`assistedPreparationPerAction`、`delegatedGuestCapacity`、`delegatedPreparationBase`、`delegatedPreparationPerAction`。每次整数步长为 1（`levy` 步长为 2）。manual/closed 工资、closed 容量、体力/AP、D4 设施成本和两项设施 modifier 都是固定合同，不进入自动校准。固定顺序是在当前点枚举上述字段的 `-step`、再 `+step` 邻居，丢弃负值/破坏静态 schema 的候选，选择使未满足阈值的总绝对缺口严格下降最多的候选；并列按本文字段顺序、再 `-step` 优先。总绝对缺口是每条上下界到最近合法边界的整数距离之和，delegation median 也按 0–35 计算；counterfactual/Pareto boolean 失败各计 1001。最多 12 轮。若没有邻居严格改善、出现本节不允许修改的合同冲突或 12 轮后仍失败，停止为 `balance_contract_unsatisfied`，附完整 metrics/候选差异，不生成或更新 golden；不得降低阈值或偷偷接受失败结果。
+
+所有冻结阈值通过后，必须显式重新生成 Task 11 的 6 个 golden 与 Task 12 的 8 个 Save fixtures；对完整 diff、精确 file count、schema/provenance/负面单字段差异和按路径排序的 SHA-256 列表重做两次只读审查。旧 provisional hash/review 不得传递到新字节。校准值、本文、golden 与 Save 必须在同一个精确暂存的 clean-checkpoint commit 中闭环；该 commit 后 `pnpm verify:balance`、`verify:golden`、`verify:fixtures`、`pnpm verify` 与 materialization 均通过，才允许进入 Phase 6 Artifact 工作。
 
 ## 15. 已知风险
 

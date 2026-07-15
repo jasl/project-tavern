@@ -18,6 +18,7 @@
 - [`engineering/specs/2026-07-12-game-runtime-contract-catalog.md`](engineering/specs/2026-07-12-game-runtime-contract-catalog.md)：当前 v1 字段级合同；区分 SillyMaker Base 共享 envelope 与 Project Tavern PoC Gameplay/Story 的具体 State、Command、GameplayFact、Narrative、Save 和 Debug 字段。
 - [`engineering/specs/2026-07-11-repository-licensing-design.md`](engineering/specs/2026-07-11-repository-licensing-design.md)：MIT SillyMaker 引擎、PolyForm 非商业游戏代码、CC BY-NC-SA 原创内容、npm 依赖与 `vendor/**` 第三方隔离边界。
 - [`engineering/specs/2026-07-12-aigc-asset-archive-design.md`](engineering/specs/2026-07-12-aigc-asset-archive-design.md)：人类可维护的 AIGC 来源目录、图片/prompt 归档、无审计提升与自动 Asset Pack digest 边界。
+- [`engineering/specs/2026-07-15-deterministic-balance-lab-design.md`](engineering/specs/2026-07-15-deterministic-balance-lab-design.md)：确定性多 seed 实验、worker 合并、有限候选搜索、Story adapter 与 Phase 6 最终校准边界。
 - [`engineering/GOAL.md`](engineering/GOAL.md)：Phase 0/主 Goal 的唯一启动入口、live-state 发现、渐进读取矩阵、恢复与完成规则。
 - [`engineering/execution-protocol.md`](engineering/execution-protocol.md)：工具无关的 task/TDD/commit/checkpoint/repair/stop 合同。
 - [`engineering/plans/2026-07-11-project-tavern-poc-roadmap.md`](engineering/plans/2026-07-11-project-tavern-poc-roadmap.md)：第一版整体交付的轨道顺序、工程 Goal 阶段顺序、目标公共命令面、跨阶段停止线和最终 Definition of Done。

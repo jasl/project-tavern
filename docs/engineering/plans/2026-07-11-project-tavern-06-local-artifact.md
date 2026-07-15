@@ -2,7 +2,7 @@
 
 > **执行合同：** 本计划受 [`Goal Execution Protocol v1`](../execution-protocol.md) 约束；不依赖任何外部 workflow skill 或 plugin。按顺序执行任务；复选框是不可改写的验收步骤，持久进度只由 task commit、phase checkpoint 与验证证据表示。
 
-**Goal:** Produce reproducible local `poc × web` and `e2e × web` Artifacts, fully verify the exact PoC bytes—including default-off runtime capabilities and persistent Cheat integrity—and hand one platform-neutral manifest-bound Artifact to the separate final-human-review or future remote-distribution tracks.
+**Goal:** Close the deferred release balance and its provisional technical baselines, then produce reproducible local `poc × web` and `e2e × web` Artifacts, fully verify the exact PoC bytes—including default-off runtime capabilities and persistent Cheat integrity—and hand one platform-neutral manifest-bound Artifact to the separate final-human-review or future remote-distribution tracks.
 
 **Architecture:** The production builder accepts only `(story, host)` from the closed set `{ poc × web, e2e × web }`; there is no Player, Developer or Headless flavor. `pnpm verify` builds each Story/Host once for all inspect-only browser/bundle/artifact gates, while local release reproducibility performs two isolated PoC builds. Phase 6 performs no CI, upload, hosting, workflow or remote smoke work; future distribution consumes these exact bytes without rebuilding.
 
@@ -11,6 +11,8 @@
 ## Global Constraints
 
 - Phase 5 Acceptance and `pnpm verify:materialization` must pass twice and the working tree must be clean before this phase starts.
+- [`2026-07-15-deterministic-balance-lab-design.md`](../specs/2026-07-15-deterministic-balance-lab-design.md) governs the Story-local balance runner, the engine-neutral future extraction boundary, and the mandatory deferred closeout before any Artifact build.
+- Phase 4B/5 consume provisional but read-only golden and Save baselines. Phase 5 development builds remain valid UI/interaction evidence but never release evidence. Phase 6 must finish the frozen 1–1000 thresholds and replace every affected provisional byte before any Phase 6 Task 1+ Artifact implementation/build, `release:prepare`, `verify:release`, or reproducibility may run.
 - `docs/engineering/specs/2026-07-12-game-runtime-design.md` defines the only current Artifact model: one Artifact per Story/Host, one application root, runtime-gated capabilities and no Headless build flavor.
 - Current build matrix is exactly `poc × web → dist/poc` and `e2e × web → dist/e2e`; reject every other Story, Host, root, or output mapping.
 - `pnpm verify`, `pnpm verify:release`, and all local release commands are offline, nonpublishing and never change tracked files, baselines, remote state, repository settings or runtime capability preferences.
@@ -30,6 +32,95 @@
 - A dirty-worktree build is always `provenanceMode="development"` and never release-eligible. Only a clean exact `HEAD` or a `git archive` of it may produce `provenanceMode="clean_commit"`; formal release evidence is generated after the relevant task commit.
 - Every task uses a focused failing test, confirms the intended red, implements the minimum behavior, runs the focused suite plus current `pnpm verify`, reviews staged scope, and commits.
 - Every expected red must match its named test and stable diagnostic code. Every task follows the global resume contract and accepts only the exact declared staged paths.
+
+---
+
+## Phase 6 Entry: Finalize Deferred Balance and Technical Baselines
+
+This is the first mandatory Phase 6 operation and produces one independent task commit before Task 1. It does not add a
+new phase or weaken the Phase 4B order; it closes the explicitly deferred release acceptance against the completed Phase 5
+product surfaces. Until this entry commit and its clean verification pass, every Artifact/release command in this plan is
+forbidden.
+
+**Files:**
+
+- Modify: `docs/poc/balance-v0.md`
+- Modify: `game/stories/poc/src/content/balance.ts`
+- Modify if the selected field changes their direct literal expectations: `game/stories/poc/src/test/daily-gates.test.ts`
+- Modify if the selected field is `levy`: `game/stories/poc/src/test/ending-forecast.test.ts`
+- Modify: `scripts/verify-poc-balance.mjs` and `scripts/verify-poc-balance.test.mjs` only to remove the Task 10 provisional qualifier/report after the strict default gate passes
+- Modify: `game/stories/poc/src/test/fixtures/golden/**`
+- Modify: `game/stories/poc/src/test/fixtures/saves/**`
+- Preserve byte-for-byte: `game/stories/poc/src/test/fixtures/commands/**`, `game/stories/poc/src/tooling-fixtures.ts`, `pnpm-lock.yaml`
+
+If live calibration exposes an evaluator, runner, counterfactual or selector defect, stop this entry and repair the Task 10
+owner in its own focused commit and gates before restarting from a clean checkpoint. Such a repair never shares the balance
+freeze commit and never changes thresholds or strategies.
+
+The Story-local `calibrate:balance` command is read-only: it materializes validated immutable Programs, evaluates current and
+canonical legal neighbors through the complete sorted corpus and candidate-based counterfactuals, and returns exactly one
+strictly improving candidate or `balance_contract_unsatisfied`. Only deficit zero may short-circuit a canonical neighbor
+prefix. It never edits code, docs or baselines.
+
+Run the current full gate once and confirm that any failure is still threshold-only. Then run:
+
+```bash
+pnpm --filter @project-tavern/story-poc calibrate:balance
+```
+
+Apply exactly the returned field to `balance.ts` and every authoritative/direct expectation in the same change. Re-run the
+reference seed, commands, the complete 1–1000 corpus and all candidate-based counterfactuals after each iteration; stop after
+12 changes or `balance_contract_unsatisfied`. Never lower a threshold, change the six strategies/seed set, accept a partial
+candidate set, or tune from golden output.
+
+Once all frozen thresholds pass, capture two independent canonical reports and require byte equality:
+
+```bash
+pnpm --silent verify:balance > /tmp/project-tavern-balance.release-a.txt
+pnpm --silent verify:balance > /tmp/project-tavern-balance.release-b.txt
+diff -u /tmp/project-tavern-balance.release-a.txt /tmp/project-tavern-balance.release-b.txt
+pnpm --filter @project-tavern/story-poc verify:commands
+```
+
+Regenerate the provisional technical baselines only after that pass. Use the Phase 4B Task 11/12 first-generation review
+protocol again: expose complete intent-to-add/update diffs, record sorted SHA-256 lists before verification, inspect every
+changed golden/Save field and provenance/digest transition, run each read-only gate twice, recompute the lists and require no
+mutation. Command fixture bytes and tooling command literals must remain unchanged.
+
+```bash
+pnpm --filter @project-tavern/story-poc update:golden
+pnpm --filter @project-tavern/story-poc update:fixtures
+pnpm verify:golden
+pnpm verify:golden
+pnpm verify:fixtures
+pnpm verify:fixtures
+pnpm verify:phase4
+git diff --check
+```
+
+Remove the temporary `--qualify-provisional` mode/report and its tests only after the strict default gate passes. Then stage
+the closed literal allowlist below (unchanged optional files are harmless), prove every staged path is admitted and every
+preserved path is absent, and commit:
+
+```bash
+git add -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git diff --cached --name-status
+test -z "$(git diff --cached --name-only | rg -v '^(docs/poc/balance-v0\.md|game/stories/poc/src/content/balance\.ts|game/stories/poc/src/test/(daily-gates|ending-forecast)\.test\.ts|scripts/verify-poc-balance\.(mjs|test\.mjs)|game/stories/poc/src/test/fixtures/(golden|saves)/)')"
+test -z "$(git diff --cached --name-only -- game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts pnpm-lock.yaml)"
+git commit -m "balance(story-poc): finalize release calibration"
+test -z "$(git status --porcelain=v1)"
+pnpm verify:materialization
+pnpm verify:balance
+pnpm verify:golden
+pnpm verify:fixtures
+pnpm verify:phase4
+pnpm verify:phase5c
+pnpm verify
+test -z "$(git status --porcelain=v1)"
+```
+
+From the resulting clean checkpoint rerun materialization, full balance, golden, fixtures, Phase 4, Phase 5C and root
+verification. Task 1 may start only after every command exits zero without rewriting tracked files.
 
 ---
 
@@ -551,6 +642,7 @@ git status --short --branch
 Acceptance criteria:
 
 - All commands exit 0 with no unexplained skip/quarantine and no tracked/worktree mutation.
+- The deferred calibration reaches every unchanged 1–1000 threshold; two canonical full reports are byte-identical, candidate-based counterfactuals pass, provisional golden/Save bytes were regenerated and reviewed, and command fixture/tooling invocation bytes remained unchanged before the first Artifact build.
 - Exactly `poc × web → dist/poc` and `e2e × web → dist/e2e` build through one closed `(story,host)` wrapper; no legacy flavor script/root/output or compatibility alias exists.
 - PoC and E2E production outputs contain no source map, local absolute path, `references/`, `art-source/aigc/**`, secret, or unapproved remote runtime asset.
 - Runtime Debug/Tooling code is allowed in PoC. The same manifest digest serves normal/debug/automation contexts; a fresh isolated Host store defaults all capabilities false, persisted preferences and session-only URL overrides do not change ResolvedGame/GameSimulation identity, and verification leaves no preference side effect.

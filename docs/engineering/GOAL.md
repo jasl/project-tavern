@@ -50,7 +50,8 @@ Phase 0 目标：
 3. 用 Git ancestry、当前 phase gate 和最近 task 的 focused gate 验证最后一个 accepted task；计划中的 `[ ]` 不参与判断。
 4. clean tree 从第一个未验收 task 开始。dirty tree 只有在所有变更都落入同一个未完成 task 的 `Files`/显式生成集合时才原地恢复；否则保留现场并按协议分类。
 5. 只读取当前 phase plan、该 task 和下表列出的权威输入。完成 task commit 后再移动到下一 task。
-6. phase acceptance 通过后，以“最后一个 task commit + acceptance gate + clean status”建立默认 checkpoint，然后自动进入下一 phase，不等待例行确认。除非 phase plan 明确列出 checkpoint 文件、写入步骤、暂存集合和 commit，否则不得自行新增证据文件或独立 checkpoint commit。
+6. Phase 4B–6 的平衡、golden、Save 与 digest 恢复还必须应用下文“延后平衡冻结合同”：Phase 4B/5 的临时验收证据不能被误判为最终 1..1000 校准，Phase 6 的 Artifact 工作也不能越过最终冻结 checkpoint。
+7. phase acceptance 通过后，以“最后一个 task commit + acceptance gate + clean status”建立默认 checkpoint，然后自动进入下一 phase，不等待例行确认。除非 phase plan 明确列出 checkpoint 文件、写入步骤、暂存集合和 commit，否则不得自行新增证据文件或独立 checkpoint commit。
 
 ## 4. 强制阶段图
 
@@ -60,13 +61,24 @@ Phase 0 目标：
 | [Phase 2](plans/2026-07-11-project-tavern-02-modules-e2e-story.md)                    | Phase 0                    | Phase 2、runtime design、scene/interaction design、相关 Contract Catalog   | `pnpm verify:phase2` 与 E2E/PoC 目标布局                     |
 | [Phase 3](plans/2026-07-11-project-tavern-03-persistence-diagnostics.md)              | Phase 2                    | Phase 3、runtime design、persistence/diagnostics catalog                   | `pnpm verify:persistence-diagnostics` 与持久化/诊断 fixtures |
 | [Phase 4A](plans/2026-07-11-project-tavern-04a-poc-gameplay-simulation.md)            | Phase 3                    | Phase 4A、runtime design、Contract Catalog、`docs/poc/simulation-rules.md` | `pnpm verify:poc-gameplay` 与 PoC GameSimulation             |
-| [Phase 4B](plans/2026-07-11-project-tavern-04b-poc-story-golden.md)                   | Phase 4A                   | Phase 4B、scene/interaction design、全部 `docs/poc/` 当前合同              | `pnpm verify:phase4`、golden 与 balance evidence             |
+| [Phase 4B](plans/2026-07-11-project-tavern-04b-poc-story-golden.md)                   | Phase 4A                   | Phase 4B、scene/interaction design、全部 `docs/poc/` 当前合同              | `pnpm verify:phase4`、快速 balance smoke 与临时 golden/Save  |
 | [Phase 5A](plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md)             | Phase 4B                   | Phase 5A、runtime design、scene/interaction design                         | `pnpm verify:phase5a` 与中性 UI runtime                      |
 | [Phase 5B](plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md) | Phase 5A                   | Phase 5B、scene/interaction design、Phase 4B catalog                       | `pnpm verify:phase5b` 与两个 Story presentation roots        |
 | [Phase 5C](plans/2026-07-12-project-tavern-05c-tooling-automation-acceptance.md)      | Phase 5B                   | Phase 5C、交付边界、runtime/scene specs                                    | `pnpm verify:phase5c`、Automation/a11y/visual evidence       |
-| [Phase 6](plans/2026-07-11-project-tavern-06-local-artifact.md)                       | Phase 5C                   | Phase 6、交付边界、许可设计                                                | `pnpm verify:release` 与 exact `dist/poc` Artifact           |
+| [Phase 6](plans/2026-07-11-project-tavern-06-local-artifact.md)                       | Phase 5C                   | Phase 6、交付边界、许可设计                                                | 最终 balance/baseline 冻结、`verify:release` 与 Artifact     |
 
 精确路径、依赖关系和范围由 [`plan-set.v1.json`](plan-set.v1.json) 冻结。若表格、manifest 和 Roadmap 不一致，文档 gate 必须失败，不能由执行者选择其中一个猜测。
+
+### Phase 4B–6 延后平衡冻结合同
+
+本 Goal 将耗时的完整数值校准延后到 Phase 6 开始、任何 release/Artifact 实现或构建之前；阶段顺序仍为 Phase 4B → 5A → 5B → 5C → 6，不新增或跳过 phase。
+
+- Phase 4B Task 10 的当前完成证据是确定性的多 seed 指标/校准/反事实基础设施、顺序与并行结果一致性、固定小样本的快速 smoke，以及一次只读 1..1000 基线测量。若该完整测量只因冻结阈值未满足而失败，记录精确指标与 reproduction seed/range 后继续；结构、命令、算法、确定性、反事实或数据不变量失败仍是必须在原 owner 修复的缺陷。
+- Phase 4B Task 11–12 仍按原 writer、完整 diff/hash 技术复核、只读双跑和精确暂存合同生成 golden 与 Save。它们是供 Phase 5 开发使用的临时基线，不声称已经校准或最终冻结。Phase 4B checkpoint 由最后一个 task commit、`pnpm verify:phase4`（使用快速 balance smoke）、临时 baseline 技术复核证据和 clean status 建立。
+- Phase 5A–5C 只读消费同一组临时 golden/Save/digest bytes；不得以 UI、presentation、tooling 或 acceptance 工作为理由运行 writer、调整 balance，或接受这些 bytes 的变化。已知的纯阈值差额不阻止 Phase 5；其他失败仍按最早 owner 修复。
+- Phase 6 恢复时，先寻找一个独立的最终平衡冻结 checkpoint。若它不存在，就必须在任何 Phase 6 Artifact task 前执行冻结的 seeds 1..1000 × 六策略阈值和反事实校准，按确定性选择同步修改 `docs/poc/balance-v0.md` 与 Story balance，随后用既有 writer 合同重新生成、完整复核并精确暂存 golden/Save/digest 变化。只有 `pnpm verify:balance` 连续两次输出相同且全部通过、reference command bytes 未变、golden/fixture 只读 gate 通过并形成 clean accepted commit 后，才能开始或恢复 Artifact 工作。
+
+恢复时不得把 Phase 4B 临时基线 commit 误当成 Phase 6 最终冻结 commit，也不得因 Phase 5 已消费临时 bytes 而跳过最终重生成与技术复核。最终 `pnpm verify`、`pnpm verify:release`、可复现 Artifact 和 Definition of Done 都消费 Phase 6 冻结后的同一组权威 bytes。
 
 ## 5. 渐进读取规则
 

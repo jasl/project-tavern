@@ -2,9 +2,9 @@
 
 > **执行合同：** 本计划受 [`Goal Execution Protocol v1`](../execution-protocol.md) 约束；不依赖任何外部 workflow skill 或 plugin。按顺序执行任务；复选框是不可改写的验收步骤，持久进度只由 task commit、phase checkpoint 与验证证据表示。
 
-**Goal:** Build the complete non-canonical seven-day `week.poc_001` Story from the Phase 4A Gameplay contracts, supply its content/Narrative/presentation/assets and Story-owned semantic actions, compile six deterministic reference strategies, freeze reviewed golden and Save fixtures, and enforce the exact 1–1000 seed balance thresholds.
+**Goal:** Build the complete non-canonical seven-day `week.poc_001` Story from the Phase 4A Gameplay contracts, supply its content/Narrative/presentation/assets and Story-owned semantic actions, compile six deterministic reference strategies, freeze reviewed provisional technical golden and Save fixtures for Phase 5, and install the exact 1–1000 seed release-balance gate whose deterministic calibration closes before the first Phase 6 Artifact build.
 
-**Architecture:** `game/stories/poc` owns one side-effect-free StoryEntry whose source definition materializes a deeply frozen `PocSimulationProgramV1`, creates the already-proven `PocGameSimulationV1` once, and resolves presentation, SceneGraph, fallback assets, and provenance into one `ResolvedGameV1`. Concrete content and balance are data; all Gameplay algorithms, owner boundaries, command execution, queries, and projection remain in Phase 4A. Story integration and reference drivers operate through the real `GameSessionV1` and `SemanticGamePortV1`, while tracked fixtures and golden artifacts are regenerated only by explicit commands and verified read-only by automated gates.
+**Architecture:** `game/stories/poc` owns one side-effect-free StoryEntry whose source definition materializes a deeply frozen `PocSimulationProgramV1`, creates the already-proven `PocGameSimulationV1` once, and resolves presentation, SceneGraph, fallback assets, and provenance into one `ResolvedGameV1`. Concrete content and balance are data; all Gameplay algorithms, owner boundaries, command execution, queries, and projection remain in Phase 4A. Story integration and reference drivers operate through the real `GameSessionV1` and `SemanticGamePortV1`. Phase 4B/5 use a fast fixed-seed balance contract gate and provisional technical baselines; the complete 1–1000 release gate remains installed and strict, and deterministic Phase 6 pre-Artifact calibration explicitly regenerates and re-reviews every balance-dependent golden and Save byte.
 
 **Tech Stack:** Phase 2–4A Project Tavern packages, Node.js >=22.12.0, pnpm >=11.0.0, strict TypeScript 7.0.2, Zod 4.4.3, Vitest 4.1.10, fast-check 4.9.0, Canonical JSON, and SHA-256 manifests. The Story-owned SceneGraph introduced here is a Node-importable `.ts` data descriptor; React and the Web-only `.tsx` renderer registry arrive in Phase 5.
 
@@ -28,12 +28,13 @@
 - The current seven-day PoC registers no restricted content flags: its policy has `flags=[]`, `presets=[]`, `defaultAllowedFlags=emptyContentMaturityFlagsV1` (runtime value `0`), and every Presentation requirement reuses that empty mask. It adds no daily-touch reward, touch counter, relationship reaction rule, persistent outfit choice, new state/command/action, or suggestive/sexual/explicit runtime content; those require an explicit Phase 4A/4B gameplay revision rather than a presentation shortcut.
 - `references/` and `art-source/aigc/**` are never imported, scanned, copied, bundled, or used by tests/generators.
 - Command, golden, and Save fixture verification is read-only. Only `update:commands`, `update:golden`, and `update:fixtures` may rewrite their respective tracked directories. The executing agent performs the frozen technical baseline review described below; no human approval is required inside the engineering Goal.
-- Task 10 calibration updates `docs/poc/balance-v0.md` and `src/content/balance.ts` together before any golden exists; Task 11 is the immediately following checkpoint and freezes output only after the balance gate passes. Once Task 11 has committed golden files, any later balance change must update the document, concrete balance, metrics evidence, and agent-reviewed golden outputs in the same change; implementation never silently tunes around a failing gate.
+- Task 10 completes the deterministic runner, counterfactual, calibration-selector, immutable candidate-Program, worker-equivalence, and fixed-seed smoke contracts. Story `verify:balance:smoke` is the bounded Phase 4B/5 gate. Root `pnpm verify:balance` remains the strict complete 1–1000 release gate and may stay red only for the explicitly recorded threshold-only Phase 4B baseline; no schema, command, algorithm, determinism, counterfactual, invariant, or provenance failure may be deferred.
+- Task 11 golden and Task 12 Save files are provisional technical baselines: they are still generated, fully diff/hash-reviewed, committed, and verified read-only so tooling and Phase 5 consume real bytes. Before the first Phase 6 Artifact task, the deferred calibration closure must make `pnpm verify:balance` pass without changing thresholds/strategies, regenerate both baseline sets, perform the complete diff/hash review again, and commit the calibrated bytes from a clean checkpoint. No Phase 6 Artifact may be built from the provisional baseline commit.
 - No second week, long-term skill tree, employee progression, full facility tree, weather, seasons, dynamic prices, combat, equipment, minigames, metaprogression, runtime LLM, backend, cloud save, or generalized scripting language is added.
 - Every task uses TDD, passes its focused tests plus `pnpm typecheck && pnpm verify`, and ends with a narrow commit.
 - R1 has already materialized every exact dependency. Phase 4B performs no registry/install write, never runs `pnpm add`, and leaves `pnpm-lock.yaml` byte-identical; package changes are scripts, exports, and license metadata only.
 - The executing agent writes complete provisional Chinese TextCatalog/Narrative copy and continues without requesting line-edit approval. `TODO`, placeholder, blank, or deliberately unfinished player-facing strings fail Story validation. Formal copy review, asset preparation/selection, art judgment, and human playtesting are separate tasks outside this plan and cannot block the engineering Goal.
-- Phase 4A and 4B test leaves remain orthogonal: `test:gameplay` is the permanently frozen Phase 4A file list, while Phase 4B defines an exact `test:story` list for content/application tests. Baseline and 1–1000 gates run only through their named verifier and are not smuggled into either leaf.
+- Phase 4A and 4B test leaves remain orthogonal: `test:gameplay` is the permanently frozen Phase 4A file list, while Phase 4B defines an exact `test:story` list for content/application tests. Baselines and balance gates run only through their named verifiers and are not smuggled into either leaf; in particular no ordinary unit, `test:story`, Phase 4, or Phase 5 gate may accidentally run the complete 1–1000 corpus.
 
 ## Unattended prerequisite, resume, staging, and baseline-review contract
 
@@ -126,7 +127,7 @@ game/stories/poc/
       terminal-route.integration.test.ts
       reference-strategies.test.ts
       golden-week.test.ts
-      balance-1000-seeds.test.ts
+      balance-1000-seeds.test.ts       # fixed-seed smoke/contracts; full corpus is the CLI gate
       save-fixtures.test.ts
       tooling.test.ts
       tooling-runtime.integration.test.ts
@@ -1883,7 +1884,12 @@ git add -- game/stories/poc/src/testing/reference-strategy-definitions.ts game/s
 git commit -m "test(story-poc): freeze reference invocations"
 ```
 
-## Task 10: Calibrate 1–1000 Seed Balance Before Freezing Golden Output
+## Task 10: Build Balance Tooling and Freeze the Fast Technical Gate
+
+The unchecked Step labels below are retained byte-for-byte as immutable plan checkboxes. Under the Goal-level deferred-freeze
+contract, “run calibration” and “calibrated balance gates” in those legacy labels mean installing and qualifying the exact
+read-only calibration/release machinery here; applying a selected value and satisfying the strict population thresholds occur
+only in the mandatory Phase 6 entry checkpoint.
 
 **Files:**
 
@@ -1893,8 +1899,8 @@ git commit -m "test(story-poc): freeze reference invocations"
 - Create: `game/stories/poc/src/test/balance-1000-seeds.test.ts`
 - Modify: `game/stories/poc/src/testing/compile-reference-strategy.ts`
 - Modify: `game/stories/poc/src/testing/run-reference-strategy.ts`
-- Modify: `game/stories/poc/src/content/balance.ts` only if deterministic calibration changes an existing value
-- Modify: `docs/poc/balance-v0.md` only in the same calibration change
+- Modify: `docs/poc/balance-v0.md`
+- Modify: `docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md`
 - Create: `scripts/verify-poc-balance.mjs`
 - Create: `scripts/verify-poc-balance.test.mjs`
 - Modify: `game/stories/poc/package.json`
@@ -1902,14 +1908,35 @@ git commit -m "test(story-poc): freeze reference invocations"
 
 **Interfaces:**
 
-- Consumes: the six frozen strategy definitions, reference-seed literal envelopes, the closed `compilePocStrategyForSeedV1` decision API, seeds 1–1000, exact `PocBalanceMetricsV1`/Pareto definitions and finite calibration procedure in `docs/poc/balance-v0.md`, resolved SemanticGamePort, and immutable Program materialization.
-- Produces: `PocBalanceMetricsV1`, `PocParetoVectorV1`, `PocCounterfactualProvenanceV1`, `PocCounterfactualScenarioV1`, `createPocCounterfactualScenarioV1`, `PocBalanceCalibrationCandidateV1`, `selectPocBalanceCalibrationStepV1`, deterministic 1–1000 assertions, bed/cold-storage/D4-pressure counterfactuals, package `verify:balance`, and the existing root `verify:balance` redirected to PoC. No golden file exists when this task begins.
+- Consumes: the six frozen strategy definitions, reference-seed literal envelopes, the closed `compilePocStrategyForSeedV1` decision API, fixed smoke seeds plus the complete seeds 1–1000 release range, exact `PocBalanceMetricsV1`/Pareto definitions and finite calibration procedure in `docs/poc/balance-v0.md`, resolved SemanticGamePort, and immutable Program materialization.
+- Produces: `PocBalanceMetricsV1`, `PocParetoVectorV1`, `PocCounterfactualProvenanceV1`, `PocCounterfactualScenarioV1`, `createPocCounterfactualScenarioV1`, `PocBalanceCalibrationCandidateV1`, `selectPocBalanceCalibrationStepV1`, bed/cold-storage/D4-pressure counterfactuals, Story `verify:balance:smoke`, its root smoke delegate, strict Story/root `verify:balance`, and read-only Story `calibrate:balance`. The Vitest file is intentionally the fast contract/smoke leaf despite its historical `balance-1000-seeds.test.ts` name; only the CLI default mode executes the full corpus. No golden file exists when this task begins.
 
 - [ ] **Step 1: Write failing metric, compiler-branch, threshold, and counterfactual tests**
 
 ```ts
-it("meets the frozen 1..1000 strategy thresholds with exact metrics", async () => {
-  const metrics = await runPocBalanceCorpusV1({ firstSeed: 1, lastSeed: 1000 });
+it("keeps the fixed default seed smoke deterministic and internally valid", async () => {
+  const sequential = await runPocBalanceCorpusShardV1({
+    firstSeed: 1,
+    lastSeed: 1,
+    execution: "sequential",
+  });
+  const workers = mergePocBalanceCorpusShardRangeV1(
+    await runPocBalanceCorpusWorkersForRangeV1({ firstSeed: 1, lastSeed: 1, workerCount: 1 }),
+  );
+  expect(canonicalJsonBytes(workers)).toEqual(canonicalJsonBytes(sequential));
+  for (const strategy of Object.values(sequential.strategies)) {
+    expect(strategy.stableCount + strategy.dangerCount + strategy.arrearsCount).toBe(1);
+    expect(strategy.paidAfterTaxCash).toHaveLength(strategy.stableCount + strategy.dangerCount);
+  }
+  expect(Object.isFrozen(sequential)).toBe(true);
+
+  const syntheticSecond = Object.freeze({ ...sequential, firstSeed: 2, lastSeed: 2 });
+  const twoShardMerge = mergePocBalanceCorpusShardRangeV1([syntheticSecond, sequential]);
+  expect([twoShardMerge.firstSeed, twoShardMerge.lastSeed]).toEqual([1, 2]);
+});
+
+it("asserts the frozen release thresholds over a complete metrics value", () => {
+  const metrics = completeMetricsFixtureV1();
   expect(metrics.firstSeed).toBe(1);
   expect(metrics.lastSeed).toBe(1000);
   expect(metrics.strategies["strategy.cash_first"].paidCount).toBeGreaterThanOrEqual(900);
@@ -1932,13 +1959,13 @@ it("meets the frozen 1..1000 strategy thresholds with exact metrics", async () =
   expect(metrics.maximumStrictDominance).toBeLessThanOrEqual(800);
 });
 
-it("allows only the committed war-clue result to choose a D6 plan", async () => {
-  const withoutClue = await compileMultiSeedFixtureV1({ seed: 17, warClue: false });
-  const withClue = await compileMultiSeedFixtureV1({ seed: 17, warClue: true });
-  expect(invocationsBeforeD6V1(withoutClue)).toEqual(invocationsBeforeD6V1(withClue));
-  expect(nonD6InvocationsV1(withoutClue)).toEqual(nonD6InvocationsV1(withClue));
-  expect(d6PlanV1(withoutClue)).not.toEqual(d6PlanV1(withClue));
-  expect(() => compileWithUndeclaredDecisionV1("cash_below_levy")).toThrow(/closed decision/u);
+it("selects the seed-17 D6 plan from the committed war clue", async () => {
+  const compiled = await compileInvestigationStrategyForSeedV1(17);
+  const warClue = persistedWarClueV1(compiled.finalSnapshot);
+  expect(warClue).toBe(committedWarClueAttemptV1(compiled.attempts));
+  expect(daySixPlanV1(compiled.fixture)).toEqual(
+    warClue ? investigationDaySixDecisionV1.cluePlan : investigationDaySixDecisionV1.noCluePlan,
+  );
 });
 
 it("builds immutable counterfactual programs before Session creation", async () => {
@@ -1969,21 +1996,23 @@ it("chooses one deterministic strictly improving calibration neighbor", () => {
 });
 ```
 
-Also assert all three ending counts sum to 1000, `paidCount=stableCount+dangerCount`, even-sample median behavior is exact, `freeAp` counts only AP surrendered by legal phase advances, all six Pareto counts use the four-component comparison, and same inputs serialize to identical sorted metrics twice.
+Also assert all three ending counts sum to 1000, `paidCount=stableCount+dangerCount`, every frozen threshold passes at its exact boundary and contributes its specified deficit one unit outside it, even-sample median behavior is exact, `freeAp` counts only AP surrendered by legal phase advances, all six Pareto counts use the four-component comparison, and same inputs serialize to identical sorted metrics twice. Re-admit every structured-clone shard, require ending/sample/count identities, reject malformed/range-mismatched messages, and resolve a worker only after both one admitted message and exit 0; one synthetic reversed two-shard value proves stable merge/gap handling without a second expensive real seed.
+
+`scripts/verify-poc-balance.test.mjs` freezes all five root/Story aliases below, proves default CLI mode calls the complete 1–1000 runner and exact threshold/counterfactual assertion once, proves both smoke aliases reach the same Story Vitest leaf, proves `--calibrate [--iteration=0..12]` selects from only validated immutable neighbors without writing, and admits only the additional Task-10-only `--qualify-provisional` exact-report mode. Every other argument fails. The test injects bounded fixture evaluations; it never launches the full corpus.
 
 - [ ] **Step 2: Run and confirm the missing metrics/scenario implementation**
 
-Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/balance-1000-seeds.test.ts`
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/balance-1000-seeds.test.ts && node --test scripts/verify-poc-balance.test.mjs`
 
-Expected: FAIL because the metrics, restricted multi-seed compiler, and immutable scenario builder do not exist. A threshold-only failure is not yet sufficient—the contract tests above must fail for missing symbols first.
+Expected: FAIL because the metrics, restricted multi-seed compiler, immutable scenario builder, full CLI and read-only calibration mode do not exist. A threshold-only failure is not yet sufficient—the contract tests above must fail for missing symbols first.
 
 - [ ] **Step 3: Implement closed multi-seed compilation, metrics, and scenarios**
 
 `compilePocStrategyForSeedV1` recompiles the frozen schedule for each seed rather than replaying the reference-seed literal envelope. It has no generic state predicate/callback. Its only state-sensitive decision is `select_d6_plan_from_war_clue`; all other invocation choice comes from the frozen definition and public action options. Any rejection terminates that seed/strategy and records it as unpaid without selecting a fallback.
 
-Implement `PocBalanceMetricsV1` and `PocParetoVectorV1` exactly as `docs/poc/balance-v0.md` §14: cash margin uses pre-levy cash minus that candidate Program's configured levy, relationship/investigation ranks are independent, free AP is surrendered AP at legal phase transitions, and one strategy's dominance count increments only when it Pareto-dominates all other five strategies for the same seed. Iterate seeds and strategies in stable ascending order. Parallel workers are allowed only behind a test proving byte-identical sorted output to the sequential runner.
+Implement `PocBalanceMetricsV1` and `PocParetoVectorV1` exactly as `docs/poc/balance-v0.md` §14: cash margin uses pre-levy cash minus that candidate Program's configured levy, relationship/investigation ranks are independent, free AP is surrendered AP at legal phase transitions, and one strategy's dominance count increments only when it Pareto-dominates all other five strategies for the same seed. Iterate seeds and strategies in stable ascending order. Parallel workers are allowed only behind a test proving byte-identical output to the sequential runner plus runtime admission of the structured-clone shard, complete count/sample invariants, stable multi-shard merge and clean worker exit.
 
-`balance-calibration.ts` encodes the exact allowed field order, step sizes, bounds, deficit function, tie-break and 12-iteration cap from §14.4. It materializes each neighboring candidate as a validated immutable test Program, evaluates the same sorted corpus, and returns only a strictly improving closed candidate; it returns `{ kind:"balance_contract_unsatisfied", reason:"no_improving_neighbor" | "iteration_limit", metrics, candidates }` otherwise. It never writes files, mutates a Program, changes thresholds/strategies, or enters the Story export. The agent applies the one returned field change to the two authoritative files and reruns; candidate selection itself is therefore reproducible rather than an informal judgment.
+`balance-calibration.ts` encodes the exact allowed field order, step sizes, bounds, deficit function, tie-break and 12-iteration cap from §14.4. It materializes each neighboring candidate as a validated immutable test Program, evaluates the same sorted corpus when invoked by the deferred calibration CLI, and returns only a strictly improving closed candidate; it returns `{ kind:"balance_contract_unsatisfied", reason:"no_improving_neighbor" | "iteration_limit", metrics, candidates }` otherwise. It never writes files, mutates a Program, changes thresholds/strategies, or enters the Story export. The future Phase 6 pre-Artifact calibration applies the one returned field change to the two authoritative balance files and reruns; candidate selection itself is therefore reproducible rather than an informal judgment.
 
 ```ts
 export interface PocBalanceCalibrationCandidateV1 {
@@ -2012,45 +2041,50 @@ export type PocBalanceCalibrationSelectionV1 =
 
 - [ ] **Step 4: Install the read-only gate, run calibration, and stop before golden**
 
-Replace the Phase 2 E2E placeholder behind the stable root name:
+Install one fast Story gate, one root delegate for convenient direct smoke, and keep the unqualified stable root name exclusively for the complete release corpus:
 
 ```json
 {
   "root": {
-    "verify:balance": "node scripts/verify-poc-balance.mjs"
+    "verify:balance": "node scripts/verify-poc-balance.mjs",
+    "verify:balance:smoke": "node scripts/verify-poc-balance.mjs --smoke"
   },
   "game/stories/poc": {
-    "verify:balance": "vitest run src/test/balance-1000-seeds.test.ts"
+    "verify:balance:smoke": "vitest run src/test/balance-1000-seeds.test.ts",
+    "verify:balance": "node ../../../scripts/verify-poc-balance.mjs",
+    "calibrate:balance": "node ../../../scripts/verify-poc-balance.mjs --calibrate"
   }
 }
 ```
 
-Run `pnpm verify:balance`. If it fails only on thresholds, follow the finite neighbor procedure in `docs/poc/balance-v0.md` §14.4 exactly: one declared value per iteration, complete metrics diff, reference seed + 1–1000 + counterfactual rerun, at most 12 iterations. Update the document and `src/content/balance.ts` together. A schema/command/algorithm/reference failure is not a tunable threshold and must be fixed at its owner. If the deterministic procedure returns `balance_contract_unsatisfied`, stop without creating golden and report its metrics; never lower an assertion, alter the six strategies, or accept a generated baseline.
+In default/main mode `scripts/verify-poc-balance.mjs` directly imports the balance runner, executes exactly seeds 1–1000, evaluates the full frozen threshold/counterfactual contract, emits one canonical report containing `deficit` plus the exact metrics/counterfactual evaluation, and exits nonzero on any failure. It is not a wrapper that invokes Vitest or the Story alias. Worker mode remains the structured shard entry. `--calibrate [--iteration=0..12]` is a separate read-only mode: it evaluates the current full corpus and valid neighboring immutable Programs in frozen order, emits canonical baseline/candidate/selection evidence, enforces the explicit external iteration index, and never edits either authoritative balance file or a fixture.
 
-After success run:
+Task 10 also installs the temporary, unaliased `--qualify-provisional` mode. It runs that same complete corpus but exits 0 only when the entire report—every metric, counterfactual and `deficit=49`—equals the reviewed 2026-07-15 provisional evidence; any drift or additional failure remains red. The strict default mode continues to reject that report. Phase 6 final calibration removes this mode and its frozen report literal in the same exact commit that makes the default full gate pass. No other argument is admitted.
+
+Task 10 deliberately does not apply the selected calibration neighbor. First make the bounded gate pass twice, then run the complete gate once as evidence:
 
 ```bash
-pnpm verify:balance
-pnpm verify:balance
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
+node --test scripts/verify-poc-balance.test.mjs
 pnpm --filter @project-tavern/story-poc verify:commands
 pnpm verify
 git diff --check
 git diff --exit-code -- game/stories/poc/src/test/fixtures/golden pnpm-lock.yaml
+node scripts/verify-poc-balance.mjs --qualify-provisional
 ```
 
-Expected: both corpus runs emit byte-identical `PocBalanceMetricsV1`; all thresholds/counterfactuals pass; reference command bytes remain unchanged; the golden directory is still absent/empty; no lockfile or unrelated file changed.
+Expected: both smoke runs pass with byte-identical fixed-seed metrics; compiler branches, invariants, Pareto helpers, worker admission/equivalence, candidate materialization and all facility counterfactuals pass; reference command bytes remain unchanged; the golden directory is still absent/empty; no lockfile or unrelated file changed. The final qualification runs the complete reproduction range `1..1000` and returns 0 only for the recorded frozen-threshold gap: `strategy.full_delegation.paidCount=801` against the unchanged lower bound `850` (deficit 49), with median 14 and every other metric/counterfactual exact. The default root/Story `verify:balance` remains strict and is unit-proven to reject that same report. If live evidence differs, or any non-threshold contract fails, repair its owner before Task 11 rather than deferring it.
 
 - [ ] **Step 5: Commit calibrated balance gates**
 
 ```bash
-git add -- game/stories/poc/src/testing/balance-metrics.ts game/stories/poc/src/testing/balance-calibration.ts game/stories/poc/src/testing/counterfactual-scenarios.ts game/stories/poc/src/testing/compile-reference-strategy.ts game/stories/poc/src/testing/run-reference-strategy.ts game/stories/poc/src/test/balance-1000-seeds.test.ts game/stories/poc/src/content/balance.ts docs/poc/balance-v0.md game/stories/poc/package.json scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs package.json
+git add -- game/stories/poc/src/testing/balance-metrics.ts game/stories/poc/src/testing/balance-calibration.ts game/stories/poc/src/testing/counterfactual-scenarios.ts game/stories/poc/src/testing/compile-reference-strategy.ts game/stories/poc/src/testing/run-reference-strategy.ts game/stories/poc/src/test/balance-1000-seeds.test.ts docs/poc/balance-v0.md docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md game/stories/poc/package.json scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs package.json
 git diff --cached --name-only
-git commit -m "test(story-poc): calibrate multiseed balance"
+git commit -m "test(story-poc): add balance verification tools"
 ```
 
-If calibration did not change the two balance files, omit them from `git add`; staged paths must still be a subset of the list above.
-
-## Task 11: Freeze Golden Week Artifacts After Balance Passes
+## Task 11: Freeze Provisional Technical Golden Week Artifacts
 
 **Files:**
 
@@ -2072,8 +2106,8 @@ If calibration did not change the two balance files, omit them from `git add`; s
 
 **Interfaces:**
 
-- Consumes: the passed Task 10 balance gate, the Contract Catalog's exact `PocStoryToolingFixtureV1`, six reviewed semantic invocation envelopes, fixed bootstraps, same-attempt CommandLog evidence, state digest, six nightly service rows, and terminal completion.
-- Produces: the sole frozen synchronous TS-literal `pocStoryToolingFixturesV1`, a closed reference-strategy-to-fixture mapping, `PocGoldenArtifactV1`, `buildPocGoldenArtifactV1`, command-derived verification output for the six reviewed invocation envelopes, six agent-reviewed canonical golden files, explicit `update:golden`, package read-only `verify:golden`, and the stable root aggregator ordered E2E then PoC.
+- Consumes: the passed Task 10 smoke/contract gate, the qualified threshold-only full-corpus evidence, the Contract Catalog's exact `PocStoryToolingFixtureV1`, six reviewed semantic invocation envelopes, fixed bootstraps, same-attempt CommandLog evidence, state digest, six nightly service rows, and terminal completion.
+- Produces: the sole frozen synchronous TS-literal `pocStoryToolingFixturesV1`, a closed reference-strategy-to-fixture mapping, `PocGoldenArtifactV1`, `buildPocGoldenArtifactV1`, command-derived verification output for the six reviewed invocation envelopes, six agent-reviewed provisional technical golden files, explicit `update:golden`, package read-only `verify:golden`, and the stable root aggregator ordered E2E then PoC. These bytes are real Phase 5/tooling inputs but are not final balance approval; the deferred pre-Phase6 closure regenerates and re-reviews all six after calibration.
 
 - [ ] **Step 1: Write the failing golden equality test**
 
@@ -2101,9 +2135,9 @@ Update `scripts/verify-golden.test.mjs` to freeze exactly two read-only child co
 
 - [ ] **Step 2: Run and confirm only the golden baseline is missing**
 
-Run: `pnpm verify:balance && pnpm --filter @project-tavern/story-poc exec vitest run src/test/golden-week.test.ts && node --test scripts/verify-golden.test.mjs`
+Run: `pnpm --filter @project-tavern/story-poc verify:balance:smoke && pnpm --filter @project-tavern/story-poc exec vitest run src/test/golden-week.test.ts && node --test scripts/verify-golden.test.mjs`
 
-Expected: balance passes first; then FAIL because the golden builder/files do not exist. Do not proceed if balance fails.
+Expected: the fast balance contract passes first; then FAIL because the golden builder/files do not exist. Do not proceed if the smoke, qualified-full-failure classification, command, invariant, or counterfactual evidence is invalid.
 
 - [ ] **Step 3: Implement same-attempt golden evidence**
 
@@ -2131,14 +2165,14 @@ export interface PocGoldenArtifactV1 {
 
 `src/tooling-fixtures.ts` is Story-owned PolyForm code and the only authority for every PoC tooling fixture. It exports deeply frozen, synchronous, Node-type-strip-safe TS literals satisfying the exact `PocStoryToolingFixtureV1` shape `{ fixtureId, seed, commands: readonly PocGameCommandV1[] }`, plus one closed mapping from the six reference strategy IDs to their corresponding entries. It performs no I/O, imports no test module, is absent from the default Story closure, and contains no filesystem path or JSON reader. The reference compiler deterministically maps those exact commands to the already reviewed legal Semantic invocations and verifies the command JSON envelope as output; it does not make a runtime/test JSON file authoritative. Task 12 imports these same frozen fixture references into the tooling export and must not restate any command literal.
 
-The golden builder validates each source command, awaits commands sequentially through the real GameSession/Semantic mapping, checks each pre-dispatch day/phase/sequence, and pairs it with exactly one same-attempt CommandLog entry. It never reads commands from `src/test/fixtures`, loads the filesystem at runtime, or re-executes to recover RNG/facts. Nightly rows come from authoritative service history/ledger; terminal data comes from persisted Run completion. The six command-envelope JSON files and six golden JSON files are deterministic reviewed verification outputs derived from the same TS command source.
+The golden builder validates each source command, awaits commands sequentially through the real GameSession/Semantic mapping, checks each pre-dispatch day/phase/sequence, and pairs it with exactly one same-attempt CommandLog entry. It never reads commands from `src/test/fixtures`, loads the filesystem at runtime, or re-executes to recover RNG/facts. Nightly rows come from authoritative service history/ledger; terminal data comes from persisted Run completion. The six command-envelope JSON files and six golden JSON files are deterministic reviewed verification outputs derived from the same TS command source. The golden bytes are explicitly provisional with respect to balance only; their schemas, provenance, command ordering, same-attempt evidence, read-only behavior, and technical review are final-quality contracts.
 
 - [ ] **Step 4: Generate, agent-review, hash, and verify twice**
 
 Run:
 
 ```bash
-pnpm verify:balance
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
 pnpm --filter @project-tavern/story-poc update:golden
 git add -N -- game/stories/poc/src/test/fixtures/golden
 git diff --no-ext-diff -- game/stories/poc/src/test/fixtures/golden
@@ -2151,17 +2185,17 @@ find game/stories/poc/src/test/fixtures/golden -type f -print0 | xargs -0 shasum
 diff -u /tmp/project-tavern-golden.before.sha256 /tmp/project-tavern-golden.after.sha256
 ```
 
-Expected: exactly six canonical artifacts appear in the full intent-to-add diff. The agent records the global rubric result, verifies every command entry/same-attempt digest/RNG/fact/night/terminal/integrity field and the complete hashes; all three read-only runs preserve bytes. No human approval is awaited.
+Expected: exactly six canonical provisional technical artifacts appear in the full intent-to-add diff. The agent records the global rubric result, verifies every command entry/same-attempt digest/RNG/fact/night/terminal/integrity field and the complete hashes; all three read-only runs preserve bytes. No human approval is awaited. Passing this step authorizes Phase 5/tooling consumption, not release balance approval.
 
 - [ ] **Step 5: Commit the exact golden corpus**
 
 ```bash
 git add -- game/stories/poc/src/tooling-fixtures.ts game/stories/poc/src/testing/compile-reference-strategy.ts game/stories/poc/src/testing/golden-artifact.ts game/stories/poc/src/test/reference-strategies.test.ts game/stories/poc/src/test/golden-week.test.ts game/stories/poc/scripts/update-golden.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/package.json scripts/verify-golden.mjs scripts/verify-golden.test.mjs
 git diff --cached --name-only
-git commit -m "test(story-poc): freeze calibrated golden weeks"
+git commit -m "test(story-poc): freeze provisional golden weeks"
 ```
 
-## Task 12: Add Same-Artifact Story Tooling and Reviewed Save Fixtures
+## Task 12: Add Same-Artifact Story Tooling and Provisional Save Fixtures
 
 **Files:**
 
@@ -2189,8 +2223,8 @@ git commit -m "test(story-poc): freeze calibrated golden weeks"
 
 **Interfaces:**
 
-- Consumes: Phase 3 `StoryToolingEntryV1`, the exact Catalog `PocStoryToolingFixtureV1`, Task 11's sole frozen `pocStoryToolingFixturesV1` references, capability-gated DebugTools/fixture anchor, the resolved `PocGameSimulationV1.debugCommandExecutor`, Save codec/compatibility, Auto rotation repository, DebugBundle/replay, resolved PoC identity, Snapshot-owned RunIntegrity, Canonical JSON, and an injected fixed-specifier tooling loader.
-- Produces: `pocStoryToolingEntryV1`, test-only `createPocRuntimeTestFixtureV1`, frozen PoC fixture provenance/clock, command-derived fixture anchors/notes available from the same Artifact without redefining commands, actual-Story ten-kind replayable-debug evidence, exact import/slot-health classifications, successful-anchor integrity round-trip evidence, eight reviewed Save fixtures, explicit `update:fixtures`, package read-only `verify:fixtures`, and a stable root `pnpm verify:fixtures` aggregator that checks E2E then PoC.
+- Consumes: Phase 3 `StoryToolingEntryV1`, the exact Catalog `PocStoryToolingFixtureV1`, Task 11's sole frozen provisional `pocStoryToolingFixturesV1` references, capability-gated DebugTools/fixture anchor, the resolved `PocGameSimulationV1.debugCommandExecutor`, Save codec/compatibility, Auto rotation repository, DebugBundle/replay, resolved PoC identity, Snapshot-owned RunIntegrity, Canonical JSON, the passed balance smoke contract, and an injected fixed-specifier tooling loader.
+- Produces: `pocStoryToolingEntryV1`, test-only `createPocRuntimeTestFixtureV1`, frozen PoC fixture provenance/clock, command-derived fixture anchors/notes available from the same Artifact without redefining commands, actual-Story ten-kind replayable-debug evidence, exact import/slot-health classifications, successful-anchor integrity round-trip evidence, eight reviewed provisional Save fixtures, explicit `update:fixtures`, package read-only `verify:fixtures`, and a stable root `pnpm verify:fixtures` aggregator that checks E2E then PoC. The deferred pre-Phase6 calibration regenerates and re-reviews all eight because balance changes can alter Snapshot bytes and simulation provenance/digest.
 
 - [ ] **Step 1: Write failing tooling capability and Save classification tests**
 
@@ -2382,6 +2416,7 @@ The Auto pair is produced by two real repository Auto writes so the old current 
 Run:
 
 ```bash
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
 pnpm --filter @project-tavern/story-poc update:fixtures
 git add -N -- game/stories/poc/src/test/fixtures/saves
 git diff --no-ext-diff -- game/stories/poc/src/test/fixtures/saves
@@ -2393,7 +2428,7 @@ diff -u /tmp/project-tavern-save-fixtures.before.sha256 /tmp/project-tavern-save
 pnpm verify
 ```
 
-Expected: exactly eight canonical JSON files appear in the full intent-to-add diff. The agent records every complete hash and proves each negative differs from its declared legal source in only the named field; fixed-specifier lazy tooling, ten actual-Story replayable debug kinds, queue-front validation failure, successful anchor, exact Save, DebugBundle, replay, Auto rotation, capability, and integrity tests pass; both fixture runs and full verification rewrite nothing. No human approval is awaited.
+Expected: the fast balance contract passes and exactly eight canonical provisional Save JSON files appear in the full intent-to-add diff. The agent records every complete hash and proves each negative differs from its declared legal source in only the named field; fixed-specifier lazy tooling, ten actual-Story replayable debug kinds, queue-front validation failure, successful anchor, exact Save, DebugBundle, replay, Auto rotation, capability, and integrity tests pass; both fixture runs and full verification rewrite nothing. No human approval is awaited. Passing this step freezes the persistence/tooling contract for Phase 5 but not the final balance-dependent bytes.
 
 - [ ] **Step 6: Commit tooling and Save fixtures**
 
@@ -2416,7 +2451,7 @@ git commit -m "test(story-poc): add tooling and save fixtures"
 
 **Interfaces:**
 
-- Consumes: Phase 4A gate, Phase 3 persistence/diagnostics gate, Story validation/integration, the PoC headless semantic leaf, commands/golden/balance/Save/tooling checks, public exports, boundaries/cycles, typecheck, and build. The full root verifier separately owns the E2E→PoC `verify:semantic` aggregator from Task 8.
+- Consumes: Phase 4A gate, Phase 3 persistence/diagnostics gate, Story validation/integration, the PoC headless semantic leaf, commands/golden/fast-balance-smoke/Save/tooling checks, public exports, boundaries/cycles, typecheck, and build. The strict root `verify:balance` remains installed but is deliberately absent from Phase 4B/5 cumulative gates until the pre-Phase6 calibration closure. The full root verifier separately owns the E2E→PoC `verify:semantic` aggregator from Task 8.
 - Produces: Phase-4B-only `pnpm verify:poc-story`, cumulative root `pnpm verify:phase4`, one structurally frozen `pnpm verify` child for the complete Phase 4 checkpoint, one direct root `verify:semantic` child, and deterministic read-only gates.
 
 - [ ] **Step 1: Write the failing exact-command-list test**
@@ -2432,7 +2467,7 @@ test("owns the complete read-only Phase 4B command list", async () => {
     ["pnpm", ["verify:persistence-diagnostics"]],
     ["pnpm", ["--filter", "@project-tavern/story-poc", "run", "test:story"]],
     ["pnpm", ["--filter", "@project-tavern/story-poc", "verify:commands"]],
-    ["pnpm", ["verify:balance"]],
+    ["pnpm", ["--filter", "@project-tavern/story-poc", "verify:balance:smoke"]],
     ["pnpm", ["verify:golden"]],
     ["pnpm", ["verify:fixtures"]],
     ["pnpm", ["--filter", "@project-tavern/story-poc", "verify:semantic"]],
@@ -2484,7 +2519,7 @@ Expected: FAIL because `verify-poc-story.mts` and cumulative scripts do not exis
 
 - [ ] **Step 3: Implement sequential fail-fast verification**
 
-Export the deeply frozen Phase 4B command array above, run it in order, stop on first nonzero status, and expose root scripts. Add the exact twelve-file `test:story` command frozen above; it includes content/source-data/application/tooling integration but excludes all Phase 4A files plus commands/golden/balance/Save baselines, whose named read-only gates run separately:
+Export the deeply frozen Phase 4B command array above, run it in order, stop on first nonzero status, and expose root scripts. Add the exact twelve-file `test:story` command frozen above; it includes content/source-data/application/tooling integration but excludes all Phase 4A files plus commands/golden/balance/Save baselines, whose named read-only gates run separately. The named balance child is precisely Story `verify:balance:smoke`; adding root `verify:balance` here would accidentally turn every Phase 4/5 run into the deferred release corpus and must fail the structural test:
 
 ```json
 {
@@ -2506,7 +2541,7 @@ before="$(git status --porcelain=v1)"
 node --test scripts/verify-poc-story.test.mjs
 pnpm --filter @project-tavern/story-poc test:story
 pnpm --filter @project-tavern/story-poc verify:commands
-pnpm verify:balance
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
 pnpm verify:golden
 pnpm verify:fixtures
 pnpm --filter @project-tavern/story-poc verify:semantic
@@ -2537,6 +2572,7 @@ After the Task 13 commit, run the cumulative phase gates only from the clean che
 ```bash
 test -z "$(git status --porcelain=v1)"
 before="$(git ls-files -z | xargs -0 shasum -a 256)"
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
 pnpm verify:poc-story
 pnpm verify:phase4
 pnpm verify
@@ -2546,6 +2582,11 @@ test "$before" = "$after"
 test -z "$(git status --porcelain=v1)"
 git diff --check
 ```
+
+Per the Goal-level deferred-freeze contract, the unchecked checklist text below remains byte-for-byte unchanged and is not
+used as live progress state. For this Goal, its complete-corpus and final baseline clauses become satisfied only by the
+mandatory Phase 6 entry checkpoint; the executable Phase 4B acceptance above uses the fast smoke plus the qualified
+threshold-only baseline evidence. Git ancestry, gates and clean checkpoints remain the only execution state.
 
 - [ ] `week.poc_001` revision 1 resolves as one frozen `ResolvedGameV1` containing one `PocGameSimulationV1`, SimulationProgram, Presentation, resolved SceneGraph, fallback assets, and provenance.
 - [ ] The PoC Story owns all concrete Gameplay data/content/Narrative/presentation/semantic mappings; Base/UI/Web/E2E contain no PoC stable ID, relationship, facility, Tavern, or seven-day rule.
@@ -2572,3 +2613,55 @@ git diff --check
 - [ ] Balance calibration passed before any golden writer ran. Multi-seed compilation has only the declared post-investigation D6 `war_clue` branch, `PocBalanceMetricsV1`/Pareto semantics are exact, and counterfactual Programs are immutable/test-only and materialized before Session creation.
 - [ ] Provisional Chinese copy is complete and technically valid; formal copy/art/material approval and human playtesting are absent from this plan and deferred until all automated/full-flow acceptance passes.
 - [ ] `pnpm --filter @project-tavern/story-poc test:story`, `verify:commands`, `verify:golden`, `verify:fixtures`, `pnpm verify:balance`, E2E→PoC `pnpm verify:semantic`, `pnpm verify:poc-story`, cumulative `pnpm verify:phase4`, and `pnpm verify` all pass without changing tracked files; the full root verifier structurally contains the Phase 4 checkpoint exactly once.
+
+## Deferred Balance Closure Before Phase 6 Artifact Work
+
+This closure is mandatory after Phase 5C Acceptance and before Phase 6 Task 1 or any Phase 6 Artifact implementation/build or release evidence. Earlier Phase 5 development builds remain UI/interaction evidence only and cannot be reused as release evidence. This is not a Phase 4B acceptance checkbox and does not authorize skipping, weakening, quarantining, or renaming the strict release gate. Start from the clean Phase 5C checkpoint, run `pnpm verify:balance` to refresh the baseline, then invoke `pnpm --filter @project-tavern/story-poc calibrate:balance`; on later rounds forward the applied-change count as `-- --iteration=N`. The command is read-only and returns canonical current metrics, every legal neighbor evaluation, total deficits, and the deterministic selection. Apply exactly the returned one-field change to both `game/stories/poc/src/content/balance.ts` and `docs/poc/balance-v0.md`, rerun the full gate/candidate selector, and repeat for at most the unchanged 12-iteration limit. Never change a threshold, strategy, command, algorithm, closed ID, fixed counterfactual, or more than one declared value per iteration. `balance_contract_unsatisfied` is a real design stop before Artifact work. Any evaluator/runner defect returns to Task 10 as a separate owner repair commit before this clean closure restarts.
+
+Once the complete gate passes, prove byte stability and regenerate every balance-dependent provisional baseline:
+
+```bash
+pnpm --silent verify:balance > /tmp/project-tavern-balance.first.txt
+pnpm --silent verify:balance > /tmp/project-tavern-balance.second.txt
+diff -u /tmp/project-tavern-balance.first.txt /tmp/project-tavern-balance.second.txt
+pnpm --filter @project-tavern/story-poc verify:commands
+pnpm --filter @project-tavern/story-poc update:golden
+pnpm --filter @project-tavern/story-poc update:fixtures
+git add -N -- game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git diff --no-ext-diff -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+find game/stories/poc/src/test/fixtures/golden -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > /tmp/project-tavern-calibrated-golden.before.sha256
+find game/stories/poc/src/test/fixtures/saves -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > /tmp/project-tavern-calibrated-saves.before.sha256
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
+pnpm verify:balance
+pnpm verify:golden
+pnpm verify:golden
+pnpm verify:fixtures
+pnpm verify:fixtures
+find game/stories/poc/src/test/fixtures/golden -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > /tmp/project-tavern-calibrated-golden.after.sha256
+find game/stories/poc/src/test/fixtures/saves -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > /tmp/project-tavern-calibrated-saves.after.sha256
+diff -u /tmp/project-tavern-calibrated-golden.before.sha256 /tmp/project-tavern-calibrated-golden.after.sha256
+diff -u /tmp/project-tavern-calibrated-saves.before.sha256 /tmp/project-tavern-calibrated-saves.after.sha256
+git diff --check
+git diff --exit-code -- pnpm-lock.yaml
+```
+
+The executing agent repeats the complete Task 11/12 rubric over exactly six golden and eight Save files; no old hash/review carries across changed bytes. Once the strict default gate passes, remove the temporary provisional qualifier/report and its tests. Stage and commit only this literal closed allowlist; any evaluator defect is a prior separate Task 10 repair:
+
+```bash
+git add -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git diff --cached --name-status
+test -z "$(git diff --cached --name-only | rg -v '^(docs/poc/balance-v0\.md|game/stories/poc/src/content/balance\.ts|game/stories/poc/src/test/(daily-gates|ending-forecast)\.test\.ts|scripts/verify-poc-balance\.(mjs|test\.mjs)|game/stories/poc/src/test/fixtures/(golden|saves)/)')"
+test -z "$(git diff --cached --name-only -- game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts pnpm-lock.yaml)"
+git commit -m "balance(story-poc): finalize release calibration"
+test -z "$(git status --porcelain=v1)"
+pnpm verify:materialization
+pnpm verify:balance
+pnpm verify:golden
+pnpm verify:fixtures
+pnpm verify:phase4
+pnpm verify:phase5c
+pnpm verify
+test -z "$(git status --porcelain=v1)"
+```
+
+Only that clean calibrated commit may enter Phase 6 Task 1. The later `pnpm verify:release`, reproducible Artifact, and Roadmap Definition of Done continue to require the same unchanged full thresholds.

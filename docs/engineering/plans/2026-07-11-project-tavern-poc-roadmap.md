@@ -29,6 +29,7 @@
 - Every behavior task uses TDD: focused failing test, an expected failure matching the named test and stable diagnostic code, minimal implementation, focused pass, phase gate, current `pnpm verify`, exact staged-diff review and the task commit.
 - Verification never rewrites tracked fixtures, golden files, screenshots or lockfiles. Writers stay explicit and outside `pnpm verify`.
 - Technical fixtures/golden/screenshots are reviewed by the execution agent under the delivery-boundaries evidence contract; this is not asset approval and introduces no human pause.
+- The current Goal defers full 1..1000 balance calibration to the start of Phase 6, before any release/Artifact work. Phase 4B freezes deterministic balance infrastructure, a fast smoke corpus and provisional golden/Save baselines; Phase 5 consumes those exact bytes read-only. Phase 6 then calibrates the frozen thresholds, synchronizes authoritative balance data/documentation, regenerates and technically reviews every affected golden/Save/digest byte, and only then begins Artifact work. This changes no phase order and does not weaken the final balance contract.
 - No mainline task creates `.github/workflows/**`, calls a remote API, publishes, pushes, deploys, checks hosting credentials or changes repository settings.
 
 ---
@@ -78,7 +79,10 @@ pnpm verify:fixtures         read-only E2E and PoC Save/Debug fixture verificati
 pnpm verify:golden           read-only E2E and PoC golden verification
 pnpm verify:determinism      fixed E2E deterministic corpus
 pnpm --filter @project-tavern/story-poc verify:commands  read-only PoC reference commands
+pnpm --filter @project-tavern/story-poc verify:balance:smoke  fast fixed-seed PoC balance smoke
+pnpm verify:balance:smoke    root delegate for the same fast balance smoke
 pnpm verify:balance          PoC 1..1000-seed thresholds
+pnpm --filter @project-tavern/story-poc calibrate:balance  read-only full-corpus neighbor selection
 pnpm verify:assets           runtime manifest paths, media bytes, hashes and dimensions
 pnpm verify:semantic         SemanticGamePort and DOM/action parity
 pnpm verify:ui               RTL, responsive, Input and accessibility checks
@@ -172,13 +176,15 @@ Stop if PoC Gameplay enters Base/UI/Web, a GameplayModule writes another owner, 
 
 **Consumes:** accepted PocGameSimulation and existing seven-day design documents.
 
-**Produces:** PoC Story identity/data/content/Narrative/PatchSurfaces, exact StageScene/variant/rig/HitMap/Interaction catalog, an empty-flag/zero-requirement content policy, one atomic GameView/NarrativeView/action Semantic publication path, six reference strategies, reviewed golden artifacts, 1..1000 seed metrics and persistence/tooling fixtures.
+**Produces:** PoC Story identity/data/content/Narrative/PatchSurfaces, exact StageScene/variant/rig/HitMap/Interaction catalog, an empty-flag/zero-requirement content policy, one atomic GameView/NarrativeView/action Semantic publication path, six reference strategies, deterministic multi-seed metrics/calibration/counterfactual infrastructure, a fast fixed-seed balance smoke, one recorded 1..1000 baseline measurement, and technically reviewed provisional golden/Save/tooling fixtures.
 
 - [ ] Implement D1–D7 content and Story composition without changing E2E.
 - [ ] Review every explicit generated baseline diff before commit.
 - [ ] Run fixed-strategy, golden, balance, Save fixture and complete Phase 4 Acceptance; record reproduction seeds and clean status.
 
-Stop if content adds arbitrary callbacks/expressions, golden verification writes files, or one strategy silently dominates all outcomes.
+For this Goal, Phase 4B plan wording such as “calibrated” or “frozen” denotes a provisional technical baseline until the Phase 6 balance-freeze checkpoint. The Task 10 infrastructure must still be able to evaluate the complete sorted corpus and deterministic finite neighbors; a one-time 1..1000 baseline run records the exact deficit without authorizing threshold changes. Phase 4B and its cumulative Phase 4 gate use `pnpm --filter @project-tavern/story-poc verify:balance:smoke`; the root `pnpm verify:balance` retains its final 1..1000 threshold meaning and is required to pass at Phase 6 freeze.
+
+Stop if content adds arbitrary callbacks/expressions, golden verification writes files, the smoke/counterfactual/determinism contracts fail, or a full-corpus failure is anything other than the recorded frozen-threshold deficit. A threshold-only deficit is deferred evidence, not acceptance of weaker thresholds.
 
 ### R5A: Complete Phase 5A — neutral UI runtime foundations
 
@@ -187,6 +193,8 @@ Stop if content adds arbitrary callbacks/expressions, golden verification writes
 **Consumes:** atomic SemanticGamePort publications, resolved text/assets and Phase 3 player-safe ports.
 
 **Produces:** exact-AssetId loading, atomic React bridge, neutral renderer registry, Input/Pointer adapters, fixed seven-layer Stage, semantic primitives, Overlay/VN/System hosts, persistence/recovery surfaces and a read-only Phase 5A gate.
+
+The provisional Phase 4B golden/Save/digest bytes are read-only inputs throughout Phase 5A–5C. No Phase 5 task runs their writers, tunes balance, or accepts a regenerated baseline; any non-threshold mismatch returns to its earliest owner, while the recorded threshold-only deficit remains scheduled for Phase 6 freeze.
 
 - [ ] Implement exact asset demand and the atomic publication bridge before any Story renderer.
 - [ ] Implement Input ownership and the fixed Stage without geometry, HitMap or PoC semantics.
@@ -226,9 +234,11 @@ Stop if tooling creates another Artifact/Session, Automation can cheat, semantic
 
 **Plan:** [`2026-07-11-project-tavern-06-local-artifact.md`](2026-07-11-project-tavern-06-local-artifact.md)
 
-**Consumes:** complete E2E and PoC Web applications.
+**Consumes:** complete E2E and PoC Web applications, Phase 4B deterministic balance/calibration infrastructure, and the exact provisional golden/Save/digest bytes consumed unchanged by Phase 5.
 
-**Produces:** closed `{ story, host }` builder, `dist/e2e` and `dist/poc`, deterministic manifests, nested-base smoke, complete local verification orchestration and local runbooks.
+**Produces:** a passed frozen 1..1000 balance contract, synchronized authoritative PoC balance, regenerated and technically reviewed final golden/Save/digest bytes, closed `{ story, host }` builder, `dist/e2e` and `dist/poc`, deterministic manifests, nested-base smoke, complete local verification orchestration and local runbooks.
+
+Before Phase 6 plan Task 1 or any release/Artifact implementation or build, establish the balance-freeze checkpoint. Run the frozen seeds 1..1000 × six strategies and counterfactuals, apply only the deterministic finite calibration procedure, update `docs/poc/balance-v0.md` and `game/stories/poc/src/content/balance.ts` together, then regenerate affected golden/Save/digest outputs through the existing explicit writers. Repeat the Phase 4B full diff/hash technical review and exact-staging contracts, prove reference command bytes unchanged, run `pnpm verify:balance` twice with byte-identical passing metrics, run read-only golden/fixture gates, and commit the clean final bytes. If no improving legal neighbor exists, stop before Artifact work; never lower a threshold, alter the six strategies, or relabel provisional bytes as final.
 
 - [ ] Build and inspect both Story Artifacts; release-process only PoC.
 - [ ] Prove two clean PoC builds are byte-identical and the final manifest identifies their exact local inputs.
@@ -253,6 +263,7 @@ The engineering Goal is complete only when all of the following are true:
 - Pointer supports mouse/touch, semantic DOM supports keyboard/readers, and DOM/Port action semantics agree;
 - the PoC registers no restricted content flags and ships only zero-requirement presentation, one heroine figure target and existing Gameplay actions; content preference changes presentation/assets only;
 - code-native fallback assets provide a complete experience without approving archived AIGC candidates;
+- `pnpm verify:balance` passes the complete frozen 1..1000 corpus, and the golden/Save/digest bytes regenerated after that calibration are the same bytes consumed by release verification and `dist/poc`;
 - `dist/poc` is reproducible, nested-base-safe, platform-neutral and is the same artifact exercised by local prebuilt smoke;
 - all fast tests, Chromium/WebKit, accessibility, artifact, docs and release gates pass without modifying tracked baselines;
 - final worktree status and any deliberately retained user changes are explicitly reported;
