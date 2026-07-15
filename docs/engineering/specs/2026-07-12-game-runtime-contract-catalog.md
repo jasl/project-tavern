@@ -4064,8 +4064,13 @@ Tavern preview 与 settlement 共用下面一条确定性计算管线：
 采样、截断枚举或只试端点后声称精确。无论采用哪条受控路径，stored actual-demand 向量运行同一管线所得的
 每道菜销量和 cash delta 必须落在 preview range 内。
 
-Tavern rule 只接受已经由 caller 的共享 guard 通过 structural/reference/day/mode availability 检查的 plan；
-它不得因为自身输入不足而复制 `ConditionV1` switch 或另写一套 mode gate。current-state rule preview 的
+Tavern rule 只接受已经由 caller 严格解析且所有 mode/recipe reference 都可解析、因而足以计算数值的 plan；
+结构或引用无效的 calculator invocation 直接失败且绝不调用 Rule，因为 `TavernPreviewV1` 没有可诚实承载伪造
+数值的 invalid-input branch。对 reference-valid 但受当前 State 的 menu limit、recipe unlock、mode availability
+或计算后 capacity guard 阻止的 plan，共享 guard 仍产生有序 typed rejection；calculator 可以调用同一 Rule 得到
+可展示数值，再由 wrapper 将这些 guard code 前置合并并强制 `allowed=false`。`tavern.plan_frozen` 只阻止再次提交
+`tavern.plan.set`，不阻止 evening 已冻结 plan 的 Opening/Obligation calculator。Rule 不得复制 `ConditionV1`
+switch 或另写一套 mode gate。current-state rule preview 的
 `allowed` 只合并 `resources` 中 AP/现金/双方体力与 ingredient shortages，
 `openingCosts.commitment="prospective"`，cash range 包含未来 Start 的 wage/opening fee 后再加 Finalize
 revenue。Task 10 execute/preview 与 Task 12 Query 使用同一个 calculator wrapper，把共享 guard 的有序 rejection
@@ -4438,7 +4443,9 @@ preview；Base aggregate invariant 另行保证该 State 只存在于 sequence 0
 
 对任意 `previewCommand<C>(command)`，返回值的 `preview.command` 都必须与输入 command Canonical JSON 深值相等；泛型保持其 discriminant/字段类型，query implementation 的同值断言与 contract tests 防止运行时把另一条同 kind 参数命令塞入 preview。包含 command 与 preview 两份值的 LifePolicy/Opening 等组合投影还要由自身 Schema refinement 保证相等。preview 不得规范化、补写或替换玩家将提交的命令。
 
-`previewTavernPlan()` 先通过 execute 共用的 structural/reference/day/mode guard，再使用当前 AP/现金/双方
+`previewTavernPlan()` 先严格解析 plan 并验证 mode/recipe reference；结构或引用无效时抛出确定性 validation
+error，而 `previewCommand({kind:"tavern.plan.set",...})` 对已成功 admission 的命令仍返回精确 typed rejection。
+随后它复用 execute 的其余 plan guard（calculator 中忽略仅属于再次提交的 `tavern.plan_frozen`），再使用当前 AP/现金/双方
 体力、库存、角色、设施/Aura、持久 `currentDemand` 与 preparationActionCount 建立
 `basis="current_state"` 的窄 `TavernPreviewInputV1`，由同一个 calculator wrapper 合并 guard rejection 与
 Rule resource result；StartOpening 使用同一 wrapper。它不暴露 Story rule，也不暴露菜谱销量范围以外的实际顾客数。
