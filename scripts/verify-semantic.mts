@@ -9,6 +9,7 @@ function frozenCommandV1(command: string, args: readonly string[]) {
 
 export const semanticVerificationCommandsV1 = Object.freeze([
   frozenCommandV1("pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]),
+  frozenCommandV1("pnpm", ["--filter", "@project-tavern/story-poc", "verify:semantic"]),
 ]);
 
 export function runSemanticVerificationV1(root: string, spawn: typeof spawnSync = spawnSync): void {

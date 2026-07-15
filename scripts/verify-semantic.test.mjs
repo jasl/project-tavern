@@ -8,6 +8,7 @@ import { runSemanticVerificationV1, semanticVerificationCommandsV1 } from "./ver
 
 const expectedSemanticVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]],
+  ["pnpm", ["--filter", "@project-tavern/story-poc", "verify:semantic"]],
 ]);
 
 test("freezes the exact read-only semantic delegation", () => {
@@ -38,7 +39,7 @@ test("stops on the first failure and never enables a shell", () => {
   );
   assert.deepEqual(
     calls.map(([command, args]) => [command, args]),
-    expectedSemanticVerificationCommandsV1,
+    expectedSemanticVerificationCommandsV1.slice(0, 1),
   );
   assert.equal(calls[0]?.[2]?.cwd, "/repo/project-tavern");
   assert.equal(calls[0]?.[2]?.shell, false);
@@ -48,8 +49,11 @@ test("stops on the first failure and never enables a shell", () => {
 test("maps the public and Story semantic scripts exactly", async () => {
   const root = join(import.meta.dirname, "..");
   const rootPackage = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-  const storyPackage = JSON.parse(
+  const e2eStoryPackage = JSON.parse(
     await readFile(join(root, "game/stories/e2e/package.json"), "utf8"),
+  );
+  const pocStoryPackage = JSON.parse(
+    await readFile(join(root, "game/stories/poc/package.json"), "utf8"),
   );
 
   assert.equal(
@@ -57,8 +61,12 @@ test("maps the public and Story semantic scripts exactly", async () => {
     "node --experimental-strip-types scripts/verify-semantic.mts",
   );
   assert.equal(
-    storyPackage.scripts["verify:semantic"],
+    e2eStoryPackage.scripts["verify:semantic"],
     "pnpm --workspace-root exec vitest run game/stories/e2e/src/runtime/e2e-semantic-game-port.test.ts game/stories/e2e/src/runtime/headless-runner.test.ts",
+  );
+  assert.equal(
+    pocStoryPackage.scripts["verify:semantic"],
+    "vitest run src/test/semantic-flow.integration.test.ts src/test/relationship-route.integration.test.ts src/test/investigation-route.integration.test.ts src/test/terminal-route.integration.test.ts",
   );
   assert.deepEqual(
     Object.entries(rootPackage.scripts)
