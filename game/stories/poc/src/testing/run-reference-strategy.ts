@@ -1,17 +1,24 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import { parseStrictJson, parseStrictJsonLimitsV1, type DeepReadonly } from "@sillymaker/base";
+import {
+  parseNonNegativeSafeInteger,
+  parseStrictJson,
+  parseStrictJsonLimitsV1,
+  type DeepReadonly,
+  type NonNegativeSafeInteger,
+} from "@sillymaker/base";
 
 import { pocReferenceSeedV1 } from "../content/identity.js";
 import type { PocGameSnapshotV1, PocGameViewV1 } from "../gameplay/contracts/types.js";
 import type { PocSemanticActionResultV1 } from "../presentation/semantic-actions.js";
 import {
+  accumulatePocSurrenderedActionPointsV1,
   canonicalPocReferenceCommandFixtureBytesV1,
   pocReferenceCommandFixtureSchemaV1,
   type PocReferenceCommandFixtureV1,
 } from "./compile-reference-strategy.js";
 import type { PocReferenceStrategyIdV1 } from "./reference-strategy-definitions.js";
-import { createPocStoryHarnessV1 } from "./poc-story-harness.js";
+import { createPocStoryHarnessV1, type PocHarnessAttemptV1 } from "./poc-story-harness.js";
 
 const pocReferenceCommandFixtureJsonLimitsV1 = parseStrictJsonLimitsV1({
   maxBytes: 5_242_880,
@@ -46,6 +53,8 @@ export interface PocReferenceStrategyRunV1 {
   readonly results: readonly DeepReadonly<PocSemanticActionResultV1>[];
   readonly finalView: DeepReadonly<PocGameViewV1>;
   readonly finalSnapshot: DeepReadonly<PocGameSnapshotV1>;
+  readonly freeAp: NonNegativeSafeInteger;
+  readonly attempts: readonly DeepReadonly<PocHarnessAttemptV1>[];
 }
 
 function commandFixtureUrlV1(strategyId: PocReferenceStrategyIdV1): URL {
@@ -126,6 +135,7 @@ export async function runPocReferenceStrategyV1(
     bootstrap: Object.freeze({ rngSeed: fixture.seed, runId: fixture.runId }),
   });
   const results: DeepReadonly<PocSemanticActionResultV1>[] = [];
+  let freeAp = 0;
 
   for (const [index, entry] of fixture.entries.entries()) {
     if (entry.order !== index) {
@@ -176,6 +186,12 @@ export async function runPocReferenceStrategyV1(
     if (result.kind !== "committed") {
       failEntryV1(fixture, entry.order, `returned non-committed result ${result.kind}`);
     }
+    freeAp = accumulatePocSurrenderedActionPointsV1({
+      total: freeAp,
+      before: before.game.hud.apRemaining,
+      actionId: entry.invocation.actionId,
+      resultKind: result.kind,
+    });
     await harness.semantic.waitForIdle(before.revision);
   }
 
@@ -183,5 +199,7 @@ export async function runPocReferenceStrategyV1(
     results: Object.freeze(results),
     finalView: harness.semantic.observe().game,
     finalSnapshot: harness.snapshotForTest(),
+    freeAp: parseNonNegativeSafeInteger(freeAp),
+    attempts: Object.freeze([...harness.executedAttempts()]),
   });
 }

@@ -1,0 +1,681 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+import {
+  parseNonNegativeSafeInteger,
+  parsePositiveSafeInteger,
+  type DeepReadonly,
+  type NonNegativeSafeInteger,
+  type PositiveSafeInteger,
+} from "@sillymaker/base";
+import { ZodError } from "zod";
+
+import {
+  createPocGameSimulationV1,
+  createPocRulesV1,
+  deepFreezePocValueV1,
+  pocSimulationDataSchemaV1,
+  pocStoryBalanceSchemaV1,
+  type PocSimulationProgramV1,
+} from "../gameplay/index.js";
+import {
+  materializePocSimulationProgramV1,
+  pocSimulationPatchSurfaceV1,
+} from "../patch-surfaces.js";
+
+import type { PocFacilityCounterfactualChecksV1 } from "./counterfactual-scenarios.js";
+import type { PocReferenceStrategyIdV1 } from "./reference-strategy-definitions.js";
+
+export const pocBalanceCalibrationFieldsV1 = Object.freeze([
+  "levy",
+  "openingFee",
+  "assistedWage",
+  "delegatedWage",
+  "manualGuestCapacity",
+  "manualPreparationBase",
+  "manualPreparationPerAction",
+  "assistedGuestCapacity",
+  "assistedPreparationBase",
+  "assistedPreparationPerAction",
+  "delegatedGuestCapacity",
+  "delegatedPreparationBase",
+  "delegatedPreparationPerAction",
+] as const);
+
+export type PocBalanceCalibrationFieldV1 = (typeof pocBalanceCalibrationFieldsV1)[number];
+export type PocBalanceCalibrationDirectionV1 = "decrease" | "increase";
+
+export type PocBalanceCalibrationValuesV1 = Readonly<
+  Record<PocBalanceCalibrationFieldV1, NonNegativeSafeInteger>
+>;
+
+export interface PocStrategyBalanceMetricsV1 {
+  readonly paidCount: NonNegativeSafeInteger;
+  readonly stableCount: NonNegativeSafeInteger;
+  readonly dangerCount: NonNegativeSafeInteger;
+  readonly arrearsCount: NonNegativeSafeInteger;
+  readonly medianPaidAfterTaxCash: number | null;
+}
+
+export interface PocBalanceMetricsV1 {
+  readonly firstSeed: 1;
+  readonly lastSeed: 1000;
+  readonly strategies: Readonly<Record<PocReferenceStrategyIdV1, PocStrategyBalanceMetricsV1>>;
+  readonly d4CashPressure: Readonly<{
+    readonly cashFirstPaidCount: NonNegativeSafeInteger;
+    readonly relationshipFirstPaidCount: NonNegativeSafeInteger;
+    readonly investigationFirstPaidCount: NonNegativeSafeInteger;
+  }>;
+  readonly strictDominanceCountByStrategy: Readonly<
+    Record<PocReferenceStrategyIdV1, NonNegativeSafeInteger>
+  >;
+  readonly maximumStrictDominance: NonNegativeSafeInteger;
+}
+
+export type PocBalanceCounterfactualChecksV1 = PocFacilityCounterfactualChecksV1;
+
+export interface PocBalanceCalibrationEvaluationV1 {
+  readonly metrics: PocBalanceMetricsV1;
+  readonly counterfactuals: PocBalanceCounterfactualChecksV1;
+}
+
+export interface PocBalanceCalibrationPointV1 {
+  readonly values: DeepReadonly<PocBalanceCalibrationValuesV1>;
+  readonly program: DeepReadonly<PocSimulationProgramV1>;
+}
+
+export interface PocBalanceCalibrationEvaluationPortV1 {
+  readonly evaluate: (
+    point: DeepReadonly<PocBalanceCalibrationPointV1>,
+  ) => Promise<DeepReadonly<PocBalanceCalibrationEvaluationV1>>;
+}
+
+export interface EvaluatePocBalanceCalibrationStepInputV1 {
+  readonly iteration: NonNegativeSafeInteger;
+  readonly values: DeepReadonly<PocBalanceCalibrationValuesV1>;
+  readonly evaluationPort: PocBalanceCalibrationEvaluationPortV1;
+}
+
+export interface PocBalanceCalibrationNeighborV1 {
+  readonly field: PocBalanceCalibrationFieldV1;
+  readonly direction: PocBalanceCalibrationDirectionV1;
+  readonly step: PositiveSafeInteger;
+  readonly beforeValue: NonNegativeSafeInteger;
+  readonly afterValue: NonNegativeSafeInteger;
+}
+
+export interface PocBalanceCalibrationEvaluatedNeighborV1 extends PocBalanceCalibrationNeighborV1 {
+  readonly evaluation: PocBalanceCalibrationEvaluationV1;
+}
+
+export interface PocBalanceCalibrationStepInputV1 {
+  /** Number of calibration changes already applied. The twelfth change is index 11. */
+  readonly iteration: NonNegativeSafeInteger;
+  readonly values: PocBalanceCalibrationValuesV1;
+  readonly evaluation: PocBalanceCalibrationEvaluationV1;
+  readonly candidates: readonly PocBalanceCalibrationEvaluatedNeighborV1[];
+}
+
+export interface PocBalanceCalibrationCandidateV1 {
+  readonly kind: "candidate";
+  readonly field: PocBalanceCalibrationFieldV1;
+  readonly direction: PocBalanceCalibrationDirectionV1;
+  readonly step: PositiveSafeInteger;
+  readonly beforeValue: NonNegativeSafeInteger;
+  readonly afterValue: NonNegativeSafeInteger;
+  readonly beforeDeficit: NonNegativeSafeInteger;
+  readonly afterDeficit: NonNegativeSafeInteger;
+  readonly metrics: PocBalanceMetricsV1;
+}
+
+export type PocBalanceCalibrationSelectionV1 =
+  | PocBalanceCalibrationCandidateV1
+  | {
+      readonly kind: "balance_contract_unsatisfied";
+      readonly reason: "no_improving_neighbor" | "iteration_limit";
+      readonly metrics: PocBalanceMetricsV1;
+      readonly candidates: readonly PocBalanceCalibrationCandidateV1[];
+    };
+
+const calibrationIterationLimitV1 = parseNonNegativeSafeInteger(12);
+const booleanFailurePenaltyV1 = parseNonNegativeSafeInteger(1001);
+const unitStepV1 = parsePositiveSafeInteger(1);
+const levyStepV1 = parsePositiveSafeInteger(2);
+
+const calibrationFieldIndexV1 = new Map<PocBalanceCalibrationFieldV1, number>(
+  pocBalanceCalibrationFieldsV1.map((field, index) => [field, index] as const),
+);
+
+function defaultPocCalibrationProgramV1(): DeepReadonly<PocSimulationProgramV1> {
+  const { slots } = pocSimulationPatchSurfaceV1;
+  return materializePocSimulationProgramV1({
+    balance: slots.balance.defaultValue,
+    demandPreview: slots.demandPreview.defaultValue,
+    demandResolve: slots.demandResolve.defaultValue,
+    tavernPreview: slots.tavernPreview.defaultValue,
+    tavernSettle: slots.tavernSettle.defaultValue,
+    checksDescribe: slots.checksDescribe.defaultValue,
+    checksResolve: slots.checksResolve.defaultValue,
+    endingsEvaluate: slots.endingsEvaluate.defaultValue,
+  });
+}
+
+function serviceModeValueV1(
+  values: PocBalanceCalibrationValuesV1,
+  mode: "manual" | "assisted" | "delegated" | "closed",
+  field: "wage" | "baseReceptionCapacity" | "basePreparationPoints" | "preparationPointsPerAction",
+  fallback: number,
+): number {
+  if (mode === "closed" || (mode === "manual" && field === "wage")) return fallback;
+  const prefix = mode === "manual" ? "manual" : mode === "assisted" ? "assisted" : "delegated";
+  const suffix =
+    field === "wage"
+      ? "Wage"
+      : field === "baseReceptionCapacity"
+        ? "GuestCapacity"
+        : field === "basePreparationPoints"
+          ? "PreparationBase"
+          : "PreparationPerAction";
+  const calibrationField = `${prefix}${suffix}` as PocBalanceCalibrationFieldV1;
+  if (!pocBalanceCalibrationFieldsV1.includes(calibrationField)) {
+    throw new TypeError(`unsupported calibration service field ${calibrationField}`);
+  }
+  return values[calibrationField];
+}
+
+export function pocBalanceCalibrationValuesV1(): PocBalanceCalibrationValuesV1 {
+  const balance = defaultPocCalibrationProgramV1().data.balance;
+  const mode = (id: "manual" | "assisted" | "delegated") => {
+    const value = balance.serviceModes.find((candidate) => candidate.mode === id);
+    if (value === undefined) throw new TypeError(`missing calibration ServiceMode ${id}`);
+    return value;
+  };
+  const manual = mode("manual");
+  const assisted = mode("assisted");
+  const delegated = mode("delegated");
+  return deepFreezePocValueV1({
+    levy: parseNonNegativeSafeInteger(balance.levyAmount),
+    openingFee: parseNonNegativeSafeInteger(balance.openingFee),
+    assistedWage: parseNonNegativeSafeInteger(assisted.wage),
+    delegatedWage: parseNonNegativeSafeInteger(delegated.wage),
+    manualGuestCapacity: parseNonNegativeSafeInteger(manual.baseReceptionCapacity),
+    manualPreparationBase: parseNonNegativeSafeInteger(manual.basePreparationPoints),
+    manualPreparationPerAction: parseNonNegativeSafeInteger(manual.preparationPointsPerAction),
+    assistedGuestCapacity: parseNonNegativeSafeInteger(assisted.baseReceptionCapacity),
+    assistedPreparationBase: parseNonNegativeSafeInteger(assisted.basePreparationPoints),
+    assistedPreparationPerAction: parseNonNegativeSafeInteger(assisted.preparationPointsPerAction),
+    delegatedGuestCapacity: parseNonNegativeSafeInteger(delegated.baseReceptionCapacity),
+    delegatedPreparationBase: parseNonNegativeSafeInteger(delegated.basePreparationPoints),
+    delegatedPreparationPerAction: parseNonNegativeSafeInteger(
+      delegated.preparationPointsPerAction,
+    ),
+  });
+}
+
+function parsePocBalanceCalibrationValuesV1(
+  valuesValue: DeepReadonly<PocBalanceCalibrationValuesV1>,
+): PocBalanceCalibrationValuesV1 {
+  return deepFreezePocValueV1(
+    Object.fromEntries(
+      pocBalanceCalibrationFieldsV1.map((field) => [
+        field,
+        parseNonNegativeSafeInteger(valuesValue[field]),
+      ]),
+    ) as unknown as PocBalanceCalibrationValuesV1,
+  );
+}
+
+export function createPocBalanceCalibrationProgramV1(
+  valuesValue: DeepReadonly<PocBalanceCalibrationValuesV1>,
+): DeepReadonly<PocSimulationProgramV1> {
+  const values = parsePocBalanceCalibrationValuesV1(valuesValue);
+  const baseProgram = defaultPocCalibrationProgramV1();
+  const balance = pocStoryBalanceSchemaV1.parse({
+    ...baseProgram.data.balance,
+    levyAmount: values.levy,
+    openingFee: values.openingFee,
+    serviceModes: baseProgram.data.balance.serviceModes.map((serviceMode) => ({
+      ...serviceMode,
+      wage: serviceModeValueV1(values, serviceMode.mode, "wage", serviceMode.wage),
+      baseReceptionCapacity: serviceModeValueV1(
+        values,
+        serviceMode.mode,
+        "baseReceptionCapacity",
+        serviceMode.baseReceptionCapacity,
+      ),
+      basePreparationPoints: serviceModeValueV1(
+        values,
+        serviceMode.mode,
+        "basePreparationPoints",
+        serviceMode.basePreparationPoints,
+      ),
+      preparationPointsPerAction: serviceModeValueV1(
+        values,
+        serviceMode.mode,
+        "preparationPointsPerAction",
+        serviceMode.preparationPointsPerAction,
+      ),
+    })),
+  });
+  const data = pocSimulationDataSchemaV1.parse({ ...baseProgram.data, balance });
+  const program = deepFreezePocValueV1<PocSimulationProgramV1>({
+    data,
+    rules: createPocRulesV1(data),
+  });
+  createPocGameSimulationV1(program);
+  return program;
+}
+
+function createPocBalanceCalibrationPointV1(
+  valuesValue: DeepReadonly<PocBalanceCalibrationValuesV1>,
+): DeepReadonly<PocBalanceCalibrationPointV1> {
+  const values = parsePocBalanceCalibrationValuesV1(valuesValue);
+  return Object.freeze({
+    values,
+    program: createPocBalanceCalibrationProgramV1(values),
+  });
+}
+
+function calibrationStepV1(field: PocBalanceCalibrationFieldV1): PositiveSafeInteger {
+  return field === "levy" ? levyStepV1 : unitStepV1;
+}
+
+function lowerBoundDeficitV1(value: number, minimum: number): number {
+  return value < minimum ? minimum - value : 0;
+}
+
+function upperBoundDeficitV1(value: number, maximum: number): number {
+  return value > maximum ? value - maximum : 0;
+}
+
+function rangeDeficitV1(value: number, minimum: number, maximum: number): number {
+  return lowerBoundDeficitV1(value, minimum) + upperBoundDeficitV1(value, maximum);
+}
+
+function checkedDeficitSumV1(parts: readonly number[]): NonNegativeSafeInteger {
+  const total = parts.reduce((sum, part) => sum + BigInt(part), 0n);
+  if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RangeError("PoC balance deficit exceeds NonNegativeSafeInteger bounds");
+  }
+  return parseNonNegativeSafeInteger(Number(total));
+}
+
+/**
+ * Computes the exact section 14.4 distance. Numeric thresholds use distance to the nearest
+ * legal boundary; facility counterfactuals and the Pareto condition use the fixed 1001 penalty.
+ */
+export function calculatePocBalanceDeficitV1(
+  evaluation: PocBalanceCalibrationEvaluationV1,
+): NonNegativeSafeInteger {
+  const { metrics, counterfactuals } = evaluation;
+  const delegation = metrics.strategies["strategy.full_delegation"];
+  const delegationMedianDeficit =
+    delegation.medianPaidAfterTaxCash === null
+      ? booleanFailurePenaltyV1
+      : Math.ceil(rangeDeficitV1(delegation.medianPaidAfterTaxCash, 0, 35));
+
+  return checkedDeficitSumV1([
+    lowerBoundDeficitV1(metrics.strategies["strategy.cash_first"].paidCount, 900),
+    lowerBoundDeficitV1(metrics.strategies["strategy.relationship_first"].paidCount, 900),
+    lowerBoundDeficitV1(metrics.strategies["strategy.investigation_first"].paidCount, 900),
+    rangeDeficitV1(delegation.paidCount, 850, 950),
+    delegationMedianDeficit,
+    lowerBoundDeficitV1(metrics.strategies["strategy.two_closures_recovery"].paidCount, 700),
+    upperBoundDeficitV1(metrics.strategies["strategy.explicit_failure"].paidCount, 200),
+    lowerBoundDeficitV1(metrics.d4CashPressure.cashFirstPaidCount, 750),
+    lowerBoundDeficitV1(metrics.d4CashPressure.relationshipFirstPaidCount, 750),
+    lowerBoundDeficitV1(metrics.d4CashPressure.investigationFirstPaidCount, 750),
+    metrics.maximumStrictDominance <= 800 ? 0 : booleanFailurePenaltyV1,
+    counterfactuals.comfortableBedRecovery ? 0 : booleanFailurePenaltyV1,
+    counterfactuals.investigationColdStorageShelfLife ? 0 : booleanFailurePenaltyV1,
+    counterfactuals.fullDelegationColdStorageShelfLife ? 0 : booleanFailurePenaltyV1,
+  ]);
+}
+
+function neighborAfterValueV1(
+  beforeValue: NonNegativeSafeInteger,
+  direction: PocBalanceCalibrationDirectionV1,
+  step: PositiveSafeInteger,
+): NonNegativeSafeInteger | null {
+  const after =
+    direction === "decrease"
+      ? BigInt(beforeValue) - BigInt(step)
+      : BigInt(beforeValue) + BigInt(step);
+  if (after < 0n || after > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+  return parseNonNegativeSafeInteger(Number(after));
+}
+
+function enumerateNumericPocBalanceCalibrationNeighborsV1(
+  values: PocBalanceCalibrationValuesV1,
+): readonly PocBalanceCalibrationNeighborV1[] {
+  const neighbors: PocBalanceCalibrationNeighborV1[] = [];
+  for (const field of pocBalanceCalibrationFieldsV1) {
+    const beforeValue = parseNonNegativeSafeInteger(values[field]);
+    const step = calibrationStepV1(field);
+    for (const direction of ["decrease", "increase"] as const) {
+      const afterValue = neighborAfterValueV1(beforeValue, direction, step);
+      if (afterValue === null) continue;
+      neighbors.push(Object.freeze({ field, direction, step, beforeValue, afterValue }));
+    }
+  }
+  return Object.freeze(neighbors);
+}
+
+interface MaterializedPocBalanceCalibrationNeighborV1 {
+  readonly neighbor: PocBalanceCalibrationNeighborV1;
+  readonly point: DeepReadonly<PocBalanceCalibrationPointV1>;
+}
+
+function valuesForCalibrationNeighborV1(
+  values: PocBalanceCalibrationValuesV1,
+  neighbor: PocBalanceCalibrationNeighborV1,
+): PocBalanceCalibrationValuesV1 {
+  return parsePocBalanceCalibrationValuesV1({
+    ...values,
+    [neighbor.field]: neighbor.afterValue,
+  });
+}
+
+function materializeLegalPocBalanceCalibrationNeighborsV1(
+  values: PocBalanceCalibrationValuesV1,
+): readonly MaterializedPocBalanceCalibrationNeighborV1[] {
+  const materialized: MaterializedPocBalanceCalibrationNeighborV1[] = [];
+  for (const neighbor of enumerateNumericPocBalanceCalibrationNeighborsV1(values)) {
+    const candidateValues = valuesForCalibrationNeighborV1(values, neighbor);
+    let point: DeepReadonly<PocBalanceCalibrationPointV1>;
+    try {
+      point = createPocBalanceCalibrationPointV1(candidateValues);
+    } catch (error) {
+      if (error instanceof ZodError) continue;
+      throw error;
+    }
+    materialized.push(Object.freeze({ neighbor, point }));
+  }
+  return Object.freeze(materialized);
+}
+
+/**
+ * Enumerates canonical legal neighbors in field order and with decrease before increase. Numeric
+ * bounds are checked first; each remaining neighbor must materialize as a complete valid Program.
+ */
+export function enumeratePocBalanceCalibrationNeighborsV1(
+  valuesValue: DeepReadonly<PocBalanceCalibrationValuesV1>,
+): readonly PocBalanceCalibrationNeighborV1[] {
+  const current = createPocBalanceCalibrationPointV1(valuesValue);
+  return Object.freeze(
+    materializeLegalPocBalanceCalibrationNeighborsV1(current.values).map(
+      ({ neighbor }) => neighbor,
+    ),
+  );
+}
+
+async function evaluatePocBalanceCalibrationPointV1(
+  evaluationPort: PocBalanceCalibrationEvaluationPortV1,
+  point: DeepReadonly<PocBalanceCalibrationPointV1>,
+): Promise<DeepReadonly<PocBalanceCalibrationEvaluationV1>> {
+  if (typeof evaluationPort.evaluate !== "function") {
+    throw new TypeError("PoC balance calibration requires an async evaluation port");
+  }
+  const evaluation = await evaluationPort.evaluate(point);
+  return deepFreezePocValueV1(evaluation);
+}
+
+/**
+ * Evaluates the current point followed by canonical legal neighbors. Corpus evaluation stops only
+ * at the first zero-deficit neighbor; when no neighbor reaches zero, the complete legal set is
+ * evaluated so the selector has closed evidence.
+ */
+export async function evaluatePocBalanceCalibrationStepV1(
+  input: EvaluatePocBalanceCalibrationStepInputV1,
+): Promise<PocBalanceCalibrationStepInputV1> {
+  const iteration = parseNonNegativeSafeInteger(input.iteration);
+  const current = createPocBalanceCalibrationPointV1(input.values);
+  const evaluation = await evaluatePocBalanceCalibrationPointV1(input.evaluationPort, current);
+  if (calculatePocBalanceDeficitV1(evaluation) === 0) {
+    throw new TypeError("PoC balance calibration current point already satisfies the contract");
+  }
+
+  const candidates: PocBalanceCalibrationEvaluatedNeighborV1[] = [];
+  for (const { neighbor, point } of materializeLegalPocBalanceCalibrationNeighborsV1(
+    current.values,
+  )) {
+    const neighborEvaluation = await evaluatePocBalanceCalibrationPointV1(
+      input.evaluationPort,
+      point,
+    );
+    candidates.push(Object.freeze({ ...neighbor, evaluation: neighborEvaluation }));
+    if (calculatePocBalanceDeficitV1(neighborEvaluation) === 0) break;
+  }
+
+  return Object.freeze({
+    iteration,
+    values: current.values,
+    evaluation,
+    candidates: Object.freeze(candidates),
+  });
+}
+
+function directionIndexV1(direction: PocBalanceCalibrationDirectionV1): number {
+  return direction === "decrease" ? 0 : 1;
+}
+
+function compareCandidatesV1(
+  left: PocBalanceCalibrationCandidateV1,
+  right: PocBalanceCalibrationCandidateV1,
+): number {
+  if (left.afterDeficit !== right.afterDeficit) {
+    return left.afterDeficit - right.afterDeficit;
+  }
+  const leftFieldIndex = calibrationFieldIndexV1.get(left.field);
+  const rightFieldIndex = calibrationFieldIndexV1.get(right.field);
+  if (leftFieldIndex === undefined || rightFieldIndex === undefined) {
+    throw new TypeError("unknown PoC balance calibration field");
+  }
+  if (leftFieldIndex !== rightFieldIndex) return leftFieldIndex - rightFieldIndex;
+  return directionIndexV1(left.direction) - directionIndexV1(right.direction);
+}
+
+function evaluatedCandidateV1(
+  beforeDeficit: NonNegativeSafeInteger,
+  canonical: PocBalanceCalibrationNeighborV1,
+  evaluated: PocBalanceCalibrationEvaluatedNeighborV1,
+): PocBalanceCalibrationCandidateV1 {
+  return Object.freeze({
+    kind: "candidate",
+    field: canonical.field,
+    direction: canonical.direction,
+    step: canonical.step,
+    beforeValue: canonical.beforeValue,
+    afterValue: canonical.afterValue,
+    beforeDeficit,
+    afterDeficit: calculatePocBalanceDeficitV1(evaluated.evaluation),
+    metrics: evaluated.evaluation.metrics,
+  });
+}
+
+function sameCalibrationNeighborV1(
+  left: PocBalanceCalibrationNeighborV1,
+  right: PocBalanceCalibrationNeighborV1,
+): boolean {
+  return (
+    left.field === right.field &&
+    left.direction === right.direction &&
+    left.step === right.step &&
+    left.beforeValue === right.beforeValue &&
+    left.afterValue === right.afterValue
+  );
+}
+
+function validatePocBalanceCalibrationEvidenceV1(
+  currentValues: PocBalanceCalibrationValuesV1,
+  beforeDeficit: NonNegativeSafeInteger,
+  evaluatedNeighbors: readonly PocBalanceCalibrationEvaluatedNeighborV1[],
+): readonly PocBalanceCalibrationCandidateV1[] {
+  const legalNeighbors = materializeLegalPocBalanceCalibrationNeighborsV1(currentValues).map(
+    ({ neighbor }) => neighbor,
+  );
+  if (evaluatedNeighbors.length > legalNeighbors.length) {
+    throw new TypeError(
+      "PoC balance calibration evidence exceeds the canonical legal neighbor set",
+    );
+  }
+
+  const seen = new Set<string>();
+  const candidates = evaluatedNeighbors.map((evaluated, index) => {
+    const key = `${evaluated.field}:${evaluated.direction}`;
+    if (seen.has(key)) throw new TypeError(`duplicate PoC balance calibration candidate ${key}`);
+    seen.add(key);
+    const canonical = legalNeighbors[index];
+    if (canonical === undefined || !sameCalibrationNeighborV1(canonical, evaluated)) {
+      throw new TypeError(
+        `PoC balance calibration evidence is not the canonical neighbor at index ${String(index)}`,
+      );
+    }
+    return evaluatedCandidateV1(beforeDeficit, canonical, evaluated);
+  });
+
+  const isCompleteCanonicalSet = candidates.length === legalNeighbors.length;
+  const firstZeroDeficit = candidates.findIndex(({ afterDeficit }) => afterDeficit === 0);
+  if (
+    !isCompleteCanonicalSet &&
+    (firstZeroDeficit < 0 || firstZeroDeficit !== candidates.length - 1)
+  ) {
+    throw new TypeError(
+      "PoC balance calibration evidence is neither complete nor a canonical prefix ending at the first zero-deficit neighbor",
+    );
+  }
+  return Object.freeze(candidates);
+}
+
+/**
+ * Selects the strictly best neighbor. Equal improvements use field order and then prefer the
+ * decrease direction. At index 12 no thirteenth calibration change is admitted.
+ */
+export function selectPocBalanceCalibrationStepV1(
+  input: PocBalanceCalibrationStepInputV1,
+): PocBalanceCalibrationSelectionV1 {
+  const iteration = parseNonNegativeSafeInteger(input.iteration);
+  const current = createPocBalanceCalibrationPointV1(input.values);
+  const beforeDeficit = calculatePocBalanceDeficitV1(input.evaluation);
+  const evidence = validatePocBalanceCalibrationEvidenceV1(
+    current.values,
+    beforeDeficit,
+    input.candidates,
+  );
+  if (beforeDeficit === 0) {
+    throw new TypeError("PoC balance calibration current point already satisfies the contract");
+  }
+  const frozenCandidates = Object.freeze([...evidence].sort(compareCandidatesV1));
+
+  if (iteration >= calibrationIterationLimitV1) {
+    return Object.freeze({
+      kind: "balance_contract_unsatisfied",
+      reason: "iteration_limit",
+      metrics: input.evaluation.metrics,
+      candidates: frozenCandidates,
+    });
+  }
+
+  const selected = frozenCandidates.find(({ afterDeficit }) => afterDeficit < beforeDeficit);
+  if (selected !== undefined) return selected;
+  return Object.freeze({
+    kind: "balance_contract_unsatisfied",
+    reason: "no_improving_neighbor",
+    metrics: input.evaluation.metrics,
+    candidates: frozenCandidates,
+  });
+}
+
+function fixtureStrategyMetricsV1(
+  paidCountValue: number,
+  medianPaidAfterTaxCash: number,
+): PocBalanceMetricsV1["strategies"]["strategy.cash_first"] {
+  const paidCount = parseNonNegativeSafeInteger(paidCountValue);
+  return Object.freeze({
+    paidCount,
+    stableCount: paidCount,
+    dangerCount: parseNonNegativeSafeInteger(0),
+    arrearsCount: parseNonNegativeSafeInteger(1000 - paidCount),
+    medianPaidAfterTaxCash,
+  });
+}
+
+function calibrationMetricsFixtureV1(corePaidCount: number): PocBalanceMetricsV1 {
+  const dominanceCounts = Object.freeze({
+    "strategy.cash_first": parseNonNegativeSafeInteger(0),
+    "strategy.relationship_first": parseNonNegativeSafeInteger(0),
+    "strategy.investigation_first": parseNonNegativeSafeInteger(0),
+    "strategy.full_delegation": parseNonNegativeSafeInteger(0),
+    "strategy.two_closures_recovery": parseNonNegativeSafeInteger(0),
+    "strategy.explicit_failure": parseNonNegativeSafeInteger(0),
+  });
+  return Object.freeze({
+    firstSeed: 1,
+    lastSeed: 1000,
+    strategies: Object.freeze({
+      "strategy.cash_first": fixtureStrategyMetricsV1(corePaidCount, 50),
+      "strategy.relationship_first": fixtureStrategyMetricsV1(corePaidCount, 40),
+      "strategy.investigation_first": fixtureStrategyMetricsV1(corePaidCount, 80),
+      "strategy.full_delegation": fixtureStrategyMetricsV1(900, 20),
+      "strategy.two_closures_recovery": fixtureStrategyMetricsV1(700, 25),
+      "strategy.explicit_failure": fixtureStrategyMetricsV1(200, 0),
+    }),
+    d4CashPressure: Object.freeze({
+      cashFirstPaidCount: parseNonNegativeSafeInteger(750),
+      relationshipFirstPaidCount: parseNonNegativeSafeInteger(750),
+      investigationFirstPaidCount: parseNonNegativeSafeInteger(750),
+    }),
+    strictDominanceCountByStrategy: dominanceCounts,
+    maximumStrictDominance: parseNonNegativeSafeInteger(800),
+  });
+}
+
+const passingCounterfactualChecksV1 = Object.freeze({
+  comfortableBedRecovery: true,
+  investigationColdStorageShelfLife: true,
+  fullDelegationColdStorageShelfLife: true,
+});
+
+/** Deterministic test fixture whose equal best candidates exercise both tie-break levels. */
+export function calibrationCandidateFixtureV1(): PocBalanceCalibrationStepInputV1 {
+  const values: PocBalanceCalibrationValuesV1 = Object.freeze({
+    levy: parseNonNegativeSafeInteger(140),
+    openingFee: parseNonNegativeSafeInteger(2),
+    assistedWage: parseNonNegativeSafeInteger(5),
+    delegatedWage: parseNonNegativeSafeInteger(7),
+    manualGuestCapacity: parseNonNegativeSafeInteger(10),
+    manualPreparationBase: parseNonNegativeSafeInteger(6),
+    manualPreparationPerAction: parseNonNegativeSafeInteger(4),
+    assistedGuestCapacity: parseNonNegativeSafeInteger(8),
+    assistedPreparationBase: parseNonNegativeSafeInteger(6),
+    assistedPreparationPerAction: parseNonNegativeSafeInteger(4),
+    delegatedGuestCapacity: parseNonNegativeSafeInteger(7),
+    delegatedPreparationBase: parseNonNegativeSafeInteger(7),
+    delegatedPreparationPerAction: parseNonNegativeSafeInteger(2),
+  });
+  const currentEvaluation = Object.freeze({
+    metrics: calibrationMetricsFixtureV1(899),
+    counterfactuals: passingCounterfactualChecksV1,
+  });
+  const passingEvaluation = Object.freeze({
+    metrics: calibrationMetricsFixtureV1(900),
+    counterfactuals: passingCounterfactualChecksV1,
+  });
+  const neighbors = enumeratePocBalanceCalibrationNeighborsV1(values);
+  return Object.freeze({
+    iteration: parseNonNegativeSafeInteger(0),
+    values,
+    evaluation: currentEvaluation,
+    candidates: Object.freeze(
+      neighbors.map((neighbor) =>
+        Object.freeze({
+          ...neighbor,
+          evaluation:
+            neighbor.field === "levy" ||
+            (neighbor.field === "openingFee" && neighbor.direction === "decrease")
+              ? passingEvaluation
+              : currentEvaluation,
+        }),
+      ),
+    ),
+  });
+}

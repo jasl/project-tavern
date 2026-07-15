@@ -21,6 +21,8 @@
     "verify:stories": "node scripts/verify-stories.mjs",
     "verify:fixtures": "node scripts/verify-fixtures.mjs",
     "verify:golden": "node scripts/verify-golden.mjs",
+    "verify:balance": "node scripts/verify-poc-balance.mjs",
+    "verify:balance:smoke": "node scripts/verify-poc-balance.mjs --smoke",
     "verify:determinism": "pnpm --filter @project-tavern/story-e2e verify:determinism",
     "verify:assets": "node scripts/verify-assets.mjs",
     "verify:bundle": "node scripts/verify-bundle.mjs",

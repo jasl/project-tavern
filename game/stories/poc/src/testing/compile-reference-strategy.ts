@@ -2,15 +2,24 @@
 
 import {
   canonicalJsonBytes,
+  createPristineRunIntegrityV1,
+  createTransactionalRngV1,
   parseNonNegativeSafeInteger,
   parseNonZeroUint32,
   parseRunId,
   type DeepReadonly,
+  type IsoUtcInstant,
   type NonNegativeSafeInteger,
   type NonZeroUint32,
   type RunId,
   type RuntimeSchemaV1,
 } from "@sillymaker/base";
+import {
+  createGameSessionV1,
+  createRuntimeFailureBufferV1,
+  createRuntimeFailureReporterV1,
+} from "@sillymaker/base/runtime";
+import type { GameSessionCompositionV1 } from "@sillymaker/base/runtime";
 
 import {
   pocReferenceRunIdsV1,
@@ -23,11 +32,15 @@ import {
   parseDayIndex,
   parseQuantity,
   parseStoryId,
+  createPocGameSimulationV1,
   type CalendarPhase,
   type DayIndex,
   type IngredientId,
+  type PocGameBootstrapInputV1,
+  type PocGameSimulationTypesV1,
   type PocGameSnapshotV1,
   type PocGameViewV1,
+  type PocSimulationProgramV1,
   type TavernPlanV1,
 } from "../gameplay/index.js";
 import {
@@ -36,7 +49,10 @@ import {
   type PocSemanticActionResultV1,
   type PocSemanticInvocationV1,
 } from "../presentation/semantic-actions.js";
-import { createPocStoryHarnessV1, type PocStoryHarnessV1 } from "./poc-story-harness.js";
+import { createPocSemanticGamePortV1 } from "../application/create-poc-semantic-port.js";
+import { pocStoryEntryV1 } from "../story-definition.js";
+import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
+import type { PocHarnessAttemptV1, PocStoryHarnessV1 } from "./poc-story-harness.js";
 import {
   pocReferenceStrategyDefinitionsV1,
   pocReferenceStrategyIdsV1,
@@ -71,6 +87,8 @@ export interface CompiledPocReferenceStrategyV1 {
   readonly results: readonly DeepReadonly<PocSemanticActionResultV1>[];
   readonly finalView: DeepReadonly<PocGameViewV1>;
   readonly finalSnapshot: DeepReadonly<PocGameSnapshotV1>;
+  readonly freeAp: NonNegativeSafeInteger;
+  readonly attempts: readonly DeepReadonly<PocHarnessAttemptV1>[];
 }
 
 export interface PocReferencePlanObservationV1 {
@@ -93,8 +111,11 @@ interface CompileContextV1 {
   readonly harness: PocStoryHarnessV1;
   readonly entries: PocReferenceCommandFixtureEntryV1[];
   readonly results: DeepReadonly<PocSemanticActionResultV1>[];
+  readonly recordEvidence: boolean;
   warClue: boolean;
   stopped: boolean;
+  freeAp: number;
+  commandCount: number;
 }
 
 interface PurchaseTargetV1 {
@@ -107,6 +128,23 @@ interface MutableBatchV1 {
   readonly lastUsableDay: number;
   readonly stableId: string;
   remaining: number;
+}
+
+export function accumulatePocSurrenderedActionPointsV1(input: {
+  readonly total: number;
+  readonly before: number;
+  readonly actionId: PocSemanticInvocationV1["actionId"];
+  readonly resultKind: PocSemanticActionResultV1["kind"];
+}): NonNegativeSafeInteger {
+  const total = parseNonNegativeSafeInteger(input.total);
+  const before = parseNonNegativeSafeInteger(input.before);
+  if (input.actionId !== "action.advance_phase" || input.resultKind !== "committed") return total;
+
+  const next = BigInt(total) + BigInt(before);
+  if (next > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RangeError("reference strategy surrendered AP exceeds NonNegativeSafeInteger bounds");
+  }
+  return parseNonNegativeSafeInteger(Number(next));
 }
 
 const semanticActionIdsV1 = new Set<PocSemanticInvocationV1["actionId"]>([
@@ -130,6 +168,65 @@ const semanticActionIdsV1 = new Set<PocSemanticInvocationV1["actionId"]>([
   "action.narrative_choose",
 ]);
 const referenceStrategyIdSetV1 = new Set<string>(pocReferenceStrategyIdsV1);
+const defaultPocGameSimulationV1 = resolveStoryForTestV1(pocStoryEntryV1).gameSimulation;
+const programSimulationCacheV1 = new WeakMap<
+  object,
+  ReturnType<typeof createPocGameSimulationV1>
+>();
+
+function simulationForProgramV1(program: DeepReadonly<PocSimulationProgramV1>) {
+  const cached = programSimulationCacheV1.get(program as object);
+  if (cached !== undefined) return cached;
+  const created = createPocGameSimulationV1(program);
+  programSimulationCacheV1.set(program as object, created);
+  return created;
+}
+
+function createProgramHarnessV1(
+  program: DeepReadonly<PocSimulationProgramV1> | null,
+  bootstrap: DeepReadonly<PocGameBootstrapInputV1>,
+): PocStoryHarnessV1 {
+  const gameSimulation =
+    program === null ? defaultPocGameSimulationV1 : simulationForProgramV1(program);
+  const initialSnapshot: PocGameSnapshotV1 = Object.freeze({
+    state: gameSimulation.createInitialState(bootstrap),
+    rng: createTransactionalRngV1(bootstrap.rngSeed).candidateState(),
+    commandSequence: parseNonNegativeSafeInteger(0),
+    integrity: createPristineRunIntegrityV1(),
+  });
+  const runtimeFailures = createRuntimeFailureBufferV1();
+  const reportObserverFailure = createRuntimeFailureReporterV1({
+    failures: runtimeFailures,
+    now: () => "2026-07-15T00:00:00.000Z" as IsoUtcInstant,
+    operation: "runtime.observer_notification_failed",
+    category: "runtime",
+    code: "runtime.async_operation_failed",
+  });
+  const created = createGameSessionV1<PocGameSimulationTypesV1>({
+    initialSnapshot,
+    commandSchema: gameSimulation.commandSchema,
+    executionContext: undefined,
+    executeAttempt: (snapshot, command) =>
+      gameSimulation.commandExecutor.executeAttempt(snapshot, command, undefined),
+    normalizeUnexpectedDispatchFault(error): never {
+      throw error;
+    },
+    onObserverFailure: reportObserverFailure,
+  });
+  const semantic = createPocSemanticGamePortV1({
+    gameSimulation,
+    session: created.session,
+    runtimeControl: created.runtimeControl,
+    reportSubscriberFailure: reportObserverFailure,
+  });
+  const commandLog: GameSessionCompositionV1<PocGameSimulationTypesV1>["commandLog"] =
+    created.commandLog;
+  return Object.freeze({
+    semantic,
+    snapshotForTest: () => created.session.getCurrentSnapshot(),
+    executedAttempts: () => commandLog.entries(),
+  });
+}
 
 function exactDataRecordV1(
   value: unknown,
@@ -343,7 +440,7 @@ async function dispatchInvocationV1(
   }
   const before = context.harness.semantic.observe();
   const snapshot = context.harness.snapshotForTest();
-  const order = parseNonNegativeSafeInteger(context.entries.length);
+  const order = parseNonNegativeSafeInteger(context.commandCount);
   if (snapshot.commandSequence !== order) {
     throw new TypeError("reference compiler command sequence diverged from fixture order");
   }
@@ -351,31 +448,42 @@ async function dispatchInvocationV1(
   if (action.actionId !== invocation.actionId) throw new TypeError("Semantic action mismatch");
   await context.harness.semantic.preview(invocation);
   const result = await context.harness.semantic.dispatch(invocation);
-  context.entries.push(
-    deepFreezePocValueV1({
-      order,
-      day: before.game.hud.day,
-      phase: before.game.hud.phase,
-      commandSequence: snapshot.commandSequence,
-      invocation,
-    }),
-  );
-  context.results.push(result);
+  context.commandCount = parseNonNegativeSafeInteger(context.commandCount + 1);
+  if (context.recordEvidence) {
+    context.entries.push(
+      deepFreezePocValueV1({
+        order,
+        day: before.game.hud.day,
+        phase: before.game.hud.phase,
+        commandSequence: snapshot.commandSequence,
+        invocation,
+      }),
+    );
+    context.results.push(result);
+  }
 
-  const attempt = context.harness.executedAttempts().at(-1);
-  if (
-    result.kind !== "not_executed" &&
-    (attempt === undefined || attempt.commandSequence.before !== snapshot.commandSequence)
-  ) {
-    throw new TypeError("reference compiler lost same-attempt CommandLog evidence");
+  if (context.recordEvidence) {
+    const attempt = context.harness.executedAttempts().at(-1);
+    if (
+      result.kind !== "not_executed" &&
+      (attempt === undefined || attempt.commandSequence.before !== snapshot.commandSequence)
+    ) {
+      throw new TypeError("reference compiler lost same-attempt CommandLog evidence");
+    }
   }
   if (result.kind !== "committed") {
     context.stopped = true;
     return false;
   }
+  context.freeAp = accumulatePocSurrenderedActionPointsV1({
+    total: context.freeAp,
+    before: before.game.hud.apRemaining,
+    actionId: invocation.actionId,
+    resultKind: result.kind,
+  });
   await context.harness.semantic.waitForIdle(before.revision);
-  captureWarClueV1(context);
-  context.harness.semantic.availableActions();
+  if (invocation.actionId === "action.world_action_complete") captureWarClueV1(context);
+  if (context.recordEvidence) context.harness.semantic.availableActions();
   return true;
 }
 
@@ -689,12 +797,18 @@ function finalizeCompilationV1(context: CompileContextV1): CompiledPocReferenceS
     results: Object.freeze([...context.results]),
     finalView: context.harness.semantic.observe().game,
     finalSnapshot: context.harness.snapshotForTest(),
+    freeAp: parseNonNegativeSafeInteger(context.freeAp),
+    attempts: context.recordEvidence
+      ? Object.freeze([...context.harness.executedAttempts()])
+      : Object.freeze([]),
   });
 }
 
-export async function compilePocStrategyForSeedV1(
+async function compilePocStrategyForSeedAndProgramV1(
   definition: DeepReadonly<PocReferenceStrategyDefinitionV1>,
   seedValue: NonZeroUint32,
+  program: DeepReadonly<PocSimulationProgramV1> | null,
+  recordEvidence: boolean,
 ): Promise<CompiledPocReferenceStrategyV1> {
   const registered = pocReferenceStrategyDefinitionsV1[definition.strategyId];
   if (
@@ -707,13 +821,17 @@ export async function compilePocStrategyForSeedV1(
   const context: CompileContextV1 = {
     definition,
     seed,
-    harness: createPocStoryHarnessV1({
-      bootstrap: Object.freeze({ rngSeed: seed, runId: definition.runId }),
-    }),
+    harness: createProgramHarnessV1(
+      program,
+      Object.freeze({ rngSeed: seed, runId: definition.runId }),
+    ),
     entries: [],
     results: [],
+    recordEvidence,
     warClue: false,
     stopped: false,
+    freeAp: 0,
+    commandCount: 0,
   };
 
   if (!(await dispatchDirectV1(context, "action.run_start"))) return finalizeCompilationV1(context);
@@ -751,6 +869,29 @@ export async function compilePocStrategyForSeedV1(
   if (!(await advancePhaseV1(context))) return finalizeCompilationV1(context);
   await dispatchDirectV1(context, "action.pay_levy");
   return finalizeCompilationV1(context);
+}
+
+export function compilePocStrategyForSeedV1(
+  definition: DeepReadonly<PocReferenceStrategyDefinitionV1>,
+  seedValue: NonZeroUint32,
+): Promise<CompiledPocReferenceStrategyV1> {
+  return compilePocStrategyForSeedAndProgramV1(definition, seedValue, null, true);
+}
+
+export function compilePocStrategyWithProgramV1(
+  definition: DeepReadonly<PocReferenceStrategyDefinitionV1>,
+  seedValue: NonZeroUint32,
+  program: DeepReadonly<PocSimulationProgramV1>,
+): Promise<CompiledPocReferenceStrategyV1> {
+  return compilePocStrategyForSeedAndProgramV1(definition, seedValue, program, true);
+}
+
+export function compilePocStrategyMetricsV1(
+  definition: DeepReadonly<PocReferenceStrategyDefinitionV1>,
+  seedValue: NonZeroUint32,
+  program: DeepReadonly<PocSimulationProgramV1> | null = null,
+): Promise<CompiledPocReferenceStrategyV1> {
+  return compilePocStrategyForSeedAndProgramV1(definition, seedValue, program, false);
 }
 
 export function compilePocReferenceStrategyV1(
