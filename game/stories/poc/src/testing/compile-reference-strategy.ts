@@ -21,11 +21,7 @@ import {
 } from "@sillymaker/base/runtime";
 import type { GameSessionCompositionV1 } from "@sillymaker/base/runtime";
 
-import {
-  pocReferenceRunIdsV1,
-  pocReferenceSeedV1,
-  pocStoryIdentityV1,
-} from "../content/identity.js";
+import { pocReferenceRunIdsV1, pocStoryIdentityV1 } from "../content/identity.js";
 import {
   deepFreezePocValueV1,
   parseCalendarPhase,
@@ -33,10 +29,12 @@ import {
   parseQuantity,
   parseStoryId,
   createPocGameSimulationV1,
+  pocGameCommandSchemaV1,
   type CalendarPhase,
   type DayIndex,
   type IngredientId,
   type PocGameBootstrapInputV1,
+  type PocGameCommandV1,
   type PocGameSimulationTypesV1,
   type PocGameSnapshotV1,
   type PocGameViewV1,
@@ -44,11 +42,13 @@ import {
   type TavernPlanV1,
 } from "../gameplay/index.js";
 import {
+  commandForPocSemanticInvocationV1,
   pocSemanticInvocationSchemaV1,
   type PocSemanticActionDescriptorV1,
   type PocSemanticActionResultV1,
   type PocSemanticInvocationV1,
 } from "../presentation/semantic-actions.js";
+import { pocReferenceToolingFixtureByStrategyIdV1 } from "../tooling-fixtures.js";
 import { createPocSemanticGamePortV1 } from "../application/create-poc-semantic-port.js";
 import { pocStoryEntryV1 } from "../story-definition.js";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
@@ -387,6 +387,112 @@ export function selectPocReferencePlanV1(
       return observation.warClue ? decision.cluePlan : decision.noCluePlan;
   }
   throw new TypeError("unsupported PoC reference closed decision");
+}
+
+function canonicalBytesEqualV1(left: unknown, right: unknown): boolean {
+  const leftBytes = canonicalJsonBytes(left);
+  const rightBytes = canonicalJsonBytes(right);
+  return (
+    leftBytes.length === rightBytes.length &&
+    leftBytes.every((value, index) => value === rightBytes[index])
+  );
+}
+
+function invocationValueForPocToolingCommandV1(command: DeepReadonly<PocGameCommandV1>): unknown {
+  const emptyOptions = Object.freeze({});
+  switch (command.kind) {
+    case "run.start":
+      return { kind: "invoke", actionId: "action.run_start", options: emptyOptions };
+    case "policy.choose":
+      return {
+        kind: "invoke",
+        actionId: "action.choose_life_policy",
+        options: { policyId: command.policyId },
+      };
+    case "inventory.buy":
+      return { kind: "invoke", actionId: "action.purchase", options: { lines: command.lines } };
+    case "actor.prepare_food":
+      return { kind: "invoke", actionId: "action.prepare_food", options: emptyOptions };
+    case "actor.rest":
+      return { kind: "invoke", actionId: "action.rest", options: emptyOptions };
+    case "story.action.start":
+      if (
+        command.actionId !== "action.repair_sign_with_heroine" &&
+        command.actionId !== "action.apologize_to_heroine"
+      ) {
+        throw new TypeError(`unsupported PoC tooling StoryAction ${command.actionId}`);
+      }
+      return { kind: "invoke", actionId: command.actionId, options: emptyOptions };
+    case "facility.choose":
+      if (command.opportunityId !== "action.facility_window") {
+        throw new TypeError(
+          `unsupported PoC tooling facility opportunity ${command.opportunityId}`,
+        );
+      }
+      return {
+        kind: "invoke",
+        actionId: "action.facility_window",
+        options: { choice: command.choice },
+      };
+    case "tavern.plan.set":
+      return { kind: "invoke", actionId: "action.service_plan", options: { plan: command.plan } };
+    case "tavern.opening.start":
+      return { kind: "invoke", actionId: "action.tavern_opening_start", options: emptyOptions };
+    case "tavern.opening.continue":
+      return {
+        kind: "invoke",
+        actionId: "action.tavern_opening_continue",
+        options: emptyOptions,
+      };
+    case "tavern.opening.finalize":
+      return {
+        kind: "invoke",
+        actionId: "action.tavern_opening_finalize",
+        options: emptyOptions,
+      };
+    case "world.action.begin":
+      if (command.actionId !== "action.old_trade_road") {
+        throw new TypeError(`unsupported PoC tooling WorldAction ${command.actionId}`);
+      }
+      return {
+        kind: "invoke",
+        actionId: "action.old_trade_road",
+        options: { optionId: command.optionId },
+      };
+    case "world.action.complete":
+      return { kind: "invoke", actionId: "action.world_action_complete", options: emptyOptions };
+    case "narrative.advance":
+      return { kind: "invoke", actionId: "action.narrative_advance", options: emptyOptions };
+    case "narrative.choose":
+      return {
+        kind: "invoke",
+        actionId: "action.narrative_choose",
+        options: {
+          sceneId: command.sceneId,
+          nodeId: command.nodeId,
+          choiceId: command.choiceId,
+        },
+      };
+    case "calendar.advance_phase":
+      return { kind: "invoke", actionId: "action.advance_phase", options: emptyOptions };
+    case "levy.pay":
+      return { kind: "invoke", actionId: "action.pay_levy", options: emptyOptions };
+  }
+  const unsupported: never = command;
+  throw new TypeError(`unsupported PoC tooling command ${String(unsupported)}`);
+}
+
+function invocationForPocToolingCommandV1(
+  commandValue: DeepReadonly<PocGameCommandV1>,
+): DeepReadonly<PocSemanticInvocationV1> {
+  const command = pocGameCommandSchemaV1.parse(commandValue);
+  const invocation = pocSemanticInvocationSchemaV1.parse(
+    invocationValueForPocToolingCommandV1(command),
+  );
+  if (!canonicalBytesEqualV1(commandForPocSemanticInvocationV1(invocation), command)) {
+    throw new TypeError("PoC tooling command does not round-trip through its Semantic invocation");
+  }
+  return invocation;
 }
 
 function requireActionV1<TActionId extends PocSemanticInvocationV1["actionId"]>(
@@ -804,12 +910,12 @@ function finalizeCompilationV1(context: CompileContextV1): CompiledPocReferenceS
   });
 }
 
-async function compilePocStrategyForSeedAndProgramV1(
+function createCompileContextV1(
   definition: DeepReadonly<PocReferenceStrategyDefinitionV1>,
   seedValue: NonZeroUint32,
   program: DeepReadonly<PocSimulationProgramV1> | null,
   recordEvidence: boolean,
-): Promise<CompiledPocReferenceStrategyV1> {
+): CompileContextV1 {
   const registered = pocReferenceStrategyDefinitionsV1[definition.strategyId];
   if (
     registered !== definition ||
@@ -818,7 +924,7 @@ async function compilePocStrategyForSeedAndProgramV1(
     throw new TypeError("reference compiler requires one registered frozen strategy definition");
   }
   const seed = parseNonZeroUint32(seedValue);
-  const context: CompileContextV1 = {
+  return {
     definition,
     seed,
     harness: createProgramHarnessV1(
@@ -833,6 +939,15 @@ async function compilePocStrategyForSeedAndProgramV1(
     freeAp: 0,
     commandCount: 0,
   };
+}
+
+async function compilePocStrategyForSeedAndProgramV1(
+  definition: DeepReadonly<PocReferenceStrategyDefinitionV1>,
+  seedValue: NonZeroUint32,
+  program: DeepReadonly<PocSimulationProgramV1> | null,
+  recordEvidence: boolean,
+): Promise<CompiledPocReferenceStrategyV1> {
+  const context = createCompileContextV1(definition, seedValue, program, recordEvidence);
 
   if (!(await dispatchDirectV1(context, "action.run_start"))) return finalizeCompilationV1(context);
   if (!(await drainNarrativeV1(context))) return finalizeCompilationV1(context);
@@ -894,8 +1009,58 @@ export function compilePocStrategyMetricsV1(
   return compilePocStrategyForSeedAndProgramV1(definition, seedValue, program, false);
 }
 
+export async function executePocToolingCommandsV1(
+  strategyId: PocReferenceStrategyIdV1,
+  commands: readonly DeepReadonly<PocGameCommandV1>[],
+): Promise<CompiledPocReferenceStrategyV1> {
+  const source = pocReferenceToolingFixtureByStrategyIdV1[strategyId];
+  if (source === undefined || commands !== source.commands) {
+    throw new TypeError("PoC tooling compilation requires the authoritative command reference");
+  }
+  const definition = pocReferenceStrategyDefinitionsV1[strategyId];
+  const context = createCompileContextV1(definition, source.seed, null, true);
+
+  for (const [order, commandValue] of commands.entries()) {
+    const command = pocGameCommandSchemaV1.parse(commandValue);
+    const invocation = invocationForPocToolingCommandV1(command);
+    if (!(await dispatchInvocationV1(context, invocation))) {
+      throw new TypeError(`${strategyId} tooling command ${order} did not commit`);
+    }
+    const attempt = context.harness.executedAttempts().at(-1);
+    if (
+      attempt === undefined ||
+      attempt.source !== "game" ||
+      attempt.commandSequence.before !== order ||
+      !canonicalBytesEqualV1(attempt.command, command)
+    ) {
+      throw new TypeError(`${strategyId} tooling command ${order} lost same-attempt evidence`);
+    }
+  }
+
+  const compiled = finalizeCompilationV1(context);
+  if (
+    compiled.fixture.entries.length !== commands.length ||
+    compiled.attempts.length !== commands.length ||
+    compiled.results.length !== commands.length
+  ) {
+    throw new TypeError(`${strategyId} tooling compilation produced an incomplete run`);
+  }
+  return compiled;
+}
+
+export async function compilePocToolingCommandsV1(
+  strategyId: PocReferenceStrategyIdV1,
+  commands: readonly DeepReadonly<PocGameCommandV1>[],
+): Promise<DeepReadonly<PocReferenceCommandFixtureV1>> {
+  return (await executePocToolingCommandsV1(strategyId, commands)).fixture;
+}
+
 export function compilePocReferenceStrategyV1(
   definition: DeepReadonly<PocReferenceStrategyDefinitionV1>,
 ): Promise<CompiledPocReferenceStrategyV1> {
-  return compilePocStrategyForSeedV1(definition, pocReferenceSeedV1);
+  if (pocReferenceStrategyDefinitionsV1[definition.strategyId] !== definition) {
+    throw new TypeError("reference compilation requires one registered frozen strategy definition");
+  }
+  const source = pocReferenceToolingFixtureByStrategyIdV1[definition.strategyId];
+  return executePocToolingCommandsV1(definition.strategyId, source.commands);
 }

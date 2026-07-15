@@ -13,6 +13,8 @@
     "verify:semantic": "vitest run src/test/semantic-flow.integration.test.ts src/test/relationship-route.integration.test.ts src/test/investigation-route.integration.test.ts src/test/terminal-route.integration.test.ts",
     "update:commands": "node --experimental-strip-types scripts/update-command-fixtures.mjs",
     "verify:commands": "vitest run src/test/reference-strategies.test.ts",
+    "update:golden": "node --experimental-strip-types scripts/update-golden.mjs",
+    "verify:golden": "vitest run src/test/golden-week.test.ts",
     "verify:balance": "node ../../../scripts/verify-poc-balance.mjs",
     "verify:balance:smoke": "vitest run src/test/balance-1000-seeds.test.ts",
     "calibrate:balance": "node ../../../scripts/verify-poc-balance.mjs --calibrate",

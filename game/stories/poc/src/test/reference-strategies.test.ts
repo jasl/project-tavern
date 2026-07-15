@@ -3,7 +3,11 @@
 import { canonicalJsonBytes } from "@sillymaker/base";
 import { describe, expect, it } from "vitest";
 
-import type { PocSemanticInvocationV1 } from "../presentation/semantic-actions.js";
+import {
+  commandForPocSemanticInvocationV1,
+  type PocSemanticInvocationV1,
+} from "../presentation/semantic-actions.js";
+import { pocReferenceToolingFixtureByStrategyIdV1 } from "../tooling-fixtures.js";
 import {
   compilePocReferenceStrategyV1,
   selectPocReferencePlanV1,
@@ -75,10 +79,19 @@ function planInvocationV1(
 describe("PoC reference strategy command fixtures", () => {
   for (const definition of Object.values(pocReferenceStrategyDefinitionsV1)) {
     it(`${definition.strategyId} matches its reviewed semantic fixture`, async () => {
+      const source = pocReferenceToolingFixtureByStrategyIdV1[definition.strategyId];
       const compiled = await compilePocReferenceStrategyV1(definition);
       const stored = await readPocCommandFixtureV1(definition.strategyId);
       const replayed = await runPocReferenceStrategyV1(stored);
 
+      expect(compiled.fixture.seed).toBe(source.seed);
+      expect(
+        canonicalJsonBytes(
+          compiled.fixture.entries.map(({ invocation }) =>
+            commandForPocSemanticInvocationV1(invocation),
+          ),
+        ),
+      ).toEqual(canonicalJsonBytes(source.commands));
       expect(canonicalJsonBytes(compiled.fixture)).toEqual(canonicalJsonBytes(stored));
       expect(stored.entries.map(({ order }) => order)).toEqual(
         stored.entries.map((_, index) => index),

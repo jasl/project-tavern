@@ -1,0 +1,2605 @@
+{
+  "attempts": [
+    {
+      "commandSequenceBefore": 0,
+      "day": 1,
+      "gameplayFactKinds": [
+        "run.started",
+        "demand.materialized"
+      ],
+      "invocation": {
+        "actionId": "action.run_start",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 0,
+      "phase": "morning",
+      "postStateDigest": "sha256:6767846dac91127ae1816e9a1bab5381c95eaee3f25aeb536843487df2cfefe1",
+      "preStateDigest": "sha256:20b52818e87b99078cae2d51d43e0a570eac68242354a5c518fa1b3708beccb7",
+      "rngDraws": [
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2272090828,
+            "rawDrawCount": 1
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 143433,
+            "rawDrawCount": 0
+          },
+          "exclusiveMax": 3,
+          "ordinal": 1,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:1:segment.locals",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2863486486,
+            "rawDrawCount": 2
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2272090828,
+            "rawDrawCount": 1
+          },
+          "exclusiveMax": 3,
+          "ordinal": 2,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:1:segment.travelers",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 228413953,
+            "rawDrawCount": 3
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2863486486,
+            "rawDrawCount": 2
+          },
+          "exclusiveMax": 3,
+          "ordinal": 3,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:2:segment.locals",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1551440911,
+            "rawDrawCount": 4
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 228413953,
+            "rawDrawCount": 3
+          },
+          "exclusiveMax": 3,
+          "ordinal": 4,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:2:segment.travelers",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2162212243,
+            "rawDrawCount": 5
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1551440911,
+            "rawDrawCount": 4
+          },
+          "exclusiveMax": 3,
+          "ordinal": 5,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:3:segment.locals",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2097172858,
+            "rawDrawCount": 6
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2162212243,
+            "rawDrawCount": 5
+          },
+          "exclusiveMax": 3,
+          "ordinal": 6,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:3:segment.travelers",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2462742349,
+            "rawDrawCount": 7
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2097172858,
+            "rawDrawCount": 6
+          },
+          "exclusiveMax": 3,
+          "ordinal": 7,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:4:segment.locals",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1481937628,
+            "rawDrawCount": 8
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2462742349,
+            "rawDrawCount": 7
+          },
+          "exclusiveMax": 3,
+          "ordinal": 8,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:4:segment.travelers",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2346814651,
+            "rawDrawCount": 9
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1481937628,
+            "rawDrawCount": 8
+          },
+          "exclusiveMax": 3,
+          "ordinal": 9,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:5:segment.locals",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 4104159616,
+            "rawDrawCount": 10
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2346814651,
+            "rawDrawCount": 9
+          },
+          "exclusiveMax": 3,
+          "ordinal": 10,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:5:segment.travelers",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1989053128,
+            "rawDrawCount": 11
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 4104159616,
+            "rawDrawCount": 10
+          },
+          "exclusiveMax": 3,
+          "ordinal": 11,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:6:segment.locals",
+          "result": 1
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1563229507,
+            "rawDrawCount": 12
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1989053128,
+            "rawDrawCount": 11
+          },
+          "exclusiveMax": 3,
+          "ordinal": 12,
+          "purpose": "demand:00000000-0000-4000-8000-000000000103:6:segment.travelers",
+          "result": 1
+        }
+      ]
+    },
+    {
+      "commandSequenceBefore": 1,
+      "day": 1,
+      "gameplayFactKinds": [
+        "narrative.advanced"
+      ],
+      "invocation": {
+        "actionId": "action.narrative_advance",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 1,
+      "phase": "morning",
+      "postStateDigest": "sha256:3173ca75c44ecd5b1601900ad55e67373692dd8cb2fa2eef895fc3d3a598af9c",
+      "preStateDigest": "sha256:6767846dac91127ae1816e9a1bab5381c95eaee3f25aeb536843487df2cfefe1",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 2,
+      "day": 1,
+      "gameplayFactKinds": [
+        "policy.chosen"
+      ],
+      "invocation": {
+        "actionId": "action.choose_life_policy",
+        "kind": "invoke",
+        "options": {
+          "policyId": "policy.balanced"
+        }
+      },
+      "order": 2,
+      "phase": "morning",
+      "postStateDigest": "sha256:0b1ad77f2f92a3e3c4151fee74929f6d9e6b85a78532993d78d997d295f1908e",
+      "preStateDigest": "sha256:3173ca75c44ecd5b1601900ad55e67373692dd8cb2fa2eef895fc3d3a598af9c",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 3,
+      "day": 1,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "inventory.purchased",
+        "cash.changed"
+      ],
+      "invocation": {
+        "actionId": "action.purchase",
+        "kind": "invoke",
+        "options": {
+          "lines": [
+            {
+              "ingredientId": "ingredient.coarse_grain",
+              "quantity": 2
+            },
+            {
+              "ingredientId": "ingredient.fresh_meat",
+              "quantity": 4
+            },
+            {
+              "ingredientId": "ingredient.herb",
+              "quantity": 4
+            },
+            {
+              "ingredientId": "ingredient.root_vegetable",
+              "quantity": 6
+            }
+          ]
+        }
+      },
+      "order": 3,
+      "phase": "morning",
+      "postStateDigest": "sha256:f9467a1c7109d97aaf2e58a49e18105ae497fdf0a9b5a203408c239454d0fe97",
+      "preStateDigest": "sha256:0b1ad77f2f92a3e3c4151fee74929f6d9e6b85a78532993d78d997d295f1908e",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 4,
+      "day": 1,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "food.prepared"
+      ],
+      "invocation": {
+        "actionId": "action.prepare_food",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 4,
+      "phase": "morning",
+      "postStateDigest": "sha256:c8050e878bc14a50d862f15a5e6a1855dd86a2bb5fd83640a7c5e3a8222f8bbf",
+      "preStateDigest": "sha256:f9467a1c7109d97aaf2e58a49e18105ae497fdf0a9b5a203408c239454d0fe97",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 5,
+      "day": 1,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 5,
+      "phase": "morning",
+      "postStateDigest": "sha256:afc7f9afa5f2da1fba5b670fc58cea3ed1d59b8992b96ba296cc9c31f3d553d9",
+      "preStateDigest": "sha256:c8050e878bc14a50d862f15a5e6a1855dd86a2bb5fd83640a7c5e3a8222f8bbf",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 6,
+      "day": 1,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed"
+      ],
+      "invocation": {
+        "actionId": "action.rest",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 6,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:da80d62b2f53f0905153a602cc45443cbc248a5b3d543cf377b4968a6e2979b8",
+      "preStateDigest": "sha256:afc7f9afa5f2da1fba5b670fc58cea3ed1d59b8992b96ba296cc9c31f3d553d9",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 7,
+      "day": 1,
+      "gameplayFactKinds": [
+        "tavern.plan_set"
+      ],
+      "invocation": {
+        "actionId": "action.service_plan",
+        "kind": "invoke",
+        "options": {
+          "plan": {
+            "menu": [
+              {
+                "portions": 2,
+                "recipeId": "recipe.grain_root_porridge"
+              },
+              {
+                "portions": 4,
+                "recipeId": "recipe.hunter_stew"
+              }
+            ],
+            "mode": "manual"
+          }
+        }
+      },
+      "order": 7,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:715198a4c7121f7921f57aa9e27185f00f17eb93bf279efb72826ccb1b142fa5",
+      "preStateDigest": "sha256:da80d62b2f53f0905153a602cc45443cbc248a5b3d543cf377b4968a6e2979b8",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 8,
+      "day": 1,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 8,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:66b6f28e6facf2033b2ddb7555bbceb12265d26554828b4bc66c17c6dd633d7a",
+      "preStateDigest": "sha256:715198a4c7121f7921f57aa9e27185f00f17eb93bf279efb72826ccb1b142fa5",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 9,
+      "day": 1,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "cash.changed",
+        "inventory.consumed",
+        "opening.started",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_start",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 9,
+      "phase": "evening",
+      "postStateDigest": "sha256:7adba1c29cb4a2bdf6038d6950a36013533b98cb1b1ff377bfbe1f9a44e93f4d",
+      "preStateDigest": "sha256:66b6f28e6facf2033b2ddb7555bbceb12265d26554828b4bc66c17c6dd633d7a",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 10,
+      "day": 1,
+      "gameplayFactKinds": [
+        "service.orders_created",
+        "service.capacity_limited",
+        "service.sale",
+        "service.sale",
+        "cash.changed",
+        "cash.changed",
+        "reputation.changed",
+        "relationship.affection_changed",
+        "relationship.teamwork_changed",
+        "opening.finalized",
+        "scheduler.event_triggered",
+        "fact.set"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_finalize",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 10,
+      "phase": "evening",
+      "postStateDigest": "sha256:94acca78c0dda4752c6c1a31c77a42dfb99e2c2b4e2939c54ac22be271280180",
+      "preStateDigest": "sha256:7adba1c29cb4a2bdf6038d6950a36013533b98cb1b1ff377bfbe1f9a44e93f4d",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 11,
+      "day": 1,
+      "gameplayFactKinds": [
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "calendar.phase_advanced",
+        "demand.materialized",
+        "scheduler.event_triggered",
+        "tavern.helper_changed",
+        "scheduler.event_triggered"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 11,
+      "phase": "evening",
+      "postStateDigest": "sha256:f8a1390061ee4b5cd47564e49c6737abd551792a18508e469d8cbc0549842d50",
+      "preStateDigest": "sha256:94acca78c0dda4752c6c1a31c77a42dfb99e2c2b4e2939c54ac22be271280180",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 12,
+      "day": 2,
+      "gameplayFactKinds": [
+        "cash.changed",
+        "fact.set",
+        "narrative.choice_committed"
+      ],
+      "invocation": {
+        "actionId": "action.narrative_choose",
+        "kind": "invoke",
+        "options": {
+          "choiceId": "choice.supplier_invoice.intellect_b",
+          "nodeId": "node.supplier_invoice.choice",
+          "sceneId": "scene.supplier_invoice"
+        }
+      },
+      "order": 12,
+      "phase": "morning",
+      "postStateDigest": "sha256:962e9134c702713d6e3138057a00d286614c9eb9691c9316a3ef94a11851b07d",
+      "preStateDigest": "sha256:f8a1390061ee4b5cd47564e49c6737abd551792a18508e469d8cbc0549842d50",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 13,
+      "day": 2,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "inventory.purchased",
+        "cash.changed"
+      ],
+      "invocation": {
+        "actionId": "action.purchase",
+        "kind": "invoke",
+        "options": {
+          "lines": [
+            {
+              "ingredientId": "ingredient.coarse_grain",
+              "quantity": 4
+            },
+            {
+              "ingredientId": "ingredient.fresh_meat",
+              "quantity": 3
+            },
+            {
+              "ingredientId": "ingredient.herb",
+              "quantity": 3
+            },
+            {
+              "ingredientId": "ingredient.root_vegetable",
+              "quantity": 7
+            }
+          ]
+        }
+      },
+      "order": 13,
+      "phase": "morning",
+      "postStateDigest": "sha256:b33be4a7b04b1dbce19a0eed65e369ddf0b0d1173dbc29daef701a74a5a97360",
+      "preStateDigest": "sha256:962e9134c702713d6e3138057a00d286614c9eb9691c9316a3ef94a11851b07d",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 14,
+      "day": 2,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "food.prepared"
+      ],
+      "invocation": {
+        "actionId": "action.prepare_food",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 14,
+      "phase": "morning",
+      "postStateDigest": "sha256:80ba63a4531baf89444da3e1852255d11b2766abb184366d81edede8a10ce304",
+      "preStateDigest": "sha256:b33be4a7b04b1dbce19a0eed65e369ddf0b0d1173dbc29daef701a74a5a97360",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 15,
+      "day": 2,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 15,
+      "phase": "morning",
+      "postStateDigest": "sha256:6ea42eabccfa1a3cfc0fb2724a5414edd75f8e16e0fb2c1e14f3764e8bc52861",
+      "preStateDigest": "sha256:80ba63a4531baf89444da3e1852255d11b2766abb184366d81edede8a10ce304",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 16,
+      "day": 2,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed"
+      ],
+      "invocation": {
+        "actionId": "action.rest",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 16,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:df94938995beaa5041707ce75a3f3df5140baf7ed800feb48ff40a0079aad2dc",
+      "preStateDigest": "sha256:6ea42eabccfa1a3cfc0fb2724a5414edd75f8e16e0fb2c1e14f3764e8bc52861",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 17,
+      "day": 2,
+      "gameplayFactKinds": [
+        "tavern.plan_set"
+      ],
+      "invocation": {
+        "actionId": "action.service_plan",
+        "kind": "invoke",
+        "options": {
+          "plan": {
+            "menu": [
+              {
+                "portions": 4,
+                "recipeId": "recipe.grain_root_porridge"
+              },
+              {
+                "portions": 3,
+                "recipeId": "recipe.hunter_stew"
+              }
+            ],
+            "mode": "manual"
+          }
+        }
+      },
+      "order": 17,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:3424f6058d10829bbc4d2663fe458a844b8a50cc86353464d0fc0beea9f4cb5c",
+      "preStateDigest": "sha256:df94938995beaa5041707ce75a3f3df5140baf7ed800feb48ff40a0079aad2dc",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 18,
+      "day": 2,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 18,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:a78a93a7400e8987e21c6b5e8fd90ea302592a6bc5861a9a2f09868695a6323c",
+      "preStateDigest": "sha256:3424f6058d10829bbc4d2663fe458a844b8a50cc86353464d0fc0beea9f4cb5c",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 19,
+      "day": 2,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "cash.changed",
+        "inventory.consumed",
+        "opening.started",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_start",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 19,
+      "phase": "evening",
+      "postStateDigest": "sha256:f7a3114e0c63a7a574782f1cfb86fe8113bd5006d592859c501b766e33d31c37",
+      "preStateDigest": "sha256:a78a93a7400e8987e21c6b5e8fd90ea302592a6bc5861a9a2f09868695a6323c",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 20,
+      "day": 2,
+      "gameplayFactKinds": [
+        "service.orders_created",
+        "service.capacity_limited",
+        "service.sale",
+        "service.sale",
+        "cash.changed",
+        "cash.changed",
+        "reputation.changed",
+        "relationship.affection_changed",
+        "relationship.teamwork_changed",
+        "opening.finalized"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_finalize",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 20,
+      "phase": "evening",
+      "postStateDigest": "sha256:42362d7f64a3d90b6da4b09b8a5e3bc9fcd200848bc95f0f5550df6ea8392218",
+      "preStateDigest": "sha256:f7a3114e0c63a7a574782f1cfb86fe8113bd5006d592859c501b766e33d31c37",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 21,
+      "day": 2,
+      "gameplayFactKinds": [
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "calendar.phase_advanced",
+        "demand.materialized"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 21,
+      "phase": "evening",
+      "postStateDigest": "sha256:971b4926eb4f087825b511f4042bba131cbea9283061316460c5baa7fea80630",
+      "preStateDigest": "sha256:42362d7f64a3d90b6da4b09b8a5e3bc9fcd200848bc95f0f5550df6ea8392218",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 22,
+      "day": 3,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "inventory.purchased",
+        "cash.changed"
+      ],
+      "invocation": {
+        "actionId": "action.purchase",
+        "kind": "invoke",
+        "options": {
+          "lines": [
+            {
+              "ingredientId": "ingredient.coarse_grain",
+              "quantity": 2
+            },
+            {
+              "ingredientId": "ingredient.fresh_meat",
+              "quantity": 4
+            },
+            {
+              "ingredientId": "ingredient.herb",
+              "quantity": 4
+            },
+            {
+              "ingredientId": "ingredient.root_vegetable",
+              "quantity": 6
+            }
+          ]
+        }
+      },
+      "order": 22,
+      "phase": "morning",
+      "postStateDigest": "sha256:c7e31b254c0778019cd6df41f6dc30219ac62c8aaa7c4b8f7161aecd8158664a",
+      "preStateDigest": "sha256:971b4926eb4f087825b511f4042bba131cbea9283061316460c5baa7fea80630",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 23,
+      "day": 3,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "food.prepared"
+      ],
+      "invocation": {
+        "actionId": "action.prepare_food",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 23,
+      "phase": "morning",
+      "postStateDigest": "sha256:b4347156c69ba07d59feb4bd56c0dc59e214e42fef2e5d04891c1d63b75df6af",
+      "preStateDigest": "sha256:c7e31b254c0778019cd6df41f6dc30219ac62c8aaa7c4b8f7161aecd8158664a",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 24,
+      "day": 3,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 24,
+      "phase": "morning",
+      "postStateDigest": "sha256:57e1750e7c502c07cdb9e3d769c5e6e9323ab08b0373db4688c043208eb43663",
+      "preStateDigest": "sha256:b4347156c69ba07d59feb4bd56c0dc59e214e42fef2e5d04891c1d63b75df6af",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 25,
+      "day": 3,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed"
+      ],
+      "invocation": {
+        "actionId": "action.rest",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 25,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:cd0d69b52cbaa12967e2185ab337bd260be5665a4043aaa02f91248c6bc4cb84",
+      "preStateDigest": "sha256:57e1750e7c502c07cdb9e3d769c5e6e9323ab08b0373db4688c043208eb43663",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 26,
+      "day": 3,
+      "gameplayFactKinds": [
+        "tavern.plan_set"
+      ],
+      "invocation": {
+        "actionId": "action.service_plan",
+        "kind": "invoke",
+        "options": {
+          "plan": {
+            "menu": [
+              {
+                "portions": 2,
+                "recipeId": "recipe.grain_root_porridge"
+              },
+              {
+                "portions": 4,
+                "recipeId": "recipe.hunter_stew"
+              }
+            ],
+            "mode": "manual"
+          }
+        }
+      },
+      "order": 26,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:78e73cea5ca7ca2d1f8d000df1ff0ec35a0a865cb7d371e0152090934a8158a9",
+      "preStateDigest": "sha256:cd0d69b52cbaa12967e2185ab337bd260be5665a4043aaa02f91248c6bc4cb84",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 27,
+      "day": 3,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 27,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:4194d6ca61122036ebf90a7b5e5968697cb9dbae48999c40db684f684e37e48a",
+      "preStateDigest": "sha256:78e73cea5ca7ca2d1f8d000df1ff0ec35a0a865cb7d371e0152090934a8158a9",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 28,
+      "day": 3,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "cash.changed",
+        "inventory.consumed",
+        "opening.started",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_start",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 28,
+      "phase": "evening",
+      "postStateDigest": "sha256:f4c55de3615983fe70cc9b23905246a33b6bcc81f129a7869986ba035787551b",
+      "preStateDigest": "sha256:4194d6ca61122036ebf90a7b5e5968697cb9dbae48999c40db684f684e37e48a",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 29,
+      "day": 3,
+      "gameplayFactKinds": [
+        "service.orders_created",
+        "service.capacity_limited",
+        "service.sale",
+        "service.sale",
+        "cash.changed",
+        "cash.changed",
+        "reputation.changed",
+        "relationship.affection_changed",
+        "relationship.teamwork_changed",
+        "opening.finalized"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_finalize",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 29,
+      "phase": "evening",
+      "postStateDigest": "sha256:1c8d7b88f66d9e655c9f26ae5c063819053b3485ea782081e15e45d24ea712ae",
+      "preStateDigest": "sha256:f4c55de3615983fe70cc9b23905246a33b6bcc81f129a7869986ba035787551b",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 30,
+      "day": 3,
+      "gameplayFactKinds": [
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "calendar.phase_advanced",
+        "demand.materialized",
+        "scheduler.event_triggered"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 30,
+      "phase": "evening",
+      "postStateDigest": "sha256:2daded25fc44bd2adaa7f206c5c5ddfe88da9ede6c838c723433b4713c38ca1d",
+      "preStateDigest": "sha256:1c8d7b88f66d9e655c9f26ae5c063819053b3485ea782081e15e45d24ea712ae",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 31,
+      "day": 4,
+      "gameplayFactKinds": [
+        "narrative.advanced"
+      ],
+      "invocation": {
+        "actionId": "action.narrative_advance",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 31,
+      "phase": "morning",
+      "postStateDigest": "sha256:5e34d0e411abd252eb617d0c395a34e70013b07180bab73956046d17d0836339",
+      "preStateDigest": "sha256:2daded25fc44bd2adaa7f206c5c5ddfe88da9ede6c838c723433b4713c38ca1d",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 32,
+      "day": 4,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "inventory.purchased",
+        "cash.changed"
+      ],
+      "invocation": {
+        "actionId": "action.purchase",
+        "kind": "invoke",
+        "options": {
+          "lines": [
+            {
+              "ingredientId": "ingredient.coarse_grain",
+              "quantity": 5
+            },
+            {
+              "ingredientId": "ingredient.fresh_meat",
+              "quantity": 14
+            },
+            {
+              "ingredientId": "ingredient.herb",
+              "quantity": 14
+            },
+            {
+              "ingredientId": "ingredient.root_vegetable",
+              "quantity": 19
+            }
+          ]
+        }
+      },
+      "order": 32,
+      "phase": "morning",
+      "postStateDigest": "sha256:cd7d7628f2e67754f2aa414d1756622c54ede542d1da5fe4b26a9ea5fbb0feb5",
+      "preStateDigest": "sha256:5e34d0e411abd252eb617d0c395a34e70013b07180bab73956046d17d0836339",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 33,
+      "day": 4,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "food.prepared"
+      ],
+      "invocation": {
+        "actionId": "action.prepare_food",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 33,
+      "phase": "morning",
+      "postStateDigest": "sha256:02fc1b4b60b8eda842a5ceb85f5e6e12dc1d1c45cd0643b6cfbf7f59da72555b",
+      "preStateDigest": "sha256:cd7d7628f2e67754f2aa414d1756622c54ede542d1da5fe4b26a9ea5fbb0feb5",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 34,
+      "day": 4,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 34,
+      "phase": "morning",
+      "postStateDigest": "sha256:1d316dadbed7d0492497ad4b56b17355f584b28aa3f2c7f83d90d6def3cebbbf",
+      "preStateDigest": "sha256:02fc1b4b60b8eda842a5ceb85f5e6e12dc1d1c45cd0643b6cfbf7f59da72555b",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 35,
+      "day": 4,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "facility.choice_committed",
+        "cash.changed"
+      ],
+      "invocation": {
+        "actionId": "action.facility_window",
+        "kind": "invoke",
+        "options": {
+          "choice": {
+            "facilityId": "facility.cold_storage",
+            "kind": "build"
+          }
+        }
+      },
+      "order": 35,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:a75f6b615d72cc6f73183d23f61de81455bd66dff1e5ad5afda3ea3e64afe8e7",
+      "preStateDigest": "sha256:1d316dadbed7d0492497ad4b56b17355f584b28aa3f2c7f83d90d6def3cebbbf",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 36,
+      "day": 4,
+      "gameplayFactKinds": [
+        "tavern.plan_set"
+      ],
+      "invocation": {
+        "actionId": "action.service_plan",
+        "kind": "invoke",
+        "options": {
+          "plan": {
+            "menu": [
+              {
+                "portions": 2,
+                "recipeId": "recipe.grain_root_porridge"
+              },
+              {
+                "portions": 4,
+                "recipeId": "recipe.hunter_stew"
+              }
+            ],
+            "mode": "assisted"
+          }
+        }
+      },
+      "order": 36,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:905db5d79a2a6e776db2cdf423f543956eb7efbc99399ec99a45e7ac60d5330f",
+      "preStateDigest": "sha256:a75f6b615d72cc6f73183d23f61de81455bd66dff1e5ad5afda3ea3e64afe8e7",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 37,
+      "day": 4,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 37,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:3481b8567d91c31be2b375f81446fee732992a4afc240d99b5953ca23d712c46",
+      "preStateDigest": "sha256:905db5d79a2a6e776db2cdf423f543956eb7efbc99399ec99a45e7ac60d5330f",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 38,
+      "day": 4,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed"
+      ],
+      "invocation": {
+        "actionId": "action.rest",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 38,
+      "phase": "evening",
+      "postStateDigest": "sha256:dc8a8d8386b4272ebec092bfd44594fae7c0cf77baa9f8770373a39c6b506f74",
+      "preStateDigest": "sha256:3481b8567d91c31be2b375f81446fee732992a4afc240d99b5953ca23d712c46",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 39,
+      "day": 4,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "cash.changed",
+        "cash.changed",
+        "inventory.consumed",
+        "opening.started",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_start",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 39,
+      "phase": "evening",
+      "postStateDigest": "sha256:a423ccbe6c10b317eb2197b3bf23e31de8c273c9d9bdfa3bee062c82ea76974b",
+      "preStateDigest": "sha256:dc8a8d8386b4272ebec092bfd44594fae7c0cf77baa9f8770373a39c6b506f74",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 40,
+      "day": 4,
+      "gameplayFactKinds": [
+        "service.orders_created",
+        "service.capacity_limited",
+        "service.sale",
+        "service.sale",
+        "cash.changed",
+        "cash.changed",
+        "reputation.changed",
+        "relationship.affection_changed",
+        "relationship.teamwork_changed",
+        "opening.finalized"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_finalize",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 40,
+      "phase": "evening",
+      "postStateDigest": "sha256:257cef6b6485d27106eb87a9c5e62768c895d8e40ecd540eff1d3da4dfe25527",
+      "preStateDigest": "sha256:a423ccbe6c10b317eb2197b3bf23e31de8c273c9d9bdfa3bee062c82ea76974b",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 41,
+      "day": 4,
+      "gameplayFactKinds": [
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "calendar.phase_advanced",
+        "demand.materialized"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 41,
+      "phase": "evening",
+      "postStateDigest": "sha256:bacb96cf70e7855b53906078895498ae1bf1a3bfe4edc526f39ed5f4c892284b",
+      "preStateDigest": "sha256:257cef6b6485d27106eb87a9c5e62768c895d8e40ecd540eff1d3da4dfe25527",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 42,
+      "day": 5,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "food.prepared"
+      ],
+      "invocation": {
+        "actionId": "action.prepare_food",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 42,
+      "phase": "morning",
+      "postStateDigest": "sha256:475a3562d434b05e1d74ee02dce9a594a6c823d4e20e5ef1d342131bab0d2533",
+      "preStateDigest": "sha256:bacb96cf70e7855b53906078895498ae1bf1a3bfe4edc526f39ed5f4c892284b",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 43,
+      "day": 5,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "cash.changed",
+        "outcome.set",
+        "world.action_started"
+      ],
+      "invocation": {
+        "actionId": "action.old_trade_road",
+        "kind": "invoke",
+        "options": {
+          "optionId": "choice.old_trade_road.prepared"
+        }
+      },
+      "order": 43,
+      "phase": "morning",
+      "postStateDigest": "sha256:6bfbf0f011d5511fc176540cb9940097a874d8d363e72c3bc6a253aa7e247506",
+      "preStateDigest": "sha256:475a3562d434b05e1d74ee02dce9a594a6c823d4e20e5ef1d342131bab0d2533",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 44,
+      "day": 5,
+      "gameplayFactKinds": [
+        "narrative.advanced"
+      ],
+      "invocation": {
+        "actionId": "action.narrative_advance",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 44,
+      "phase": "morning",
+      "postStateDigest": "sha256:11b98d60f2fd3b380adc1789c4c012a795ca094509382d3e6184897ca2b8ec43",
+      "preStateDigest": "sha256:6bfbf0f011d5511fc176540cb9940097a874d8d363e72c3bc6a253aa7e247506",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 45,
+      "day": 5,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 45,
+      "phase": "morning",
+      "postStateDigest": "sha256:acb74c7b8f1e7d5865937cf3e343b60a8124c70582f218725f29d32d82fba048",
+      "preStateDigest": "sha256:11b98d60f2fd3b380adc1789c4c012a795ca094509382d3e6184897ca2b8ec43",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 46,
+      "day": 5,
+      "gameplayFactKinds": [
+        "narrative.advanced"
+      ],
+      "invocation": {
+        "actionId": "action.narrative_advance",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 46,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:20526a4cde856408b13ee980b5a13f2e096cd96df5a824e9743f2c9e60a5986e",
+      "preStateDigest": "sha256:acb74c7b8f1e7d5865937cf3e343b60a8124c70582f218725f29d32d82fba048",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 47,
+      "day": 5,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "check.resolved",
+        "inventory.ingredient_granted",
+        "fact.set",
+        "outcome.set",
+        "world.action_completed"
+      ],
+      "invocation": {
+        "actionId": "action.world_action_complete",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 47,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:485a823b69d3b9806458caf14691f7206329fd841b16b94f2401504a2f196ae5",
+      "preStateDigest": "sha256:20526a4cde856408b13ee980b5a13f2e096cd96df5a824e9743f2c9e60a5986e",
+      "rngDraws": [
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2451274785,
+            "rawDrawCount": 13
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1563229507,
+            "rawDrawCount": 12
+          },
+          "exclusiveMax": 6,
+          "ordinal": 1,
+          "purpose": "check:check.old_trade_road:die:1",
+          "result": 3
+        },
+        {
+          "after": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 1316716334,
+            "rawDrawCount": 14
+          },
+          "before": {
+            "algorithm": "xorshift32-v1",
+            "cursor": 2451274785,
+            "rawDrawCount": 13
+          },
+          "exclusiveMax": 6,
+          "ordinal": 2,
+          "purpose": "check:check.old_trade_road:die:2",
+          "result": 2
+        }
+      ]
+    },
+    {
+      "commandSequenceBefore": 48,
+      "day": 5,
+      "gameplayFactKinds": [
+        "tavern.plan_set"
+      ],
+      "invocation": {
+        "actionId": "action.service_plan",
+        "kind": "invoke",
+        "options": {
+          "plan": {
+            "menu": [
+              {
+                "portions": 1,
+                "recipeId": "recipe.grain_root_porridge"
+              },
+              {
+                "portions": 4,
+                "recipeId": "recipe.hunter_stew"
+              }
+            ],
+            "mode": "delegated"
+          }
+        }
+      },
+      "order": 48,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:3ef20ab2b1c5b942e5842dbd878b47b1e9cc2f3061e4e6bf040000cdab9dcf36",
+      "preStateDigest": "sha256:485a823b69d3b9806458caf14691f7206329fd841b16b94f2401504a2f196ae5",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 49,
+      "day": 5,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 49,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:61bb9ec7283e53c405703ba63aed5aa5b7b5d48d7f9c1fb2064e80ce7e3d4828",
+      "preStateDigest": "sha256:3ef20ab2b1c5b942e5842dbd878b47b1e9cc2f3061e4e6bf040000cdab9dcf36",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 50,
+      "day": 5,
+      "gameplayFactKinds": [
+        "cash.changed",
+        "cash.changed",
+        "inventory.consumed",
+        "opening.started",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_start",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 50,
+      "phase": "evening",
+      "postStateDigest": "sha256:f1dab76a68fedaf6e23bb41ccb063b6a3dcf50e3b27923e2fb32a6a0f5a5b2f6",
+      "preStateDigest": "sha256:61bb9ec7283e53c405703ba63aed5aa5b7b5d48d7f9c1fb2064e80ce7e3d4828",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 51,
+      "day": 5,
+      "gameplayFactKinds": [
+        "service.orders_created",
+        "service.capacity_limited",
+        "service.sale",
+        "service.sale",
+        "cash.changed",
+        "cash.changed",
+        "food.discarded",
+        "reputation.changed",
+        "opening.finalized"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_finalize",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 51,
+      "phase": "evening",
+      "postStateDigest": "sha256:ef95ebad66c8fe26b26ef35f4f8967ee381c74111d020129b4ca9556cef32ad3",
+      "preStateDigest": "sha256:f1dab76a68fedaf6e23bb41ccb063b6a3dcf50e3b27923e2fb32a6a0f5a5b2f6",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 52,
+      "day": 5,
+      "gameplayFactKinds": [
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "calendar.phase_advanced",
+        "demand.materialized"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 52,
+      "phase": "evening",
+      "postStateDigest": "sha256:a2afdfa14e38b91696fc71336571c4660056c310d90e73fa3fab9eb52084b4d7",
+      "preStateDigest": "sha256:ef95ebad66c8fe26b26ef35f4f8967ee381c74111d020129b4ca9556cef32ad3",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 53,
+      "day": 6,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "food.prepared"
+      ],
+      "invocation": {
+        "actionId": "action.prepare_food",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 53,
+      "phase": "morning",
+      "postStateDigest": "sha256:f87f76ce3f24b2f08576e5eec1519d60e8545991860c7a96495f503ce71a6a5e",
+      "preStateDigest": "sha256:a2afdfa14e38b91696fc71336571c4660056c310d90e73fa3fab9eb52084b4d7",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 54,
+      "day": 6,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 54,
+      "phase": "morning",
+      "postStateDigest": "sha256:42a8580082def76793e22fa8d761183de9b5968aa71201c46dedbff315bf4c6d",
+      "preStateDigest": "sha256:f87f76ce3f24b2f08576e5eec1519d60e8545991860c7a96495f503ce71a6a5e",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 55,
+      "day": 6,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "food.prepared"
+      ],
+      "invocation": {
+        "actionId": "action.prepare_food",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 55,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:9f7201d9b5a6f8d183133b0ed2320c0a8548cf473a355c00b94a122c121b5224",
+      "preStateDigest": "sha256:42a8580082def76793e22fa8d761183de9b5968aa71201c46dedbff315bf4c6d",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 56,
+      "day": 6,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed"
+      ],
+      "invocation": {
+        "actionId": "action.rest",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 56,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:d788747067cacb42120265fedfbc5f0473f23f47e156dabff209b6c3e9bc7894",
+      "preStateDigest": "sha256:9f7201d9b5a6f8d183133b0ed2320c0a8548cf473a355c00b94a122c121b5224",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 57,
+      "day": 6,
+      "gameplayFactKinds": [
+        "tavern.plan_set"
+      ],
+      "invocation": {
+        "actionId": "action.service_plan",
+        "kind": "invoke",
+        "options": {
+          "plan": {
+            "menu": [
+              {
+                "portions": 2,
+                "recipeId": "recipe.grain_root_porridge"
+              },
+              {
+                "portions": 6,
+                "recipeId": "recipe.hunter_stew"
+              }
+            ],
+            "mode": "manual"
+          }
+        }
+      },
+      "order": 57,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:2f038073b75a6338a0386ff271b2fa173cd583c814f73ce858d8bf7348a30fdd",
+      "preStateDigest": "sha256:d788747067cacb42120265fedfbc5f0473f23f47e156dabff209b6c3e9bc7894",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 58,
+      "day": 6,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 58,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:3afe403d1389f199f320bb5c99f8d225733538bb8e9713bbd438ae2a1bd9c8b2",
+      "preStateDigest": "sha256:2f038073b75a6338a0386ff271b2fa173cd583c814f73ce858d8bf7348a30fdd",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 59,
+      "day": 6,
+      "gameplayFactKinds": [
+        "calendar.ap_changed",
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "cash.changed",
+        "inventory.consumed",
+        "opening.started",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced",
+        "opening.checkpoint_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_start",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 59,
+      "phase": "evening",
+      "postStateDigest": "sha256:2e55fb841605ec65ab1ca12a83601941e8d2f47dd606a229d34405fb0d0f6edd",
+      "preStateDigest": "sha256:3afe403d1389f199f320bb5c99f8d225733538bb8e9713bbd438ae2a1bd9c8b2",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 60,
+      "day": 6,
+      "gameplayFactKinds": [
+        "service.orders_created",
+        "service.capacity_limited",
+        "service.sale",
+        "service.sale",
+        "cash.changed",
+        "cash.changed",
+        "reputation.changed",
+        "relationship.affection_changed",
+        "relationship.teamwork_changed",
+        "opening.finalized"
+      ],
+      "invocation": {
+        "actionId": "action.tavern_opening_finalize",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 60,
+      "phase": "evening",
+      "postStateDigest": "sha256:8345e9b5160b378b6df71eff78f4e7881184cce459c73de7eec7b3d1ef1875d8",
+      "preStateDigest": "sha256:2e55fb841605ec65ab1ca12a83601941e8d2f47dd606a229d34405fb0d0f6edd",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 61,
+      "day": 6,
+      "gameplayFactKinds": [
+        "actor.stamina_changed",
+        "actor.stamina_changed",
+        "calendar.phase_advanced",
+        "scheduler.event_triggered"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 61,
+      "phase": "evening",
+      "postStateDigest": "sha256:16fd4e76fd44bb3d0a3f060396709fa979bbe2ed77c4da5925483859804aa391",
+      "preStateDigest": "sha256:8345e9b5160b378b6df71eff78f4e7881184cce459c73de7eec7b3d1ef1875d8",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 62,
+      "day": 7,
+      "gameplayFactKinds": [
+        "narrative.advanced"
+      ],
+      "invocation": {
+        "actionId": "action.narrative_advance",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 62,
+      "phase": "morning",
+      "postStateDigest": "sha256:69a20cc77bd5c439383b50709f2b77ab84f6db72d2cb94e4609618fdaaf46941",
+      "preStateDigest": "sha256:16fd4e76fd44bb3d0a3f060396709fa979bbe2ed77c4da5925483859804aa391",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 63,
+      "day": 7,
+      "gameplayFactKinds": [
+        "calendar.phase_advanced"
+      ],
+      "invocation": {
+        "actionId": "action.advance_phase",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 63,
+      "phase": "morning",
+      "postStateDigest": "sha256:984eb682561f91e5ef49148bf1a87eb047684aef27675af783f05f7471b5897e",
+      "preStateDigest": "sha256:69a20cc77bd5c439383b50709f2b77ab84f6db72d2cb94e4609618fdaaf46941",
+      "rngDraws": []
+    },
+    {
+      "commandSequenceBefore": 64,
+      "day": 7,
+      "gameplayFactKinds": [
+        "cash.changed",
+        "levy.paid",
+        "run.completed"
+      ],
+      "invocation": {
+        "actionId": "action.pay_levy",
+        "kind": "invoke",
+        "options": {}
+      },
+      "order": 64,
+      "phase": "afternoon",
+      "postStateDigest": "sha256:59d5d5c67c34512bd17e7b21d974b3ba3087c5ad11f9279b7b872fa37fd595fa",
+      "preStateDigest": "sha256:984eb682561f91e5ef49148bf1a87eb047684aef27675af783f05f7471b5897e",
+      "rngDraws": []
+    }
+  ],
+  "bootstrap": {
+    "rngSeed": 143433,
+    "runId": "00000000-0000-4000-8000-000000000103"
+  },
+  "integrity": {
+    "firstMutationSequence": null,
+    "mode": "normal",
+    "mutationCount": 0,
+    "reasons": []
+  },
+  "nights": [
+    {
+      "day": 1,
+      "ledgerEntries": [
+        {
+          "cashDelta": 0,
+          "category": "wage",
+          "entryId": "ledger:10:0",
+          "reasonId": "reason.ledger.wage",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": -2,
+          "category": "opening_fee",
+          "entryId": "ledger:10:1",
+          "reasonId": "reason.ledger.opening_fee",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": 10,
+          "category": "revenue",
+          "entryId": "ledger:11:0",
+          "quantity": 2,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.grain_root_porridge"
+          },
+          "valuationDelta": -4
+        },
+        {
+          "cashDelta": 48,
+          "category": "revenue",
+          "entryId": "ledger:11:1",
+          "quantity": 4,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.hunter_stew"
+          },
+          "valuationDelta": -24
+        }
+      ],
+      "service": {
+        "kind": "opening",
+        "opening": {
+          "ap": {
+            "after": 0,
+            "before": 2
+          },
+          "appliedModifiers": [],
+          "cash": {
+            "after": 98,
+            "before": 42
+          },
+          "day": 1,
+          "discardedPortions": [],
+          "entryIds": [
+            "ledger:10:0",
+            "ledger:10:1",
+            "ledger:11:0",
+            "ledger:11:1"
+          ],
+          "heroineMood": {
+            "after": 0,
+            "before": 0
+          },
+          "heroineStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "menu": [
+            {
+              "portions": 2,
+              "recipeId": "recipe.grain_root_porridge"
+            },
+            {
+              "portions": 4,
+              "recipeId": "recipe.hunter_stew"
+            }
+          ],
+          "mode": "manual",
+          "orders": [
+            {
+              "actualSales": 2,
+              "capacityAccepted": 3,
+              "effectiveOrders": 3,
+              "potentialCustomers": 6,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 3,
+              "capacityAccepted": 3,
+              "effectiveOrders": 3,
+              "potentialCustomers": 6,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 0,
+              "capacityAccepted": 0,
+              "effectiveOrders": 0,
+              "potentialCustomers": 2,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.travelers"
+            },
+            {
+              "actualSales": 1,
+              "capacityAccepted": 1,
+              "effectiveOrders": 1,
+              "potentialCustomers": 2,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.travelers"
+            }
+          ],
+          "playerStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "preparationActionCount": 1,
+          "preparationCapacity": 10,
+          "receptionCapacity": 10,
+          "reputation": {
+            "after": 50,
+            "before": 50
+          },
+          "sessionId": "opening:10",
+          "teamwork": {
+            "after": 2,
+            "before": 0
+          },
+          "triggeredEventIds": []
+        }
+      }
+    },
+    {
+      "day": 2,
+      "ledgerEntries": [
+        {
+          "cashDelta": 0,
+          "category": "wage",
+          "entryId": "ledger:20:0",
+          "reasonId": "reason.ledger.wage",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": -2,
+          "category": "opening_fee",
+          "entryId": "ledger:20:1",
+          "reasonId": "reason.ledger.opening_fee",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": 20,
+          "category": "revenue",
+          "entryId": "ledger:21:0",
+          "quantity": 4,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.grain_root_porridge"
+          },
+          "valuationDelta": -8
+        },
+        {
+          "cashDelta": 36,
+          "category": "revenue",
+          "entryId": "ledger:21:1",
+          "quantity": 3,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.hunter_stew"
+          },
+          "valuationDelta": -18
+        }
+      ],
+      "service": {
+        "kind": "opening",
+        "opening": {
+          "ap": {
+            "after": 0,
+            "before": 2
+          },
+          "appliedModifiers": [],
+          "cash": {
+            "after": 130,
+            "before": 76
+          },
+          "day": 2,
+          "discardedPortions": [],
+          "entryIds": [
+            "ledger:20:0",
+            "ledger:20:1",
+            "ledger:21:0",
+            "ledger:21:1"
+          ],
+          "heroineMood": {
+            "after": 0,
+            "before": 0
+          },
+          "heroineStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "menu": [
+            {
+              "portions": 4,
+              "recipeId": "recipe.grain_root_porridge"
+            },
+            {
+              "portions": 3,
+              "recipeId": "recipe.hunter_stew"
+            }
+          ],
+          "mode": "manual",
+          "orders": [
+            {
+              "actualSales": 3,
+              "capacityAccepted": 3,
+              "effectiveOrders": 3,
+              "potentialCustomers": 5,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 2,
+              "capacityAccepted": 2,
+              "effectiveOrders": 2,
+              "potentialCustomers": 5,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 1,
+              "capacityAccepted": 1,
+              "effectiveOrders": 1,
+              "potentialCustomers": 3,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.travelers"
+            },
+            {
+              "actualSales": 1,
+              "capacityAccepted": 1,
+              "effectiveOrders": 1,
+              "potentialCustomers": 3,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.travelers"
+            }
+          ],
+          "playerStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "preparationActionCount": 1,
+          "preparationCapacity": 10,
+          "receptionCapacity": 10,
+          "reputation": {
+            "after": 51,
+            "before": 50
+          },
+          "sessionId": "opening:20",
+          "teamwork": {
+            "after": 4,
+            "before": 2
+          },
+          "triggeredEventIds": []
+        }
+      }
+    },
+    {
+      "day": 3,
+      "ledgerEntries": [
+        {
+          "cashDelta": 0,
+          "category": "wage",
+          "entryId": "ledger:29:0",
+          "reasonId": "reason.ledger.wage",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": -2,
+          "category": "opening_fee",
+          "entryId": "ledger:29:1",
+          "reasonId": "reason.ledger.opening_fee",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": 10,
+          "category": "revenue",
+          "entryId": "ledger:30:0",
+          "quantity": 2,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.grain_root_porridge"
+          },
+          "valuationDelta": -4
+        },
+        {
+          "cashDelta": 48,
+          "category": "revenue",
+          "entryId": "ledger:30:1",
+          "quantity": 4,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.hunter_stew"
+          },
+          "valuationDelta": -24
+        }
+      ],
+      "service": {
+        "kind": "opening",
+        "opening": {
+          "ap": {
+            "after": 0,
+            "before": 2
+          },
+          "appliedModifiers": [],
+          "cash": {
+            "after": 158,
+            "before": 102
+          },
+          "day": 3,
+          "discardedPortions": [],
+          "entryIds": [
+            "ledger:29:0",
+            "ledger:29:1",
+            "ledger:30:0",
+            "ledger:30:1"
+          ],
+          "heroineMood": {
+            "after": 0,
+            "before": 0
+          },
+          "heroineStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "menu": [
+            {
+              "portions": 2,
+              "recipeId": "recipe.grain_root_porridge"
+            },
+            {
+              "portions": 4,
+              "recipeId": "recipe.hunter_stew"
+            }
+          ],
+          "mode": "manual",
+          "orders": [
+            {
+              "actualSales": 2,
+              "capacityAccepted": 4,
+              "effectiveOrders": 4,
+              "potentialCustomers": 7,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 3,
+              "capacityAccepted": 3,
+              "effectiveOrders": 3,
+              "potentialCustomers": 7,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 0,
+              "capacityAccepted": 0,
+              "effectiveOrders": 0,
+              "potentialCustomers": 2,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.travelers"
+            },
+            {
+              "actualSales": 1,
+              "capacityAccepted": 1,
+              "effectiveOrders": 1,
+              "potentialCustomers": 2,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.travelers"
+            }
+          ],
+          "playerStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "preparationActionCount": 1,
+          "preparationCapacity": 10,
+          "receptionCapacity": 10,
+          "reputation": {
+            "after": 51,
+            "before": 51
+          },
+          "sessionId": "opening:29",
+          "teamwork": {
+            "after": 6,
+            "before": 4
+          },
+          "triggeredEventIds": []
+        }
+      }
+    },
+    {
+      "day": 4,
+      "ledgerEntries": [
+        {
+          "cashDelta": -5,
+          "category": "wage",
+          "entryId": "ledger:40:0",
+          "reasonId": "reason.ledger.wage",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "assisted"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": -2,
+          "category": "opening_fee",
+          "entryId": "ledger:40:1",
+          "reasonId": "reason.ledger.opening_fee",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "assisted"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": 10,
+          "category": "revenue",
+          "entryId": "ledger:41:0",
+          "quantity": 2,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.grain_root_porridge"
+          },
+          "valuationDelta": -4
+        },
+        {
+          "cashDelta": 48,
+          "category": "revenue",
+          "entryId": "ledger:41:1",
+          "quantity": 4,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.hunter_stew"
+          },
+          "valuationDelta": -24
+        }
+      ],
+      "service": {
+        "kind": "opening",
+        "opening": {
+          "ap": {
+            "after": 0,
+            "before": 1
+          },
+          "appliedModifiers": [],
+          "cash": {
+            "after": 103,
+            "before": 52
+          },
+          "day": 4,
+          "discardedPortions": [],
+          "entryIds": [
+            "ledger:40:0",
+            "ledger:40:1",
+            "ledger:41:0",
+            "ledger:41:1"
+          ],
+          "heroineMood": {
+            "after": 0,
+            "before": 0
+          },
+          "heroineStamina": {
+            "after": 8,
+            "before": 10
+          },
+          "menu": [
+            {
+              "portions": 2,
+              "recipeId": "recipe.grain_root_porridge"
+            },
+            {
+              "portions": 4,
+              "recipeId": "recipe.hunter_stew"
+            }
+          ],
+          "mode": "assisted",
+          "orders": [
+            {
+              "actualSales": 1,
+              "capacityAccepted": 2,
+              "effectiveOrders": 2,
+              "potentialCustomers": 4,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 2,
+              "capacityAccepted": 2,
+              "effectiveOrders": 2,
+              "potentialCustomers": 4,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 1,
+              "capacityAccepted": 1,
+              "effectiveOrders": 1,
+              "potentialCustomers": 5,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.travelers"
+            },
+            {
+              "actualSales": 2,
+              "capacityAccepted": 2,
+              "effectiveOrders": 2,
+              "potentialCustomers": 5,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.travelers"
+            }
+          ],
+          "playerStamina": {
+            "after": 9,
+            "before": 10
+          },
+          "preparationActionCount": 1,
+          "preparationCapacity": 10,
+          "receptionCapacity": 8,
+          "reputation": {
+            "after": 51,
+            "before": 51
+          },
+          "sessionId": "opening:40",
+          "teamwork": {
+            "after": 7,
+            "before": 6
+          },
+          "triggeredEventIds": []
+        }
+      }
+    },
+    {
+      "day": 5,
+      "ledgerEntries": [
+        {
+          "cashDelta": -7,
+          "category": "wage",
+          "entryId": "ledger:51:0",
+          "reasonId": "reason.ledger.wage",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "delegated"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": -2,
+          "category": "opening_fee",
+          "entryId": "ledger:51:1",
+          "reasonId": "reason.ledger.opening_fee",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "delegated"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": 5,
+          "category": "revenue",
+          "entryId": "ledger:52:0",
+          "quantity": 1,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.grain_root_porridge"
+          },
+          "valuationDelta": -2
+        },
+        {
+          "cashDelta": 36,
+          "category": "revenue",
+          "entryId": "ledger:52:1",
+          "quantity": 3,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.hunter_stew"
+          },
+          "valuationDelta": -18
+        },
+        {
+          "cashDelta": 0,
+          "category": "discarded_food",
+          "entryId": "ledger:52:2",
+          "quantity": 1,
+          "reasonId": "reason.ledger.discarded_food",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.hunter_stew"
+          },
+          "valuationDelta": -6
+        }
+      ],
+      "service": {
+        "kind": "opening",
+        "opening": {
+          "ap": {
+            "after": 2,
+            "before": 2
+          },
+          "appliedModifiers": [],
+          "cash": {
+            "after": 127,
+            "before": 95
+          },
+          "day": 5,
+          "discardedPortions": [
+            {
+              "portions": 1,
+              "recipeId": "recipe.hunter_stew"
+            }
+          ],
+          "entryIds": [
+            "ledger:51:0",
+            "ledger:51:1",
+            "ledger:52:0",
+            "ledger:52:1",
+            "ledger:52:2"
+          ],
+          "heroineMood": {
+            "after": 0,
+            "before": 0
+          },
+          "heroineStamina": {
+            "after": 10,
+            "before": 10
+          },
+          "menu": [
+            {
+              "portions": 1,
+              "recipeId": "recipe.grain_root_porridge"
+            },
+            {
+              "portions": 4,
+              "recipeId": "recipe.hunter_stew"
+            }
+          ],
+          "mode": "delegated",
+          "orders": [
+            {
+              "actualSales": 1,
+              "capacityAccepted": 2,
+              "effectiveOrders": 2,
+              "potentialCustomers": 3,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 1,
+              "capacityAccepted": 1,
+              "effectiveOrders": 1,
+              "potentialCustomers": 3,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 0,
+              "capacityAccepted": 2,
+              "effectiveOrders": 2,
+              "potentialCustomers": 7,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.travelers"
+            },
+            {
+              "actualSales": 2,
+              "capacityAccepted": 2,
+              "effectiveOrders": 3,
+              "potentialCustomers": 7,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.travelers"
+            }
+          ],
+          "playerStamina": {
+            "after": 6,
+            "before": 6
+          },
+          "preparationActionCount": 1,
+          "preparationCapacity": 9,
+          "receptionCapacity": 7,
+          "reputation": {
+            "after": 50,
+            "before": 51
+          },
+          "sessionId": "opening:51",
+          "teamwork": {
+            "after": 7,
+            "before": 7
+          },
+          "triggeredEventIds": []
+        }
+      }
+    },
+    {
+      "day": 6,
+      "ledgerEntries": [
+        {
+          "cashDelta": 0,
+          "category": "wage",
+          "entryId": "ledger:60:0",
+          "reasonId": "reason.ledger.wage",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": -2,
+          "category": "opening_fee",
+          "entryId": "ledger:60:1",
+          "reasonId": "reason.ledger.opening_fee",
+          "subject": {
+            "kind": "service_mode",
+            "mode": "manual"
+          },
+          "valuationDelta": 0
+        },
+        {
+          "cashDelta": 10,
+          "category": "revenue",
+          "entryId": "ledger:61:0",
+          "quantity": 2,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.grain_root_porridge"
+          },
+          "valuationDelta": -4
+        },
+        {
+          "cashDelta": 72,
+          "category": "revenue",
+          "entryId": "ledger:61:1",
+          "quantity": 6,
+          "reasonId": "reason.ledger.revenue",
+          "subject": {
+            "kind": "recipe",
+            "recipeId": "recipe.hunter_stew"
+          },
+          "valuationDelta": -36
+        }
+      ],
+      "service": {
+        "kind": "opening",
+        "opening": {
+          "ap": {
+            "after": 0,
+            "before": 2
+          },
+          "appliedModifiers": [],
+          "cash": {
+            "after": 207,
+            "before": 127
+          },
+          "day": 6,
+          "discardedPortions": [],
+          "entryIds": [
+            "ledger:60:0",
+            "ledger:60:1",
+            "ledger:61:0",
+            "ledger:61:1"
+          ],
+          "heroineMood": {
+            "after": 0,
+            "before": 0
+          },
+          "heroineStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "menu": [
+            {
+              "portions": 2,
+              "recipeId": "recipe.grain_root_porridge"
+            },
+            {
+              "portions": 6,
+              "recipeId": "recipe.hunter_stew"
+            }
+          ],
+          "mode": "manual",
+          "orders": [
+            {
+              "actualSales": 2,
+              "capacityAccepted": 3,
+              "effectiveOrders": 3,
+              "potentialCustomers": 6,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 3,
+              "capacityAccepted": 3,
+              "effectiveOrders": 3,
+              "potentialCustomers": 6,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.locals"
+            },
+            {
+              "actualSales": 0,
+              "capacityAccepted": 1,
+              "effectiveOrders": 1,
+              "potentialCustomers": 6,
+              "recipeId": "recipe.grain_root_porridge",
+              "segmentId": "segment.travelers"
+            },
+            {
+              "actualSales": 3,
+              "capacityAccepted": 3,
+              "effectiveOrders": 3,
+              "potentialCustomers": 6,
+              "recipeId": "recipe.hunter_stew",
+              "segmentId": "segment.travelers"
+            }
+          ],
+          "playerStamina": {
+            "after": 7,
+            "before": 10
+          },
+          "preparationActionCount": 2,
+          "preparationCapacity": 14,
+          "receptionCapacity": 10,
+          "reputation": {
+            "after": 50,
+            "before": 50
+          },
+          "sessionId": "opening:60",
+          "teamwork": {
+            "after": 9,
+            "before": 7
+          },
+          "triggeredEventIds": []
+        }
+      }
+    }
+  ],
+  "storyIdentity": {
+    "id": "week.poc_001",
+    "revision": 1
+  },
+  "strategyId": "strategy.investigation_first",
+  "terminal": {
+    "completedAtSequence": 65,
+    "endingId": "ending.stable",
+    "levy": {
+      "cash": {
+        "after": 67,
+        "before": 207
+      },
+      "kind": "paid",
+      "levyAmount": 140
+    },
+    "reasonIds": [
+      "reason.ending.stable"
+    ],
+    "status": "completed_stable",
+    "summary": {
+      "investigation": {
+        "outcomeId": "outcome.investigation",
+        "value": {
+          "kind": "token",
+          "value": "investigation.complete"
+        }
+      },
+      "relationship": {
+        "outcomeId": "outcome.relationship_opportunity",
+        "value": {
+          "kind": "token",
+          "value": "relationship.abandoned"
+        }
+      }
+    }
+  }
+}

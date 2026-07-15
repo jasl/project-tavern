@@ -10,4 +10,5 @@ references/
 game/stories/e2e/fixtures/session-zero.json
 game/stories/e2e/golden/semantic-flow.json
 game/stories/e2e/src/test/fixtures/runtime/*.json
+game/stories/poc/src/test/fixtures/golden/*.json
 *.tsbuildinfo
