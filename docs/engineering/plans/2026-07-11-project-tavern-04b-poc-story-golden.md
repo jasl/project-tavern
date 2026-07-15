@@ -148,7 +148,7 @@ game/stories/poc/
 **Interfaces:**
 
 - Consumes: Base identity/safe-integer parsers, PoC stable-ID parsers from Phase 4A, Story source identity contract, and the exact tables in `docs/poc/content-and-playtest.md`.
-- Produces: `pocStoryIdentityV1`, `pocStateContractRevisionV1`, `pocReferenceSeedV1`, six fixed `pocReferenceRunIdsV1`, `pocStoryTitleTextIdV1`, `pocNoContentFilterOptionsTextIdV1`, complete closed readonly ID arrays/registries consumed by every later content file, and the explicitly empty `itemIdsV1`.
+- Produces: `pocStoryIdentityV1`, `pocStateContractRevisionV1`, `pocReferenceSeedV1`, six fixed `pocReferenceRunIdsV1`, `pocStoryTitleTextIdV1`, `pocNoContentFilterOptionsTextIdV1`, complete closed readonly ID arrays/registries consumed by every later content file, the exact persistent StoryToken registries, the one HitArea and six Presentation provider IDs required by the resolved SceneGraph, and the explicitly empty `weightedGroupIdsV1`, `questIdsV1`, and `itemIdsV1`.
 
 - [ ] **Step 1: Write the failing identity and namespace test**
 
@@ -253,7 +253,11 @@ export const pocReferenceRunIdsV1 = Object.freeze({
 } as const);
 ```
 
-`ids.ts` parses and freezes every policy, actor, character, ingredient, recipe, segment, mode, facility, aura, action, event, check/band, fact, quest, outcome, ending, reason, modifier source, Narrative scene/node/choice/checkpoint, Text, Asset, StageScene, StageSceneVariant, Character/rig/pose/expression/activity/appearance/HitMap, InteractionSurface, InteractionTarget, and InteractionBehavior ID from the PoC documents. This Task is the complete ID authority: Tasks 2–13 may consume these registries but never modify `ids.ts` or construct a stable ID from an unregistered raw string. `itemIdsV1` is deliberately empty for revision 1. Narrative `SceneId` and Presentation `StageSceneId` remain distinct branded namespaces。十四个 `symbol.poc.*` 值在这里仅作为严格、唯一、冻结的 Story 字符串登记；`pocStoryTitleTextIdV1` 与 `pocNoContentFilterOptionsTextIdV1` 精确解析 `text.poc.story.title` / `text.poc.settings.content_filter.none`，后者为 Phase 5B 的空策略 Settings 提供上游权威 ID。Phase 4B 不导入 UI，也不调用尚由 Phase 5A 才提供的 `parseGameSymbolIdV1`。
+`ids.ts` parses and freezes every policy, actor, character, ingredient, recipe, segment, mode, facility, aura, action, event, check/band, fact, quest, outcome, ending, reason, modifier source, Narrative scene/node/choice/checkpoint, persistent StoryToken, Text, Asset, StageScene, StageSceneVariant, Character/rig/pose/expression/activity/appearance/HitMap/HitArea, InteractionSurface, InteractionTarget, InteractionBehavior, and PresentationProvider ID from the PoC documents and this plan. This Task is the complete simulation/content/presentation ID authority: Tasks 2–13 may consume these registries but never modify `ids.ts` or construct one of those stable IDs from an unregistered raw string. Task 9's testing-only strategy IDs and Task 11's tooling-only `FixtureId` values remain owned by those tasks and are not part of this catalog. `weightedGroupIdsV1`, `questIdsV1`, and `itemIdsV1` are deliberately empty for revision 1. Narrative `SceneId` and Presentation `StageSceneId` remain distinct branded namespaces。十四个 `symbol.poc.*` 值在这里仅作为严格、唯一、冻结的 Story 字符串登记；`pocStoryTitleTextIdV1` 与 `pocNoContentFilterOptionsTextIdV1` 精确解析 `text.poc.story.title` / `text.poc.settings.content_filter.none`，后者为 Phase 5B 的空策略 Settings 提供上游权威 ID。Phase 4B 不导入 UI，也不调用尚由 Phase 5A 才提供的 `parseGameSymbolIdV1`。
+
+The persistent token registries are exact and authored in this order: `relationship.pending`, `relationship.completed`, `relationship.abandoned`, `relationship.reconciled`, `relationship.unresolved_conflict`; then `investigation.not_attempted`, `investigation.missed_by_choice`, `investigation.setback`, `investigation.success_with_cost`, `investigation.complete`, `investigation.exceptional`. The SceneGraph-only closure additionally registers `hit_area.poc.heroine.figure` plus these six provider IDs in InteractionBehavior order: `provider.poc.intent.open_profile`, `provider.poc.semantic.repair_sign_with_heroine`, `provider.poc.semantic.apologize_to_heroine`, `provider.poc.semantic.service_plan`, `provider.poc.semantic.purchase`, and `provider.poc.semantic.old_trade_road`.
+
+Task 1 also authors one flat, named, deeply frozen `pocTextIdsV1` registry and derives the ordered unique `textIdsV1` projection from it. The two IDs above are exact; the executing agent freezes the remaining provisional `text.poc.*` names once here. The registry must cover every later Text demand before Task 1 commits: three character names, all authored reasons, segments, modifier sources, generic and workflow action labels, ingredients, recipes, policies, service modes, facilities, Auras, choices/options, endings, obligation recommendations, rendered Narrative lines/notices, Stage/variant/surface/target/behavior accessibility, and confirmation benefit/risk copy. Tasks 2–7 may only reference this registry, and validation proves every source/presentation TextId belongs to `textIdsV1`.
 
 The presentation catalog is closed to these exact Stage identities:
 
@@ -347,6 +351,8 @@ export const pocSemanticWorkflowActionIdsV1 = Object.freeze([
 ] as const);
 ```
 
+The twelve `assetIdsV1` members are, in authored demand order, the five selected heroine layers (`back_hair`, `costume_body`, `face.neutral`, `front_hair`, `accessory`), the heroine static fallback, and the six standard backgrounds (`main_menu`, Tavern day/evening, Market day, World Map, Week Summary). Task 7 consumes these exact parsed values rather than reparsing raw Asset IDs.
+
 `behavior.poc.heroine.open_profile` is Presentation-only. The other five behaviors join only to already-existing Phase 4A action descriptors; they do not introduce commands or rewards. Body-part target IDs are deliberately absent from this PoC catalog。纸娃娃顺序、角色/rig/pose/expression/activity/HitMap/renderer/static fallback 身份同样由这里唯一冻结；Phase 5B 只能消费，不能重命名或重排。
 
 - [ ] **Step 4: Run focused and repository verification**
@@ -387,7 +393,7 @@ it("encodes the closed source economy components", () => {
   expect(pocCustomerSegmentDefinitionsV1).toHaveLength(2);
   expect(pocStoryManifestV1).toEqual({
     titleTextId: "text.poc.story.title",
-    initialSceneId: "scene.poc.manifest_start",
+    initialSceneId: "scene.manifest_start",
     playableDays: 7,
   });
   expect(pocTextEntriesV1.map(({ textId }) => textId)).toEqual(textIdsV1);
