@@ -698,3 +698,60 @@ export {
 } from "./modules/progression/module.js";
 
 export type { PocProgressionGameplayModuleV1 } from "./modules/progression/module.js";
+
+export {
+  parsePocNarrativeCursorV1,
+  parsePocNarrativeCallFrameV1,
+  parsePocNarrativeCharacterStateV1,
+  parsePocNarrativeStageStateV1,
+  parsePocNarrativeSourceV1,
+  parsePocNarrativeStateV1,
+  parsePocNarrativeRuntimeStateV1,
+  pocNarrativeStateSchemaV1,
+  pocNarrativeInvariantV1,
+  assertValidPocNarrativeStateV1,
+  assertValidInitialPocNarrativeStateV1,
+  pocNarrativeStatesEqualV1,
+  pocNarrativeSettledResultSchemaV1,
+  pocNarrativeOwnerOperationSchemaV1,
+  pocNarrativeDependencyPortsSchemaV1,
+  pocNarrativeOwnerProposalSchemaV1,
+} from "./modules/narrative/contract.js";
+
+export type {
+  PocNarrativeInvariantViolationV1,
+  PocNarrativeReadPortV1,
+  PocNarrativeGameplayFactV1,
+  PocNarrativeSettledResultV1,
+  PocNarrativeNormalOwnerOperationKindV1,
+  PocNarrativeOwnerOperationV1,
+  PocNarrativePresentableNodeKindV1,
+  PocNarrativeSettledDependenciesV1,
+  PocNarrativeDebugJumpTargetProofV1,
+  PocNarrativeDebugJumpDependenciesV1,
+  PocNarrativeDependencyPortsV1,
+  PocNarrativeOwnerProposalPayloadV1,
+  PocNarrativeOwnerProposalV1,
+} from "./modules/narrative/contract.js";
+
+export {
+  createPocNarrativeReadPortV1,
+  pocNarrativeOwnerV1,
+  createInitialPocNarrativeStateV1,
+  pocNarrativeGameplayModuleV1,
+} from "./modules/narrative/module.js";
+
+export type { PocNarrativeGameplayModuleV1 } from "./modules/narrative/module.js";
+
+export { interpretPocNarrativeStepV1 } from "./modules/narrative/interpreter.js";
+
+export type {
+  PocNarrativeInterpreterInputV1,
+  PocNarrativeInterpreterRequestV1,
+  PocNarrativeContinuationV1,
+  PocNarrativeCheckDecisionV1,
+  PocNarrativeResolutionV1,
+  PocNarrativeInterpreterRejectionV1,
+  PocNarrativeInterpreterFaultV1,
+  PocNarrativeStepResultV1,
+} from "./modules/narrative/interpreter.js";
