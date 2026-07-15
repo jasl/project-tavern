@@ -679,28 +679,22 @@ git commit -m "feat(story-poc): add early-week content"
 
 - Create: `game/stories/poc/src/content/narrative/relationship.ts`
 - Create: `game/stories/poc/src/test/relationship-content.test.ts`
-- Modify: `game/stories/poc/src/content/actions.ts`
 
 **Interfaces:**
 
 - Consumes: relationship State/Effect contracts, StoryAction/Narrative IR, exact conditions in the PoC content document, and Task 3 Narrative definitions.
-- Produces: `pocRelationshipNarrativeV1`, the exact `pocRelationshipStoryActionDefinitionsV1` relationship/apology entries, and exact pending/completed/abandoned/unresolved/reconciled outcomes.
+- Produces: `pocRelationshipNarrativeV1` as the exact two-scene `DeepReadonly<readonly NarrativeSceneV1[]>`, the exact two-row `pocRelationshipStoryActionDefinitionsV1`, and the authored transitions among the already-owned pending/completed/abandoned/unresolved/reconciled Outcome tokens.
 
 - [ ] **Step 1: Write failing route and Aura tests**
 
 ```ts
 it("keeps ignoring the relationship route valid and makes conflict exceptional", () => {
-  const content = pocRelationshipNarrativeV1;
-  expect(content.start.conditions).toContainEqual({
-    kind: "outcome.equals",
-    outcomeId: parseOutcomeId("outcome.investigation"),
-    value: "investigation.not_attempted",
-  });
-  expect(content.unstartedEndingOutcome).toEqual({
-    outcomeId: "outcome.relationship_opportunity",
-    value: "relationship.pending",
-  });
-  expect(content.conflictChoice.effects).toEqual(
+  const repairScene = pocRelationshipNarrativeV1[0];
+  const choiceNode = repairScene?.nodes.find((node) => node.kind === "choice");
+  const conflictChoice = choiceNode?.choices.find(
+    (choice) => choice.choiceId === parseChoiceId("choice.repair_sign.conflict"),
+  );
+  expect(conflictChoice?.effects).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ kind: "relationship.affection.adjust", delta: expect.any(Number) }),
       expect.objectContaining({ kind: "aura.apply", auraId: "heroine.angry" }),
@@ -708,9 +702,16 @@ it("keeps ignoring the relationship route valid and makes conflict exceptional",
   );
 });
 
-it("allows apology or time policy to clear anger without rewriting relationship", () => {
-  expect(pocRelationshipNarrativeV1.apology.effects).toContainEqual(
+it("authors apology as the exact StoryAction start transaction", () => {
+  const apology = pocRelationshipStoryActionDefinitionsV1[1];
+  expect(apology?.startEffects).toContainEqual(
     expect.objectContaining({ kind: "aura.clear", auraId: "heroine.angry" }),
+  );
+  expect(apology?.startEffects).toContainEqual(
+    expect.objectContaining({
+      kind: "outcome.set",
+      value: { kind: "token", value: "relationship.reconciled" },
+    }),
   );
 });
 ```
@@ -723,7 +724,9 @@ Expected: FAIL because relationship Narrative/actions do not exist.
 
 - [ ] **Step 3: Encode the complete branch without a second relationship system**
 
-Use the existing Actors relationship State and Status Aura. Content defines conditions/effects only. The engine enum remains exactly `stranger | dislike | cold | friendly | trust | admiration | lovers`, while this seven-day PoC initializes and keeps the derived stage at `cold`; affection and teamwork may change but are not stage names. Starting this branch blocks investigation; not starting it is valid. Offending choices apply explicit affection loss and the `day_end × 2` anger Aura; apology clears the matching Aura target, while natural expiry follows its countdown policy. Neither path overwrites mood or relationship stage.
+Use the existing Actors relationship State and Status Aura. `pocRelationshipNarrativeV1` is a recursively frozen two-scene array so Task 6 can concatenate it directly; do not invent a second source aggregate for `start`, the default Outcome, individual choices, or apology. `pocRelationshipStoryActionDefinitionsV1` contains repair first with no start effects, then apology with ordered start effects: AP -1, affection +1, clear the heroine's angry Aura, and set the relationship Outcome to the reconciled token. The repair scene's ordered cooperate effects are AP -2, player stamina -1, heroine stamina -1, affection +3, heroine mood +1, apply the `opening × 1` repaired-sign Aura with StoryAction provenance, set relationship completed, then set investigation missed-by-choice. Decline sets relationship abandoned then investigation missed-by-choice. Conflict applies affection -1, the `day_end × 2` angry Aura with StoryAction provenance, relationship unresolved-conflict, then investigation missed-by-choice. All Outcome values use the strict `{ kind: "token", value }` shape. All three choices declare the old-trade-road mutual exclusion; only cooperate declares the repair benefit and only conflict declares the conflict risk.
+
+The Action visibility/availability gates and Action-level confirmations already landed completely in Task 3 and are not re-authored here. The engine enum remains exactly `stranger | dislike | cold | friendly | trust | admiration | lovers`, while this seven-day PoC initializes and keeps the derived stage at `cold`; affection and teamwork may change but are not stage names. Starting this branch blocks investigation; not starting it is valid. Apology changes affection and the relationship Outcome but never mood or relationship stage. Natural Aura expiry clears only the Aura and keeps the unresolved-conflict Outcome.
 
 - [ ] **Step 4: Run content and full checks**
 
@@ -734,7 +737,7 @@ Expected: PASS; all route outcomes, sign/range constraints, mutual-exclusion gat
 - [ ] **Step 5: Commit relationship content**
 
 ```bash
-git add -- game/stories/poc/src/content/narrative/relationship.ts game/stories/poc/src/content/actions.ts game/stories/poc/src/test/relationship-content.test.ts
+git add -- game/stories/poc/src/content/narrative/relationship.ts game/stories/poc/src/test/relationship-content.test.ts
 git commit -m "feat(story-poc): add relationship branch"
 ```
 
