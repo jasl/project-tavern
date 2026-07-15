@@ -47,7 +47,7 @@ export const workspacePackages = Object.freeze([
     path: "game/stories/poc",
     name: "@project-tavern/story-poc",
     kind: "game",
-    license: "PolyForm-Noncommercial-1.0.0",
+    license: "SEE LICENSE IN LICENSE.md",
     edges: ["@sillymaker/base", "@sillymaker/ui", "@project-tavern/assets", "@sillymaker/web"],
   }),
 ]);
