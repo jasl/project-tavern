@@ -5,7 +5,8 @@
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tooling": "./src/tooling/index.ts"
   },
   "scripts": {
     "test": "pnpm --workspace-root exec vitest run game/stories/poc/src --passWithNoTests",
@@ -15,6 +16,8 @@
     "verify:commands": "vitest run src/test/reference-strategies.test.ts",
     "update:golden": "node --experimental-strip-types scripts/update-golden.mjs",
     "verify:golden": "vitest run src/test/golden-week.test.ts",
+    "update:fixtures": "node --experimental-strip-types scripts/update-save-fixtures.mjs",
+    "verify:fixtures": "vitest run src/test/tooling.test.ts src/test/tooling-runtime.integration.test.ts src/test/save-fixtures.test.ts",
     "verify:balance": "node ../../../scripts/verify-poc-balance.mjs",
     "verify:balance:smoke": "vitest run src/test/balance-1000-seeds.test.ts",
     "calibrate:balance": "node ../../../scripts/verify-poc-balance.mjs --calibrate",
