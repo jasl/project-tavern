@@ -1122,21 +1122,160 @@ Expected: FAIL because Narrative contract/interpreter/module files are absent.
 - [ ] **Step 3: Implement the closed interpreter**
 
 ```ts
-export interface PocNarrativeStepResultV1 {
-  readonly state: NarrativeStateV1;
-  readonly effects: readonly PocEffectIntentV1[];
-  readonly checkpoints: readonly CheckpointId[];
-  readonly gameplayFacts: readonly PocGameplayFactV1[];
+export type PocNarrativeInterpreterInputV1 =
+  | {
+      readonly kind: "start";
+      readonly request: { readonly source: NarrativeSourceV1; readonly sceneId: SceneId };
+    }
+  | { readonly kind: "advance"; readonly cursor: NarrativeCursorV1 }
+  | {
+      readonly kind: "choose";
+      readonly cursor: NarrativeCursorV1;
+      readonly choiceId: ChoiceId;
+    }
+  | {
+      readonly kind: "resume";
+      readonly continuation: PocNarrativeContinuationV1;
+      readonly resolution: PocNarrativeResolutionV1;
+    };
+
+export type PocNarrativeInterpreterRequestV1 =
+  | {
+      readonly kind: "condition";
+      readonly cursor: NarrativeCursorV1;
+      readonly conditions: readonly ConditionV1[];
+    }
+  | {
+      readonly kind: "check";
+      readonly cursor: NarrativeCursorV1;
+      readonly request: CheckRequestV1;
+    }
+  | {
+      readonly kind: "choice";
+      readonly cursor: NarrativeCursorV1;
+      readonly choice: NarrativeChoiceV1;
+    }
+  | {
+      readonly kind: "effects";
+      readonly cursor: NarrativeCursorV1;
+      readonly effects: readonly PocEffectIntentV1[];
+    }
+  | {
+      readonly kind: "checkpoint";
+      readonly cursor: NarrativeCursorV1;
+      readonly checkpointId: CheckpointId;
+    };
+
+export interface PocNarrativeContinuationV1 {
+  readonly origin:
+    | {
+        readonly kind: "start";
+        readonly request: { readonly source: NarrativeSourceV1; readonly sceneId: SceneId };
+      }
+    | { readonly kind: "advance"; readonly from: NarrativeCursorV1 }
+    | {
+        readonly kind: "choose";
+        readonly cursor: NarrativeCursorV1;
+        readonly choiceId: ChoiceId;
+      };
+  readonly transientState: NarrativeRuntimeStateV1;
+  readonly automaticStepsUsed: NonNegativeSafeInteger;
+  readonly pending: PocNarrativeInterpreterRequestV1;
 }
+
+export type PocNarrativeCheckDecisionV1 = Pick<
+  CheckResultV1,
+  "checkId" | "actorId" | "bandId"
+>;
+
+export type PocNarrativeResolutionV1 =
+  | {
+      readonly kind: "condition";
+      readonly cursor: NarrativeCursorV1;
+      readonly passed: boolean;
+    }
+  | {
+      readonly kind: "check";
+      readonly cursor: NarrativeCursorV1;
+      readonly decision: PocNarrativeCheckDecisionV1;
+    }
+  | {
+      readonly kind: "choice";
+      readonly cursor: NarrativeCursorV1;
+      readonly choiceId: ChoiceId;
+      readonly visible: true;
+      readonly enabled: true;
+      readonly checkDecision: PocNarrativeCheckDecisionV1 | null;
+    }
+  | { readonly kind: "effects_applied"; readonly cursor: NarrativeCursorV1 }
+  | { readonly kind: "checkpoint_applied"; readonly cursor: NarrativeCursorV1 };
+
+export type PocNarrativeGameplayFactV1 = Extract<
+  PocGameplayFactV1,
+  { readonly kind: "narrative.advanced" | "narrative.choice_committed" }
+>;
+
+export type PocNarrativeInterpreterRejectionV1 = Extract<
+  PocRejectionReasonV1,
+  {
+    readonly code:
+      | "command.unknown_reference"
+      | "narrative.inactive"
+      | "narrative.cursor_mismatch"
+      | "narrative.choice_required";
+  }
+>;
+
+export type PocNarrativeInterpreterFaultV1 =
+  | {
+      readonly category: "command_handler";
+      readonly code:
+        | "narrative.step_limit_exceeded"
+        | "narrative.call_depth_exceeded";
+    }
+  | {
+      readonly category: "engine_invariant";
+      readonly code: "narrative.invalid_cursor" | "story.reference_missing";
+    };
+
+export type PocNarrativeStepResultV1 =
+  | {
+      readonly kind: "yielded";
+      readonly state: NarrativeRuntimeStateV1;
+      readonly effects: readonly PocEffectIntentV1[];
+      readonly checkpoints: readonly CheckpointId[];
+      readonly gameplayFacts: readonly PocNarrativeGameplayFactV1[];
+      readonly request: PocNarrativeInterpreterRequestV1;
+      readonly continuation: PocNarrativeContinuationV1;
+    }
+  | {
+      readonly kind: "settled";
+      readonly state: NarrativeRuntimeStateV1;
+      readonly effects: readonly [];
+      readonly checkpoints: readonly [];
+      readonly gameplayFacts: readonly PocNarrativeGameplayFactV1[];
+      readonly request: null;
+      readonly continuation: null;
+    }
+  | { readonly kind: "rejected"; readonly rejection: PocNarrativeInterpreterRejectionV1 }
+  | { readonly kind: "faulted"; readonly fault: PocNarrativeInterpreterFaultV1 };
 
 export function interpretPocNarrativeStepV1(
   data: DeepReadonly<PocSimulationDataV1>,
-  state: DeepReadonly<NarrativeStateV1>,
+  state: DeepReadonly<NarrativeRuntimeStateV1>,
   input: DeepReadonly<PocNarrativeInterpreterInputV1>,
 ): PocNarrativeStepResultV1;
 ```
 
-Implement all Catalog node kinds against `data.narrative.scenes`, plus stale cursor checks, jump/call/return, branch choice, effect/checkpoint atomicity, and one blocking request. The same argument supplies `data.balance.maxNarrativeStepsPerCommand` and `data.balance.maxNarrativeCallDepth`; the Phase 4A fixture values are exactly `128` and `8`. The interpreter must not cache or duplicate those limits and must not read unrelated balance/content fields. Crossing either value produces the Catalog's stable fault and rolls back the whole outer command. There is no hard-coded `64`/`4`, environment override, or hidden fallback. The module writes only Narrative State; returned effects are applied later by the executor's effect router.
+Implement all Catalog node kinds against `data.narrative.scenes`, plus stale cursor checks, jump/call/return, branch choice, effect/checkpoint atomicity, and at most one yielded request. A command starts with `start | advance | choose`; the interpreter may synchronously cross only nodes that need no refreshed candidate observation. It yields before evaluating a condition or Check, committing a selected Choice, applying a command Effect batch, or handling an `eventCheckpoint`. The executor handles that request against the same transaction candidate and resumes only after the requested work succeeds. A yielded continuation is strict transient JSON, may point at an internal node, and never enters Narrative State, an owner proposal, Snapshot, Save, Query, or UI.
+
+The Check resolver and Progression owner retain the complete validated `CheckResultV1`: they consume RNG, append the one `ResolvedCheckV1`/`check.resolved` Fact, and apply band Effects before resume. Narrative receives only the closed `{ checkId, actorId, bandId }` control-flow decision and must correlate it with the pending request/branch; it never consumes RNG, persists a Check, or emits a duplicate Check Fact. A Choice request is admitted by the shared Condition evaluator, then resolves its optional Check, applies Check-band Effects followed by authored Choice Effects, and only then resumes.
+
+An `effects` request is resumed only after the effect router applies the exact batch. A `checkpoint` request preserves the transient cursor at the `eventCheckpoint`; Task 10 builds the `story.explicit` evaluation observation from that exact transient Narrative state, runs Scheduler selection and Effects, and only then resumes to `nextNodeId`. Every resolution repeats the pending cursor (and ChoiceId where applicable), and resume rejects an uncorrelated kind/value. Its `state` argument must be Canonical-JSON-equal to `continuation.transientState`. This request/continuation boundary is required: flattening Effect and Checkpoint arrays for a whole control-flow run cannot preserve Catalog order or allow later conditions to see the updated candidate.
+
+The same `data` argument supplies `data.balance.maxNarrativeStepsPerCommand` and `data.balance.maxNarrativeCallDepth`; the Phase 4A fixture values are exactly `128` and `8`. `automaticStepsUsed` is carried across every yield/resume and increments only when an automatic/internal node is first entered, not when it is resumed. Exactly 128 automatic nodes and exactly 8 pushed call frames are accepted; attempting the next one produces the Catalog's stable fault and rolls back the whole outer command. There is no hard-coded `64`/`4`, environment override, hidden fallback, or counter reset at a yielded boundary. The interpreter reads no unrelated balance/content fields. It returns only transient Narrative state and requests; Task 10 applies cross-owner work and submits one final settled Narrative owner proposal.
+
+The Narrative owner accepts only strict settled results for its `narrative.start`, `narrative.advance`, `narrative.choose`, and `narrative.complete` structural operations. It writes only Narrative State and emits at most the origin's single Narrative Fact: start emits none, advance emits `narrative.advanced`, and choose emits `narrative.choice_committed`; Check Facts remain Progression-owned. Internal/yielded continuation state is never owner-applicable.
 
 The Narrative owner additionally exposes an absolute `narrative.debug.jump` proposal that validates the target scene/node and active-Narrative state without interpreting intervening effects. It is callable only from `PocGameDebugCommandExecutorV1`. Transaction candidate owns the corresponding debug-only RNG replacement primitive for `debug.rng.set`; RNG is not a Gameplay State Slice and no GameplayModule may claim it.
 
@@ -1144,7 +1283,7 @@ The Narrative owner additionally exposes an absolute `narrative.debug.jump` prop
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/narrative.test.ts && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all node kinds, the exact program-owned `128`/`8` limits (including boundary and one-past-boundary vectors), invalid references, branch/rejoin, and strict JSON round-trip pass.
+Expected: PASS; all node kinds, post-Effect and post-Checkpoint condition visibility, Check/Progression single ownership, the exact program-owned `128`/`8` limits (including boundary, one-past-boundary, and cross-yield vectors), invalid references, branch/rejoin, and strict JSON round-trip pass.
 
 - [ ] **Step 5: Commit Narrative**
 
@@ -1168,7 +1307,7 @@ git commit -m "feat(story-poc): add narrative gameplay module"
 **Interfaces:**
 
 - Consumes: Task 1 `PocRulesV1` input/output contracts, explicit `RuleRngV1`, the minimal fixture program, modifier order, event triggers, and authored balance/data.
-- Produces: `createPocDemandRulesV1`, `createPocTavernSettlementResolverV1`, `createPocCheckResolverV1`, `createPocEndingRuleV1`, the separate `createPocSchedulingResolverV1`, `pocStoryRuleSlotsV1`, and one deeply frozen `createPocRulesV1(programData)` aggregate with the Catalog's exact seven rule slots.
+- Produces: `createPocDemandRulesV1`, `createPocTavernSettlementResolverV1`, `createPocCheckResolverV1`, `createPocEndingRuleV1`, the separate `createPocSchedulingResolverV1`, the shared pure `evaluatePocConditionsV1` from that resolver module, `pocStoryRuleSlotsV1`, and one deeply frozen `createPocRulesV1(programData)` aggregate with the Catalog's exact seven rule slots.
 
 - [ ] **Step 1: Write failing deterministic vectors and purity tests**
 
@@ -1337,7 +1476,7 @@ export function createPocRulesV1(
 }
 ```
 
-The only patchable `StoryRuleSlotV1` values are the seven ordered members of `pocStoryRuleSlotsV1`: `demand.preview`, `demand.resolve`, `tavern.preview`, `tavern.settle`, `checks.describe`, `checks.resolve`, and `endings.evaluate`. Runtime key tests reject any extra aggregate/nested member. Demand materializes stable per-day/segment offsets and previews ranges. Tavern preview/settlement calculate capacity, sales, ingredient cost, revenue, discard, modifiers, and effect/ledger drafts. Checks describe and resolve threshold/2D6 outcomes. Ending evaluation returns only progression effects and reads thresholds/Reason bindings exclusively from `data.balance.endingPolicy`; the validated alternate-policy vector proves the provider follows changed thresholds and Reason bindings, so no provider closure may retain a second `20/50/1/45` or ReasonId literal. Scheduling is a separate named resolver derived from validated event data and included in simulation source identity, but it is not a `PocRulesV1` member or PatchSurface rule slot. It evaluates each frozen context observation, orders candidates by priority descending then EventId, returns event requests/effects, and never dispatches or mutates; tests cover the Catalog's outer context order and prove that an earlier effect cannot enable a later event in the same context.
+The only patchable `StoryRuleSlotV1` values are the seven ordered members of `pocStoryRuleSlotsV1`: `demand.preview`, `demand.resolve`, `tavern.preview`, `tavern.settle`, `checks.describe`, `checks.resolve`, and `endings.evaluate`. Runtime key tests reject any extra aggregate/nested member. Demand materializes stable per-day/segment offsets and previews ranges. Tavern preview/settlement calculate capacity, sales, ingredient cost, revenue, discard, modifiers, and effect/ledger drafts. Checks describe and resolve threshold/2D6 outcomes. Ending evaluation returns only progression effects and reads thresholds/Reason bindings exclusively from `data.balance.endingPolicy`; the validated alternate-policy vector proves the provider follows changed thresholds and Reason bindings, so no provider closure may retain a second `20/50/1/45` or ReasonId literal. Scheduling is a separate named resolver derived from validated event data and included in simulation source identity, but it is not a `PocRulesV1` member or PatchSurface rule slot. It evaluates each frozen context observation, orders candidates by priority descending then EventId, returns event requests/effects, and never dispatches or mutates; tests cover the Catalog's outer context order and prove that an earlier effect cannot enable a later event in the same context. `evaluatePocConditionsV1` is the one exhaustive, pure Condition implementation used by Scheduling, Task 10 Narrative execution, and Task 12 Query/Choice projection; none of those consumers may retain a second Condition switch.
 
 - [ ] **Step 4: Run deterministic, mutation, and schema tests**
 
@@ -1521,7 +1660,9 @@ export function createPocGameCommandExecutorV1(
 }
 ```
 
-Implement the eleven named command handlers through the candidate and pass the exact constructor-supplied `modules` tuple into every candidate; the executor never creates or imports a second tuple. `run.start` consumes the exact demand RNG draws once, asks Tavern to persist all demand seeds plus D1 `currentDemand`, keeps Run in `setup`, and opens the manifest Narrative; only the later policy selection activates Run. `facility.choose` coordinates the Facilities decision, Inventory facility ledger/cash change, and one-time cold-storage extension of existing batches without letting either owner write the other. Narrative effects route atomically.
+Implement the eleven named command handlers through the candidate and pass the exact constructor-supplied `modules` tuple into every candidate; the executor never creates or imports a second tuple. `run.start` consumes the exact demand RNG draws once, asks Tavern to persist all demand seeds plus D1 `currentDemand`, keeps Run in `setup`, and opens the manifest Narrative; only the later policy selection activates Run. `facility.choose` coordinates the Facilities decision, Inventory facility ledger/cash change, and one-time cold-storage extension of existing batches without letting either owner write the other.
+
+Every Narrative-starting or Narrative-player handler drives Task 7's resumable interpreter inside the same candidate until it returns `settled`. Conditions use Task 8's shared evaluator against the latest candidate plus the continuation's exact transient Narrative state. A Check request constructs the validated `CheckInputV1`, consumes Rule RNG once, asks Progression to record the complete result, routes Check-band Effects, and resumes with only the correlated control-flow decision. A Choice request first applies the shared show/enable gates and existing hidden/disabled rejections, then resolves its optional Check, routes Check-band Effects followed by authored Choice Effects, and resumes. A command-Effect request routes the batch before resume. An `eventCheckpoint` request evaluates and applies its `story.explicit` Scheduler context while the transient cursor is still the checkpoint, then resumes. Only the final settled state enters one Narrative owner proposal; any rejection/fault rolls back all prior Effects, RNG, Progression, Scheduler, Workflow, cursor, and Facts.
 
 `calendar.advance_phase` follows the authoritative boundary order rather than one generic expiry pass. Every transition first validates blockers and applies old-phase direct effects, then the executor selects only the applicable `phase_end` countdown instances. Entering evening materializes planned closure or the exact emergency closure when required. Evening-to-next-morning additionally resolves an unstarted non-closed plan as emergency closure (or rejects an active Opening), spoils remaining ingredients, applies `phase_end`, then `day_end`, collects recovery while `night_recovery` Auras are still active and only then decrements them, clears the old plan, advances day/phase/AP, resets daily preparation, materializes the next service-day demand, resets `eveningResolved`, and finally evaluates `day.ended`/`week.ended`/`phase.entered` Scheduler contexts against their frozen post-transition observations. GameplayFacts preserve mutation/causal order and are never regrouped by kind or ID. Preview logic is not duplicated here; Task 12 builds it from the same guards, calculators, Rules, and resolvers.
 
