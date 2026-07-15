@@ -18,12 +18,20 @@ import type {
   CheckResultV1,
   DemandDayStateV1,
   DemandProjectionInputV1,
+  EndingInputV1,
   FacilityDefinitionV1,
+  IngredientQuantityV1,
+  LedgerEntryDraftV1,
+  LedgerEntryV1,
+  LevyResolutionV1,
   MaterializedDemandDayV1,
   ModifierV1,
   NarrativeCursorV1,
   NarrativeRuntimeStateV1,
   NarrativeSourceV1,
+  OpeningBaselineV1,
+  OpeningLedgerV1,
+  OpeningSessionV1,
   PocCommandExecutionAttemptV1,
   PocEffectSourceV1,
   PocEngineFaultV1,
@@ -34,16 +42,29 @@ import type {
   PocSimulationDataV1,
   PocSimulationProgramV1,
   SchedulerContextV1,
+  ServiceModeDefinitionV1,
   StoryRuleSlotV1,
   TavernPlanV1,
   TavernPreviewInputV1,
   TavernPreviewV1,
+  WorldActionDefinitionV1,
+  WorldActionSessionV1,
 } from "./contracts/types.js";
-import type { ActionId, AuraInstanceId, IngredientId, ReasonId } from "./contracts/ids.js";
+import type {
+  ActionId,
+  AuraId,
+  AuraInstanceId,
+  IngredientId,
+  LedgerEntryId,
+  OpenServiceMode,
+  ReasonId,
+  RecipeId,
+} from "./contracts/ids.js";
 import {
   deepFreezePocValueV1,
   parseAttributeBonus,
   parseDayIndex,
+  parseMoney,
   parseNonNegativeSafeInteger,
   parsePositiveSafeInteger,
   parseQuantity,
@@ -92,6 +113,33 @@ interface PocBlockingNarrativeRequestV1 {
 
 const noDependenciesV1 = Object.freeze({});
 const attributeBonusByRankV1 = Object.freeze({ C: 0, B: 1, A: 2, S: 3, "S+": 4 });
+
+function safeIntegerFromBigIntV1(
+  value: bigint,
+  label: string,
+): ReturnType<typeof parseSafeInteger> {
+  if (value < BigInt(Number.MIN_SAFE_INTEGER) || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new TypeError(`${label} exceeds safe integer bounds`);
+  }
+  return parseSafeInteger(Number(value));
+}
+
+function nonNegativeSafeIntegerFromBigIntV1(
+  value: bigint,
+  label: string,
+): ReturnType<typeof parseNonNegativeSafeInteger> {
+  if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new TypeError(`${label} exceeds non-negative safe integer bounds`);
+  }
+  return parseNonNegativeSafeInteger(Number(value));
+}
+
+function quantityFromBigIntV1(value: bigint, label: string): ReturnType<typeof parseQuantity> {
+  if (value <= 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new TypeError(`${label} exceeds Quantity bounds`);
+  }
+  return parseQuantity(Number(value));
+}
 
 function attemptDiagnosticsV1(
   committedBefore: PocGameSnapshotV1["rng"],
@@ -787,7 +835,15 @@ function applyNarrativeWorkflowCompletionV1(
     );
     return;
   }
-  if (before.kind !== "world_action" || source.kind !== "world_action") return;
+  if (before.kind !== "world_action") return;
+  if (source.kind !== "world_action" || source.actionId !== before.actionId) {
+    faultV1(
+      engineInvariantFaultV1(
+        "workflow.conflict",
+        new TypeError("WorldAction Narrative source does not match its active session"),
+      ),
+    );
+  }
   if (before.progress === "begin_scene") {
     requireAppliedV1(
       candidate.applyWorkflow(
@@ -900,6 +956,29 @@ function driveNarrativeV1(
                 effectSource,
               );
         routeEffectsV1(candidate, request.choice.effects, effectSource);
+        if (source.kind === "world_action") {
+          const workflow = candidate.workflowReadPort();
+          if (workflow?.kind !== "world_action" || workflow.actionId !== source.actionId) {
+            faultV1(
+              engineInvariantFaultV1(
+                "workflow.conflict",
+                new TypeError("WorldAction Narrative choice has no matching active session"),
+              ),
+            );
+          }
+          requireAppliedV1(
+            candidate.applyWorkflow(
+              {
+                kind: "workflow.record_world_action_choice",
+                choiceId: request.choice.choiceId,
+              },
+              {
+                kind: "workflow.record_world_action_choice",
+                committedAtSequence: candidate.nextCommandSequence(),
+              },
+            ),
+          );
+        }
         resolution = {
           kind: "choice",
           cursor: request.cursor,
@@ -1119,6 +1198,194 @@ export function previewPocTavernPlanForCandidateV1(
 ): TavernPreviewV1 {
   const input = currentStateTavernPreviewInputV1(candidate, modules, plan);
   return invokeRuleV1("tavern.preview", () => program.rules.tavern.preview(input));
+}
+
+function openingModeForPlanV1(
+  data: DeepReadonly<PocSimulationDataV1>,
+  plan: DeepReadonly<TavernPlanV1>,
+): DeepReadonly<ServiceModeDefinitionV1> & { readonly mode: OpenServiceMode } {
+  const mode = data.balance.serviceModes.find(({ mode: value }) => value === plan.mode);
+  if (mode === undefined || mode.mode === "closed") {
+    faultV1(
+      engineInvariantFaultV1(
+        "story.reference_missing",
+        new TypeError(`missing open ServiceMode ${plan.mode}`),
+      ),
+    );
+  }
+  return mode as DeepReadonly<ServiceModeDefinitionV1> & { readonly mode: OpenServiceMode };
+}
+
+function requiredOpeningIngredientsV1(
+  data: DeepReadonly<PocSimulationDataV1>,
+  plan: DeepReadonly<TavernPlanV1>,
+): readonly IngredientQuantityV1[] {
+  const totals = new Map<IngredientId, bigint>();
+  for (const planned of plan.menu) {
+    const recipe = data.content.recipes.find(({ recipeId }) => recipeId === planned.recipeId);
+    if (recipe === undefined) {
+      faultV1(
+        engineInvariantFaultV1(
+          "story.reference_missing",
+          new TypeError(`missing Recipe ${planned.recipeId}`),
+        ),
+      );
+    }
+    for (const ingredient of recipe.ingredients) {
+      totals.set(
+        ingredient.ingredientId,
+        (totals.get(ingredient.ingredientId) ?? 0n) +
+          BigInt(ingredient.quantity) * BigInt(planned.portions),
+      );
+    }
+  }
+  return deepFreezePocValueV1(
+    [...totals]
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([ingredientId, quantity]) => ({
+        ingredientId,
+        quantity: quantityFromBigIntV1(quantity, `Opening ingredient ${ingredientId}`),
+      })),
+  );
+}
+
+function openingBaselineModifiersV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  mode: Exclude<TavernPlanV1["mode"], "closed">,
+): readonly ModifierV1[] {
+  return deepFreezePocValueV1(
+    collectPocModifiersV1(candidate, modules).filter((modifier) => {
+      if (modifier.kind === "teamwork_gain.block") return true;
+      if (
+        modifier.kind === "capacity.add" ||
+        modifier.kind === "prep_points.add" ||
+        modifier.kind === "service_cost.add"
+      ) {
+        return modifier.modes.includes(mode);
+      }
+      return false;
+    }),
+  );
+}
+
+function appendDirectLedgerEntriesV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  entries: readonly LedgerEntryDraftV1[],
+  reason: ChangeReasonV1,
+): readonly LedgerEntryV1[] {
+  if (entries.length === 0) return Object.freeze([]);
+  const beforeLength = selectedReadPortsV1(candidate, modules).inventory.ledger.length;
+  requireAppliedV1(
+    candidate.applyInventory(
+      { kind: "inventory.ledger.append", entries },
+      {
+        kind: "inventory.ledger.append",
+        commandSequence: candidate.nextCommandSequence(),
+        nextLedgerEntryIndex: candidate.nextLedgerEntryIndex(),
+        ledgerReasons: candidate.data().balance.ledgerReasons,
+        context: { kind: "effect_or_direct", reason },
+      },
+    ),
+  );
+  const materialized = selectedReadPortsV1(candidate, modules).inventory.ledger.slice(beforeLength);
+  if (materialized.length !== entries.length) {
+    faultV1(
+      engineInvariantFaultV1(
+        "ledger.unbalanced",
+        new TypeError("Inventory materialized an unexpected direct-ledger line count"),
+      ),
+    );
+  }
+  return deepFreezePocValueV1(materialized);
+}
+
+function openingContextForCheckpointV1(
+  session: DeepReadonly<OpeningSessionV1>,
+): SchedulerContextV1 | null {
+  if (session.checkpoint === "ready_to_finalize") return null;
+  return deepFreezePocValueV1({
+    kind:
+      session.checkpoint === "started"
+        ? "opening.started"
+        : session.checkpoint === "middle"
+          ? "opening.middle"
+          : "opening.before_finalize",
+    sessionId: session.sessionId,
+  });
+}
+
+function worldActionSessionDefinitionV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  session: DeepReadonly<WorldActionSessionV1>,
+): {
+  readonly action: DeepReadonly<WorldActionDefinitionV1>;
+  readonly option: DeepReadonly<WorldActionDefinitionV1["options"][number]>;
+  readonly begin: DeepReadonly<WorldActionDefinitionV1["steps"][0]>;
+  readonly completion: DeepReadonly<WorldActionDefinitionV1["steps"][1]>;
+} {
+  const action = candidate
+    .data()
+    .content.worldActions.find(({ actionId }) => actionId === session.actionId);
+  if (action === undefined) {
+    faultV1(
+      engineInvariantFaultV1(
+        "story.reference_missing",
+        new TypeError(`missing WorldAction ${session.actionId}`),
+      ),
+    );
+  }
+  const option = action.options.find(({ optionId }) => optionId === session.optionId);
+  const begin = action.steps[0];
+  const completion = action.steps[1];
+  if (option === undefined || begin === undefined || completion === undefined) {
+    faultV1(
+      engineInvariantFaultV1(
+        "workflow.conflict",
+        new TypeError("WorldAction session references a missing authored member"),
+      ),
+    );
+  }
+  const expectedCashCost = parseMoney(
+    safeIntegerFromBigIntV1(
+      BigInt(action.baseCashCost) + BigInt(option.additionalCashCost),
+      `WorldAction ${action.actionId} cash cost`,
+    ),
+  );
+  const inventory = selectedReadPortsV1(candidate, modules).inventory;
+  const paidEntries = session.paidCostEntryIds.map((entryId) =>
+    inventory.ledger.find((candidateEntry) => candidateEntry.entryId === entryId),
+  );
+  const paidEntriesValid =
+    paidEntries.length === (expectedCashCost === 0 ? 0 : 1) &&
+    paidEntries.every(
+      (entry) =>
+        entry?.category === "world_action" &&
+        entry.reasonId === candidate.data().balance.ledgerReasons.worldActionCost &&
+        entry.cashDelta === 0 - Number(expectedCashCost) &&
+        entry.valuationDelta === 0 &&
+        entry.quantity === undefined &&
+        entry.subject.kind === "action" &&
+        entry.subject.actionId === session.actionId,
+    );
+  if (
+    begin.stepId !== session.beginStepId ||
+    completion.stepId !== session.completionStepId ||
+    begin.phase !== session.startedPhase ||
+    session.startedDay !== candidate.calendarReadPort().day ||
+    option.preparationBonus !== session.preparationBonus ||
+    !paidEntriesValid
+  ) {
+    faultV1(
+      engineInvariantFaultV1(
+        "workflow.conflict",
+        new TypeError("WorldAction session does not match its authored definition"),
+      ),
+    );
+  }
+  return { action, option, begin, completion };
 }
 
 function actionUnavailableReasonV1(
@@ -1843,39 +2110,7 @@ function advanceCalendarV1(
         ? { day: before.day, phase: "evening" as const }
         : { day: parseDayIndex(before.day + 1), phase: "morning" as const };
   if (workflow?.kind === "world_action") {
-    const action = program.data.content.worldActions.find(
-      ({ actionId }) => actionId === workflow.actionId,
-    );
-    if (action === undefined) {
-      faultV1(
-        engineInvariantFaultV1(
-          "story.reference_missing",
-          new TypeError(`missing WorldAction ${workflow.actionId}`),
-        ),
-      );
-    }
-    const begin = action.steps[0];
-    const completion = action.steps[1];
-    if (begin === undefined || completion === undefined) {
-      faultV1(
-        engineInvariantFaultV1(
-          "story.reference_missing",
-          new TypeError(`WorldAction ${workflow.actionId} does not have two steps`),
-        ),
-      );
-    }
-    if (
-      begin.stepId !== workflow.beginStepId ||
-      completion.stepId !== workflow.completionStepId ||
-      begin.phase !== workflow.startedPhase
-    ) {
-      faultV1(
-        engineInvariantFaultV1(
-          "workflow.conflict",
-          new TypeError("WorldAction session does not match its authored steps"),
-        ),
-      );
-    }
+    const { completion } = worldActionSessionDefinitionV1(candidate, modules, workflow);
     if (completion.phase !== to.phase) {
       rejectV1({ code: "calendar.phase_blocked", details: { blocker: "world_action" } });
     }
@@ -1981,18 +2216,7 @@ function advanceCalendarV1(
   const blockingRequests: PocBlockingNarrativeRequestV1[] = [];
   let handlerRequest: PocBlockingNarrativeRequestV1 | null = null;
   if (workflow?.kind === "world_action") {
-    const action = program.data.content.worldActions.find(
-      ({ actionId }) => actionId === workflow.actionId,
-    );
-    const completion = action?.steps[1];
-    if (completion === undefined) {
-      faultV1(
-        engineInvariantFaultV1(
-          "story.reference_missing",
-          new TypeError(`missing WorldAction ${workflow.actionId}`),
-        ),
-      );
-    }
+    const { completion } = worldActionSessionDefinitionV1(candidate, modules, workflow);
     requireAppliedV1(
       candidate.applyWorkflow(
         { kind: "workflow.enter_world_action_completion_scene" },
@@ -2012,9 +2236,6 @@ function advanceCalendarV1(
       scheduler,
       blockingRequests,
     );
-    if (Number(before.day) === Number(program.data.manifest.playableDays)) {
-      applySchedulerContextV1(candidate, { kind: "week.ended" }, scheduler, blockingRequests);
-    }
   }
   applySchedulerContextV1(
     candidate,
@@ -2033,13 +2254,897 @@ function advanceCalendarV1(
   );
 }
 
-function notImplementedFaultV1(commandKind: PocGameCommandV1["kind"]): PocEngineFaultV1 {
-  return deepFreezePocValueV1({
-    category: "command_handler",
-    code: "command.handler_not_implemented",
-    ruleSlot: null,
-    message: `Command handler is not implemented yet: ${commandKind}`,
+function openingSessionV1(candidate: PocTransactionCandidateV1): OpeningSessionV1 {
+  const workflow = candidate.workflowReadPort();
+  if (workflow === null || workflow.kind !== "opening") {
+    faultV1(
+      engineInvariantFaultV1(
+        "workflow.conflict",
+        new TypeError("Opening checkpoint processing lost its active session"),
+      ),
+    );
+  }
+  return workflow;
+}
+
+function rejectOpeningResourceShortageV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  preview: DeepReadonly<TavernPreviewV1>,
+  requiredIngredients: readonly DeepReadonly<IngredientQuantityV1>[],
+): void {
+  const ports = selectedReadPortsV1(candidate, modules);
+  if (ports.calendar.apRemaining < preview.openingCosts.ap) {
+    rejectV1({
+      code: "calendar.insufficient_ap",
+      details: { required: preview.openingCosts.ap, available: ports.calendar.apRemaining },
+    });
+  }
+  if (ports.actors.player.stamina.current < preview.openingCosts.playerStamina) {
+    rejectV1({
+      code: "actor.insufficient_stamina",
+      details: {
+        actorId: ports.actors.player.actorId,
+        required: preview.openingCosts.playerStamina,
+        available: ports.actors.player.stamina.current,
+      },
+    });
+  }
+  if (ports.actors.heroine.stamina.current < preview.openingCosts.heroineStamina) {
+    rejectV1({
+      code: "actor.insufficient_stamina",
+      details: {
+        actorId: ports.actors.heroine.actorId,
+        required: preview.openingCosts.heroineStamina,
+        available: ports.actors.heroine.stamina.current,
+      },
+    });
+  }
+  if (ports.inventory.cash < preview.openingCosts.cash.total) {
+    rejectV1({
+      code: "inventory.insufficient_cash",
+      details: { required: preview.openingCosts.cash.total, available: ports.inventory.cash },
+    });
+  }
+  for (const required of requiredIngredients) {
+    const available = ports.inventory.ingredientBatches
+      .filter(({ ingredientId }) => ingredientId === required.ingredientId)
+      .reduce((sum, { quantity }) => sum + quantity, 0);
+    if (available < required.quantity) {
+      rejectV1({
+        code: "inventory.insufficient_ingredient",
+        details: {
+          ingredientId: required.ingredientId,
+          required: required.quantity,
+          available: parseNonNegativeSafeInteger(available),
+        },
+      });
+    }
+  }
+  if (!preview.allowed) {
+    faultV1(
+      storyRuleFaultV1(
+        "tavern.preview",
+        new TypeError("Tavern preview rejected without a matching resource shortage"),
+        "rule.output_invalid",
+      ),
+    );
+  }
+}
+
+function payOpeningCostsV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  preview: DeepReadonly<TavernPreviewV1>,
+  mode: ReturnType<typeof openingModeForPlanV1>,
+): readonly LedgerEntryId[] {
+  const modeReason = commandReasonV1("tavern.opening.start", mode.reasonId);
+  if (preview.openingCosts.ap > 0) {
+    requireAppliedV1(
+      candidate.applyCalendar(
+        {
+          kind: "calendar.ap.adjust",
+          delta: parseSafeInteger(-Number(preview.openingCosts.ap)),
+          reason: modeReason,
+        },
+        calendarDependenciesV1(calendarPolicyApV1(candidate, candidate.data())),
+      ),
+    );
+  }
+  for (const [actorId, amount] of [
+    ["actor.player", preview.openingCosts.playerStamina],
+    ["actor.heroine", preview.openingCosts.heroineStamina],
+  ] as const) {
+    if (amount === 0) continue;
+    requireAppliedV1(
+      candidate.applyActors(
+        {
+          kind: "actors.adjust_stamina",
+          actorId,
+          application: "debit",
+          components: [{ requestedDelta: parseSafeInteger(-Number(amount)), reason: modeReason }],
+        },
+        noDependenciesV1,
+      ),
+    );
+  }
+
+  const total = Number(preview.openingCosts.cash.total);
+  const wageCharge = Math.min(Number(preview.openingCosts.cash.wage), total);
+  const openingFeeCharge = total - wageCharge;
+  const entries: LedgerEntryId[] = [];
+  const wage = appendDirectLedgerEntriesV1(
+    candidate,
+    modules,
+    [
+      {
+        category: "wage",
+        reasonId: candidate.data().balance.ledgerReasons.serviceWage,
+        cashDelta: parseSafeInteger(-wageCharge),
+        valuationDelta: parseSafeInteger(0),
+        subject: { kind: "service_mode", mode: mode.mode },
+      },
+    ],
+    commandReasonV1("tavern.opening.start", candidate.data().balance.ledgerReasons.serviceWage),
+  );
+  entries.push(...wage.map(({ entryId }) => entryId));
+  const openingFee = appendDirectLedgerEntriesV1(
+    candidate,
+    modules,
+    [
+      {
+        category: "opening_fee",
+        reasonId: candidate.data().balance.ledgerReasons.openingFee,
+        cashDelta: parseSafeInteger(-openingFeeCharge),
+        valuationDelta: parseSafeInteger(0),
+        subject: { kind: "service_mode", mode: mode.mode },
+      },
+    ],
+    commandReasonV1("tavern.opening.start", candidate.data().balance.ledgerReasons.openingFee),
+  );
+  entries.push(...openingFee.map(({ entryId }) => entryId));
+  return deepFreezePocValueV1(entries);
+}
+
+function finishOpeningStartContextsV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  program: DeepReadonly<PocSimulationProgramV1>,
+  scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
+): void {
+  const blockingRequests: PocBlockingNarrativeRequestV1[] = [];
+  applyCommandSchedulerV1(candidate, "tavern.opening.start", scheduler, blockingRequests);
+  while (true) {
+    const session = openingSessionV1(candidate);
+    const context = openingContextForCheckpointV1(session);
+    if (context === null) break;
+    applySchedulerContextV1(candidate, context, scheduler, blockingRequests);
+    if (blockingRequests.length > 0) break;
+    requireAppliedV1(
+      candidate.applyWorkflow(
+        { kind: "workflow.advance_opening_checkpoint" },
+        { kind: "workflow.advance_opening_checkpoint" },
+      ),
+    );
+  }
+  settleBlockingNarrativesV1(
+    candidate,
+    modules,
+    program,
+    scheduler,
+    blockingRequests,
+    "tavern.opening.start",
+    null,
+  );
+}
+
+function startOpeningV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  program: DeepReadonly<PocSimulationProgramV1>,
+  scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
+): void {
+  const ports = selectedReadPortsV1(candidate, modules);
+  if (ports.calendar.phase !== "evening") {
+    rejectV1({
+      code: "calendar.invalid_phase",
+      details: { actual: ports.calendar.phase, allowed: ["evening"] },
+    });
+  }
+  if (ports.calendar.eveningResolved) {
+    rejectV1({
+      code: "tavern.evening_resolved",
+      details: { day: ports.calendar.day, planMode: ports.tavern.servicePlan?.mode ?? null },
+    });
+  }
+  if (ports.workflow?.kind === "opening") {
+    rejectV1({
+      code: "tavern.opening_active",
+      details: { sessionId: ports.workflow.sessionId },
+    });
+  }
+  if (ports.workflow?.kind === "world_action") {
+    rejectV1({
+      code: "workflow.conflict",
+      details: { activeKind: "world_action", attemptedKind: "opening" },
+    });
+  }
+  const plan = ports.tavern.servicePlan;
+  if (plan === null) {
+    rejectV1({ code: "tavern.opening_plan_missing", details: { day: ports.calendar.day } });
+  }
+  if (plan.mode === "closed") {
+    rejectV1({
+      code: "tavern.evening_resolved",
+      details: { day: ports.calendar.day, planMode: "closed" },
+    });
+  }
+  if (plan.menu.length > program.data.balance.menuRecipeLimit) {
+    rejectV1({ code: "tavern.invalid_plan", details: { reason: "menu_size" } });
+  }
+  const unlocked = new Set(ports.tavern.unlockedRecipeIds);
+  for (const line of plan.menu) {
+    if (!program.data.content.recipes.some(({ recipeId }) => recipeId === line.recipeId)) {
+      faultV1(
+        engineInvariantFaultV1(
+          "story.reference_missing",
+          new TypeError(`Opening plan references missing Recipe ${line.recipeId}`),
+        ),
+      );
+    }
+    if (!unlocked.has(line.recipeId)) {
+      rejectV1({ code: "tavern.invalid_plan", details: { reason: "locked_recipe" } });
+    }
+  }
+  const mode = openingModeForPlanV1(program.data, plan);
+  const unavailableReasonId = actionUnavailableReasonV1(mode.availability, candidate);
+  if (unavailableReasonId !== null) {
+    rejectV1({
+      code: "tavern.service_unavailable",
+      details: { mode: mode.mode, reasonId: unavailableReasonId },
+    });
+  }
+  const currentDemand = ports.tavern.currentDemand;
+  if (currentDemand?.day !== ports.calendar.day) {
+    faultV1(
+      engineInvariantFaultV1(
+        "terminal_state.invalid",
+        new TypeError("Opening plan has no materialized demand for the current day"),
+      ),
+    );
+  }
+  const requiredIngredients = requiredOpeningIngredientsV1(program.data, plan);
+  const preview = previewPocTavernPlanForCandidateV1(candidate, modules, program, plan);
+  rejectOpeningResourceShortageV1(candidate, modules, preview, requiredIngredients);
+
+  const before = selectedReadPortsV1(candidate, modules);
+  const baselineModifiers = openingBaselineModifiersV1(candidate, modules, mode.mode);
+  const startEntryIds = payOpeningCostsV1(candidate, modules, preview, mode);
+  const factCount = candidate.gameplayFacts().length;
+  requireAppliedV1(
+    candidate.applyInventory(
+      {
+        kind: "inventory.consume",
+        lines: requiredIngredients,
+        reason: commandReasonV1("tavern.opening.start", mode.reasonId),
+      },
+      { kind: "inventory.consume" },
+    ),
+  );
+  const consumedFact = candidate
+    .gameplayFacts()
+    .slice(factCount)
+    .find(({ kind }) => kind === "inventory.consumed");
+  if (consumedFact === undefined || consumedFact.kind !== "inventory.consumed") {
+    faultV1(
+      engineInvariantFaultV1(
+        "ledger.unbalanced",
+        new TypeError("Opening ingredient debit did not materialize its consumption Fact"),
+      ),
+    );
+  }
+  const afterCosts = selectedReadPortsV1(candidate, modules);
+  const baseline: OpeningBaselineV1 = deepFreezePocValueV1({
+    startedAtSequence: candidate.nextCommandSequence(),
+    day: before.calendar.day,
+    mode: mode.mode,
+    preparationActionCount: before.tavern.preparation.actionCount,
+    ap: { before: before.calendar.apRemaining, after: afterCosts.calendar.apRemaining },
+    playerStamina: {
+      before: before.actors.player.stamina.current,
+      after: afterCosts.actors.player.stamina.current,
+    },
+    heroineStamina: {
+      before: before.actors.heroine.stamina.current,
+      after: afterCosts.actors.heroine.stamina.current,
+    },
+    cashAtStart: { before: before.inventory.cash, after: afterCosts.inventory.cash },
+    reputationBeforeStart: before.tavern.reputation,
+    menu: plan.menu,
+    preparedPortions: plan.menu,
+    consumedIngredients: consumedFact.lines,
+    demand: currentDemand.segments,
+    actors: {
+      playerAttributes: before.actors.player.attributes,
+      heroineMood: before.actors.heroine.mood,
+      relationship: before.actors.relationship,
+      helper: before.tavern.helper,
+    },
+    facilityIds: before.facilities.built.map(({ facilityId }) => facilityId),
+    modifiers: baselineModifiers,
+    startEntryIds,
   });
+  requireAppliedV1(
+    candidate.applyWorkflow(
+      { kind: "workflow.start_opening", baseline },
+      { kind: "workflow.start_opening", commandSequence: candidate.nextCommandSequence() },
+    ),
+  );
+  finishOpeningStartContextsV1(candidate, modules, program, scheduler);
+}
+
+function continueOpeningV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  program: DeepReadonly<PocSimulationProgramV1>,
+  scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
+): void {
+  requireAppliedV1(
+    candidate.applyWorkflow(
+      { kind: "workflow.advance_opening_checkpoint" },
+      { kind: "workflow.advance_opening_checkpoint" },
+    ),
+  );
+  const blockingRequests: PocBlockingNarrativeRequestV1[] = [];
+  applyCommandSchedulerV1(candidate, "tavern.opening.continue", scheduler, blockingRequests);
+  const context = openingContextForCheckpointV1(openingSessionV1(candidate));
+  if (context !== null) {
+    applySchedulerContextV1(candidate, context, scheduler, blockingRequests);
+  }
+  settleBlockingNarrativesV1(
+    candidate,
+    modules,
+    program,
+    scheduler,
+    blockingRequests,
+    "tavern.opening.continue",
+    null,
+  );
+}
+
+function countdownApplicableOpeningAurasV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  appliedModifiers: DeepReadonly<OpeningLedgerV1["appliedModifiers"]>,
+): void {
+  const applicableAuraIds = new Set<AuraId>();
+  for (const { modifier } of appliedModifiers) {
+    if (modifier.source.kind === "aura") applicableAuraIds.add(modifier.source.auraId);
+  }
+  const instanceIds = selectedReadPortsV1(candidate, modules)
+    .status.auras.filter(
+      (aura) =>
+        applicableAuraIds.has(aura.auraId) &&
+        aura.duration.kind === "countdown" &&
+        aura.duration.unit === "opening",
+    )
+    .map(({ instanceId }) => instanceId);
+  requireAppliedV1(
+    candidate.applyStatus(
+      { kind: "status.countdown", unit: "opening", instanceIds },
+      statusDependenciesV1(candidate.data()),
+    ),
+  );
+}
+
+function finalizeOpeningV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  program: DeepReadonly<PocSimulationProgramV1>,
+  scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
+): void {
+  const session = candidate.workflowReadPort();
+  const validationCheckpoint = candidate.checkpoint();
+  requireAppliedV1(
+    candidate.applyWorkflow(
+      { kind: "workflow.finalize_opening" },
+      { kind: "workflow.finalize_opening" },
+    ),
+  );
+  candidate.rollback(validationCheckpoint);
+  if (session === null || session.kind !== "opening") {
+    faultV1(
+      engineInvariantFaultV1(
+        "workflow.conflict",
+        new TypeError("Opening finalize validation returned without an Opening session"),
+      ),
+    );
+  }
+
+  const draft = invokeRuleV1("tavern.settle", () =>
+    program.rules.tavern.settle({ session }, candidate.rng()),
+  );
+  candidate.appendGameplayFact({
+    kind: "service.orders_created",
+    sessionId: session.sessionId,
+    orders: draft.orders,
+  });
+  candidate.appendGameplayFact({
+    kind: "service.capacity_limited",
+    sessionId: session.sessionId,
+    receptionCapacity: draft.receptionCapacity,
+    preparationCapacity: draft.preparationCapacity,
+  });
+
+  const salesByRecipe = new Map<RecipeId, bigint>();
+  for (const order of draft.orders) {
+    salesByRecipe.set(
+      order.recipeId,
+      (salesByRecipe.get(order.recipeId) ?? 0n) + BigInt(order.actualSales),
+    );
+  }
+  for (const [recipeId, quantity] of [...salesByRecipe].sort(([left], [right]) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  )) {
+    if (quantity === 0n) continue;
+    const recipe = program.data.content.recipes.find(
+      ({ recipeId: candidateRecipeId }) => candidateRecipeId === recipeId,
+    );
+    if (recipe === undefined) {
+      faultV1(
+        engineInvariantFaultV1(
+          "story.reference_missing",
+          new TypeError(`missing Opening sale Recipe ${recipeId}`),
+        ),
+      );
+    }
+    candidate.appendGameplayFact({
+      kind: "service.sale",
+      sessionId: session.sessionId,
+      recipeId,
+      quantity: quantityFromBigIntV1(quantity, `Opening sale quantity ${recipeId}`),
+      revenue: nonNegativeSafeIntegerFromBigIntV1(
+        quantity * BigInt(recipe.salePrice),
+        `Opening sale revenue ${recipeId}`,
+      ),
+    });
+  }
+
+  const settlementEntries: LedgerEntryV1[] = [];
+  const discardedEntries: LedgerEntryV1[] = [];
+  for (const entry of draft.entries) {
+    const [materialized] = appendDirectLedgerEntriesV1(
+      candidate,
+      modules,
+      [entry],
+      commandReasonV1("tavern.opening.finalize", entry.reasonId),
+    );
+    if (materialized === undefined) {
+      faultV1(
+        engineInvariantFaultV1(
+          "ledger.unbalanced",
+          new TypeError("Opening settlement ledger entry was not materialized"),
+        ),
+      );
+    }
+    settlementEntries.push(materialized);
+    if (materialized.category === "discarded_food") discardedEntries.push(materialized);
+  }
+  if (draft.discardedPortions.length > 0) {
+    candidate.appendGameplayFact({
+      kind: "food.discarded",
+      portions: draft.discardedPortions,
+      entries: discardedEntries,
+    });
+  }
+
+  routeEffectsV1(
+    candidate,
+    draft.effects,
+    { kind: "command", commandKind: "tavern.opening.finalize" },
+    "tavern.settle",
+  );
+  countdownApplicableOpeningAurasV1(candidate, modules, draft.appliedModifiers);
+
+  const after = selectedReadPortsV1(candidate, modules);
+  const ledger: OpeningLedgerV1 = deepFreezePocValueV1({
+    sessionId: session.sessionId,
+    day: session.baseline.day,
+    mode: session.baseline.mode,
+    preparationActionCount: session.baseline.preparationActionCount,
+    menu: session.baseline.menu,
+    orders: draft.orders,
+    receptionCapacity: draft.receptionCapacity,
+    preparationCapacity: draft.preparationCapacity,
+    discardedPortions: draft.discardedPortions,
+    entryIds: [
+      ...session.baseline.startEntryIds,
+      ...settlementEntries.map(({ entryId }) => entryId),
+    ],
+    ap: session.baseline.ap,
+    playerStamina: session.baseline.playerStamina,
+    heroineStamina: session.baseline.heroineStamina,
+    cash: { before: session.baseline.cashAtStart.before, after: after.inventory.cash },
+    reputation: {
+      before: session.baseline.reputationBeforeStart,
+      after: after.tavern.reputation,
+    },
+    teamwork: {
+      before: session.baseline.actors.relationship.teamwork,
+      after: after.actors.relationship.teamwork,
+    },
+    heroineMood: {
+      before: session.baseline.actors.heroineMood,
+      after: after.actors.heroine.mood,
+    },
+    triggeredEventIds: session.triggeredEventIds,
+    appliedModifiers: draft.appliedModifiers,
+  });
+  requireAppliedV1(
+    candidate.applyTavern(
+      { kind: "tavern.service_history.append", history: { kind: "opening", opening: ledger } },
+      { kind: "tavern.service_history.append" },
+    ),
+  );
+  requireAppliedV1(
+    candidate.applyWorkflow(
+      { kind: "workflow.finalize_opening" },
+      { kind: "workflow.finalize_opening" },
+    ),
+  );
+  requireAppliedV1(
+    candidate.applyCalendar(
+      { kind: "calendar.evening.resolve" },
+      calendarDependenciesV1(calendarPolicyApV1(candidate, program.data)),
+    ),
+  );
+  finishCommandSchedulerV1(candidate, modules, program, scheduler, "tavern.opening.finalize");
+}
+
+function beginWorldActionV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  program: DeepReadonly<PocSimulationProgramV1>,
+  scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
+  command: Extract<PocGameCommandV1, { readonly kind: "world.action.begin" }>,
+): void {
+  const action = program.data.content.worldActions.find(
+    ({ actionId }) => actionId === command.actionId,
+  );
+  if (action === undefined) {
+    unknownReferenceV1(command.kind, { kind: "action", actionId: command.actionId });
+  }
+  const option = action.options.find(({ optionId }) => optionId === command.optionId);
+  if (option === undefined) {
+    unknownReferenceV1(command.kind, {
+      kind: "world_option",
+      actionId: command.actionId,
+      optionId: command.optionId,
+    });
+  }
+  guardActionV1(candidate, command.kind, command.actionId);
+  const actionUnavailable = actionUnavailableReasonV1(action.availability, candidate);
+  if (actionUnavailable !== null) {
+    rejectV1({
+      code: "world.action_unavailable",
+      details: { actionId: action.actionId, optionId: null, reasonId: actionUnavailable },
+    });
+  }
+  const optionUnavailable = actionUnavailableReasonV1(option.availability, candidate);
+  if (optionUnavailable !== null) {
+    rejectV1({
+      code: "world.action_unavailable",
+      details: {
+        actionId: action.actionId,
+        optionId: option.optionId,
+        reasonId: optionUnavailable,
+      },
+    });
+  }
+  const begin = action.steps[0];
+  const completion = action.steps[1];
+  if (begin === undefined || completion === undefined) {
+    faultV1(
+      engineInvariantFaultV1(
+        "story.reference_missing",
+        new TypeError(`WorldAction ${action.actionId} does not have exactly two steps`),
+      ),
+    );
+  }
+  const calendar = candidate.calendarReadPort();
+  if (calendar.phase !== begin.phase) {
+    rejectV1({
+      code: "world.action_wrong_phase",
+      details: { actionId: action.actionId, expected: begin.phase, actual: calendar.phase },
+    });
+  }
+  const actionReason = commandReasonV1(command.kind, action.reasonId);
+  if (begin.apCost > 0) {
+    requireAppliedV1(
+      candidate.applyCalendar(
+        {
+          kind: "calendar.ap.adjust",
+          delta: parseSafeInteger(-Number(begin.apCost)),
+          reason: actionReason,
+        },
+        calendarDependenciesV1(calendarPolicyApV1(candidate, program.data)),
+      ),
+    );
+  }
+  if (action.playerStaminaCost > 0) {
+    requireAppliedV1(
+      candidate.applyActors(
+        {
+          kind: "actors.adjust_stamina",
+          actorId: "actor.player",
+          application: "debit",
+          components: [
+            {
+              requestedDelta: parseSafeInteger(-Number(action.playerStaminaCost)),
+              reason: actionReason,
+            },
+          ],
+        },
+        noDependenciesV1,
+      ),
+    );
+  }
+  const cashCost = parseMoney(
+    safeIntegerFromBigIntV1(
+      BigInt(action.baseCashCost) + BigInt(option.additionalCashCost),
+      `WorldAction ${action.actionId} cash cost`,
+    ),
+  );
+  const paidEntries =
+    cashCost === 0
+      ? Object.freeze([])
+      : appendDirectLedgerEntriesV1(
+          candidate,
+          modules,
+          [
+            {
+              category: "world_action",
+              reasonId: program.data.balance.ledgerReasons.worldActionCost,
+              cashDelta: parseSafeInteger(0 - Number(cashCost)),
+              valuationDelta: parseSafeInteger(0),
+              subject: { kind: "action", actionId: action.actionId },
+            },
+          ],
+          {
+            kind: "world_action",
+            actionId: action.actionId,
+            reasonId: program.data.balance.ledgerReasons.worldActionCost,
+          },
+        );
+  routeEffectsV1(candidate, action.beginEffects, {
+    kind: "world_action",
+    actionId: action.actionId,
+  });
+  routeEffectsV1(candidate, option.beginEffects, {
+    kind: "world_action",
+    actionId: action.actionId,
+  });
+  requireAppliedV1(
+    candidate.applyWorkflow(
+      {
+        kind: "workflow.begin_world_action",
+        actionId: action.actionId,
+        optionId: option.optionId,
+      },
+      {
+        kind: "workflow.begin_world_action",
+        beginStepId: begin.stepId,
+        completionStepId: completion.stepId,
+        preparationBonus: option.preparationBonus,
+        startedAtSequence: candidate.nextCommandSequence(),
+        startedDay: calendar.day,
+        startedPhase: calendar.phase,
+        paidCostEntryIds: paidEntries.map(({ entryId }) => entryId),
+      },
+    ),
+  );
+  const blockingRequests: PocBlockingNarrativeRequestV1[] = [];
+  applyCommandSchedulerV1(candidate, command.kind, scheduler, blockingRequests);
+  settleBlockingNarrativesV1(
+    candidate,
+    modules,
+    program,
+    scheduler,
+    blockingRequests,
+    command.kind,
+    {
+      source: { kind: "world_action", actionId: action.actionId },
+      sceneId: begin.sceneId,
+    },
+  );
+}
+
+function completeWorldActionV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  program: DeepReadonly<PocSimulationProgramV1>,
+  scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
+): void {
+  const session = candidate.workflowReadPort();
+  const validationCheckpoint = candidate.checkpoint();
+  requireAppliedV1(
+    candidate.applyWorkflow(
+      { kind: "workflow.complete_world_action", bandId: null },
+      { kind: "workflow.complete_world_action" },
+    ),
+  );
+  candidate.rollback(validationCheckpoint);
+  if (session === null || session.kind !== "world_action") {
+    faultV1(
+      engineInvariantFaultV1(
+        "workflow.conflict",
+        new TypeError("WorldAction completion validation returned without a session"),
+      ),
+    );
+  }
+  const { action, completion } = worldActionSessionDefinitionV1(candidate, modules, session);
+  const calendar = candidate.calendarReadPort();
+  if (calendar.phase !== completion.phase) {
+    rejectV1({
+      code: "world.action_wrong_phase",
+      details: {
+        actionId: action.actionId,
+        expected: completion.phase,
+        actual: calendar.phase,
+      },
+    });
+  }
+  if (completion.apCost > 0) {
+    requireAppliedV1(
+      candidate.applyCalendar(
+        {
+          kind: "calendar.ap.adjust",
+          delta: parseSafeInteger(-Number(completion.apCost)),
+          reason: commandReasonV1("world.action.complete", action.reasonId),
+        },
+        calendarDependenciesV1(calendarPolicyApV1(candidate, program.data)),
+      ),
+    );
+  }
+  const result =
+    action.checkId === null
+      ? null
+      : resolveNarrativeCheckV1(
+          candidate,
+          modules,
+          program,
+          {
+            checkId: action.checkId,
+            actorId: "actor.player",
+            preparationBonus: session.preparationBonus,
+          },
+          { kind: "world_action", actionId: action.actionId },
+        );
+  requireAppliedV1(
+    candidate.applyWorkflow(
+      { kind: "workflow.complete_world_action", bandId: result?.bandId ?? null },
+      { kind: "workflow.complete_world_action" },
+    ),
+  );
+  finishCommandSchedulerV1(candidate, modules, program, scheduler, "world.action.complete");
+}
+
+function payLevyV1(
+  candidate: PocTransactionCandidateV1,
+  modules: PocGameplayModuleTupleV1,
+  program: DeepReadonly<PocSimulationProgramV1>,
+  scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
+): void {
+  const calendar = candidate.calendarReadPort();
+  const due = program.data.balance.levyDue;
+  if (calendar.day !== due.day || calendar.phase !== due.phase) {
+    rejectV1({
+      code: "levy.not_due",
+      details: { day: calendar.day, phase: calendar.phase },
+    });
+  }
+  guardActionV1(candidate, "levy.pay");
+  const cashBefore = selectedReadPortsV1(candidate, modules).inventory.cash;
+  const levyAmount = program.data.balance.levyAmount;
+  let levy: LevyResolutionV1;
+  if (cashBefore >= levyAmount) {
+    appendDirectLedgerEntriesV1(
+      candidate,
+      modules,
+      [
+        {
+          category: "levy",
+          reasonId: program.data.balance.ledgerReasons.levy,
+          cashDelta: parseSafeInteger(-Number(levyAmount)),
+          valuationDelta: parseSafeInteger(0),
+          subject: { kind: "levy" },
+        },
+      ],
+      commandReasonV1("levy.pay", program.data.balance.ledgerReasons.levy),
+    );
+    const cashAfter = selectedReadPortsV1(candidate, modules).inventory.cash;
+    levy = deepFreezePocValueV1({
+      kind: "paid",
+      levyAmount,
+      cash: { before: cashBefore, after: cashAfter },
+    });
+    candidate.appendGameplayFact({
+      kind: "levy.paid",
+      amount: levyAmount,
+      cash: levy.cash,
+    });
+  } else {
+    levy = deepFreezePocValueV1({
+      kind: "arrears",
+      levyAmount,
+      availableCash: cashBefore,
+      shortfall: parseMoney(
+        safeIntegerFromBigIntV1(BigInt(levyAmount) - BigInt(cashBefore), "Levy arrears shortfall"),
+      ),
+    });
+  }
+
+  const ports = selectedReadPortsV1(candidate, modules);
+  const endingInput: EndingInputV1 = deepFreezePocValueV1({
+    cash: ports.inventory.cash,
+    levy,
+    reputation: ports.tavern.reputation,
+    facilityIds: ports.facilities.built.map(({ facilityId }) => facilityId),
+    relationship: ports.actors.relationship,
+    facts: ports.progression.facts,
+    quests: ports.progression.quests,
+    outcomes: ports.progression.outcomes,
+    auras: ports.status.auras,
+  });
+  const ending = invokeRuleV1("endings.evaluate", () =>
+    program.rules.endings.evaluate(endingInput),
+  );
+  const definition = program.data.content.endings.find(
+    ({ endingId }) => endingId === ending.endingId,
+  );
+  if (definition === undefined || definition.status !== ending.status) {
+    faultV1(
+      storyRuleFaultV1(
+        "endings.evaluate",
+        new TypeError("Ending result does not match its authored terminal definition"),
+        "rule.output_invalid",
+      ),
+    );
+  }
+  routeEffectsV1(
+    candidate,
+    ending.effects,
+    { kind: "ending", endingId: ending.endingId },
+    "endings.evaluate",
+  );
+  requireAppliedV1(
+    candidate.applyRun(
+      {
+        kind: "run.complete",
+        completion: {
+          endingId: ending.endingId,
+          status: ending.status,
+          levy,
+          reasonIds: ending.reasonIds,
+          summary: ending.summary,
+          completedAtSequence: candidate.nextCommandSequence(),
+        },
+      },
+      noDependenciesV1,
+    ),
+  );
+  const blockingRequests: PocBlockingNarrativeRequestV1[] = [];
+  applyCommandSchedulerV1(candidate, "levy.pay", scheduler, blockingRequests);
+  applySchedulerContextV1(candidate, { kind: "week.ended" }, scheduler, blockingRequests);
+  settleBlockingNarrativesV1(
+    candidate,
+    modules,
+    program,
+    scheduler,
+    blockingRequests,
+    "levy.pay",
+    null,
+  );
 }
 
 function guardLifecycleV1(snapshot: PocGameSnapshotV1, command: PocGameCommandV1): void {
@@ -2099,6 +3204,7 @@ function guardLifecycleV1(snapshot: PocGameSnapshotV1, command: PocGameCommandV1
   if (activeWorkflow === null) return;
   if (activeWorkflow.kind === "opening") {
     if (
+      command.kind === "tavern.opening.start" ||
       command.kind === "tavern.opening.continue" ||
       command.kind === "tavern.opening.finalize" ||
       command.kind === "calendar.advance_phase"
@@ -2126,6 +3232,10 @@ function guardLifecycleV1(snapshot: PocGameSnapshotV1, command: PocGameCommandV1
       },
     });
   }
+}
+
+function assertNeverCommandV1(command: never): never {
+  throw new TypeError(`unhandled PoC command: ${JSON.stringify(command)}`);
 }
 
 function assertCoreAggregateV1(
@@ -2296,15 +3406,25 @@ function dispatchCoreCommandV1(
       advanceCalendarV1(candidate, modules, program, scheduler);
       return;
     case "tavern.opening.start":
+      startOpeningV1(candidate, modules, program, scheduler);
+      return;
     case "tavern.opening.continue":
+      continueOpeningV1(candidate, modules, program, scheduler);
+      return;
     case "tavern.opening.finalize":
+      finalizeOpeningV1(candidate, modules, program, scheduler);
+      return;
     case "world.action.begin":
+      beginWorldActionV1(candidate, modules, program, scheduler, command);
+      return;
     case "world.action.complete":
+      completeWorldActionV1(candidate, modules, program, scheduler);
+      return;
     case "levy.pay":
-      return faultV1(notImplementedFaultV1(command.kind));
+      payLevyV1(candidate, modules, program, scheduler);
+      return;
   }
-  const exhaustive: never = command;
-  throw new TypeError(`unsupported command ${String(exhaustive)}`);
+  return assertNeverCommandV1(command);
 }
 
 function executePocCommandAttemptV1(

@@ -239,25 +239,36 @@ const serviceModeZodSchemaV1 = z.enum(["manual", "assisted", "delegated", "close
 const helperTierZodSchemaV1 = z.enum(["apprentice", "skilled", "senior", "master"]);
 const questStatusZodSchemaV1 = z.enum(["locked", "active", "completed", "failed"]);
 
-export const pocGameCommandKindsV1 = Object.freeze([
-  "run.start",
-  "policy.choose",
-  "inventory.buy",
-  "actor.prepare_food",
-  "actor.rest",
-  "story.action.start",
-  "facility.choose",
-  "tavern.plan.set",
-  "tavern.opening.start",
-  "tavern.opening.continue",
-  "tavern.opening.finalize",
-  "world.action.begin",
-  "world.action.complete",
-  "narrative.advance",
-  "narrative.choose",
-  "calendar.advance_phase",
-  "levy.pay",
-] as const satisfies readonly PocGameCommandV1["kind"][]);
+function exhaustivePocGameCommandKindsV1<const TKinds extends readonly PocGameCommandV1["kind"][]>(
+  kinds: TKinds &
+    (Exclude<PocGameCommandV1["kind"], TKinds[number]> extends never
+      ? unknown
+      : { readonly __missingCommandKinds: Exclude<PocGameCommandV1["kind"], TKinds[number]> }),
+): TKinds {
+  return kinds;
+}
+
+export const pocGameCommandKindsV1 = Object.freeze(
+  exhaustivePocGameCommandKindsV1([
+    "run.start",
+    "policy.choose",
+    "inventory.buy",
+    "actor.prepare_food",
+    "actor.rest",
+    "story.action.start",
+    "facility.choose",
+    "tavern.plan.set",
+    "tavern.opening.start",
+    "tavern.opening.continue",
+    "tavern.opening.finalize",
+    "world.action.begin",
+    "world.action.complete",
+    "narrative.advance",
+    "narrative.choose",
+    "calendar.advance_phase",
+    "levy.pay",
+  ] as const),
+);
 
 const pocGameCommandKindZodSchemaV1 = z.enum(pocGameCommandKindsV1);
 
