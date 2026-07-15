@@ -1696,6 +1696,9 @@ git commit -m "feat(story-poc): add atomic effect transactions"
 - Modify: `game/stories/poc/src/gameplay/contracts/types.ts`
 - Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
 - Modify: `game/stories/poc/src/gameplay/index.ts`
+- Modify: `game/stories/poc/src/testing/gameplay-fixture.ts`
+- Modify: `game/stories/poc/src/test/narrative.test.ts`
+- Modify: `docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md`
 
 **Interfaces:**
 
@@ -1737,11 +1740,17 @@ it("treats modified RunIntegrity as opaque during normal gameplay", () => {
   const fixture = createPocGameplayFixtureV1({ integrity: "modified" });
   const modules = createPocGameplayModuleTupleV1(fixture.program);
   const executor = createPocGameCommandExecutorV1(fixture.program, modules);
-  const attempt = executor.executeAttempt(fixture.snapshot, { kind: "actor.rest" }, undefined);
+  const started = executor.executeAttempt(fixture.snapshot, { kind: "run.start" }, undefined);
+  expect(started.result.kind).toBe("committed");
+  if (started.result.kind !== "committed") return;
+  const attempt = executor.executeAttempt(
+    started.result.snapshot,
+    { kind: "policy.choose", policyId: fixture.program.data.balance.lifePolicies[0]!.policyId },
+    undefined,
+  );
   expect(attempt.result.kind).toBe("committed");
-  if (attempt.result.kind === "committed") {
+  if (attempt.result.kind === "committed")
     expect(attempt.result.snapshot.integrity).toBe(fixture.snapshot.integrity);
-  }
 });
 ```
 
@@ -1777,6 +1786,8 @@ export function createPocGameCommandExecutorV1(
 
 Implement the eleven named command handlers through the candidate and pass the exact constructor-supplied `modules` tuple into every candidate; the executor never creates or imports a second tuple. `run.start` consumes the exact demand RNG draws once, asks Tavern to persist all demand seeds plus D1 `currentDemand`, keeps Run in `setup`, and opens the manifest Narrative; only the later policy selection activates Run. `facility.choose` coordinates the Facilities decision, Inventory facility ledger/cash change, and one-time cold-storage extension of existing batches without letting either owner write the other.
 
+The Story aggregate validates exactly one generic Action presentation for each of `policy.choose`, `inventory.buy`, `actor.prepare_food`, `actor.rest`, `tavern.plan.set`, `calendar.advance_phase`, and `levy.pay`; the shared gameplay fixture must materialize that closed map. `CheckRequestV1.actorId` is exactly `"actor.player"` because the selected PoC module tuple gives attributes only to the player Actor; the TypeScript interface, strict Schema, Contract Catalog, and existing Narrative tests change together.
+
 Every Narrative-starting or Narrative-player handler drives Task 7's resumable interpreter inside the same candidate until it returns `settled`. Conditions use Task 8's shared evaluator against the latest candidate plus the continuation's exact transient Narrative state. A Check request constructs the validated `CheckInputV1`, consumes Rule RNG once, asks Progression to record the complete result, routes Check-band Effects, and resumes with only the correlated control-flow decision. A Choice request first applies the shared show/enable gates and existing hidden/disabled rejections, then resolves its optional Check, routes Check-band Effects followed by authored Choice Effects, and resumes. A command-Effect request routes the batch before resume. An `eventCheckpoint` request evaluates and applies its `story.explicit` Scheduler context while the transient cursor is still the checkpoint, then resumes. Only the final settled state enters one Narrative owner proposal; any rejection/fault rolls back all prior Effects, RNG, Progression, Scheduler, Workflow, cursor, and Facts.
 
 `calendar.advance_phase` follows the authoritative boundary order rather than one generic expiry pass. Every transition first validates blockers and applies old-phase direct effects, then the executor selects only the applicable `phase_end` countdown instances. Entering evening materializes planned closure or the exact emergency closure when required. Evening-to-next-morning additionally resolves an unstarted non-closed plan as emergency closure (or rejects an active Opening), spoils remaining ingredients, applies `phase_end`, then `day_end`, collects recovery while `night_recovery` Auras are still active and only then decrements them, clears the old plan, advances day/phase/AP, resets daily preparation, materializes the next service-day demand, resets `eveningResolved`, and finally evaluates `day.ended`/`week.ended`/`phase.entered` Scheduler contexts against their frozen post-transition observations. GameplayFacts preserve mutation/causal order and are never regrouped by kind or ID. Preview logic is not duplicated here; Task 12 builds it from the same guards, calculators, Rules, and resolvers.
@@ -1790,7 +1801,7 @@ Expected: PASS; committed/rejected/faulted attempts preserve exact Snapshot/RNG/
 - [ ] **Step 5: Commit the core executor**
 
 ```bash
-git add -- game/stories/poc/src/gameplay/game-command-executor.ts game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/test/command-executor-core.test.ts game/stories/poc/src/gameplay/index.ts
+git add -- game/stories/poc/src/gameplay/game-command-executor.ts game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/test/command-executor-core.test.ts game/stories/poc/src/gameplay/index.ts game/stories/poc/src/testing/gameplay-fixture.ts game/stories/poc/src/test/narrative.test.ts docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md
 git commit -m "feat(story-poc): execute core gameplay commands"
 ```
 
