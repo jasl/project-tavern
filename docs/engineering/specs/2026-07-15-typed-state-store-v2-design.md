@@ -104,15 +104,15 @@ sequence。任何派生 index 必须能从 canonical state 重建，不能进入
 
 v2 必须按用途签发不同能力，而不是暴露一个全能 client：
 
-| Role | 可读 | 可写 | 明确不可见 |
-| --- | --- | --- | --- |
-| Module reader | 自己的 resources 与声明的 public dependency ports | 无 | foreign private resources、engine metadata |
-| Module owner | 自己的 resources 与声明的 public dependency ports | 自己拥有的 resources | foreign owner writes |
-| Story executor | 通过 owner proposal 协调多个 owner；读取执行所需 Gameplay views | 只能提交通过 owner validation 的 batch | 任意 path write、Host/UI |
-| GameQueries | Gameplay read transaction | 无 | RNG、sequence、RunIntegrity、Host、persistence |
-| Save reference validator | Gameplay state | 无 | RNG、RunIntegrity、Host |
-| Save invariant validator | Gameplay state 与显式批准的 `commandSequence` view | 无 | RNG、RunIntegrity、provenance 其余字段 |
-| UI/renderer/Automation | GameView、NarrativeView、semantic descriptors | semantic invocation only | Store client、State paths、owner ports |
+| Role                     | 可读                                                            | 可写                                   | 明确不可见                                     |
+| ------------------------ | --------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------- |
+| Module reader            | 自己的 resources 与声明的 public dependency ports               | 无                                     | foreign private resources、engine metadata     |
+| Module owner             | 自己的 resources 与声明的 public dependency ports               | 自己拥有的 resources                   | foreign owner writes                           |
+| Story executor           | 通过 owner proposal 协调多个 owner；读取执行所需 Gameplay views | 只能提交通过 owner validation 的 batch | 任意 path write、Host/UI                       |
+| GameQueries              | Gameplay read transaction                                       | 无                                     | RNG、sequence、RunIntegrity、Host、persistence |
+| Save reference validator | Gameplay state                                                  | 无                                     | RNG、RunIntegrity、Host                        |
+| Save invariant validator | Gameplay state 与显式批准的 `commandSequence` view              | 无                                     | RNG、RunIntegrity、provenance 其余字段         |
+| UI/renderer/Automation   | GameView、NarrativeView、semantic descriptors                   | semantic invocation only               | Store client、State paths、owner ports         |
 
 增加一项查询需求时，必须先判断它属于 Gameplay、engine metadata、diagnostics 还是 presentation，再修改对应
 named capability。不能通过扩大“数据库可查询性”绕过所有权。
