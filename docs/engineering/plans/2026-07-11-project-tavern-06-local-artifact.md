@@ -37,82 +37,258 @@
 
 ## Phase 6 Entry: Finalize Deferred Balance and Technical Baselines
 
-This is the first mandatory Phase 6 operation and produces one independent task commit before Task 1. It does not add a
-new phase or weaken the Phase 4B order; it closes the explicitly deferred release acceptance against the completed Phase 5
-product surfaces. Until this entry commit and its clean verification pass, every Artifact/release command in this plan is
-forbidden.
+This is the first mandatory Phase 6 operation. It produces zero to twelve independent calibration-step commits and exactly
+one final balance-freeze commit before Task 1; it does not add a phase or weaken Phase 4B order. Until the final commit and
+its clean verification pass, every Artifact/release command in this plan is forbidden.
 
-**Files:**
+**Calibration-step Files:**
 
 - Modify: `docs/poc/balance-v0.md`
 - Modify: `game/stories/poc/src/content/balance.ts`
-- Modify if the selected field changes their direct literal expectations: `game/stories/poc/src/test/daily-gates.test.ts`
-- Modify if the selected field is `levy`: `game/stories/poc/src/test/ending-forecast.test.ts`
-- Modify: `scripts/verify-poc-balance.mjs` and `scripts/verify-poc-balance.test.mjs` only to remove the Task 10 provisional qualifier/report after the strict default gate passes
+- Modify only when the selected field changes its direct literal expectations: `game/stories/poc/src/test/daily-gates.test.ts`
+- Modify only when the selected field is `levy`: `game/stories/poc/src/test/ending-forecast.test.ts`
+
+**Final balance-freeze Files:**
+
+- Modify: `docs/poc/balance-v0.md` only to transition the provisional report/status to the final accepted state
+- Modify: `scripts/verify-poc-balance.mjs` and `scripts/verify-poc-balance.test.mjs` only to remove the Task 10 provisional qualifier/report
 - Modify: `game/stories/poc/src/test/fixtures/golden/**`
 - Modify: `game/stories/poc/src/test/fixtures/saves/**`
-- Preserve byte-for-byte: `game/stories/poc/src/test/fixtures/commands/**`, `game/stories/poc/src/tooling-fixtures.ts`, `pnpm-lock.yaml`
+- Preserve byte-for-byte: `game/stories/poc/src/content/balance.ts`, both direct-expectation tests,
+  `game/stories/poc/src/test/fixtures/commands/**`, `game/stories/poc/src/tooling-fixtures.ts` and `pnpm-lock.yaml`
 
 If live calibration exposes an evaluator, runner, counterfactual or selector defect, stop this entry and repair the Task 10
-owner in its own focused commit and gates before restarting from a clean checkpoint. Such a repair never shares the balance
-freeze commit and never changes thresholds or strategies.
+owner in its own focused commit and gates before restarting from a clean checkpoint. Such a repair never shares a calibration
+step or final freeze commit, never changes thresholds or strategies, and is committed with
+`--trailer "Balance-Calibration-Repair: true"`. When `N > 0`, it is accepted only after the repaired evaluator replays the
+entire historical step chain byte-for-byte.
 
-The Story-local `calibrate:balance` command is read-only: it materializes validated immutable Programs, evaluates current and
-canonical legal neighbors through the complete sorted corpus and candidate-based counterfactuals, and returns exactly one
-strictly improving candidate or `balance_contract_unsatisfied`. Only deficit zero may short-circuit a canonical neighbor
-prefix. It never edits code, docs or baselines.
+### Clean sandbox, entry discovery and recovery
 
-Run the current full gate once and confirm that any failure is still threshold-only. Then run:
+Every historical audit and dirty recovery evaluates committed bytes in this exact detached sandbox. `target_commit` is
+`HEAD`, a step parent, the final parent or final itself according to the replay; never use the dirty root as committed-HEAD
+evidence:
 
 ```bash
-iteration=0
-pnpm --filter @project-tavern/story-poc calibrate:balance --iteration="$iteration"
+test "$(node --version)" = "v26.5.0"
+test "$(pnpm --version)" = "11.11.0"
+target_commit="<clean-commit-sha>"
+(
+  set -eu
+  test "$(node --version)" = "v26.5.0"
+  test "$(pnpm --version)" = "11.11.0"
+  repo="$(git rev-parse --show-toplevel)"
+  store="$(pnpm store path --silent)"
+  sandbox="$(mktemp -d "${TMPDIR:-/tmp}/project-tavern-balance.XXXXXX")"
+  rmdir "$sandbox"
+  trap 'git -C "$repo" worktree remove --force "$sandbox" >/dev/null 2>&1 || true' EXIT HUP INT TERM
+  git -C "$repo" worktree add --detach "$sandbox" "$target_commit"
+  cd "$sandbox"
+  pnpm install --offline --frozen-lockfile --store-dir "$store"
+  # Run the required strict gate, selector, writer, or patch replay here.
+)
 ```
 
-Apply exactly the returned field to `balance.ts` and every authoritative/direct expectation in the same change. Re-run the
-reference seed, commands, the complete 1–1000 corpus and all candidate-based counterfactuals after each iteration; increment
-`iteration` after each applied change and pass the new direct `--iteration="$iteration"` argument on the next invocation. At
-12 applied changes the `--iteration=12` invocation must return/stop at `iteration_limit`; never insert a standalone `--`.
-Never lower a threshold, change the six strategies/seed set, accept a partial candidate set, or tune from golden output.
+The executing shell first selects the Phase 0 materialized PATH (the current checkpoint uses `/opt/homebrew/bin`). Both
+live/subshell version assertions must match accepted materialization identity before the store path comes from the live
+repository. The sandbox install is recovery-only, offline, frozen-lockfile and temporary; it cannot access the registry or
+change live tracked bytes.
 
-Once all frozen thresholds pass, capture two independent canonical reports and require byte equality:
+Resolve the accepted Phase 5C checkpoint by `GOAL.md`. Because Phase 6 entry immediately follows it, inspect and classify
+every first-parent commit through final—or through `HEAD` when final is absent—regardless of path:
 
 ```bash
-pnpm --silent verify:balance > /tmp/project-tavern-balance.release-a.txt
-pnpm --silent verify:balance > /tmp/project-tavern-balance.release-b.txt
-diff -u /tmp/project-tavern-balance.release-a.txt /tmp/project-tavern-balance.release-b.txt
+phase5c_checkpoint="<accepted-phase5c-commit-sha>"
+audit_tip="<final-commit-if-present-otherwise-HEAD>"
+git rev-list --first-parent --reverse "${phase5c_checkpoint}..${audit_tip}"
+git log --first-parent --reverse --format='%H%x09%(trailers:key=Balance-Calibration-Index,valueonly)%x09%(trailers:key=Balance-Calibration-Repair,valueonly)%x09%(trailers:key=Balance-Calibration-Final,valueonly)%x09%(trailers:key=Balance-Calibration-Steps,valueonly)' "${phase5c_checkpoint}..${audit_tip}"
+git diff --name-only "<commit>^1" "<commit>" -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+```
+
+Every commit through `${audit_tip}` must be exactly one continuous-index step, one explicit Task 10 owner repair carrying
+`Balance-Calibration-Repair: true`, or the unique final. A repair has no step/final trailer, follows Task 10 Files/staging/gates,
+does not alter threshold/strategy/accepted balance/direct expectations/golden/Save, and retains the provisional
+report/assertion/CLI branch/tests. Final is the last classified commit after the last step/repair and has `Steps = N`. Any
+unclassified or multiply classified pre-final commit invalidates recovery. For every later Phase 6 task commit from final to
+`HEAD`, use the explicit first-parent diff `git diff "<commit>^1" "<commit>" -- <protected paths>` and require no protected
+change; this keeps final the last protected-path-touching commit without misclassifying ordinary Artifact commits.
+
+For each historical step `K`, let `N = K - 1`, create its parent sandbox, run
+`pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N`, and require canonical stdout SHA-256 and all
+decoded selection values to equal its seven trailers. Apply the candidate afresh to code, document and direct literals, then
+require its entire binary patch to equal the historical commit:
+
+```bash
+pnpm --silent --filter @project-tavern/story-poc calibrate:balance --iteration=N > /tmp/project-tavern-step.replayed.json
+test "sha256:$(shasum -a 256 /tmp/project-tavern-step.replayed.json | awk '{print $1}')" = "$(git -C "$repo" show -s --format='%(trailers:key=Balance-Calibration-Evidence-SHA256,valueonly)' "$step_commit")"
+git -C "$repo" diff --binary "${step_commit}^1" "$step_commit" -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts > /tmp/project-tavern-step.expected.patch
+git diff --binary -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts > /tmp/project-tavern-step.replayed.patch
+cmp /tmp/project-tavern-step.expected.patch /tmp/project-tavern-step.replayed.patch
+```
+
+If a repair occurs with `N > 0`, create a Phase 5C sandbox, overlay all accepted repair patches through that repair, and use
+the repaired evaluator to replay every old step sequentially from `--iteration=0`; every evidence digest/trailer and rebuilt
+full binary patch must remain identical before continuing. `N = 0` may continue after owner gates. Any mismatch at `N > 0`
+is `balance_calibration_history_invalidated`, an authoritative-design stop: do not auto-rewrite, rollback or select a new
+history.
+
+After all audits pass, classify the live tree only from clean-`HEAD` sandbox evidence:
+
+- clean without final and sandbox strict pass: enter the live-candidate plus final-parent replay procedure below;
+- clean without final, sandbox threshold-only red and `N < 12`: run
+  `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N` for step `N+1`;
+- `N = 12` still red or selector returns `balance_contract_unsatisfied`: stop before Artifact work;
+- dirty only inside step allowlist and sandbox strict is threshold-only red: rebuild the candidate in the sandbox and require
+  complete `git diff --binary` equality with the live patch before committing;
+- dirty only inside final allowlist and sandbox strict passes: rerun final writers/removals in the sandbox and require complete
+  binary-patch equality with the live patch before committing;
+- mixed/out-of-range paths, invalid history or unexplained bytes: stop as unknown dirty state.
+
+The pending-step comparison is literal and includes every optional direct-expectation byte:
+
+```bash
+git -C "$repo" diff --binary -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts > /tmp/project-tavern-step.live.patch
+git diff --binary -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts > /tmp/project-tavern-step.replayed.patch
+cmp /tmp/project-tavern-step.live.patch /tmp/project-tavern-step.replayed.patch
+```
+
+### Produce one calibration-step commit
+
+The Story-local selector is read-only. With `N` accepted step commits and `K = N + 1`, capture the canonical evidence:
+
+```bash
+pnpm --silent --filter @project-tavern/story-poc calibrate:balance --iteration=N > /tmp/project-tavern-balance-step-K.txt
+shasum -a 256 /tmp/project-tavern-balance-step-K.txt
+```
+
+Apply exactly the returned field to `balance.ts`, the authoritative document and any directly affected literal expectation.
+Never lower a threshold, change the six strategies/seed set, accept a partial candidate set, tune from golden output or apply
+more than one candidate. Golden, Save and qualifier bytes intentionally stay stale/provisional between step commits, so only
+run the step-safe gates:
+
+```bash
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
 pnpm --filter @project-tavern/story-poc verify:commands
-```
-
-Regenerate the provisional technical baselines only after that pass. Use the Phase 4B Task 11/12 first-generation review
-protocol again: expose complete intent-to-add/update diffs, record sorted SHA-256 lists before verification, inspect every
-changed golden/Save field and provenance/digest transition, run each read-only gate twice, recompute the lists and require no
-mutation. Command fixture bytes and tooling command literals must remain unchanged.
-
-```bash
-pnpm --filter @project-tavern/story-poc update:golden
-pnpm --filter @project-tavern/story-poc update:fixtures
-pnpm verify:golden
-pnpm verify:golden
-pnpm verify:fixtures
-pnpm verify:fixtures
-pnpm verify:phase4
+pnpm exec vitest run game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts
+pnpm typecheck
 git diff --check
+git diff --exit-code -- pnpm-lock.yaml
 ```
 
-Remove the temporary `--qualify-provisional` mode/report and its tests only after the strict default gate passes. Then stage
-the closed literal allowlist below (unchanged optional files are harmless), prove every staged path is admitted and every
-preserved path is absent, and commit:
+Stage the exact step allowlist and create one commit with evidence-derived trailers:
 
 ```bash
-git add -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git add -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts
 git diff --cached --name-status
-test -z "$(git diff --cached --name-only | rg -v '^(docs/poc/balance-v0\.md|game/stories/poc/src/content/balance\.ts|game/stories/poc/src/test/(daily-gates|ending-forecast)\.test\.ts|scripts/verify-poc-balance\.(mjs|test\.mjs)|game/stories/poc/src/test/fixtures/(golden|saves)/)')"
-test -z "$(git diff --cached --name-only -- game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts pnpm-lock.yaml)"
-git commit -m "balance(story-poc): finalize release calibration"
+git diff --cached --check
+test -z "$(git diff --cached --name-only | rg -v '^(docs/poc/balance-v0\.md|game/stories/poc/src/content/balance\.ts|game/stories/poc/src/test/(daily-gates|ending-forecast)\.test\.ts)$')"
+test -z "$(git diff --cached --name-only -- scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts pnpm-lock.yaml)"
+git commit -m "balance(story-poc): apply calibration step <K>" \
+  --trailer "Balance-Calibration-Index: <K>" \
+  --trailer "Balance-Calibration-Field: <field>" \
+  --trailer "Balance-Calibration-Before: <before>" \
+  --trailer "Balance-Calibration-After: <after>" \
+  --trailer "Balance-Calibration-Before-Deficit: <beforeDeficit>" \
+  --trailer "Balance-Calibration-After-Deficit: <afterDeficit>" \
+  --trailer "Balance-Calibration-Evidence-SHA256: sha256:<digest>"
 test -z "$(git status --porcelain=v1)"
 pnpm verify:materialization
-pnpm verify:balance
+```
+
+Replace every placeholder with the canonical evidence value. A step commit is a resumable calibration point, not a final
+balance checkpoint; expected stale golden/Save/root gates are repaired only by the final commit.
+
+### Produce the final balance-freeze commit
+
+First prove the committed final parent passes all frozen thresholds in its clean sandbox. If no final exists and the live
+root is clean, non-detached `main` at that parent, exit the sandbox and run the sequence below in the live root to materialize
+the candidate bytes that will actually be staged. A classified pending dirty final already provides those live bytes; an
+existing historical final does not rewrite them. Independently create a second final-parent sandbox, run the same sequence,
+and require full-patch equality.
+
+The sequence proves command bytes unchanged, regenerates the provisional baselines and repeats the complete Phase 4B Task
+11/12 review—including exactly six golden files, eight Save files, full diff/provenance review, sorted SHA-256 lists and two
+read-only verifier runs. Then remove exactly the provisional report data, its assertion, the `--qualify-provisional` CLI
+branch, tests dedicated to that branch/report, and the provisional-to-final wording in `balance-v0.md`; no adjacent refactor,
+balance number or direct expectation is admitted.
+
+For the clean/no-final branch, establish the live candidate location before its first writer run:
+
+```bash
+test "$(git symbolic-ref --quiet --short HEAD)" = "main"
+test "$(git rev-parse HEAD)" = "$final_parent"
+test -z "$(git status --porcelain=v1)"
+```
+
+```bash
+pnpm --filter @project-tavern/story-poc verify:commands
+pnpm --filter @project-tavern/story-poc update:golden
+pnpm --filter @project-tavern/story-poc update:fixtures
+git add -N -- game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+pnpm verify:golden
+pnpm verify:golden
+pnpm verify:fixtures
+pnpm verify:fixtures
+git diff --check
+git diff --exit-code -- pnpm-lock.yaml
+```
+
+Rebuild the whole final patch in the final-parent sandbox. For historical final audit compare it with the commit patch; for
+pending dirty final compare it with the live root patch. Only exact `git diff --binary` equality is acceptable:
+
+```bash
+git diff --binary -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.replayed.patch
+if test -n "${final_commit:-}"; then
+  git -C "$repo" diff --binary "${final_commit}^1" "$final_commit" -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.expected.patch
+  cmp /tmp/project-tavern-final.expected.patch /tmp/project-tavern-final.replayed.patch
+else
+  git -C "$repo" diff --binary -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.live.patch
+  cmp /tmp/project-tavern-final.live.patch /tmp/project-tavern-final.replayed.patch
+fi
+```
+
+If final already exists, skip creation after exact replay audit. Otherwise exit the sandbox, return to the still-dirty live
+`main` candidate with `HEAD = final_parent`, run strict twice on those exact live bytes and use that hash for the trailer.
+Then stage its closed allowlist and prove every exclusion:
+
+```bash
+test "$(git symbolic-ref --quiet --short HEAD)" = "main"
+test "$(git rev-parse HEAD)" = "$final_parent"
+pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-a.txt
+pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-b.txt
+cmp /tmp/project-tavern-balance.candidate-a.txt /tmp/project-tavern-balance.candidate-b.txt
+shasum -a 256 /tmp/project-tavern-balance.candidate-a.txt
+git add -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git diff --cached --name-status
+git diff --cached --check
+test -z "$(git diff --cached --name-only | rg -v '^(docs/poc/balance-v0\.md|scripts/verify-poc-balance\.(mjs|test\.mjs)|game/stories/poc/src/test/fixtures/(golden|saves)/)')"
+test -z "$(git diff --cached --name-only -- game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts pnpm-lock.yaml)"
+git commit -m "balance(story-poc): finalize release calibration" \
+  --trailer "Balance-Calibration-Final: true" \
+  --trailer "Balance-Calibration-Steps: <N>" \
+  --trailer "Balance-Calibration-Report-SHA256: sha256:<digest>"
+final_commit="$(git rev-parse HEAD)"
+final_parent="$(git rev-parse HEAD^1)"
+```
+
+After final is committed, create another clean sandbox at that final commit. Strict balance must run twice after the commit,
+produce byte-identical stdout and exactly match its trailer digest; then run the remaining full gates:
+
+```bash
+pnpm --silent verify:balance > /tmp/project-tavern-balance.final-a.txt
+pnpm --silent verify:balance > /tmp/project-tavern-balance.final-b.txt
+cmp /tmp/project-tavern-balance.final-a.txt /tmp/project-tavern-balance.final-b.txt
+test "sha256:$(shasum -a 256 /tmp/project-tavern-balance.final-a.txt | awk '{print $1}')" = "$(git show -s --format='%(trailers:key=Balance-Calibration-Report-SHA256,valueonly)' "$final_commit")"
+```
+
+Exit the sandbox and return to clean non-detached live `main` with `HEAD = final_commit` for ignored-attestation and
+cumulative gates; the sandbox does not synthesize or copy `.project-tavern/goal-materialization.json`:
+
+```bash
+test "$(git symbolic-ref --quiet --short HEAD)" = "main"
+test "$(git rev-parse HEAD)" = "$final_commit"
+test -z "$(git status --porcelain=v1)"
+pnpm verify:materialization
 pnpm verify:golden
 pnpm verify:fixtures
 pnpm verify:phase4
@@ -121,8 +297,8 @@ pnpm verify
 test -z "$(git status --porcelain=v1)"
 ```
 
-From the resulting clean checkpoint rerun materialization, full balance, golden, fixtures, Phase 4, Phase 5C and root
-verification. Task 1 may start only after every command exits zero without rewriting tracked files.
+Task 1 may start only from that replayed clean final commit. It must remain the last protected-path-touching commit, and its
+accepted bytes/report digest remain inputs to `pnpm verify:release`, reproducibility and the Roadmap Definition of Done.
 
 ---
 

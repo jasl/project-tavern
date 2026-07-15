@@ -76,9 +76,44 @@ Phase 0 目标：
 - Phase 4B Task 10 的当前完成证据是确定性的多 seed 指标/校准/反事实基础设施、顺序与并行结果一致性、固定小样本的快速 smoke，以及一次只读 1..1000 基线测量。若该完整测量只因冻结阈值未满足而失败，记录精确指标与 reproduction seed/range 后继续；结构、命令、算法、确定性、反事实或数据不变量失败仍是必须在原 owner 修复的缺陷。
 - Phase 4B Task 11–12 仍按原 writer、完整 diff/hash 技术复核、只读双跑和精确暂存合同生成 golden 与 Save。它们是供 Phase 5 开发使用的临时基线，不声称已经校准或最终冻结。Phase 4B checkpoint 由最后一个 task commit、`pnpm verify:phase4`（使用快速 balance smoke）、临时 baseline 技术复核证据和 clean status 建立。
 - Phase 5A–5C 只读消费同一组临时 golden/Save/digest bytes；不得以 UI、presentation、tooling 或 acceptance 工作为理由运行 writer、调整 balance，或接受这些 bytes 的变化。已知的纯阈值差额不阻止 Phase 5；其他失败仍按最早 owner 修复。
-- Phase 6 恢复时，先寻找一个独立的最终平衡冻结 checkpoint。若它不存在，就必须在任何 Phase 6 Artifact task 前执行冻结的 seeds 1..1000 × 六策略阈值和反事实校准，按确定性选择同步修改 `docs/poc/balance-v0.md` 与 Story balance，随后用既有 writer 合同重新生成、完整复核并精确暂存 golden/Save/digest 变化。只有 `pnpm verify:balance` 连续两次输出相同且全部通过、reference command bytes 未变、golden/fixture 只读 gate 通过并形成 clean accepted commit 后，才能开始或恢复 Artifact 工作。
+- Phase 6 校准由零到十二个独立 calibration-step commits 与唯一 final balance-freeze commit 组成。每个 step commit 只应用一个确定候选及其权威文档/直接 expectations；golden、Save 和临时 qualifier 保持不变。严格完整 gate 通过后，final commit 才移除 qualifier、重生成并完整复核 golden/Save/digest，且不再修改 balance 数值或直接 expectations。
+- Phase 6 entry 紧邻 accepted Phase 5C checkpoint：从该 checkpoint 到 final（尚无 final 时到 `HEAD`）的每个 first-parent commit，不论 path，都必须且只能分类为 trailers/完整 binary patch 可重放且 index 严格连续的 step、带 `Balance-Calibration-Repair: true` 的 Task 10 owner repair，或唯一 final；任何无分类/多分类 commit 都使历史无效。允许 `N = 0` 且始终要求 `N <= 12`。final 必须晚于最后一个 step/repair；final 后的普通 Phase 6 task commit 可以存在，但其显式 first-parent diff 不得再触及 step/final protected paths。
+- 每个历史 step 都必须在其 parent 的 clean sandbox 重跑 selector，校验 evidence SHA-256 与全部 trailers，并重建包括文档和直接 expectations 在内的完整 patch；只有 `git diff --binary` byte-for-byte 相同才接受。若 repair 发生在 `N > 0`，还必须用 repaired evaluator 从 Phase 5C baseline 顺序重放全部旧 steps；任一 evidence/trailer/full-patch 不同即停止为 `balance_calibration_history_invalidated`，不得自动重写或 rollback。`N = 0` 的 repair 可在 owner gates 通过后继续。
+- 只有带 `Balance-Calibration-Final: true`、`Balance-Calibration-Steps: N` 与最终 report SHA-256 trailer 的 clean accepted commit 才是最终平衡冻结 checkpoint。clean/no-final 首次收口必须先在 clean non-detached live `main` materialize writer/removal candidate，再由 final-parent sandbox 独立重跑 writers、精确移除 provisional report/assertion/CLI branch/tests 与文档状态文字，并以完整 binary patch 对比；不得只在会被清理的 detached sandbox 生成待提交 bytes。final commit sandbox 随后只连续两次运行 strict gate 并核对 digest，退出后回 live `main`、`HEAD = final` 执行 materialization/phase/root gates。
 
-恢复时不得把 Phase 4B 临时基线 commit 误当成 Phase 6 最终冻结 commit，也不得因 Phase 5 已消费临时 bytes 而跳过最终重生成与技术复核。最终 `pnpm verify`、`pnpm verify:release`、可复现 Artifact 和 Definition of Done 都消费 Phase 6 冻结后的同一组权威 bytes。
+Phase 6 的 ancestry 发现使用只读 first-parent 查询；具体 trailer、allowlist、dirty 分类和 commit 命令由 Phase 4B deferred closure 与 Phase 6 entry 冻结：
+
+```bash
+phase5c_checkpoint="<accepted-phase5c-commit-sha>"
+audit_tip="<final-commit-if-present-otherwise-HEAD>"
+git rev-list --first-parent --reverse "${phase5c_checkpoint}..${audit_tip}"
+git log --first-parent --reverse --format='%H%x09%(trailers:key=Balance-Calibration-Index,valueonly)%x09%(trailers:key=Balance-Calibration-Repair,valueonly)%x09%(trailers:key=Balance-Calibration-Final,valueonly)%x09%(trailers:key=Balance-Calibration-Steps,valueonly)' "${phase5c_checkpoint}..${audit_tip}"
+git diff --name-only "<commit>^1" "<commit>" -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+```
+
+所有 dirty recovery、历史 step/final replay 和 dirty root 对应的 committed-`HEAD` gate 都使用同一个可执行 clean-commit sandbox；`target_commit` 按场景取 `HEAD`、step parent、final parent 或 final commit：
+
+```bash
+test "$(node --version)" = "v26.5.0"
+test "$(pnpm --version)" = "11.11.0"
+target_commit="<clean-commit-sha>"
+(
+  set -eu
+  test "$(node --version)" = "v26.5.0"
+  test "$(pnpm --version)" = "11.11.0"
+  repo="$(git rev-parse --show-toplevel)"
+  store="$(pnpm store path --silent)"
+  sandbox="$(mktemp -d "${TMPDIR:-/tmp}/project-tavern-balance.XXXXXX")"
+  rmdir "$sandbox"
+  trap 'git -C "$repo" worktree remove --force "$sandbox" >/dev/null 2>&1 || true' EXIT HUP INT TERM
+  git -C "$repo" worktree add --detach "$sandbox" "$target_commit"
+  cd "$sandbox"
+  pnpm install --offline --frozen-lockfile --store-dir "$store"
+  # Run the required strict gate, selector, writer, or patch replay here.
+)
+```
+
+该 sandbox install 是 recovery-only、offline、frozen-lockfile 且只写临时 worktree；执行者先选择 Phase 0 materialized PATH（当前 checkpoint 为 `/opt/homebrew/bin`），live 与 subshell 的 Node/pnpm 断言均通过后才可取 store 或产证据。不得访问 registry 或改变 live tree。若 final 不存在，clean sandbox strict pass 进入上述 live-candidate/final-parent-replay 流程；threshold-only red 且 `N < 12` 时运行 `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N`。`N = 12` 仍红或 selector 无严格改善时停止为 `balance_contract_unsatisfied`。dirty step/final 只有在对应 clean-`HEAD` sandbox 重建的完整 `git diff --binary` 与 live dirty patch 精确相等时才可继续；混合、范围外或不可重放 bytes 按未知 dirty 停止。最终 `pnpm verify`、`pnpm verify:release`、可复现 Artifact 和 Definition of Done 都消费 final commit 后的同一组权威 bytes。
 
 ## 5. 渐进读取规则
 

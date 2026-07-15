@@ -268,7 +268,7 @@ conservativeTaxAfter = currentCash
 - Story `pnpm --filter @project-tavern/story-poc verify:balance:smoke` 是 Phase 4B/5 的快速合同 gate。它用当前默认 Program 固定运行 seed 1 的六策略顺序/worker 等价与真实 worker structured admission，再用反向输入的 synthetic seeds 1–2 shards 证明排序/合并/间隙和 ending/sample 不变量而不重复昂贵 Simulation；seed 17 另行执行真实 `war_clue` committed-attempt → D6 plan 分支。它还覆盖设施 counterfactual、指标/Pareto/中位数、完整阈值边界、账本不变量、校准邻居排序与不可变 Program materialization。Root `pnpm verify:balance:smoke` 只是调用这一 Story leaf 的便捷别名。它必须快速、确定、无写入，但不对 1,000 个种子的总体阈值作抽样推断。
 - Root/Story `pnpm verify:balance` 是唯一完整 release gate。其 CLI 直接运行 seeds 1–1000、全部六策略、D4 压力、设施 counterfactual 和本节所有总体阈值，最终只输出一个包含 `deficit` 与精确 metrics/counterfactual evaluation 的 canonical report；它不通过 Vitest、`test:story` 或 smoke alias 间接运行。普通 Phase 4B/5、unit 与 full local verification 不得意外包含这条长 corpus。
 
-`pnpm --filter @project-tavern/story-poc calibrate:balance` 复用完整 corpus，但只读地枚举和评估 §14.4 的合法邻居，输出 canonical baseline/candidate/selection evidence；Phase 6 从 `--iteration=0` 开始，后续轮直接向 pnpm script 追加 `--iteration=N`（不插入独立 `--`），显式传入已应用的变化数（`0..12`），使上限成为工具可验证输入。它不修改 balance、fixture、golden、Save 或任何计划文件。Task 10 另有无 package alias 的 `node scripts/verify-poc-balance.mjs --qualify-provisional`：它只在完整 reproduction range `1..1000` 的所有 metrics/counterfactual 与下述 2026-07-15 provisional report 精确相等时返回 0；默认 `verify:balance` 仍对同一 deficit 返回非零。该临时 qualifier 在 Phase 6 最终冻结 commit 中移除。Phase 4B/5 可在 strict full gate 保持“已记录且仅阈值失败”的状态下继续，但 smoke、schema、命令、算法、确定性、不变量、counterfactual、Pareto 与 provenance 失败一律不能 defer。
+`pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N` 复用完整 corpus，但只读地枚举和评估 §14.4 的合法邻居，输出 canonical baseline/candidate/selection evidence；`N` 只能来自 accepted Phase 5C checkpoint 后 first-parent ancestry 中已验证且严格连续的 calibration-step commit 数，不来自聊天、shell 或本地文件。它显式表示已应用的变化数，调用时不插入独立 `--`，也不修改 balance、fixture、golden、Save 或任何计划文件。Task 10 另有无 package alias 的 `node scripts/verify-poc-balance.mjs --qualify-provisional`：它只在完整 reproduction range `1..1000` 的所有 metrics/counterfactual 与下述 2026-07-15 provisional report 精确相等时返回 0；默认 `verify:balance` 仍对同一 deficit 返回非零。该临时 qualifier 只在 Phase 6 final balance-freeze commit 中移除。Phase 4B/5 可在 strict full gate 保持“已记录且仅阈值失败”的状态下继续，但 smoke、schema、命令、算法、确定性、不变量、counterfactual、Pareto 与 provenance 失败一律不能 defer。
 
 ### 14.1 `PocBalanceMetricsV1` 的精确统计形状
 
@@ -372,11 +372,37 @@ interface PocCounterfactualScenarioV1 {
 
 Phase 4B 先完成 reference command fixture、完整 runner/calibration/counterfactual 基础设施与 fast smoke，并至少运行一次 strict 1–1000 gate 得到完整基线证据。2026-07-15 的 provisional technical baseline reproduction 是完整 seed range `1..1000`（这是总体计数失败，不伪称存在一个单独失败 seed），且只有一条冻结阈值失败：`strategy.full_delegation.paidCount=801`，低于未改变的下界 850，缺口 49；该策略已缴税样本中位数为 14，其他总体阈值和 counterfactual 均通过。只有 live 复跑仍证明“仅冻结阈值失败”时，Phase 4B/5 才可使用 provisional golden/Save 技术基线继续；任何其他失败都必须在所有者处先修复。
 
-完整校准延后到 Phase 5C Acceptance 之后，但必须在 Phase 6 Task 1 或任何 Phase 6 Artifact implementation/build 或 release evidence 之前闭环；此前 Phase 5 development builds 只属于 UI/interaction evidence，不能充当 release evidence。agent 从 clean checkpoint 运行 `pnpm verify:balance`，再运行只读 `pnpm --filter @project-tavern/story-poc calibrate:balance`；不暂停请求主观意见，也不改命令、算法、closed ID 或测试阈值。工具输出完整 `PocBalanceMetricsV1` 和 canonical candidate evidence，按“现金/通过率 → 委托中位数 → 设施 counterfactual → Pareto”顺序定位。每轮只将工具返回的一个既有数值同步应用到 `balance-v0.md` 与 `game/stories/poc/src/content/balance.ts`，然后重跑 reference seed、1–1000 corpus 和 counterfactual，保留前后 metrics diff。
+完整校准延后到 Phase 5C Acceptance 之后，但必须在 Phase 6 Task 1 或任何 Phase 6 Artifact implementation/build 或 release evidence 之前闭环；此前 Phase 5 development builds 只属于 UI/interaction evidence，不能充当 release evidence。Phase 6 entry 紧邻 accepted Phase 5C，因此从该 checkpoint 到 final（尚无 final 时到 `HEAD`）的每个 first-parent commit，不论 path，都必须且只能分类为连续的 `Balance-Calibration-Index: 1..N` step、显式 `Balance-Calibration-Repair: true` 的 Task 10 owner repair，或唯一 final；final 必须晚于最后 step/repair。Final 后允许普通 Phase 6 task commits，但以 `git diff "<commit>^1" "<commit>"` 检查时不得再触及 step/final protected paths。任何无分类/多分类 pre-final commit 使恢复无效。
+
+所有 committed-HEAD gate、historical replay 与 dirty recovery 都在 temporary detached clean sandbox 中运行，使用 live store 的 recovery-only offline frozen install：
+
+```bash
+test "$(node --version)" = "v26.5.0"
+test "$(pnpm --version)" = "11.11.0"
+target_commit="<clean-commit-sha>"
+(
+  set -eu
+  test "$(node --version)" = "v26.5.0"
+  test "$(pnpm --version)" = "11.11.0"
+  repo="$(git rev-parse --show-toplevel)"
+  store="$(pnpm store path --silent)"
+  sandbox="$(mktemp -d "${TMPDIR:-/tmp}/project-tavern-balance.XXXXXX")"
+  rmdir "$sandbox"
+  trap 'git -C "$repo" worktree remove --force "$sandbox" >/dev/null 2>&1 || true' EXIT HUP INT TERM
+  git -C "$repo" worktree add --detach "$sandbox" "$target_commit"
+  cd "$sandbox"
+  pnpm install --offline --frozen-lockfile --store-dir "$store"
+  # Run the required strict gate, selector, writer, or patch replay here.
+)
+```
+
+执行者先选择 Phase 0 materialized PATH（当前 checkpoint 为 `/opt/homebrew/bin`），live 与 subshell 的 Node/pnpm 断言通过且匹配 accepted materialization identity 后才可产证据。该 install 不访问 registry、不改变 live tree/lockfile。每个历史 step 都必须在其 parent sandbox 以当时已应用步数 `N` 重跑 `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N`，校验 canonical evidence SHA-256 与所有 field/before/after/deficit/index trailers，重新把候选应用到 `balance-v0.md`、`balance.ts` 和精确 direct literals，并要求重建的完整 `git diff --binary` 与历史 commit byte-for-byte 相同；只验 path/scalar 不足以恢复。每轮新候选仍只改一个既有数值并独立提交，step 不含 qualifier、golden 或 Save。
+
+若 `Balance-Calibration-Repair: true` 出现在 `N > 0`，必须从 Phase 5C sandbox overlay repaired evaluator，并从 `--iteration=0` 顺序重放全部旧 steps；每轮 evidence/trailers/full binary patch 全等才能继续。任一差异产生 `balance_calibration_history_invalidated` 权威设计停点，禁止自动 rewrite、rollback 或重选历史；`N = 0` 可在 owner repair gates 通过后继续。Dirty step/final 也必须从 clean-`HEAD` sandbox 重算 selector 或 writer/removals，并要求完整 binary patch 与 live dirty patch 精确相同；混合或范围外 dirty bytes 必须停止。
 
 允许的 calibration field 按顺序固定为：`levy`、`openingFee`、`assistedWage`、`delegatedWage`、`manualGuestCapacity`、`manualPreparationBase`、`manualPreparationPerAction`、`assistedGuestCapacity`、`assistedPreparationBase`、`assistedPreparationPerAction`、`delegatedGuestCapacity`、`delegatedPreparationBase`、`delegatedPreparationPerAction`。每次整数步长为 1（`levy` 步长为 2）。manual/closed 工资、closed 容量、体力/AP、D4 设施成本和两项设施 modifier 都是固定合同，不进入自动校准。固定顺序是在当前点枚举上述字段的 `-step`、再 `+step` 邻居，丢弃负值/破坏静态 schema 的候选，选择使未满足阈值的总绝对缺口严格下降最多的候选；并列按本文字段顺序、再 `-step` 优先。总绝对缺口是每条上下界到最近合法边界的整数距离之和，delegation median 也按 0–35 计算；counterfactual/Pareto boolean 失败各计 1001。最多 12 轮。若没有邻居严格改善、出现本节不允许修改的合同冲突或 12 轮后仍失败，停止为 `balance_contract_unsatisfied`，附完整 metrics/候选差异，不生成或更新 golden；不得降低阈值或偷偷接受失败结果。
 
-所有冻结阈值通过后，必须显式重新生成 Task 11 的 6 个 golden 与 Task 12 的 8 个 Save fixtures；对完整 diff、精确 file count、schema/provenance/负面单字段差异和按路径排序的 SHA-256 列表重做两次只读审查。旧 provisional hash/review 不得传递到新字节。校准值、本文、golden 与 Save 必须在同一个精确暂存的 clean-checkpoint commit 中闭环；该 commit 后 `pnpm verify:balance`、`verify:golden`、`verify:fixtures`、`pnpm verify` 与 materialization 均通过，才允许进入 Phase 6 Artifact 工作。
+所有冻结阈值通过后，clean/no-final 首次收口必须先在 clean non-detached live `main` 显式重新生成 Task 11 的 6 个 golden 与 Task 12 的 8 个 Save fixtures、执行精确 removals，并形成真正可 stage 的 candidate；final-parent sandbox 再独立重跑相同 writers/removals，重做完整 diff、精确 file count、schema/provenance、负面单字段差异和两次按路径排序 SHA-256 审查。只移除 provisional report data、assertion、`--qualify-provisional` CLI branch、专属 tests 与本文 provisional-to-final 状态文字；重建的完整 final `git diff --binary` 必须与 live candidate、historical final 或 pending dirty final 精确相同。唯一 final commit 不再修改 `balance.ts` 数值或两个 direct-expectation tests，并使用 `Balance-Calibration-Final: true`、`Balance-Calibration-Steps: N` 与 `Balance-Calibration-Report-SHA256: sha256:<digest>` trailers。该 commit 后必须在 final clean sandbox 只连续两次运行 `pnpm verify:balance`，要求 canonical stdout byte-identical 且 SHA-256 与 trailer 精确相等；退出 sandbox 后回到 clean live `main`、`HEAD = final`，再使 `verify:golden`、`verify:fixtures`、`pnpm verify` 与 materialization 全部通过，完整 replayed step/repair chain 加 final commit 才构成允许进入 Phase 6 Artifact 工作的冻结 checkpoint。
 
 ## 15. 已知风险
 
