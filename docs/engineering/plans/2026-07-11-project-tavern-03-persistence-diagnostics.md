@@ -593,7 +593,7 @@ export interface SaveImportValidationContextV1<
 }
 ```
 
-精确公共签名与 result unions 以 Contract Catalog 为准。decode owns only bytes → Strict JSON → envelope Schema/`validateEnvelope` → state digest。标准 envelope Schema 使用内部 tagged failure 区分 future positive format revision 和顶层 stateDigest 格式，不匹配异常文本；`validateEnvelope` 负责 slot/provenance、captured sequence 和 lineage 固定关系。Import classifier 先返回 exact、adoption_candidate、inspect_only 或 rejected；只有 exact/adoption_candidate 才运行 references/invariants，后者全部通过才提升为公开 adopted。Base 在调用 Story validator 前已经完成整个 envelope/integrity/digest 校验；reference validator 只收到 `record.snapshot.state`，invariant validator 只收到新建并深冻结的 exact `{ state: record.snapshot.state, commandSequence: record.snapshot.commandSequence }` view。Story validator 的类型不能观察或改写 integrity、RNG、provenance 或完整 Snapshot。只有最终 exact/adopted 携带 runnable `candidate`；inspect_only/rejected 没有。Encoding 使用 Canonical JSON，无 BOM、缩进或换行差异。
+精确公共签名与 result unions 以 Contract Catalog 为准。decode owns only bytes → Strict JSON → envelope Schema/`validateEnvelope` → state digest。标准 envelope Schema 使用内部 tagged failure 区分 future positive format revision 和顶层 stateDigest 格式，不匹配异常文本；`validateEnvelope` 负责 slot/provenance、captured sequence 和 lineage 固定关系。Import classifier 先返回 exact、adoption_candidate、inspect_only 或 rejected；只有 exact/adoption_candidate 才运行 references/invariants，后者全部通过才提升为公开 adopted。Base 在调用 Story validator 前已经完成整个 envelope/integrity/digest 校验；reference validator 只收到 `record.snapshot.state`，invariant validator 只收到以 `Object.freeze` 建立、DeepReadonly 暴露的 exact `{ state: record.snapshot.state, commandSequence: record.snapshot.commandSequence }` view；decoded State 保持其 Schema 已建立的 immutable semantics。Story validator 的类型不能观察或改写 integrity、RNG、provenance 或完整 Snapshot。只有最终 exact/adopted 携带 runnable `candidate`；inspect_only/rejected 没有。Encoding 使用 Canonical JSON，无 BOM、缩进或换行差异。
 
 - [ ] **Step 4: Implement exact/adopted/inspect-only classification**
 
@@ -659,12 +659,16 @@ Task 12 without exposing RNG, RunIntegrity, provenance or a complete Snapshot.
 - Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.ts`
 - Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.test.ts`
 - Modify only if required by the same public callback compilation: `game/stories/e2e/scripts/runtime-fixture-builder.mts`
+- Regenerate and review: `game/stories/e2e/fixtures/session-zero.json`
+- Regenerate and review: `game/stories/e2e/golden/semantic-flow.json`
 
 First add focused runtime and type assertions that the invariant callback receives the exact frozen
 `{ state, commandSequence }` view and cannot observe RNG/RunIntegrity, then implement the minimum contract repair.
-Run the focused compatibility/persistence-service tests, `pnpm verify:public-exports`, `pnpm typecheck`,
+Because the public/runtime Base source changes the provenance-bound engine digest, run `pnpm regenerate:fixtures` and
+`pnpm update:golden`, then review the exact canonical diffs and SHA-256 values of both tracked baselines. Run the focused
+compatibility/persistence-service tests, `pnpm verify:public-exports`, `pnpm typecheck`,
 `pnpm verify:persistence-diagnostics`, `pnpm verify`, and `git diff --check`. Exact-stage only the files above that
-actually changed and commit `fix(base): scope save invariant validation`; fixture/golden bytes must remain unchanged.
+actually changed and commit `fix(base): scope save invariant validation`; no gameplay State or semantic outcome may change.
 
 ### Task 4: Implement the Web IndexedDB atomic record store
 
