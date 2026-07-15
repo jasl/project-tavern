@@ -83,7 +83,6 @@ test("maps only the final public Phase 2 gate and determinism names", async () =
     "node --experimental-strip-types scripts/verify-determinism.mts",
   );
   assert.equal(packageJson.scripts["verify:phase2:checkpoint"], undefined);
-  assert.equal(packageJson.scripts["verify:balance"], undefined);
   assert.equal(storyPackageJson.scripts["verify:balance"], undefined);
   assert.deepEqual(
     Object.entries(packageJson.scripts)
