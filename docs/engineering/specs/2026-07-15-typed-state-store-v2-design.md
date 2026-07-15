@@ -167,18 +167,40 @@ canonical codec 和 arithmetic policy 进入 Store。
 审查，比较 Decimal library、定点整数、字符串 codec、digest/Save 兼容、性能和 bundle 成本。StateStore v2
 不得顺手把所有数字全局改成 Decimal。
 
+### 6.1 Forecast 极值审查结论
+
+Phase 4B 的 obligation forecast 审计发现了第三个未检查整数边界位置：合法 Debug Cash 可以把
+`currentCash` 调整到接近 `Number.MAX_SAFE_INTEGER`，此时一个带正收益的 committed Tavern plan 会让
+`currentCash + preview.cashDelta` 越过 `SafeInteger`。`currentGap = max(0, levy - cash)` 和 final
+`cash - levy` 对两个非负 `Money` 的差始终可表示；风险只在正向合计，不属于小数、比例或舍入需求。
+
+这次审查不引入 Decimal。Decimal 若仍要输出当前 `Money`/`IntegerRangeV1`，同样无法容纳越界结果；若扩大
+值域，则必须连带改变 State、Ledger、Save、Canonical JSON、digest、fixture 和 Hotfix compatibility，不能作为
+Query 局部修复进入当前 Goal。正确的 Post-Goal 修复必须满足：
+
+- 所有可能越过目标整数品牌的 Money 合计与 range 端点先用 `bigint` 计算，`bigint` 只作非持久化中间值；
+- 越界返回 typed error，并用 canonical signed base-10 string 携带精确 actual；
+- Tavern preview、Opening start/finalize、obligation Query 与 execute 共用同一 arithmetic policy 和 rejection；
+- Query 不得抛出未分类异常，也不得 silent clamp、伪装成 `current_gap` 或无提示 fallback；
+- 固定验收 `MAX_SAFE_INTEGER + positive Tavern revenue`，并证明 preview/execute/query parity 与 zero-write rejection。
+
+只有后续再出现一项真正需要小数语义、舍入政策或超出整数最小单位能够合理表达的独立需求，才重新比较
+Decimal library、定点整数和字符串 codec。单纯发现新的 unchecked integer call site 不足以把全局数值迁移到
+Decimal。
+
 ## 7. Post-Goal 实施顺序
 
 后续独立 Goal 至少包含以下顺序，每一步独立 TDD、gate 和 commit：
 
-1. 在 E2E Story 建立单 resource、collection、typed read query 和 owner write 的垂直原型；
-2. 证明多 owner command 的 atomic commit、rejection/fault zero-write、RNG/sequence 一致性；
-3. 证明 canonical export/import 与当前 Snapshot digest、Save、Replay 和 Hotfix adoption 等价；
-4. 证明 derived index 重建、稳定排序、duplicate/reference/invariant failure；
-5. 对比 v1/v2 command corpus、semantic publication、内存和延迟，记录迁移门槛；
-6. 通过兼容 adapter 迁移 E2E，不改变 UI/Semantic public shape；
-7. 只有 E2E 完整验收后，才为 PoC 制定逐 module 迁移计划并重生成受影响的 fixture/golden/Artifact；
-8. 所有 Story 迁移并通过 release gate 后，才能删除 v1 adapter。
+1. 先冻结共享 Money arithmetic policy 与 typed overflow rejection，并修复 Tavern preview/execute/query parity；
+2. 在 E2E Story 建立单 resource、collection、typed read query 和 owner write 的垂直原型；
+3. 证明多 owner command 的 atomic commit、rejection/fault zero-write、RNG/sequence 一致性；
+4. 证明 canonical export/import 与当前 Snapshot digest、Save、Replay 和 Hotfix adoption 等价；
+5. 证明 derived index 重建、稳定排序、duplicate/reference/invariant failure；
+6. 对比 v1/v2 command corpus、semantic publication、内存和延迟，记录迁移门槛；
+7. 通过兼容 adapter 迁移 E2E，不改变 UI/Semantic public shape；
+8. 只有 E2E 完整验收后，才为 PoC 制定逐 module 迁移计划并重生成受影响的 fixture/golden/Artifact；
+9. 所有 Story 迁移并通过 release gate 后，才能删除 v1 adapter。
 
 该 Goal 必须重新审查外部依赖；默认从无依赖的 TypeScript core 开始。若未来采用第三方库，必须证明 browser、
 Node type-strip、ESM、许可、frozen lockfile、determinism、bundle 与长期维护全部满足仓库合同。
