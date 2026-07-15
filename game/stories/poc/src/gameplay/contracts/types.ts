@@ -758,6 +758,16 @@ export type ChangeReasonV1 =
   | { readonly kind: "facility"; readonly facilityId: FacilityId; readonly reasonId: ReasonId }
   | { readonly kind: "ending"; readonly endingId: EndingId; readonly reasonId: ReasonId };
 
+/** Provenance supplied by the executor for one authored Effect batch. */
+export type PocEffectSourceV1 =
+  | { readonly kind: "command"; readonly commandKind: PocGameCommandV1["kind"] }
+  | { readonly kind: "event"; readonly eventId: EventId }
+  | { readonly kind: "story_action"; readonly actionId: ActionId }
+  | { readonly kind: "world_action"; readonly actionId: ActionId }
+  | { readonly kind: "aura"; readonly auraId: AuraId }
+  | { readonly kind: "facility"; readonly facilityId: FacilityId }
+  | { readonly kind: "ending"; readonly endingId: EndingId };
+
 export interface StaminaChangeComponentV1 {
   readonly requestedDelta: SafeInteger;
   readonly reason: ChangeReasonV1;

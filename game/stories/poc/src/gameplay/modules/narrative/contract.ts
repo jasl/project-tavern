@@ -455,6 +455,9 @@ function parsePocNarrativeGameplayFactV1(value: unknown): PocNarrativeGameplayFa
   throw new TypeError("invalid Narrative GameplayFact kind");
 }
 
+export const pocNarrativeGameplayFactSchemaV1: RuntimeSchemaV1<PocNarrativeGameplayFactV1> =
+  Object.freeze({ parse: parsePocNarrativeGameplayFactV1 });
+
 export interface PocNarrativeSettledResultV1 {
   readonly kind: "settled";
   readonly state: NarrativeRuntimeStateV1;

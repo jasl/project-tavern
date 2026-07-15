@@ -18,10 +18,23 @@ import {
 } from "../gameplay/contracts/module-catalog.js";
 import { definePocGameplayModuleV1 } from "../gameplay/contracts/define-poc-gameplay-module.js";
 import {
+  parseActionId,
+  parseCheckpointId,
+  parseEventId,
+  parseOpeningSessionId,
+  parseReasonId,
+  parseRecipeId,
+  parseSceneId,
+} from "../gameplay/contracts/ids.js";
+import {
   pocDebugCommandSchemaV1,
   pocDebugCommandValidationErrorSchemaV1,
+  pocEffectIntentKindsV1,
+  pocEffectIntentSchemaV1,
+  pocEffectSourceSchemaV1,
   pocSimulationDataSchemaV1,
   pocStoryBalanceSchemaV1,
+  validatePocEffectIntentForSourceV1,
 } from "../gameplay/contracts/schemas.js";
 import {
   pocDebugCommandKindsV1,
@@ -36,16 +49,197 @@ import {
   type PocGameSnapshotV1,
   type PocGameStateV1,
   type PocGameViewV1,
+  type PocEffectSourceV1,
   type PocGameplayFactV1,
   type PocReplayableDebugExecutionAttemptV1,
   type PocRejectionReasonV1,
   type PocSimulationProgramV1,
   type TavernPreviewInputV1,
 } from "../gameplay/contracts/types.js";
-import { deepFreezePocValueV1 } from "../gameplay/contracts/values.js";
+import {
+  pocGameStateSchemaV1,
+  pocGameplayFactKindsV1,
+  pocGameplayFactSchemaV1,
+} from "../gameplay/runtime-schemas.js";
+import {
+  deepFreezePocValueV1,
+  parseMoney,
+  parseNonNegativeSafeInteger,
+  parseQuantity,
+} from "../gameplay/contracts/values.js";
 import { createPocGameplayFixtureV1 } from "../testing/gameplay-fixture.js";
 
 describe("PoC gameplay contract", () => {
+  it("shares strict aggregate State and GameplayFact schemas", () => {
+    const fixture = createPocGameplayFixtureV1();
+    expect(pocGameStateSchemaV1.parse(fixture.snapshot.state)).toEqual(fixture.snapshot.state);
+    expect(() =>
+      pocGameStateSchemaV1.parse({ ...fixture.snapshot.state, unexpected: true }),
+    ).toThrow();
+    expect(() =>
+      pocGameStateSchemaV1.parse({
+        ...fixture.snapshot.state,
+        simulation: { ...fixture.snapshot.state.simulation, unexpected: true },
+      }),
+    ).toThrow();
+    expect(() =>
+      pocGameStateSchemaV1.parse({
+        ...fixture.snapshot.state,
+        story: { ...fixture.snapshot.state.story, unexpected: true },
+      }),
+    ).toThrow();
+
+    const fact: PocGameplayFactV1 = {
+      kind: "calendar.ap_changed",
+      value: {
+        before: parseNonNegativeSafeInteger(0),
+        after: parseNonNegativeSafeInteger(1),
+      },
+      reason: {
+        kind: "command",
+        commandKind: "run.start",
+        reasonId: parseReasonId("reason.fixture"),
+      },
+    };
+    expect(pocGameplayFactSchemaV1.parse(fact)).toEqual(fact);
+    expect(() => pocGameplayFactSchemaV1.parse({ ...fact, unexpected: true })).toThrow();
+
+    expect(pocGameplayFactKindsV1).toHaveLength(46);
+    expect(new Set(pocGameplayFactKindsV1).size).toBe(46);
+    const executorFacts: readonly PocGameplayFactV1[] = [
+      {
+        kind: "run.started",
+        runId: fixture.bootstrap.runId,
+        initialSeed: fixture.bootstrap.rngSeed,
+        demandSeeds: [],
+      },
+      { kind: "food.discarded", portions: [], entries: [] },
+      {
+        kind: "story.action_started",
+        actionId: parseActionId("action.fixture_story"),
+        sceneId: parseSceneId("scene.fixture"),
+      },
+      {
+        kind: "scheduler.event_triggered",
+        checkpointId: parseCheckpointId("checkpoint.fixture"),
+        eventId: parseEventId("event.fixture"),
+      },
+      {
+        kind: "service.orders_created",
+        sessionId: parseOpeningSessionId("opening:1"),
+        orders: [],
+      },
+      {
+        kind: "service.capacity_limited",
+        sessionId: parseOpeningSessionId("opening:1"),
+        receptionCapacity: parseNonNegativeSafeInteger(1),
+        preparationCapacity: parseNonNegativeSafeInteger(1),
+      },
+      {
+        kind: "service.sale",
+        sessionId: parseOpeningSessionId("opening:1"),
+        recipeId: parseRecipeId("recipe.fixture"),
+        quantity: parseQuantity(1),
+        revenue: parseNonNegativeSafeInteger(1),
+      },
+      {
+        kind: "levy.paid",
+        amount: parseMoney(1),
+        cash: { before: parseMoney(2), after: parseMoney(1) },
+      },
+    ];
+    for (const executorFact of executorFacts) {
+      expect(pocGameplayFactSchemaV1.parse(executorFact)).toEqual(executorFact);
+    }
+  });
+
+  it("strictly validates every Effect kind against one explicit batch source", () => {
+    const data = createPocGameplayFixtureV1().program.data;
+    expect(pocEffectIntentKindsV1).toEqual([
+      "calendar.ap.adjust",
+      "reputation.adjust",
+      "actor.stamina.adjust",
+      "actor.mood.adjust",
+      "relationship.affection.adjust",
+      "relationship.teamwork.adjust",
+      "relationship.stage.set",
+      "tavern.helper.set",
+      "inventory.grant",
+      "inventory.consume",
+      "inventory.item.grant",
+      "inventory.item.consume",
+      "aura.apply",
+      "aura.clear",
+      "fact.set",
+      "quest.set",
+      "outcome.set",
+      "modifier.add",
+      "ledger.append",
+    ]);
+    const source: PocEffectSourceV1 = { kind: "command", commandKind: "run.start" };
+    const effect = {
+      kind: "calendar.ap.adjust" as const,
+      delta: 1,
+      reasonId: "reason.fixture",
+    };
+    expect(pocEffectSourceSchemaV1.parse(source)).toEqual(source);
+    expect(pocEffectIntentSchemaV1.parse(effect)).toEqual(effect);
+    expect(validatePocEffectIntentForSourceV1(effect, source, data)).toEqual(effect);
+    expect(() => pocEffectIntentSchemaV1.parse({ ...effect, unexpected: true })).toThrow();
+    expect(() =>
+      validatePocEffectIntentForSourceV1({ ...effect, reasonId: "reason.missing" }, source, data),
+    ).toThrow(/unknown ReasonId/u);
+    expect(() =>
+      validatePocEffectIntentForSourceV1(
+        {
+          kind: "inventory.grant",
+          lines: [{ ingredientId: "ingredient.fixture", quantity: 1 }],
+          source: { kind: "story_action", actionId: "action.fixture_story" },
+          reasonId: "reason.fixture",
+        },
+        { kind: "event", eventId: "event.fixture" },
+        data,
+      ),
+    ).toThrow(/source.*provenance/u);
+
+    expect(() =>
+      validatePocEffectIntentForSourceV1(
+        effect,
+        { kind: "ending", endingId: data.content.endings[0]!.endingId },
+        data,
+      ),
+    ).toThrow(/Ending batches accept only Progression/u);
+
+    expect(() =>
+      pocSimulationDataSchemaV1.parse({
+        ...data,
+        content: {
+          ...data.content,
+          storyActions: data.content.storyActions.map((action, index) =>
+            index === 0
+              ? {
+                  ...action,
+                  startEffects: [
+                    {
+                      kind: "ledger.append",
+                      entry: {
+                        category: "purchase",
+                        reasonId: "reason.fixture",
+                        cashDelta: -1,
+                        valuationDelta: 1,
+                        subject: { kind: "ingredient", ingredientId: "ingredient.fixture" },
+                        quantity: 1,
+                      },
+                    },
+                  ],
+                }
+              : action,
+          ),
+        },
+      }),
+    ).toThrow(/dedicated owner operation/u);
+  });
+
   it("owns exactly ten stateful slices inside the PoC Story", () => {
     expect(pocGameplayModuleKeysV1).toEqual([
       "run",

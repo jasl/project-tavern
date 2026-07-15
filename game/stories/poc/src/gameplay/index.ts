@@ -6,14 +6,16 @@ import { z } from "zod";
 
 import {
   parseCheckBandId as parseRuleCheckBandIdV1,
-  parseCheckId as parseRuleCheckIdV1,
   parseCustomerSegmentId as parseRuleCustomerSegmentIdV1,
   parseEndingId as parseRuleEndingIdV1,
   parseReasonId as parseRuleReasonIdV1,
   parseRecipeId as parseRuleRecipeIdV1,
   parseStoryToken as parseRuleStoryTokenV1,
 } from "./contracts/ids.js";
-import { pocSimulationDataSchemaV1 as pocRuleSimulationDataSchemaV1 } from "./contracts/schemas.js";
+import {
+  pocEffectIntentSchemaV1 as pocRuleEffectIntentSchemaV1,
+  pocSimulationDataSchemaV1 as pocRuleSimulationDataSchemaV1,
+} from "./contracts/schemas.js";
 import type {
   AppliedModifierV1,
   CheckInputV1,
@@ -41,9 +43,7 @@ import type {
 import type { DeepReadonly } from "./contracts/values.js";
 import {
   deepFreezePocValueV1 as deepFreezeRulesV1,
-  parseAttributeBonus as parseRuleAttributeBonusV1,
   parseDayIndex as parseRuleDayIndexV1,
-  parseDieFace as parseRuleDieFaceV1,
   parseMoney as parseRuleMoneyV1,
   parseNonNegativeSafeInteger as parseRuleNonNegativeSafeIntegerV1,
   parseQuantity as parseRuleQuantityV1,
@@ -112,21 +112,7 @@ const ruleAppliedModifierZodSchemaV1: z.ZodType<AppliedModifierV1> = z.strictObj
 });
 
 function parseRuleEffectIntentV1(value: unknown): EffectIntentV1 {
-  const parsed = parseRuleCheckResultV1({
-    checkId: parseRuleCheckIdV1("check.rule_output_validation"),
-    actorId: "actor.player",
-    dice: [parseRuleDieFaceV1(1), parseRuleDieFaceV1(1)],
-    attributeBonus: parseRuleAttributeBonusV1(0),
-    preparationBonus: parseRuleSafeIntegerV1(0),
-    modifiers: [],
-    totalBonus: parseRuleSafeIntegerV1(0),
-    total: parseRuleSafeIntegerV1(2),
-    bandId: parseRuleCheckBandIdV1("band.rule_output_validation"),
-    effects: [value],
-  });
-  const effect = parsed.effects[0];
-  if (effect === undefined) throw new TypeError("missing rule EffectIntent");
-  return effect;
+  return pocRuleEffectIntentSchemaV1.parse(value);
 }
 
 const ruleEffectIntentZodSchemaV1 = parsedRuleValueSchemaV1(
@@ -1008,6 +994,7 @@ export type {
   ModifierV1,
   EffectIntentV1,
   PocEffectIntentV1,
+  PocEffectSourceV1,
   ProgressionEffectIntentV1,
   ChangeReasonV1,
   StaminaChangeComponentV1,
@@ -1163,7 +1150,30 @@ export {
   pocSimulationContentSchemaV1,
   pocNarrativeProgramSchemaV1,
   pocSimulationDataSchemaV1,
+  pocEffectIntentKindsV1,
+  pocEffectIntentSchemaV1,
+  pocEffectSourceSchemaV1,
+  validatePocEffectBatchForSourceV1,
+  validatePocEffectIntentForSourceV1,
 } from "./contracts/schemas.js";
+
+export {
+  pocGameStateSchemaV1,
+  pocGameplayFactKindsV1,
+  pocGameplayFactSchemaV1,
+} from "./runtime-schemas.js";
+
+export { createPocGameplayModuleTupleV1 } from "./modules/index.js";
+export type { PocGameplayModuleTupleV1 } from "./modules/index.js";
+
+export { commitPocCandidateV1, createPocTransactionCandidateV1 } from "./transaction/candidate.js";
+export type {
+  PocCandidateOwnerResultV1,
+  PocTransactionCandidateV1,
+} from "./transaction/candidate.js";
+
+export { pocEffectOwnerByKindV1, routePocEffectBatchV1 } from "./transaction/effect-router.js";
+export type { PocEffectBatchResultV1 } from "./transaction/effect-router.js";
 
 export { definePocGameplayModuleV1 } from "./contracts/define-poc-gameplay-module.js";
 

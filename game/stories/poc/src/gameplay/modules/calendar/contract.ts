@@ -582,6 +582,18 @@ function parsePhaseAdvancedFactV1(
   });
 }
 
+export const pocCalendarGameplayFactSchemaV1: RuntimeSchemaV1<PocCalendarGameplayFactV1> =
+  Object.freeze({
+    parse(value: unknown): PocCalendarGameplayFactV1 {
+      const candidate = exactDataObjectForKindV1(value, "Calendar GameplayFact");
+      const kind = dataPropertyV1(candidate, "kind", "Calendar GameplayFact");
+      if (kind === "policy.chosen") return parsePolicyChosenFactV1(value);
+      if (kind === "calendar.ap_changed") return parseApChangedFactV1(value);
+      if (kind === "calendar.phase_advanced") return parsePhaseAdvancedFactV1(value);
+      throw new TypeError("invalid Calendar GameplayFact kind");
+    },
+  });
+
 function parseProposalKindV1(value: unknown): PocCalendarOwnerProposalPayloadV1["kind"] {
   if (
     value === "calendar.policy.choose" ||

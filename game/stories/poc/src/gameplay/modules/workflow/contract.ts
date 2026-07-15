@@ -1269,6 +1269,9 @@ function parseWorkflowFactV1(value: unknown): PocWorkflowGameplayFactV1 {
   throw new TypeError("invalid Workflow GameplayFact kind");
 }
 
+export const pocWorkflowGameplayFactSchemaV1: RuntimeSchemaV1<PocWorkflowGameplayFactV1> =
+  Object.freeze({ parse: parseWorkflowFactV1 });
+
 function nextOpeningCheckpointV1(checkpoint: OpeningCheckpointV1): OpeningCheckpointV1 | null {
   if (checkpoint === "started") return "middle";
   if (checkpoint === "middle") return "before_finalize";

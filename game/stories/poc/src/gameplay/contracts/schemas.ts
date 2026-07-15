@@ -39,6 +39,8 @@ import {
 import type {
   PocDebugCommandV1,
   PocDebugCommandValidationErrorV1,
+  PocEffectIntentV1,
+  PocEffectSourceV1,
   PocNarrativeProgramV1,
   PocSimulationContentV1,
   PocSimulationDataV1,
@@ -239,6 +241,16 @@ const pocGameCommandKindZodSchemaV1 = z.enum([
   "narrative.choose",
   "calendar.advance_phase",
   "levy.pay",
+]);
+
+const pocEffectSourceZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("command"), commandKind: pocGameCommandKindZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("event"), eventId: eventIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("story_action"), actionId: actionIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("world_action"), actionId: actionIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("aura"), auraId: auraIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("facility"), facilityId: facilityIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("ending"), endingId: endingIdZodSchemaV1 }),
 ]);
 
 const debugCommandKindZodSchemaV1 = z.enum([
@@ -797,6 +809,36 @@ const effectIntentZodSchemaV1 = z.discriminatedUnion("kind", [
   }),
   z.strictObject({ kind: z.literal("ledger.append"), entry: ledgerEntryDraftZodSchemaV1 }),
 ]);
+
+export const pocEffectIntentKindsV1 = Object.freeze([
+  "calendar.ap.adjust",
+  "reputation.adjust",
+  "actor.stamina.adjust",
+  "actor.mood.adjust",
+  "relationship.affection.adjust",
+  "relationship.teamwork.adjust",
+  "relationship.stage.set",
+  "tavern.helper.set",
+  "inventory.grant",
+  "inventory.consume",
+  "inventory.item.grant",
+  "inventory.item.consume",
+  "aura.apply",
+  "aura.clear",
+  "fact.set",
+  "quest.set",
+  "outcome.set",
+  "modifier.add",
+  "ledger.append",
+] as const satisfies readonly PocEffectIntentV1["kind"][]);
+
+export const pocEffectIntentSchemaV1: RuntimeSchemaV1<PocEffectIntentV1> = runtimeSchemaV1(
+  effectIntentZodSchemaV1 as z.ZodType<PocEffectIntentV1>,
+);
+
+export const pocEffectSourceSchemaV1: RuntimeSchemaV1<PocEffectSourceV1> = runtimeSchemaV1(
+  pocEffectSourceZodSchemaV1 as z.ZodType<PocEffectSourceV1>,
+);
 
 const conditionZodSchemaV1 = z.discriminatedUnion("kind", [
   z.strictObject({
@@ -1541,6 +1583,7 @@ interface AggregateReferenceCatalogV1 {
   readonly auraIds: ReadonlySet<string>;
   readonly auraDefinitions: ReadonlyMap<string, ParsedAuraDefinitionV1>;
   readonly checkIds: ReadonlySet<string>;
+  readonly endingIds: ReadonlySet<string>;
   readonly eventIds: ReadonlySet<string>;
   readonly facilityIds: ReadonlySet<string>;
   readonly factIds: ReadonlySet<string>;
@@ -1557,6 +1600,46 @@ interface AggregateReferenceCatalogV1 {
   readonly worldActionIds: ReadonlySet<string>;
   readonly factDefinitions: ReadonlyMap<string, ParsedStoryValueDefinitionV1>;
   readonly outcomeDefinitions: ReadonlyMap<string, ParsedStoryValueDefinitionV1>;
+}
+
+function createAggregateReferenceCatalogV1(data: PocSimulationDataV1): AggregateReferenceCatalogV1 {
+  return {
+    actionIds: new Set(data.content.actions.map(({ actionId }) => actionId)),
+    auraIds: new Set(data.content.auras.map(({ auraId }) => auraId)),
+    auraDefinitions: new Map(
+      data.content.auras.map((aura) => [aura.auraId, aura as ParsedAuraDefinitionV1]),
+    ),
+    checkIds: new Set(data.content.checks.map(({ checkId }) => checkId)),
+    endingIds: new Set(data.content.endings.map(({ endingId }) => endingId)),
+    eventIds: new Set(data.content.events.map(({ eventId }) => eventId)),
+    facilityIds: new Set(data.content.facilities.map(({ facilityId }) => facilityId)),
+    factIds: new Set(data.stateDefinitions.facts.map(({ factId }) => factId)),
+    ingredientIds: new Set(data.content.ingredients.map(({ ingredientId }) => ingredientId)),
+    itemIds: new Set(data.content.items.map(({ itemId }) => itemId)),
+    modifierSourceIds: new Set(data.content.modifierSources.map(({ sourceId }) => sourceId)),
+    outcomeIds: new Set(data.stateDefinitions.outcomes.map(({ outcomeId }) => outcomeId)),
+    opportunityIds: new Set(
+      data.content.facilityOpportunities.map(({ opportunityId }) => opportunityId),
+    ),
+    questIds: new Set(data.stateDefinitions.quests.map(({ questId }) => questId)),
+    reasonIds: new Set(data.content.reasons.map(({ reasonId }) => reasonId)),
+    recipeIds: new Set(data.content.recipes.map(({ recipeId }) => recipeId)),
+    segmentIds: new Set(data.content.customerSegments.map(({ segmentId }) => segmentId)),
+    storyActionIds: new Set(data.content.storyActions.map(({ actionId }) => actionId)),
+    worldActionIds: new Set(data.content.worldActions.map(({ actionId }) => actionId)),
+    factDefinitions: new Map(
+      data.stateDefinitions.facts.map(({ factId, value }) => [
+        factId,
+        value as ParsedStoryValueDefinitionV1,
+      ]),
+    ),
+    outcomeDefinitions: new Map(
+      data.stateDefinitions.outcomes.map(({ outcomeId, value }) => [
+        outcomeId,
+        value as ParsedStoryValueDefinitionV1,
+      ]),
+    ),
+  };
 }
 
 function auraTargetKeyV1(target: ParsedAuraTargetV1): string {
@@ -2251,86 +2334,16 @@ function validateEffectSourceProvenanceV1(
   context: AggregateValidationContextV1,
   path: AggregateValidationPathV1,
 ): void {
+  const source = (
+    owner.kind === "story_event"
+      ? { kind: "event", eventId: owner.eventId }
+      : { kind: owner.kind, actionId: owner.actionId }
+  ) as PocEffectSourceV1;
   effects.forEach((effect, effectIndex) => {
-    if (effect.kind === "ledger.append") {
-      const subject = effect.entry.subject;
-      const subjectPath = [...path, effectIndex, "entry", "subject"];
-      const requiresOwnerSubject =
-        effect.entry.category === "story_cost" || effect.entry.category === "story_reward";
-      switch (owner.kind) {
-        case "story_action":
-        case "world_action":
-          if (
-            (subject.kind === "action" && subject.actionId !== owner.actionId) ||
-            (requiresOwnerSubject && subject.kind !== "action")
-          ) {
-            addAggregateValidationIssueV1(
-              context,
-              subjectPath,
-              `ledger Action subject must be ${owner.actionId}`,
-            );
-          }
-          return;
-        case "story_event":
-          if (
-            (subject.kind === "event" && subject.eventId !== owner.eventId) ||
-            (requiresOwnerSubject && subject.kind !== "event")
-          ) {
-            addAggregateValidationIssueV1(
-              context,
-              subjectPath,
-              `ledger Event subject must be ${owner.eventId}`,
-            );
-          }
-          return;
-      }
-    }
-    if (effect.kind === "modifier.add") {
-      if (
-        owner.kind === "story_event" &&
-        (effect.modifier.source.kind !== "event" ||
-          effect.modifier.source.eventId !== owner.eventId)
-      ) {
-        addAggregateValidationIssueV1(
-          context,
-          [...path, effectIndex, "modifier", "source"],
-          `Event modifier source must be ${owner.eventId}`,
-        );
-      }
-      return;
-    }
-    if (effect.kind !== "inventory.grant" && effect.kind !== "aura.apply") return;
-    const source = effect.source;
-    const sourcePath = [...path, effectIndex, "source"];
-    switch (owner.kind) {
-      case "story_action":
-        if (source.kind !== "story_action" || source.actionId !== owner.actionId) {
-          addAggregateValidationIssueV1(
-            context,
-            sourcePath,
-            `effect source must be story_action ${owner.actionId}`,
-          );
-        }
-        return;
-      case "world_action":
-        if (source.kind !== "world_action" || source.actionId !== owner.actionId) {
-          addAggregateValidationIssueV1(
-            context,
-            sourcePath,
-            `effect source must be world_action ${owner.actionId}`,
-          );
-        }
-        return;
-      case "story_event":
-        if (source.kind !== "story_event" || source.eventId !== owner.eventId) {
-          addAggregateValidationIssueV1(
-            context,
-            sourcePath,
-            `effect source must be story_event ${owner.eventId}`,
-          );
-        }
-        return;
-    }
+    validatePocEffectSourceProvenanceV1(effect as PocEffectIntentV1, source, context, [
+      ...path,
+      effectIndex,
+    ]);
   });
 }
 
@@ -2460,6 +2473,7 @@ const pocSimulationDataZodSchemaV1 = z
     const auraIds = new Set(data.content.auras.map(({ auraId }) => auraId));
     const characterIds = new Set(data.content.characters.map(({ characterId }) => characterId));
     const checkIds = new Set(data.content.checks.map(({ checkId }) => checkId));
+    const endingIds = new Set(data.content.endings.map(({ endingId }) => endingId));
     const eventIds = new Set(data.content.events.map(({ eventId }) => eventId));
     const facilityIds = new Set(data.content.facilities.map(({ facilityId }) => facilityId));
     const factIds = new Set(data.stateDefinitions.facts.map(({ factId }) => factId));
@@ -2519,6 +2533,7 @@ const pocSimulationDataZodSchemaV1 = z
       auraIds,
       auraDefinitions: auraDefinitionById,
       checkIds,
+      endingIds,
       eventIds,
       facilityIds,
       factIds,
@@ -3628,3 +3643,281 @@ const pocSimulationDataZodSchemaV1 = z
 export const pocSimulationDataSchemaV1: RuntimeSchemaV1<PocSimulationDataV1> = runtimeSchemaV1(
   pocSimulationDataZodSchemaV1 as z.ZodType<PocSimulationDataV1>,
 );
+
+function validatePocEffectSourceReferenceV1(
+  source: PocEffectSourceV1,
+  references: AggregateReferenceCatalogV1,
+  context: AggregateValidationContextV1,
+): void {
+  switch (source.kind) {
+    case "command":
+      return;
+    case "event":
+      validateReferenceV1(
+        references.eventIds,
+        source.eventId,
+        context,
+        ["source", "eventId"],
+        "EventId",
+      );
+      return;
+    case "story_action":
+      validateReferenceV1(
+        references.storyActionIds,
+        source.actionId,
+        context,
+        ["source", "actionId"],
+        "StoryAction ActionId",
+      );
+      return;
+    case "world_action":
+      validateReferenceV1(
+        references.worldActionIds,
+        source.actionId,
+        context,
+        ["source", "actionId"],
+        "WorldAction ActionId",
+      );
+      return;
+    case "aura":
+      validateReferenceV1(
+        references.auraIds,
+        source.auraId,
+        context,
+        ["source", "auraId"],
+        "AuraId",
+      );
+      return;
+    case "facility":
+      validateReferenceV1(
+        references.facilityIds,
+        source.facilityId,
+        context,
+        ["source", "facilityId"],
+        "FacilityId",
+      );
+      return;
+    case "ending":
+      validateReferenceV1(
+        references.endingIds,
+        source.endingId,
+        context,
+        ["source", "endingId"],
+        "EndingId",
+      );
+      return;
+  }
+}
+
+function addEffectSourceProvenanceIssueV1(
+  context: AggregateValidationContextV1,
+  path: AggregateValidationPathV1,
+  message: string,
+): void {
+  addAggregateValidationIssueV1(context, path, `Effect source provenance mismatch: ${message}`);
+}
+
+function validatePocEffectSourceProvenanceV1(
+  effect: PocEffectIntentV1,
+  source: PocEffectSourceV1,
+  context: AggregateValidationContextV1,
+  path: AggregateValidationPathV1,
+): void {
+  if (
+    source.kind === "ending" &&
+    effect.kind !== "fact.set" &&
+    effect.kind !== "quest.set" &&
+    effect.kind !== "outcome.set"
+  ) {
+    addEffectSourceProvenanceIssueV1(
+      context,
+      path,
+      "Ending batches accept only Progression Effect intents",
+    );
+    return;
+  }
+
+  if (effect.kind === "inventory.grant") {
+    const matches =
+      (source.kind === "event" &&
+        effect.source.kind === "story_event" &&
+        effect.source.eventId === source.eventId) ||
+      (source.kind === "story_action" &&
+        effect.source.kind === "story_action" &&
+        effect.source.actionId === source.actionId) ||
+      (source.kind === "world_action" &&
+        effect.source.kind === "world_action" &&
+        effect.source.actionId === source.actionId);
+    if (!matches) {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        [...path, "source"],
+        "Inventory grant source must equal its Event or Action batch source",
+      );
+    }
+    return;
+  }
+
+  if (effect.kind === "aura.apply") {
+    const matches =
+      (source.kind === "event" &&
+        effect.source.kind === "story_event" &&
+        effect.source.eventId === source.eventId) ||
+      (source.kind === "story_action" &&
+        effect.source.kind === "story_action" &&
+        effect.source.actionId === source.actionId) ||
+      (source.kind === "world_action" &&
+        effect.source.kind === "world_action" &&
+        effect.source.actionId === source.actionId) ||
+      (source.kind === "facility" &&
+        effect.source.kind === "facility" &&
+        effect.source.facilityId === source.facilityId);
+    if (!matches) {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        [...path, "source"],
+        "Aura application source must equal its Event, Action, or Facility batch source",
+      );
+    }
+    return;
+  }
+
+  if (effect.kind === "modifier.add") {
+    if (
+      source.kind !== "event" ||
+      effect.modifier.source.kind !== "event" ||
+      effect.modifier.source.eventId !== source.eventId
+    ) {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        [...path, "modifier", "source"],
+        "Opening modifier source must equal its Event batch source",
+      );
+    }
+    return;
+  }
+
+  if (effect.kind !== "ledger.append") return;
+
+  const { category, subject } = effect.entry;
+  const subjectPath = [...path, "entry", "subject"];
+  if (category === "story_cost" || category === "story_reward") {
+    const matches =
+      (source.kind === "event" && subject.kind === "event" && subject.eventId === source.eventId) ||
+      (source.kind === "story_action" &&
+        subject.kind === "action" &&
+        subject.actionId === source.actionId) ||
+      (source.kind === "world_action" &&
+        subject.kind === "action" &&
+        subject.actionId === source.actionId);
+    if (!matches) {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        subjectPath,
+        "Story ledger subject must equal its Event or Action batch source",
+      );
+    }
+    return;
+  }
+  if (category === "world_action") {
+    if (
+      source.kind !== "world_action" ||
+      subject.kind !== "action" ||
+      subject.actionId !== source.actionId
+    ) {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        subjectPath,
+        "World-action ledger subject must equal its WorldAction batch source",
+      );
+    }
+    return;
+  }
+  if (category === "wage" || category === "opening_fee") {
+    if (
+      source.kind !== "command" ||
+      source.commandKind !== "tavern.opening.start" ||
+      subject.kind !== "service_mode"
+    ) {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        subjectPath,
+        "Opening ledger entries require tavern.opening.start and a service_mode subject",
+      );
+    }
+    return;
+  }
+  if (category === "revenue" || category === "discarded_food") {
+    if (
+      source.kind !== "command" ||
+      source.commandKind !== "tavern.opening.finalize" ||
+      subject.kind !== "recipe"
+    ) {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        subjectPath,
+        "Finalization ledger entries require tavern.opening.finalize and a recipe subject",
+      );
+    }
+    return;
+  }
+  if (category === "levy") {
+    if (source.kind !== "command" || source.commandKind !== "levy.pay" || subject.kind !== "levy") {
+      addEffectSourceProvenanceIssueV1(
+        context,
+        subjectPath,
+        "Levy ledger entries require levy.pay and a levy subject",
+      );
+    }
+    return;
+  }
+  addEffectSourceProvenanceIssueV1(
+    context,
+    [...path, "entry", "category"],
+    `${category} ledger entries require a dedicated owner operation`,
+  );
+}
+
+export function validatePocEffectBatchForSourceV1(
+  effectValues: readonly unknown[],
+  sourceValue: unknown,
+  dataValue: unknown,
+): readonly PocEffectIntentV1[] {
+  assertCanonicalDataV1(effectValues);
+  if (!Array.isArray(effectValues) || Object.getPrototypeOf(effectValues) !== Array.prototype) {
+    throw new TypeError("invalid Effect batch");
+  }
+  const data = pocSimulationDataSchemaV1.parse(dataValue);
+  const source = pocEffectSourceSchemaV1.parse(sourceValue);
+  const effects = effectValues.map((effect) => pocEffectIntentSchemaV1.parse(effect));
+  const references = createAggregateReferenceCatalogV1(data);
+  const issues: { readonly message: string; readonly path: readonly (string | number)[] }[] = [];
+  const context: AggregateValidationContextV1 = {
+    addIssue(issue): void {
+      issues.push({ message: issue.message, path: issue.path ?? [] });
+    },
+  };
+
+  validatePocEffectSourceReferenceV1(source, references, context);
+  effects.forEach((effect, index) => {
+    const path = ["effects", index] as const;
+    validateEffectIntentV1(effect as ParsedEffectIntentV1, references, context, path);
+    validatePocEffectSourceProvenanceV1(effect, source, context, path);
+  });
+  if (issues.length > 0) {
+    throw new TypeError(
+      issues.map(({ message, path }) => `${path.join(".") || "effects"}: ${message}`).join("; "),
+    );
+  }
+  return deepFreezePocValueV1(effects);
+}
+
+export function validatePocEffectIntentForSourceV1(
+  effectValue: unknown,
+  sourceValue: unknown,
+  dataValue: unknown,
+): PocEffectIntentV1 {
+  const [effect] = validatePocEffectBatchForSourceV1([effectValue], sourceValue, dataValue);
+  if (effect === undefined) throw new TypeError("missing Effect");
+  return effect;
+}

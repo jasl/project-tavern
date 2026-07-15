@@ -642,6 +642,9 @@ function parseActorsFactV1(value: unknown): PocActorsGameplayFactV1 {
   throw new TypeError("invalid Actors Fact kind");
 }
 
+export const pocActorsGameplayFactSchemaV1: RuntimeSchemaV1<PocActorsGameplayFactV1> =
+  Object.freeze({ parse: parseActorsFactV1 });
+
 function canonicalValuesEqualV1(left: unknown, right: unknown): boolean {
   const leftBytes = canonicalJsonBytes(left);
   const rightBytes = canonicalJsonBytes(right);

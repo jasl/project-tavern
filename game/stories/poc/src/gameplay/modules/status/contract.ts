@@ -642,6 +642,9 @@ function parseStatusFactV1(value: unknown): PocStatusGameplayFactV1 {
   throw new TypeError("invalid Status Fact kind");
 }
 
+export const pocStatusGameplayFactSchemaV1: RuntimeSchemaV1<PocStatusGameplayFactV1> =
+  Object.freeze({ parse: parseStatusFactV1 });
+
 function canonicalValuesEqualV1(left: unknown, right: unknown): boolean {
   const leftBytes = canonicalJsonBytes(left);
   const rightBytes = canonicalJsonBytes(right);

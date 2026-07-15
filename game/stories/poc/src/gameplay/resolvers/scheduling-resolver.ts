@@ -17,16 +17,7 @@ import type {
 } from "../contracts/types.js";
 import { deepFreezePocValueV1, parseDayIndex } from "../contracts/values.js";
 import type { DeepReadonly } from "../contracts/values.js";
-import { pocActorsStateSchemaV1 } from "../modules/actors/contract.js";
-import { pocCalendarStateSchemaV1 } from "../modules/calendar/contract.js";
-import { pocFacilitiesStateSchemaV1 } from "../modules/facilities/contract.js";
-import { pocInventoryStateSchemaV1 } from "../modules/inventory/contract.js";
-import { pocNarrativeStateSchemaV1 } from "../modules/narrative/contract.js";
-import { pocProgressionStateSchemaV1 } from "../modules/progression/contract.js";
-import { pocRunStateSchemaV1 } from "../modules/run/contract.js";
-import { pocStatusStateSchemaV1 } from "../modules/status/contract.js";
-import { pocTavernStateSchemaV1 } from "../modules/tavern/contract.js";
-import { pocWorkflowStateSchemaV1 } from "../modules/workflow/contract.js";
+import { pocGameStateSchemaV1 } from "../runtime-schemas.js";
 
 type PlainDataRecordV1 = Record<string, unknown>;
 
@@ -327,60 +318,6 @@ function compareScheduledEventsV1(
   return 0;
 }
 
-function parsePocGameStateV1(value: unknown): PocGameStateV1 {
-  const state = exactDataObjectV1(value, ["simulation", "story"], "Gameplay State");
-  const simulation = exactDataObjectV1(
-    dataPropertyV1(state, "simulation", "Gameplay State"),
-    ["run", "calendar", "actors", "inventory", "status", "facilities", "tavern", "activeWorkflow"],
-    "Gameplay Simulation State",
-  );
-  const story = exactDataObjectV1(
-    dataPropertyV1(state, "story", "Gameplay State"),
-    ["facts", "quests", "outcomes", "resolvedChecks", "narrative"],
-    "Gameplay Story State",
-  );
-  const progression = pocProgressionStateSchemaV1.parse({
-    facts: dataPropertyV1(story, "facts", "Gameplay Story State"),
-    quests: dataPropertyV1(story, "quests", "Gameplay Story State"),
-    outcomes: dataPropertyV1(story, "outcomes", "Gameplay Story State"),
-    resolvedChecks: dataPropertyV1(story, "resolvedChecks", "Gameplay Story State"),
-  });
-  return deepFreezePocValueV1({
-    simulation: {
-      run: pocRunStateSchemaV1.parse(
-        dataPropertyV1(simulation, "run", "Gameplay Simulation State"),
-      ),
-      calendar: pocCalendarStateSchemaV1.parse(
-        dataPropertyV1(simulation, "calendar", "Gameplay Simulation State"),
-      ),
-      actors: pocActorsStateSchemaV1.parse(
-        dataPropertyV1(simulation, "actors", "Gameplay Simulation State"),
-      ),
-      inventory: pocInventoryStateSchemaV1.parse(
-        dataPropertyV1(simulation, "inventory", "Gameplay Simulation State"),
-      ),
-      status: pocStatusStateSchemaV1.parse(
-        dataPropertyV1(simulation, "status", "Gameplay Simulation State"),
-      ),
-      facilities: pocFacilitiesStateSchemaV1.parse(
-        dataPropertyV1(simulation, "facilities", "Gameplay Simulation State"),
-      ),
-      tavern: pocTavernStateSchemaV1.parse(
-        dataPropertyV1(simulation, "tavern", "Gameplay Simulation State"),
-      ),
-      activeWorkflow: pocWorkflowStateSchemaV1.parse(
-        dataPropertyV1(simulation, "activeWorkflow", "Gameplay Simulation State"),
-      ),
-    },
-    story: {
-      ...progression,
-      narrative: pocNarrativeStateSchemaV1.parse(
-        dataPropertyV1(story, "narrative", "Gameplay Story State"),
-      ),
-    },
-  });
-}
-
 function parseSchedulingInputV1(value: unknown): PocSchedulingInputV1 {
   const input = exactDataObjectV1(value, ["context", "observation"], "Scheduling input");
   const observation = exactDataObjectV1(
@@ -396,7 +333,9 @@ function parseSchedulingInputV1(value: unknown): PocSchedulingInputV1 {
   ) {
     throw new TypeError("invalid Condition observation narrativeStatus");
   }
-  const state = parsePocGameStateV1(dataPropertyV1(observation, "state", "Condition observation"));
+  const state = pocGameStateSchemaV1.parse(
+    dataPropertyV1(observation, "state", "Condition observation"),
+  );
   return {
     context: parseSchedulerContextV1(dataPropertyV1(input, "context", "Scheduling input")),
     observation: {

@@ -1767,6 +1767,9 @@ function parsePocProgressionGameplayFactV1(value: unknown): PocProgressionGamepl
   throw new TypeError("invalid Progression GameplayFact kind");
 }
 
+export const pocProgressionGameplayFactSchemaV1: RuntimeSchemaV1<PocProgressionGameplayFactV1> =
+  Object.freeze({ parse: parsePocProgressionGameplayFactV1 });
+
 export interface PocProgressionOwnerProposalPayloadV1 {
   readonly kind: PocProgressionOwnerOperationV1["kind"];
   readonly before: PocProgressionStateV1;

@@ -1582,16 +1582,31 @@ git commit -m "feat(story-poc): add gameplay rules and resolvers"
 
 **Files:**
 
+- Modify: `game/stories/poc/src/gameplay/contracts/types.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
+- Create: `game/stories/poc/src/gameplay/runtime-schemas.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/run/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/calendar/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/actors/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/status/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/inventory/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/facilities/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/tavern/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/workflow/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/progression/contract.ts`
+- Modify: `game/stories/poc/src/gameplay/modules/narrative/contract.ts`
 - Create: `game/stories/poc/src/gameplay/modules/index.ts`
+- Modify: `game/stories/poc/src/gameplay/resolvers/scheduling-resolver.ts`
 - Create: `game/stories/poc/src/gameplay/transaction/candidate.ts`
 - Create: `game/stories/poc/src/gameplay/transaction/effect-router.ts`
+- Modify: `game/stories/poc/src/test/gameplay-contract.test.ts`
 - Create: `game/stories/poc/src/test/transaction.test.ts`
 - Modify: `game/stories/poc/src/gameplay/index.ts`
 
 **Interfaces:**
 
-- Consumes: all ten module exports, the five owner-specific initial slices from the frozen `PocSimulationProgramV1`, `PocEffectIntentV1`, owner operations/proposals, transactional RNG, aggregate State schema, and stable reference validators.
-- Produces: `PocGameplayModuleTupleV1`, `createPocGameplayModuleTupleV1(program)`, `PocTransactionCandidateV1`, `createPocTransactionCandidateV1(snapshot, program, modules)`, `routePocEffectBatchV1`, exact effect-owner table, ordered GameplayFact/ledger accumulation, `commitPocCandidateV1`, and rollback diagnostics.
+- Consumes: all ten module exports, the five owner-specific initial slices from the frozen `PocSimulationProgramV1`, `PocEffectIntentV1`, the per-batch `PocEffectSourceV1`, owner operations/proposals, transactional RNG, the ten owner State schemas, the existing strict owner Fact parsers, and frozen Program data for stable-reference/provenance validation.
+- Produces: `PocGameplayModuleTupleV1`, `createPocGameplayModuleTupleV1(program)`, shared `pocGameStateSchemaV1`, exhaustive `pocGameplayFactKindsV1`, shared `pocGameplayFactSchemaV1`, `pocEffectIntentKindsV1`, shared `pocEffectIntentSchemaV1` and `pocEffectSourceSchemaV1`, `validatePocEffectIntentForSourceV1(effect, source, data)`, `PocTransactionCandidateV1`, `createPocTransactionCandidateV1(snapshot, program, modules)`, the candidate-only `replaceRngForDebug(rng)` primitive, `routePocEffectBatchV1(candidate, effects, source)`, exact effect-owner table, ordered GameplayFact/ledger accumulation, `commitPocCandidateV1`, and rollback diagnostics.
 
 - [ ] **Step 1: Write failing atomicity and exhaustive-owner tests**
 
@@ -1604,18 +1619,22 @@ it("rolls back an earlier valid effect when a later effect rejects", () => {
   const fixture = createPocGameplayFixtureV1();
   const modules = createPocGameplayModuleTupleV1(fixture.program);
   const candidate = createPocTransactionCandidateV1(fixture.snapshot, fixture.program, modules);
-  const result = routePocEffectBatchV1(candidate, [
-    {
-      kind: "calendar.ap.adjust",
-      delta: 1,
-      reasonId: parseReasonId("reason.fixture_adjust"),
-    },
-    {
-      kind: "inventory.consume",
-      lines: impossibleConsumeFixtureV1(),
-      reasonId: parseReasonId("reason.fixture_consume"),
-    },
-  ]);
+  const result = routePocEffectBatchV1(
+    candidate,
+    [
+      {
+        kind: "calendar.ap.adjust",
+        delta: 1,
+        reasonId: parseReasonId("reason.fixture_adjust"),
+      },
+      {
+        kind: "inventory.consume",
+        lines: impossibleConsumeFixtureV1(),
+        reasonId: parseReasonId("reason.fixture_consume"),
+      },
+    ],
+    { kind: "command", commandKind: "calendar.advance_phase" },
+  );
   expect(result.kind).toBe("rejected");
   expect(candidate.snapshot()).toBe(fixture.snapshot);
   expect(candidate.gameplayFacts()).toEqual([]);
@@ -1624,9 +1643,9 @@ it("rolls back an earlier valid effect when a later effect rejects", () => {
 
 - [ ] **Step 2: Run and confirm missing transaction files**
 
-Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/transaction.test.ts`
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/gameplay-contract.test.ts src/test/transaction.test.ts`
 
-Expected: FAIL because candidate/effect router do not exist.
+Expected: FAIL because the shared Effect/source/runtime-schema exports and candidate/effect router do not exist.
 
 - [ ] **Step 3: Implement the non-public writable candidate**
 
@@ -1639,23 +1658,32 @@ export interface PocEffectBatchResultV1 {
 export function routePocEffectBatchV1(
   candidate: PocTransactionCandidateV1,
   effects: readonly DeepReadonly<PocEffectIntentV1>[],
+  source: DeepReadonly<PocEffectSourceV1>,
 ): PocEffectBatchResultV1;
 ```
 
 `createPocGameplayModuleTupleV1(program)` creates the fixed tuple in catalog order. Actors, Status, Inventory, Tavern, and Progression factories each receive only their validated owner Slice projected from `program.data`; Run, Calendar, Facilities, Workflow, and Narrative reuse their static bindings. Tests prove two Programs retain identical descriptors/order while their corresponding initial owner values differ without cross-instance leakage. The candidate accepts this exact selected tuple rather than importing singletons or rebuilding an equivalent tuple.
 
-The candidate clones State/RNG once, retains RunIntegrity only as an opaque reference for the final envelope, exposes only owner-scoped internal methods, applies effects in authored order, validates source/reference before semantic proposal, derives the appropriate `ChangeReasonV1` from each exact `reasonId` plus the active command/event/action provenance, accumulates facts once, and commits only after complete aggregate schema/invariant validation. Effect payloads remain the Catalog's exact union: `calendar.ap.adjust` carries `reasonId`, `inventory.consume` carries only `lines + reasonId`, grants use their declared source type, and no effect substitutes an owner-internal `ChangeReasonV1` or unrelated Modifier source. It never passes integrity to a Rule, Resolver, owner, Query, or projector, and normal Gameplay can only reattach the exact input reference. No candidate or owner capability is exported from the Story default entry, GameSimulation, GameQueries, SemanticGamePort, or UI.
+`runtime-schemas.ts` is the single aggregate runtime-schema layer. `pocGameStateSchemaV1` composes the ten owner State schemas, while an exact `PocGameplayFactV1["kind"]` dispatch table produces `pocGameplayFactKindsV1` and `pocGameplayFactSchemaV1`, reuses the existing strict Fact parsers exported by the owner contracts, and strictly parses the executor-only Fact cases locally. The dispatch keys must be bidirectionally exhaustive with the Fact union. Exporting those owner parsers is the only permitted change in the ten `modules/*/contract.ts` repair paths; their accepted fields and semantics do not change. Scheduling deletes its private aggregate State parser and consumes `pocGameStateSchemaV1`; rule-output validation, the router, and the later GameSimulation consume the same shared Effect/State/Fact schemas through `gameplay/index.ts` rather than maintaining parallel parsers.
+
+`PocEffectSourceV1` is exact per-batch provenance without a `reasonId`: `command { commandKind } | event { eventId } | story_action { actionId } | world_action { actionId } | aura { auraId } | facility { facilityId } | ending { endingId }`. It is a required third argument to `routePocEffectBatchV1`; it is not embedded in `EffectIntentV1`, Snapshot, GameplayFact, or ledger data. One outer candidate may route multiple authored batches with different sources, so source is never inferred from an Effect, captured when the candidate is created, or retained as candidate-wide mutable state. Aura/facility are valid non-debug `ChangeReasonV1` sources for an authored Effect batch, but they do not make an incompatible embedded payload source valid or replace an Aura/Facility owner's dedicated operations.
+
+Before any owner proposal, the router strictly parses the source and every Effect, then calls `validatePocEffectIntentForSourceV1(effect, source, program.data)` for the complete batch. That shared validator returns the parsed `PocEffectIntentV1` and checks stable references, embedded-source agreement, and generic-ledger provenance. Only after all entries pass does the router inspect the current candidate for every `modifier.add`: the candidate must contain an active Opening, `source.kind` must be `event`, the same Event must already be present in `OpeningSession.triggeredEventIds`, and `modifier.source` must be that exact Event. This stateful check also completes for the whole batch before the first owner proposal.
+
+The candidate clones State/RNG once, retains RunIntegrity only as an opaque reference for the final envelope, exposes only owner-scoped internal methods, applies effects in authored order, derives the appropriate `ChangeReasonV1` from each exact Effect `reasonId` (or `ledger.append.entry.reasonId`) plus the explicit per-batch source, accumulates facts once, and commits only after complete aggregate schema/invariant validation. Router dependency composition reads Calendar, Facilities, and active Workflow only through the selected tuple's public read ports exposed by the candidate; it does not inspect those owner slices through the aggregate Snapshot. Its sole direct RNG replacement method is the candidate-only `replaceRngForDebug(rng: DeepReadonly<RngStateV1>)`; it strict-parses the complete state, participates in checkpoint rollback, and exists only for Task 12's validated replayable `debug.rng.set` path. Normal Gameplay receives only `rng()` draws and cannot replace RNG. Effect payloads remain the Catalog's exact union: `calendar.ap.adjust` carries `reasonId`, `inventory.consume` carries only `lines + reasonId`, grants use their declared source type, and no effect substitutes an owner-internal `ChangeReasonV1` or unrelated Modifier source. For `modifier.add`, the outer Effect `reasonId` is validated only; the persisted explanation remains `modifier.reasonId`, and the router never rewrites one from the other.
+
+Generic `ledger.append` routing uses one closed provenance matrix: `story_cost | story_reward` requires the exact Event subject for an `event` source or the exact Action subject for a `story_action`/`world_action` source; `world_action` requires that exact WorldAction source and Action subject; `wage | opening_fee` requires `{ kind: "command", commandKind: "tavern.opening.start" }` and a service-mode subject; `revenue | discarded_food` requires `{ kind: "command", commandKind: "tavern.opening.finalize" }` and a recipe subject; `levy` requires `{ kind: "command", commandKind: "levy.pay" }` and the levy subject. Aura/facility/ending sources cannot route any ledger Effect, and every other source/category/subject combination fails batch preflight. `purchase`, `facility`, `spoiled_ingredient`, and `debug_adjustment` remain dedicated owner-context operations and cannot be smuggled through the generic Effect router. The candidate never passes integrity to a Rule, Resolver, owner, Query, or projector, and normal Gameplay can only reattach the exact input reference. No candidate or owner capability is exported from the Story default entry, GameSimulation, GameQueries, SemanticGamePort, or UI.
 
 - [ ] **Step 4: Run transaction and property checks**
 
-Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/transaction.test.ts && pnpm typecheck && pnpm verify`
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/gameplay-contract.test.ts src/test/transaction.test.ts && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all effect kinds are exhaustive, later failure rolls back all prior effects/RNG/facts, and success preserves authored fact/ledger order.
+Expected: PASS; shared State/Fact/Effect schemas reject missing/extra fields, all effect kinds are exhaustive, every batch uses explicit validated provenance, dedicated ledger categories cannot bypass their owners, later failure rolls back all prior effects/RNG/facts, the debug-only RNG replacement commits and rolls back through the same candidate, and success preserves authored fact/ledger order.
 
 - [ ] **Step 5: Commit the transaction layer**
 
 ```bash
-git add -- game/stories/poc/src/gameplay/modules/index.ts game/stories/poc/src/gameplay/transaction game/stories/poc/src/test/transaction.test.ts game/stories/poc/src/gameplay/index.ts
+git add -- game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/gameplay/runtime-schemas.ts game/stories/poc/src/gameplay/modules/*/contract.ts game/stories/poc/src/gameplay/modules/index.ts game/stories/poc/src/gameplay/resolvers/scheduling-resolver.ts game/stories/poc/src/gameplay/transaction game/stories/poc/src/test/gameplay-contract.test.ts game/stories/poc/src/test/transaction.test.ts game/stories/poc/src/gameplay/index.ts
 git commit -m "feat(story-poc): add atomic effect transactions"
 ```
 

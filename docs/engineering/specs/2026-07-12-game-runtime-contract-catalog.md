@@ -98,7 +98,11 @@ const effectIntentOwnerByKindV1 = {
 } as const;
 ```
 
-WorldAction 与 Scheduling 是 Rule/Resolver，不拥有 State Slice 或 owner capability；Run/Facilities/Narrative 没有 `EffectIntentV1` kind，但仍只能由 GameCommandExecutor 调用各自 owner-scoped proposal/apply capability。`effectIntentOwnerByKindV1` 必须与 `EffectIntentV1["kind"]` 双向穷举；Router 自身无状态，先完成整批 Schema/kind/静态来源/引用校验，再按 authored 顺序让 owner 对当前候选做语义验证与 proposal，不能提交、递归 dispatch 或直接写候选对象。后项可以观察前项 proposal，但任一失败仍由 GameCommandExecutor 回滚整批。
+WorldAction 与 Scheduling 是 Rule/Resolver，不拥有 State Slice 或 owner capability；Run/Facilities/Narrative 没有 `EffectIntentV1` kind，但仍只能由 GameCommandExecutor 调用各自 owner-scoped proposal/apply capability。`effectIntentOwnerByKindV1` 必须与 `EffectIntentV1["kind"]` 双向穷举；Router 自身无状态，不能提交、递归 dispatch 或直接写候选对象。每次调用 Router 都必须显式传入该 authored batch 的 `PocEffectSourceV1`，同一外层 candidate 可以依次处理不同来源的 batch；source 不从 Effect 猜测、不在 candidate 创建时固定，也不作为 candidate-wide mutable state 保存。
+
+Router 在第一个 owner proposal 之前，先以共享 strict Schema 解析整批 Effect/source，并逐项调用 `validatePocEffectIntentForSourceV1` 完成 stable-reference、embedded-source、provenance 与 generic-ledger 校验；随后对整批 `modifier.add` 完成依赖当前 candidate State 的 active-Opening/已触发 Event 校验。全部预检通过后才按 authored 顺序让 owner 对当前候选做语义验证与 proposal。后项可以观察前项 proposal，但任一失败仍由 GameCommandExecutor 回滚整批。
+
+`game/stories/poc/src/gameplay/runtime-schemas.ts` 是 aggregate runtime-schema 层：它组合十个 owner State Schema 形成 `pocGameStateSchemaV1`，复用各 owner 已有 strict Fact parser 并补齐 executor-only cases 形成 `pocGameplayFactSchemaV1`。`contracts/schemas.ts` 只提供基础 `pocEffectIntentSchemaV1`、`pocEffectSourceSchemaV1` 与 provenance validator；不得反向导入 aggregate owner 层。Scheduling、Rule output、transaction 与 GameSimulation 必须复用这些共享 Schema，不能各自保留第二份同 ABI parser。
 
 ```ts
 type Brand<T, Name extends string> = T & { readonly __brand: Name };
@@ -294,7 +298,7 @@ interface CalendarStateV1 {
 }
 ```
 
-`GameSnapshotEnvelopeV1<TState, TRngState>`、`RunIntegrityV1` 及其 Schema 属于 Base；`PocGameStateV1`、`PocSimulationStateV1` 和其子类型属于 PoC GameplayModules/GameSimulation。pristine integrity 精确为 `normal/0/null/[]`；modified 必须至少一次 mutation、`firstMutationSequence` 非 null，`reasons` 按首次出现的 reason kind 保留且最多 16 项。Gameplay State、Rule、Resolver、Queries 和 renderer 不能修改或观察 integrity；完整 Snapshot digest、Save、replay base 与 DebugBundle 必须覆盖它。
+`GameSnapshotEnvelopeV1<TState, TRngState>`、`RunIntegrityV1` 及其 Schema 属于 Base；`PocGameStateV1`、`PocSimulationStateV1` 和其子类型属于 PoC GameplayModules/GameSimulation。`pocGameStateSchemaV1: RuntimeSchemaV1<PocGameStateV1>` 必须从十个 owner 的 exact State Schema 组合，且 Scheduling、candidate commit、GameSimulation、Save/Debug stable-reference/invariant 入口复用同一 export；不得在 Resolver 或 executor 内复制 aggregate State parser。pristine integrity 精确为 `normal/0/null/[]`；modified 必须至少一次 mutation、`firstMutationSequence` 非 null，`reasons` 按首次出现的 reason kind 保留且最多 16 项。Gameplay State、Rule、Resolver、Queries 和 renderer 不能修改或观察 integrity；完整 Snapshot digest、Save、replay base 与 DebugBundle 必须覆盖它。
 
 `xorshift32-v1` 的 `cursor` 是非零 unsigned 32-bit 整数；`rawDrawCount` 对每次底层 `nextU32()`（包括拒绝采样丢弃值）增加 1。所有位运算按无符号 32 位执行：
 
@@ -1110,7 +1114,7 @@ type PocGameplayFactV1 =
   | { readonly kind: "run.completed"; readonly completion: RunCompletionV1 };
 ```
 
-`PocGameplayFactV1` 数组保持引擎应用顺序；不按 kind 或 ID 重排。它是成功 dispatch 的非权威输出，不能再次应用来恢复或修改 Snapshot；Snapshot 内的持久 `FactId`/`fact.set` 是 Story Fact，二者不得混用。
+`pocGameplayFactSchemaV1: RuntimeSchemaV1<PocGameplayFactV1>` 是完整 Fact union 的共享 strict Schema。它按 kind 复用各 owner contract 已有的 strict Fact parser，只在 aggregate runtime-schema 层解析 executor-only Fact cases；owner parser 从 private 改为 exported 不得改变字段、错误边界或语义。`PocGameplayFactV1` 数组保持引擎应用顺序；不按 kind 或 ID 重排。它是成功 dispatch 的非权威输出，不能再次应用来恢复或修改 Snapshot；Snapshot 内的持久 `FactId`/`fact.set` 是 Story Fact，二者不得混用。
 
 ### 5.2 拒绝原因与精确 details
 
@@ -1535,6 +1539,18 @@ type ModifierV1 =
       readonly reasonId: ReasonId;
     };
 
+type PocEffectSourceV1 =
+  | {
+      readonly kind: "command";
+      readonly commandKind: PocGameCommandV1["kind"];
+    }
+  | { readonly kind: "event"; readonly eventId: EventId }
+  | { readonly kind: "story_action"; readonly actionId: ActionId }
+  | { readonly kind: "world_action"; readonly actionId: ActionId }
+  | { readonly kind: "aura"; readonly auraId: AuraId }
+  | { readonly kind: "facility"; readonly facilityId: FacilityId }
+  | { readonly kind: "ending"; readonly endingId: EndingId };
+
 type EffectIntentV1 =
   | {
       readonly kind: "calendar.ap.adjust";
@@ -1642,9 +1658,63 @@ type ProgressionEffectIntentV1 = Extract<
   EffectIntentV1,
   { readonly kind: "fact.set" | "quest.set" | "outcome.set" }
 >;
+
+type PocEffectIntentV1 = EffectIntentV1;
+
+const pocEffectIntentKindsV1 = [
+  "calendar.ap.adjust",
+  "reputation.adjust",
+  "actor.stamina.adjust",
+  "actor.mood.adjust",
+  "relationship.affection.adjust",
+  "relationship.teamwork.adjust",
+  "relationship.stage.set",
+  "tavern.helper.set",
+  "inventory.grant",
+  "inventory.consume",
+  "inventory.item.grant",
+  "inventory.item.consume",
+  "aura.apply",
+  "aura.clear",
+  "fact.set",
+  "quest.set",
+  "outcome.set",
+  "modifier.add",
+  "ledger.append",
+] as const satisfies readonly PocEffectIntentV1["kind"][];
+
+declare const pocEffectIntentSchemaV1: RuntimeSchemaV1<PocEffectIntentV1>;
+declare const pocEffectSourceSchemaV1: RuntimeSchemaV1<PocEffectSourceV1>;
+
+declare function validatePocEffectIntentForSourceV1(
+  effect: DeepReadonly<PocEffectIntentV1>,
+  source: DeepReadonly<PocEffectSourceV1>,
+  data: DeepReadonly<PocSimulationDataV1>,
+): PocEffectIntentV1;
+
+interface PocEffectBatchResultV1 {
+  readonly kind: "applied" | "rejected";
+  readonly rejection?: PocRejectionReasonV1;
+}
+
+declare function routePocEffectBatchV1(
+  candidate: PocTransactionCandidateV1,
+  effects: readonly DeepReadonly<PocEffectIntentV1>[],
+  source: DeepReadonly<PocEffectSourceV1>,
+): PocEffectBatchResultV1;
 ```
 
-`modifier.add` 只写当前 `OpeningSession.sessionModifiers`；v1 不存在永久、无所有者的 Modifier bag。
+`PocEffectSourceV1` 是 Router 调用参数，不是 `EffectIntentV1` 的新增字段，也不进入 Snapshot、GameplayFact、ledger 或任何持久 ABI。其七个 kind 精确表示当前 authored batch 的 command/Event/StoryAction/WorldAction/Aura/facility/ending 非-debug provenance；Debug 变化只使用专用 executor/owner operation。Aura/facility 是合法的通用 Effect `ChangeReasonV1` 来源，但这不扩大任一 Effect payload 的嵌入式 source union，也不允许跳过 Aura/Facility owner 的专用状态操作。
+
+`validatePocEffectIntentForSourceV1` 先以 `pocEffectSourceSchemaV1` 和 `pocEffectIntentSchemaV1` strict parse，再验证 data 中的 stable references，并返回解析、冻结后的 Effect。`pocSimulationDataSchemaV1` 的静态 Effect 检查必须把 authored owner 映射成同一 `PocEffectSourceV1` 并复用同一底层 reference/provenance guard，不能保留第二套较弱规则。该 guard 要求 `inventory.grant.source`、`aura.apply.source`、`modifier.add.modifier.source` 与显式 batch source 按各 payload 已有 union 做精确的 kind/ID 对应；Event batch 映射到前两个 payload source 中现有的 `story_event` 判别值，不向 payload union 新增 `event` 别名。Aura source 不因此成为 Inventory/Aura payload source；facility source 只有在 payload 本身允许且 ID 相同时才匹配；`modifier.add` 仍只允许下面冻结的 Event source。ending source 只接受 `ProgressionEffectIntentV1`。该函数不接收 State，也不判断 active Opening。
+
+Router 必须先对整批逐项调用该函数，再读取 candidate State 对全部 `modifier.add` 做 stateful preflight，全部通过后才能产生第一个 owner proposal。普通 Effect 的 `ChangeReasonV1` 由显式 batch source 与 Effect 的 `reasonId` 组合；`ledger.append` 使用 `entry.reasonId`。`modifier.add` 只写当前 active `OpeningSession.sessionModifiers`：batch source 必须是 `event`，同一 Event 必须已存在于 `OpeningSession.triggeredEventIds`，且 `modifier.source` 必须是该 Event；v1 不存在永久、无所有者的 Modifier bag。Effect 外层 `reasonId` 只做 stable-reference validation，不写入 State/Fact，也不替换 `modifier.reasonId`；后者才是持久 Modifier explanation，两者不要求相等。
+
+Router 为 owner dependency DTO 读取 Calendar、Facilities 与 active Workflow 时，必须调用 candidate 从当前已选 module tuple 投影的 public read ports；不得直接从 aggregate Snapshot 读取这些 owner slices。该限制同样适用于 Inventory grant 的 day、已建设设施产生的 shelf-life extension，以及 `modifier.add` 的 active-Opening preflight。
+
+Transaction candidate 唯一的直接 RNG replacement seam 是内部 `replaceRngForDebug(rng: DeepReadonly<RngStateV1>): void`。它必须 strict-parse 完整 RNG state、参与 candidate checkpoint rollback，并在 commit 时成为 Snapshot RNG；只有 Task 12 已完成结构 admission 与语义 validation 的 replayable `debug.rng.set` 可以调用。普通 Gameplay、Rule、Resolver、owner、Query 与 projector 只能取得受控 `RuleRngV1` draw capability，不能替换 RNG；该 primitive 不进入 Story 默认入口、GameSimulation、GameQueries、SemanticGamePort 或 UI。
+
+通用 `ledger.append` 只接受以下封闭 provenance matrix：`story_cost | story_reward` 要求 `event` source 使用同 ID 的 event subject，或 `story_action | world_action` source 使用同 ID 的 action subject；`world_action` 要求同 ID 的 WorldAction source/action subject；`wage | opening_fee` 要求 `{ kind: "command", commandKind: "tavern.opening.start" }` 与 service-mode subject；`revenue | discarded_food` 要求 `{ kind: "command", commandKind: "tavern.opening.finalize" }` 与 recipe subject；`levy` 要求 `{ kind: "command", commandKind: "levy.pay" }` 与 levy subject。Aura/facility/ending source 不能路由任何 ledger Effect，其他 source/category/subject 组合全部失败。`purchase`、`facility`、`spoiled_ingredient` 与 `debug_adjustment` 只能由对应 owner-context 专用 operation 生成，不能借 `ledger.append` 绕过余额、数量、结算或 provenance 不变量。
 
 ## 7. Narrative IR、PoC Story 数据与启动期 PatchSurface
 
@@ -2059,7 +2129,7 @@ Scheduler 的观察与应用边界固定如下：
 
 1. 除内联 `story.explicit` 外，GameCommandExecutor 先在隔离 candidate 上验证并应用本命令各 owner 的直接 proposals；`command.succeeded` 观察该 post-owner-proposals candidate。之后的 Opening/day/week/phase context 按上面的全序逐个处理；
 2. 每个 context 开始时，从当时 candidate 取得一份 deep-readonly evaluation Snapshot。该 context 的全部 trigger、`when`、必然候选和 weighted-group 选择都只读这一份 Snapshot；同 context 较早事件的 effects 不能令较晚事件临时变得可选；
-3. 完成该 context 的全部选择后，才按 event 顺序验证并应用纯 effects。下一个 context 的 evaluation Snapshot 可以看到前一 context 已应用的 effects，因此跨 context 的因果是顺序可见的；
+3. 完成该 context 的全部选择后，才按 event 顺序以 `{ kind: "event", eventId }` 作为每个 Event batch 的显式 `PocEffectSourceV1` 验证并应用纯 effects。下一个 context 的 evaluation Snapshot 可以看到前一 context 已应用的 effects，因此跨 context 的因果是顺序可见的；
 4. `calendar.advance_phase` 是唯一时间推进命令，但 Calendar owner 只写 Calendar 路径。GameCommandExecutor 已按冻结顺序协调 Inventory/Status/Actors/Tavern/Calendar owner proposals、完成完整时段/日界候选并按 mutation 顺序追加其 GameplayFact 后，才进入上述非内联 contexts：旧时段的 spoilage/Aura/recovery 等事实在前，day/phase mutation 对应的 `calendar.phase_advanced` 在 `demand.materialized` 之前，随后才追加各 Scheduler context 的 `scheduler.event_triggered` 与 effects facts，任何层都不得事后按 kind 重排。因此 `day.ended.day` 表示刚结束的日期、`phase.entered` 表示新日期/时段，但二者的 `when` 都读取 post-transition candidate；作者需要匹配旧日期时使用 trigger 的 `days`，不能假定 `calendar.matches` 仍指向旧时段；
 5. `story.explicit` 是例外：evaluation Snapshot 位于 `eventCheckpoint` 节点、游标跳到 `nextNodeId` 之前；该 context effects 应用后才推进游标。v1 的 `story.explicit` event 必须 `sceneId=null`，需要切换场景时使用 Narrative 的 `call/jump/stageCue`，不能覆盖正在运行的 Narrative；`week.ended` 以及 trigger commandKinds 包含 `levy.pay` 的 `command.succeeded` Event 同样不得带 Scene，且 effects 只允许 `fact.set | quest.set`。终局演出由 Runtime 从已物化的 RunCompletion、serviceHistory 与 ledger 投影，不新增第二份 summary state；
 6. 所有 context 先收集 blocking scene request，直到命令的 contexts、effects、Schema 和 invariants 均通过才建立 Narrative。两个 Scheduler scene 使用 `scheduler.multiple_blocking_events`；一个 Scheduler scene 与既有 active Narrative 或 handler 自带的 step/story-action scene 冲突时使用 `narrative.blocking_conflict`。两类故障都回滚本命令的 effects、RNG、workflow、cursor 和 sequence。
@@ -5349,9 +5419,9 @@ declare function validateSaveImportCandidateV1<
 11. v1 每个 WorldAction 恰好两个按声明顺序且位于紧邻时段的 step，optionId 在该 action 内唯一。Session progress 只能按 `begin_scene → awaiting_completion_phase → completion_scene → ready_to_complete` 前进；两个 scene 阶段都必须有 active `NarrativeSource.kind="world_action"` 且 actionId 相同，两个 awaiting/ready 阶段 Narrative 不 active。Begin 原子校验 availability、互斥 Effect、基础+选项费用和体力，扣除第一 step AP，应用 beginEffects，再写 Session 并启动 begin scene；AdvancePhase 只在 awaiting 阶段进入 completion phase 并启动 completion scene；Complete 只在 ready 阶段扣第二 step AP、使用冻结 preparationBonus 结算并清空 workflow，不再扣现金或体力、也不启动第三段 Narrative。任一冲突全部回滚。
 12. Fact/Quest/Outcome ID 和值必须匹配当前 StoryStateDefinitions；resolvedChecks 按 `resolvedAtSequence` 升序、CheckId 唯一且 sequence 不超过 Snapshot sequence。每条 actor/band/modifier 引用合法，`totalBonus = attributeBonus + preparationBonus + sum(modifier.contribution)`，`total = dice[0] + dice[1] + totalBonus`；对应 band 必须覆盖 total。Narrative cursor/call frame/choice/jump/cue 引用必须存在且可达。Narrative `idle` 时 source/cursor 均为 null；`active` 时均非 null；`completed` 时 source 非 null、cursor 为 null、callStack 为空。Opening blockingEvent 的 eventId 必须等于 active Narrative event source。`enableWhen` 非空的 NarrativeChoice 必须存在 `disabledReasonId`，为空时必须省略该字段。
 13. Aura target、duration 与 definition 相容；同一 `(auraId,target)` 最多一个实例，重复 apply 拒绝为 `aura.already_present`，不自动叠层或刷新；`story_event`、`story_action`、`facility` 与 `world_action` source 必须引用当前 Story 对应 kind 中存在的稳定 ID。initial Aura 使用 `aura:initial:<index>`、`source.kind=initial` 和 `appliedAtSequence=0`，事务创建 Aura 使用 sequence 形式且 sequence 为正；`until_cleared` 表示仍在持续且可由显式命令/Story Event 解除，不表示永久不可撤销事实。倒计时只在成功提交的对应边界恰减一次：`phase_end` 在离开当前 phase 的直接边界效果完成后、进入新 phase Event 前扣；`day_end` 在旧日领域结算完成后、夜间恢复 collector 前扣；`night_recovery` 必须先以仍 active 的 Aura 参与本次 recovery collector/结算，再扣次数，因此 strain 会削减这一次恢复而不会提前消失。`opening` definition 必须至少含一个可由 Opening collector 选择的 Modifier；只有成功 `tavern.opening.finalize` 且 `SettlementDraftV1.appliedModifiers` 中实际包含该 auraId 来源时 remaining 才恰减 1，同一 Aura 的多个适用 Modifier 也只减一次；原样复制到 OpeningLedger 的同一数组保留结算后证据。Start、Continue、主动/紧急 closed、模式不匹配、拒绝或故障均不扣 opening 次数。任一 unit 减到 0 都在同一事务发出 `aura.expired` GameplayFact 并移除；整个外层命令回滚时不扣次数、不产生该 Fact。
-14. Modifier/EffectIntent 的 ID、目标、整数范围和生命周期合法；每个 Modifier、Aura definition、ActionCost、LifePolicy night recovery、ServiceMode、WorldAction、Facility skip、planned/emergency closure 与 heroine night recovery 的 ReasonId 都必须存在于 StoryContent，并由产生对应变化的 handler 原样写入 ChangeReason。Stamina 变化的 components 非空、按 base 后 Modifier stable order 保存 requestedDelta/reason，但应用策略由 handler 类型冻结：成本/支付及负向 Effect 必须先验证 `before + sum >= 0`，不足就以 `actor.insufficient_stamina` 拒绝，绝不能下界 clamp 后继续成功；恢复 resolution 允许 recovery modifier 为负，先计算 `effectiveRecovery = max(0, sum(requestedDelta))`，再只做一次 `min(before + effectiveRecovery, maximum)`，因此 strain 只能削减恢复而不会反向造成伤害，同时保留 base/bed/Aura 原因且不受应用顺序影响；`debug.actor.set_stamina` 是绝对值写入，只接受 `0..maximum`。所有成功路径都不得超过 maximum。`obligationForecast.visibleFrom <= conservativeFrom <= levyDue` 按 day/phase 全序成立且均不超过 playableDays。跨领域 Effect 全部验证后才按拥有者原子应用。
+14. Modifier/EffectIntent 的 ID、目标、整数范围和生命周期合法；每个 Modifier、Aura definition、ActionCost、LifePolicy night recovery、ServiceMode、WorldAction、Facility skip、planned/emergency closure 与 heroine night recovery 的 ReasonId 都必须存在于 StoryContent，并由产生对应变化的 handler 原样写入 ChangeReason。每个 Effect batch 必须携带显式 `PocEffectSourceV1`；整批完成 strict Schema、stable-reference、source/payload provenance、generic-ledger 和 active-Opening Modifier 预检后，才按拥有者原子应用。`modifier.add.reasonId` 仅验证，持久 explanation 始终是 `modifier.reasonId`。Stamina 变化的 components 非空、按 base 后 Modifier stable order 保存 requestedDelta/reason，但应用策略由 handler 类型冻结：成本/支付及负向 Effect 必须先验证 `before + sum >= 0`，不足就以 `actor.insufficient_stamina` 拒绝，绝不能下界 clamp 后继续成功；恢复 resolution 允许 recovery modifier 为负，先计算 `effectiveRecovery = max(0, sum(requestedDelta))`，再只做一次 `min(before + effectiveRecovery, maximum)`，因此 strain 只能削减恢复而不会反向造成伤害，同时保留 base/bed/Aura 原因且不受应用顺序影响；`debug.actor.set_stamina` 是绝对值写入，只接受 `0..maximum`。所有成功路径都不得超过 maximum。`obligationForecast.visibleFrom <= conservativeFrom <= levyDue` 按 day/phase 全序成立且均不超过 playableDays。
 15. StoryRule 输入是与 Snapshot 不共享可变引用的 plain-data projection；输出不得是 thenable，必须通过对应 strict Schema，且不能包含未声明 Effect。Tavern preview 输入必须精确属于 current-state/resources 或 active-opening/plan/session 分支，不能把 current resources 与 baseline 拼成第三种 basis；active branch 的 plan 与 baseline 不等时 invocation validation 失败。Demand resolve 只在 `run.start` 消费 RNG 并返回 base-line 对应的 offsets；Demand preview 没有 RNG capability，只用目标日 seeds、该日开始时的 reputation、Fact projection 与受控 modifiers，返回包含 actual 的确定 projection，且 preview range 必须包含 actual。`run.start` 物化 D1；之后 `calendar.advance_phase` 进入每个 service-day morning 时，在任何新日 Scheduler context 前物化并冻结当日 currentDemand，直到次日不再随当天 reputation/Fact 变化；每次物化恰追加一个包含同值的 `demand.materialized` GameplayFact，非 service day 清为 null 时不追加。因此 D1 营业人气影响 D2，D5 调查 Fact/人气影响 D6而不反改 D5。Query 隐藏 currentDemand.actual，StartOpening 原样复制完整 materialized demand 到 baseline，不重新调用规则。属性段位映射固定为 `C=0, B=1, A=2, S=3, S+=4`；2D6 每枚必须在 1..6。每个 CheckDefinition 的 CheckBandId 唯一、整数区间连续无重叠，CheckBranch 与 CheckResult 只引用这些 band；成功解析在同一命令把不含 effects 的 ResolvedCheckV1 追加到 Snapshot，再原子应用 band effects，因此读档不重掷也不重放 effects。band effects 才负责把对应 `OutcomeEntryV1` 设为封闭 StoryToken，CheckBandId 不冒充 OutcomeId。EndingResult 的 status 构成酒馆维度，endingId/effects/summary IDs 必须来自匹配该 status 的唯一 EndingDefinition；summary.relationship/investigation 必须引用并等于 effects 应用后的两个 Snapshot Outcome entry；成功税负结算由 Run owner 把同一 LevyResolution 与 EndingResult 物化为 RunCompletionV1 后再结束命令，重载后不得重新 evaluate；不要第三个伪造的 tavern OutcomeId。
-16. 每个 `ChangeReasonV1.reasonId` 必须存在于 StoryContent，并等于产生该变化的命令/Effect/结算 reason；`story_action`、`world_action`、event、Aura、facility 与 ending provenance 还必须引用当前 Story 对应 kind 中存在的稳定 ID，不能把 Story 变化退化成无来源的 `narrative.choose`。`InventoryState.ledger` 是所有现金与估值原因的唯一权威历史，`cash = startingCash + sum(ledger.cashDelta)`。任何命令、Effect 或 settlement 改变 cash 时，同一事务必须追加恰好对应的 ledger entries，新增 `cashDelta` 之和等于 cash before→after。`ledger.append` 是 Story Effect 唯一的直接现金/估值变化意图：Inventory Module 校验其 category/reason/subject/delta 后同时追加账本并改变 cash，不存在需要二次配对的 `cash.adjust`；`inventory.grant` 的受控批次创建按第 7 条由 Inventory Module 物化唯一 story-reward valuation entries。Opening Start 的原料 consume 是库存到 `OpeningBaseline.preparedPortions` 的内部数量转移，只发 `inventory.consumed` 并保留 batch slices，不改变总估值；Finalize 的 revenue entries 对售出成品扣除相应原料估值，discarded-food entries 对未售成品扣除估值，二者之和必须精确覆盖 baseline 已消费原料成本。Modules/GameSimulation 产生的采购、工资、开店杂费、收入、报废、腐败、设施、WorldAction 与税负账本必须使用 `StoryBalance.ledgerReasons` 对应字段，且这些 ReasonId 必须存在于 StoryContent。腐败/报废使用 `cashDelta=0` 和非零 `valuationDelta`，不会伪造现金支出。`debug.inventory.adjust_cash` 必须追加 `category="debug_adjustment"`、`subject.kind="debug"` 的账本行；调试 UI 若要设定目标现金，先用当前 cash 计算 delta，仍不可重置 startingCash 或绕过账本。
+16. 每个 `ChangeReasonV1.reasonId` 必须存在于 StoryContent，并等于产生该变化的命令/Effect/结算 reason；`story_action`、`world_action`、event、Aura、facility 与 ending provenance 还必须引用当前 Story 对应 kind 中存在的稳定 ID，不能把 Story 变化退化成无来源的 `narrative.choose`。`InventoryState.ledger` 是所有现金与估值原因的唯一权威历史，`cash = startingCash + sum(ledger.cashDelta)`。任何命令、Effect 或 settlement 改变 cash 时，同一事务必须追加恰好对应的 ledger entries，新增 `cashDelta` 之和等于 cash before→after。`ledger.append` 是 Story Effect 唯一的直接现金/估值变化意图，通用 Router 只接受 §6 冻结的 category/source/subject matrix；`purchase`、`facility`、`spoiled_ingredient` 与 `debug_adjustment` 必须来自对应 owner-context 专用 operation。Inventory Module 校验每项 category/reason/subject/delta 后同时追加账本并改变 cash，不存在需要二次配对的 `cash.adjust`；`inventory.grant` 的受控批次创建按第 7 条由 Inventory Module 物化唯一 story-reward valuation entries。Opening Start 的原料 consume 是库存到 `OpeningBaseline.preparedPortions` 的内部数量转移，只发 `inventory.consumed` 并保留 batch slices，不改变总估值；Finalize 的 revenue entries 对售出成品扣除相应原料估值，discarded-food entries 对未售成品扣除估值，二者之和必须精确覆盖 baseline 已消费原料成本。Modules/GameSimulation 产生的采购、工资、开店杂费、收入、报废、腐败、设施、WorldAction 与税负账本必须使用 `StoryBalance.ledgerReasons` 对应字段，且这些 ReasonId 必须存在于 StoryContent。腐败/报废使用 `cashDelta=0` 和非零 `valuationDelta`，不会伪造现金支出。`debug.inventory.adjust_cash` 必须追加 `category="debug_adjustment"`、`subject.kind="debug"` 的账本行；调试 UI 若要设定目标现金，先用当前 cash 计算 delta，仍不可重置 startingCash 或绕过账本。
 17. `BuildProvenanceV1.story`、`.engine` 与 `.resolved` 分开保存。普通兼容键包含 `story.id/revision + stateContractRevision/digest + engine.digest + simulationDigest`；`story.digest`、`presentationDigest`、`engine.version` 与 `appBuildId` 不单独阻断恢复。state digest 只覆盖完整 GameSnapshot，不覆盖 provenance、slot、时间、lineage、CommandLog、runtimeFailures 或 UI。GameplayModule/GameSimulation/GameCommandExecutor 属于 simulation root，不能污染 engine root。
 18. Save/Debug 导入顺序固定为 bytes → Strict JSON → envelope Schema → state digest → identity/compatibility → stable references → invariants；失败不得写 IDB 或替换 Session。Save 必须满足 `slot.storyId === provenance.story.id`、`slot.capturedCommandSequence === snapshot.commandSequence`、`stateDigest === digest(snapshot)` 和 lineage 链式不变量。阻断键精确相等时返回 exact；只有 simulation digest 一项不同且满足精确 PatchSet adoption declaration 时返回 adopted，并建立新 anchor/清空旧日志；其余阻断差异只能 inspect-only。DebugBundle 必须满足两个显式 digest 分别等于 replayBase/currentSnapshot 的 state digest；空 CommandLog 仍执行这两次检查。authoritative simulation replay 要求 engine/state-contract revision/state-contract digest/simulation 四项精确匹配；presentation 差异只取消“精确视觉复现”资格。inspect-only 数据不能写 Save Slot。
 19. CommandLog 上限 200；裁剪时 replayBase 前移到保留首条命令之前。authoritative replay 比较 outcome 判别、稳定 code/slot、GameplayFact/账本顺序、state digest 和 attempted draws，并最终要求 replay 结果等于 `currentStateDigest`。

@@ -313,14 +313,16 @@ export function parsePocTavernPlanV1(value: unknown): TavernPlanV1 {
   return deepFreezePocValueV1({
     mode: parseServiceMode(dataPropertyV1(plan, "mode", "Tavern plan")),
     menu: exactDataArrayV1(dataPropertyV1(plan, "menu", "Tavern plan"), "Tavern plan menu").map(
-      (line) => {
-        const recipe = exactDataObjectV1(line, ["recipeId", "portions"], "Tavern planned recipe");
-        return {
-          recipeId: parseRecipeId(dataPropertyV1(recipe, "recipeId", "Tavern planned recipe")),
-          portions: parseQuantity(dataPropertyV1(recipe, "portions", "Tavern planned recipe")),
-        } satisfies PlannedRecipeV1;
-      },
+      parsePocTavernPlannedRecipeV1,
     ),
+  });
+}
+
+export function parsePocTavernPlannedRecipeV1(value: unknown): PlannedRecipeV1 {
+  const recipe = exactDataObjectV1(value, ["recipeId", "portions"], "Tavern planned recipe");
+  return deepFreezePocValueV1({
+    recipeId: parseRecipeId(dataPropertyV1(recipe, "recipeId", "Tavern planned recipe")),
+    portions: parseQuantity(dataPropertyV1(recipe, "portions", "Tavern planned recipe")),
   });
 }
 
@@ -542,7 +544,7 @@ export function parsePocTavernMaterializedDemandDayV1(value: unknown): Materiali
   });
 }
 
-function parseOpeningOrderLineV1(value: unknown): OpeningOrderLineV1 {
+export function parsePocTavernOpeningOrderLineV1(value: unknown): OpeningOrderLineV1 {
   const line = exactDataObjectV1(
     value,
     [
@@ -651,7 +653,7 @@ export function parsePocTavernOpeningLedgerV1(value: unknown): OpeningLedgerV1 {
     orders: exactDataArrayV1(
       dataPropertyV1(ledger, "orders", "Tavern Opening ledger"),
       "Tavern Opening ledger orders",
-    ).map(parseOpeningOrderLineV1),
+    ).map(parsePocTavernOpeningOrderLineV1),
     receptionCapacity: parseNonNegativeSafeInteger(
       dataPropertyV1(ledger, "receptionCapacity", "Tavern Opening ledger"),
     ),
@@ -1451,6 +1453,9 @@ function parseTavernFactV1(value: unknown): PocTavernGameplayFactV1 {
   if (kind === "opening.finalized") return parseOpeningFinalizedFactV1(value);
   throw new TypeError("invalid Tavern GameplayFact kind");
 }
+
+export const pocTavernGameplayFactSchemaV1: RuntimeSchemaV1<PocTavernGameplayFactV1> =
+  Object.freeze({ parse: parseTavernFactV1 });
 
 const tavernStateKeysV1 = Object.freeze([
   "reputation",

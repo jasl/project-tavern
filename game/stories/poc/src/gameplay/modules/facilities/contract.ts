@@ -486,6 +486,9 @@ function parseFacilityChoiceFactV1(value: unknown): PocFacilitiesGameplayFactV1 
   });
 }
 
+export const pocFacilitiesGameplayFactSchemaV1: RuntimeSchemaV1<PocFacilitiesGameplayFactV1> =
+  Object.freeze({ parse: parseFacilityChoiceFactV1 });
+
 function canonicalValuesEqualV1(left: unknown, right: unknown): boolean {
   const leftBytes = canonicalJsonBytes(left);
   const rightBytes = canonicalJsonBytes(right);

@@ -320,7 +320,7 @@ export const pocRunOwnerOperationSchemaV1: RuntimeSchemaV1<PocRunOwnerOperationV
   },
 });
 
-type RunCompletedFactV1 = Extract<PocGameplayFactV1, { readonly kind: "run.completed" }>;
+export type PocRunGameplayFactV1 = Extract<PocGameplayFactV1, { readonly kind: "run.completed" }>;
 
 export type PocRunOwnerProposalV1 =
   | {
@@ -337,14 +337,14 @@ export type PocRunOwnerProposalV1 =
         readonly before: RunStateV1;
         readonly after: RunStateV1;
       };
-      readonly facts: readonly [RunCompletedFactV1];
+      readonly facts: readonly [PocRunGameplayFactV1];
     };
 
 function frozenSingletonV1<TValue>(value: TValue): readonly [TValue] {
   return Object.freeze([value] as const);
 }
 
-function parseRunCompletedFactV1(value: unknown): RunCompletedFactV1 {
+function parseRunCompletedFactV1(value: unknown): PocRunGameplayFactV1 {
   const fact = parseExactDataObjectV1(value, ["kind", "completion"], "Run completion Fact");
   if (fact.read("kind") !== "run.completed") {
     throw new TypeError("invalid Run completion Fact kind");
@@ -354,6 +354,10 @@ function parseRunCompletedFactV1(value: unknown): RunCompletedFactV1 {
     completion: parsePocRunCompletionV1(fact.read("completion")),
   });
 }
+
+export const pocRunGameplayFactSchemaV1: RuntimeSchemaV1<PocRunGameplayFactV1> = Object.freeze({
+  parse: parseRunCompletedFactV1,
+});
 
 function canonicalValuesEqualV1(left: unknown, right: unknown): boolean {
   const leftBytes = canonicalJsonBytes(left);

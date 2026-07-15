@@ -1360,6 +1360,9 @@ function parseInventoryFactV1(value: unknown): PocInventoryGameplayFactV1 {
   throw new TypeError("invalid Inventory Fact kind");
 }
 
+export const pocInventoryGameplayFactSchemaV1: RuntimeSchemaV1<PocInventoryGameplayFactV1> =
+  Object.freeze({ parse: parseInventoryFactV1 });
+
 function parseProposalKindV1(value: unknown): PocInventoryOwnerProposalPayloadV1["kind"] {
   if (
     value === "inventory.purchase" ||
