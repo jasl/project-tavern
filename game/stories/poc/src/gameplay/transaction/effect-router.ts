@@ -117,7 +117,10 @@ function inventoryIngredientsV1(
         unitPrice,
         shelfLifeDays,
         refrigeratable,
-      })),
+      }))
+      .toSorted(({ ingredientId: left }, { ingredientId: right }) =>
+        left < right ? -1 : left > right ? 1 : 0,
+      ),
   );
 }
 

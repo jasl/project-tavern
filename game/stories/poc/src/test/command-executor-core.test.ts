@@ -5,6 +5,7 @@ import {
   createValidatedPocRulesV1,
   deepFreezePocValueV1,
   parseNonNegativeSafeInteger,
+  parseIngredientId,
   parsePositiveSafeInteger,
   parseQuantity,
   parseWorldStepId,
@@ -459,6 +460,42 @@ describe("PoC core game-command executor", () => {
       },
     });
     expect(planned.state.simulation.tavern.servicePlan?.mode).toBe("manual");
+  });
+
+  it("projects authored Ingredients into the Inventory port's stable ID order", () => {
+    const fixture = createPocGameplayFixtureV1();
+    const authored = fixture.program.data.content.ingredients[0]!;
+    const earlierIngredientId = parseIngredientId("ingredient.alpha_fixture");
+    const program = withProgramDataV1(fixture, {
+      ...fixture.program.data,
+      content: {
+        ...fixture.program.data.content,
+        ingredients: [
+          authored,
+          {
+            ...authored,
+            ingredientId: earlierIngredientId,
+          },
+        ],
+      },
+    });
+    const executor = createExecutorV1(program);
+    const started = requireCommittedV1(executor, fixture.snapshot, { kind: "run.start" });
+    const active = requireCommittedV1(executor, started, {
+      kind: "policy.choose",
+      policyId: program.data.balance.lifePolicies[0]!.policyId,
+    });
+
+    const purchased = executor.executeAttempt(
+      active,
+      {
+        kind: "inventory.buy",
+        lines: [{ ingredientId: earlierIngredientId, quantity: parseQuantity(1) }],
+      },
+      undefined,
+    );
+
+    expect(purchased.result.kind, JSON.stringify(purchased)).toBe("committed");
   });
 
   it("publishes StoryAction effects and Narrative before the final started Fact", () => {

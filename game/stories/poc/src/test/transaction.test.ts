@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createTransactionalRngV1 } from "@sillymaker/base";
 
 import {
+  parseIngredientId,
   parseQuantity,
   parseReasonId,
   parseNonZeroUint32,
@@ -209,6 +210,49 @@ describe("PoC transaction candidate", () => {
           {
             kind: "inventory.grant",
             lines: [{ ingredientId, quantity: parseQuantity(1) }],
+            source: { kind: "story_action", actionId },
+            reasonId: parseReasonId("reason.fixture"),
+          },
+        ],
+        { kind: "story_action", actionId },
+      ),
+    ).toEqual({ kind: "applied" });
+  });
+
+  it("projects authored Ingredients into the Inventory effect port's stable ID order", () => {
+    const fixture = createPocGameplayFixtureV1();
+    const authored = fixture.program.data.content.ingredients[0]!;
+    const earlierIngredientId = parseIngredientId("ingredient.alpha_fixture");
+    const program: PocSimulationProgramV1 = Object.freeze({
+      data: pocSimulationDataSchemaV1.parse({
+        ...fixture.program.data,
+        content: {
+          ...fixture.program.data.content,
+          ingredients: [
+            authored,
+            {
+              ...authored,
+              ingredientId: earlierIngredientId,
+            },
+          ],
+        },
+      }),
+      rules: fixture.program.rules,
+    });
+    const candidate = createPocTransactionCandidateV1(
+      fixture.snapshot,
+      program,
+      createPocGameplayModuleTupleV1(program),
+    );
+    const actionId = program.data.content.storyActions[0]!.actionId;
+
+    expect(
+      routePocEffectBatchV1(
+        candidate,
+        [
+          {
+            kind: "inventory.grant",
+            lines: [{ ingredientId: earlierIngredientId, quantity: parseQuantity(1) }],
             source: { kind: "story_action", actionId },
             reasonId: parseReasonId("reason.fixture"),
           },

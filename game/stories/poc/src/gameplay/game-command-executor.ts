@@ -322,12 +322,16 @@ function inventoryIngredientsV1(
   data: DeepReadonly<PocSimulationDataV1>,
 ): readonly PocInventoryIngredientPortV1[] {
   return deepFreezePocValueV1(
-    data.content.ingredients.map(({ ingredientId, unitPrice, shelfLifeDays, refrigeratable }) => ({
-      ingredientId,
-      unitPrice,
-      shelfLifeDays,
-      refrigeratable,
-    })),
+    data.content.ingredients
+      .map(({ ingredientId, unitPrice, shelfLifeDays, refrigeratable }) => ({
+        ingredientId,
+        unitPrice,
+        shelfLifeDays,
+        refrigeratable,
+      }))
+      .toSorted(({ ingredientId: left }, { ingredientId: right }) =>
+        left < right ? -1 : left > right ? 1 : 0,
+      ),
   );
 }
 
