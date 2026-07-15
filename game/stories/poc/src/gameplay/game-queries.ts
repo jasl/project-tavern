@@ -9,12 +9,14 @@ import type {
   AvailabilityExplanationV1,
   CheckInputV1,
   CommandPreviewV1,
+  ConfirmationMetadataV1,
   DemandForecastV1,
   LifePolicySelectionProjectionV1,
   NarrativeChoiceProjectionV1,
   NarrativeProjectionV1,
   ObligationForecastKindV1,
   ObligationForecastV1,
+  PocActionInputCatalogV1,
   PocFacilitiesProjectionV1,
   PocGameCommandV1,
   PocGameQueriesV1,
@@ -37,6 +39,7 @@ import {
   deepFreezePocValueV1 as deepFreezeOwnedPocValueV1,
   parseAttributeBonus,
   parseMoney,
+  parsePositiveSafeInteger,
   parseSafeInteger,
 } from "./contracts/values.js";
 import { pocGameCommandSchemaV1 } from "./contracts/schemas.js";
@@ -77,6 +80,18 @@ function canonicalEqualV1(left: unknown, right: unknown): boolean {
     leftBytes.byteLength === rightBytes.byteLength &&
     leftBytes.every((byte, index) => byte === rightBytes[index])
   );
+}
+
+function mergeActionInputConfirmationsV1(
+  sources: readonly DeepReadonly<ConfirmationMetadataV1>[],
+): ConfirmationMetadataV1 {
+  return {
+    benefitTextIds: sources.flatMap(({ benefitTextIds }) => benefitTextIds),
+    mutuallyExcludedActionIds: sources.flatMap(
+      ({ mutuallyExcludedActionIds }) => mutuallyExcludedActionIds,
+    ),
+    majorRiskTextIds: sources.flatMap(({ majorRiskTextIds }) => majorRiskTextIds),
+  };
 }
 
 const attributeBonusByRankV1 = Object.freeze({ C: 0, B: 1, A: 2, S: 3, "S+": 4 });
@@ -399,6 +414,107 @@ export function createPocGameQueriesV1(
     );
   }
 
+  function getActionInputCatalog(): PocActionInputCatalogV1 {
+    const facilityOptions: Array<PocActionInputCatalogV1["facility"]["options"][number]> = [];
+    for (const opportunity of program.data.content.facilityOpportunities) {
+      for (const facilityId of opportunity.facilityIds) {
+        const facility = program.data.content.facilities.find(
+          ({ facilityId: candidate }) => candidate === facilityId,
+        );
+        if (facility === undefined) {
+          throw new TypeError(`unknown FacilityId in action input catalog: ${facilityId}`);
+        }
+        facilityOptions.push({
+          opportunityId: opportunity.opportunityId,
+          choice: { kind: "build", facilityId },
+          labelTextId: facility.nameTextId,
+          cashCost: facility.cashCost,
+          confirmation: mergeActionInputConfirmationsV1([
+            opportunity.confirmation,
+            facility.confirmation,
+          ]),
+        });
+      }
+      facilityOptions.push({
+        opportunityId: opportunity.opportunityId,
+        choice: { kind: "skip" },
+        labelTextId: opportunity.skipLabelTextId,
+        cashCost: parseMoney(0),
+        confirmation: mergeActionInputConfirmationsV1([
+          opportunity.confirmation,
+          opportunity.skipConfirmation,
+        ]),
+      });
+    }
+
+    const unlockedRecipeIds = new Set(state.simulation.tavern.unlockedRecipeIds);
+    return deepFreezePocValueV1({
+      purchase: {
+        lineLimit: program.data.balance.purchaseLineLimit,
+        ingredients: program.data.content.ingredients.map(
+          ({ ingredientId, nameTextId, unitPrice, shelfLifeDays, refrigeratable }) => ({
+            ingredientId,
+            nameTextId,
+            unitPrice,
+            shelfLifeDays,
+            refrigeratable,
+          }),
+        ),
+      },
+      tavernPlan: {
+        recipeLimit: parsePositiveSafeInteger(Math.min(16, program.data.balance.menuRecipeLimit)),
+        serviceModes: program.data.balance.serviceModes.map(
+          ({
+            mode,
+            nameTextId,
+            apCost,
+            playerStaminaCost,
+            heroineStaminaCost,
+            wage,
+            baseReceptionCapacity,
+            basePreparationPoints,
+            preparationPointsPerAction,
+            confirmation,
+          }) => ({
+            mode,
+            nameTextId,
+            apCost,
+            playerStaminaCost,
+            heroineStaminaCost,
+            wage,
+            baseReceptionCapacity,
+            basePreparationPoints,
+            preparationPointsPerAction,
+            confirmation,
+          }),
+        ),
+        recipes: program.data.content.recipes
+          .filter(({ recipeId }) => unlockedRecipeIds.has(recipeId))
+          .map(({ recipeId, nameTextId, ingredients, salePrice, prepPoints }) => ({
+            recipeId,
+            nameTextId,
+            ingredients,
+            salePrice,
+            prepPoints,
+          })),
+      },
+      facility: { options: facilityOptions },
+      worldAction: {
+        options: program.data.content.worldActions.flatMap((action) =>
+          action.options.map(({ optionId, labelTextId, additionalCashCost, confirmation }) => ({
+            actionId: action.actionId,
+            optionId,
+            labelTextId,
+            baseCashCost: action.baseCashCost,
+            additionalCashCost,
+            playerStaminaCost: action.playerStaminaCost,
+            confirmation,
+          })),
+        ),
+      },
+    });
+  }
+
   function explainAvailability(actionId: ActionId): AvailabilityExplanationV1 {
     return explainPocActionAvailabilityV1(state, program, actionId);
   }
@@ -590,6 +706,7 @@ export function createPocGameQueriesV1(
 
   return Object.freeze({
     getAvailableActions,
+    getActionInputCatalog,
     explainAvailability,
     previewCommand,
     previewTavernPlan,

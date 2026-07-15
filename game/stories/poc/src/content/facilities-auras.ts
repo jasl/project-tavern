@@ -104,6 +104,7 @@ export const pocFacilityOpportunityDefinitionsV1: DeepReadonly<
 > = deepFreezePocValueV1([
   {
     opportunityId: actionIdsV1[7],
+    skipLabelTextId: pocTextIdsV1.choiceFacilitySkipLabel,
     availability: [pocFacilityOpportunityUndecidedGateV1],
     facilityIds: [coldStorageId, comfortableBedId],
     confirmation: {

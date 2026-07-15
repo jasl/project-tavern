@@ -23,6 +23,7 @@ import {
   pocTavernOpeningControlProjectionSchemaV1,
   pocTavernProjectionSchemaV1,
   parseDayIndex,
+  parsePositiveSafeInteger,
   parseQuantity,
 } from "../gameplay/index.js";
 import { createPocGameCommandExecutorV1 } from "../gameplay/game-command-executor.js";
@@ -81,6 +82,7 @@ describe("PoC GameQueries", () => {
     expect(Object.isFrozen(queries)).toBe(true);
     expect(Object.keys(queries)).toEqual([
       "getAvailableActions",
+      "getActionInputCatalog",
       "explainAvailability",
       "previewCommand",
       "previewTavernPlan",
@@ -99,6 +101,134 @@ describe("PoC GameQueries", () => {
       "getResolvedChecks",
       "getRunCompletion",
     ]);
+  });
+
+  it("projects bounded action inputs from the closed Program and current unlocks", () => {
+    const fixture = createPocGameplayFixtureV1();
+    const queries = createPocGameQueriesV1(fixture.snapshot.state, fixture.program);
+    const catalog = queries.getActionInputCatalog();
+
+    expect(catalog).toEqual({
+      purchase: {
+        lineLimit: 4,
+        ingredients: [
+          {
+            ingredientId: "ingredient.fixture",
+            nameTextId: "text.fixture",
+            unitPrice: 1,
+            shelfLifeDays: 2,
+            refrigeratable: true,
+          },
+        ],
+      },
+      tavernPlan: {
+        recipeLimit: 2,
+        serviceModes: fixture.program.data.balance.serviceModes.map(
+          ({
+            availability: _availability,
+            reasonId: _reasonId,
+            teamworkGain: _teamworkGain,
+            ...mode
+          }) => mode,
+        ),
+        recipes: [
+          {
+            recipeId: "recipe.fixture",
+            nameTextId: "text.fixture",
+            ingredients: [{ ingredientId: "ingredient.fixture", quantity: 1 }],
+            salePrice: 3,
+            prepPoints: 1,
+          },
+        ],
+      },
+      facility: {
+        options: [
+          {
+            opportunityId: "action.fixture_facility",
+            choice: { kind: "build", facilityId: "facility.fixture" },
+            labelTextId: "text.fixture",
+            cashCost: 5,
+            confirmation: {
+              benefitTextIds: [],
+              mutuallyExcludedActionIds: [],
+              majorRiskTextIds: [],
+            },
+          },
+          {
+            opportunityId: "action.fixture_facility",
+            choice: { kind: "build", facilityId: "facility.fixture_bed" },
+            labelTextId: "text.fixture",
+            cashCost: 5,
+            confirmation: {
+              benefitTextIds: [],
+              mutuallyExcludedActionIds: [],
+              majorRiskTextIds: [],
+            },
+          },
+          {
+            opportunityId: "action.fixture_facility",
+            choice: { kind: "skip" },
+            labelTextId: "text.fixture",
+            cashCost: 0,
+            confirmation: {
+              benefitTextIds: [],
+              mutuallyExcludedActionIds: [],
+              majorRiskTextIds: [],
+            },
+          },
+        ],
+      },
+      worldAction: {
+        options: [
+          {
+            actionId: "action.fixture_world",
+            optionId: "choice.fixture_world",
+            labelTextId: "text.fixture",
+            baseCashCost: 0,
+            additionalCashCost: 0,
+            playerStaminaCost: 0,
+            confirmation: {
+              benefitTextIds: [],
+              mutuallyExcludedActionIds: [],
+              majorRiskTextIds: [],
+            },
+          },
+        ],
+      },
+    });
+    expectDeeplyFrozenV1(catalog);
+    expect(catalog).not.toHaveProperty("state");
+    expect(catalog.tavernPlan.serviceModes[0]).not.toHaveProperty("availability");
+    expect(catalog.tavernPlan.serviceModes[0]).not.toHaveProperty("reasonId");
+    expect(catalog.tavernPlan.serviceModes[0]).not.toHaveProperty("teamworkGain");
+    expect(catalog.tavernPlan.recipes[0]).not.toHaveProperty("preferences");
+
+    const lockedState = pocGameStateSchemaV1.parse({
+      ...fixture.snapshot.state,
+      simulation: {
+        ...fixture.snapshot.state.simulation,
+        tavern: { ...fixture.snapshot.state.simulation.tavern, unlockedRecipeIds: [] },
+      },
+    });
+    expect(
+      createPocGameQueriesV1(lockedState, fixture.program).getActionInputCatalog().tavernPlan
+        .recipes,
+    ).toEqual([]);
+
+    const cappedProgram = deepFreezePocValueV1({
+      ...fixture.program,
+      data: {
+        ...fixture.program.data,
+        balance: {
+          ...fixture.program.data.balance,
+          menuRecipeLimit: parsePositiveSafeInteger(32),
+        },
+      },
+    });
+    expect(
+      createPocGameQueriesV1(fixture.snapshot.state, cappedProgram).getActionInputCatalog()
+        .tavernPlan.recipeLimit,
+    ).toBe(16);
   });
 
   it("projects setup without leaking Snapshot-only or private gameplay fields", () => {

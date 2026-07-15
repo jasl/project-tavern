@@ -420,6 +420,7 @@ describe("PoC balance", () => {
     expect(pocBalanceV1.serviceModes).toEqual([
       {
         mode: "manual",
+        nameTextId: "text.poc.service_mode.manual.name",
         availability: [
           {
             conditions: [{ kind: "calendar.day_at_least", day: 1 }],
@@ -443,6 +444,7 @@ describe("PoC balance", () => {
       },
       {
         mode: "assisted",
+        nameTextId: "text.poc.service_mode.assisted.name",
         availability: [
           {
             conditions: [{ kind: "calendar.day_at_least", day: 2 }],
@@ -470,6 +472,7 @@ describe("PoC balance", () => {
       },
       {
         mode: "delegated",
+        nameTextId: "text.poc.service_mode.delegated.name",
         availability: [
           {
             conditions: [{ kind: "calendar.day_at_least", day: 3 }],
@@ -497,6 +500,7 @@ describe("PoC balance", () => {
       },
       {
         mode: "closed",
+        nameTextId: "text.poc.service_mode.closed.name",
         availability: [
           {
             conditions: [{ kind: "calendar.day_at_least", day: 3 }],
@@ -648,10 +652,12 @@ describe("PoC balance", () => {
       ...pocIngredientDefinitionsV1.map(({ nameTextId }) => nameTextId),
       ...pocRecipeDefinitionsV1.map(({ nameTextId }) => nameTextId),
       ...pocBalanceV1.lifePolicies.map(({ nameTextId }) => nameTextId),
-      ...pocBalanceV1.serviceModes.flatMap(({ confirmation }) => [
+      ...pocBalanceV1.serviceModes.flatMap(({ nameTextId, confirmation }) => [
+        nameTextId,
         ...confirmation.benefitTextIds,
         ...confirmation.majorRiskTextIds,
       ]),
+      ...pocFacilityOpportunityDefinitionsV1.map(({ skipLabelTextId }) => skipLabelTextId),
       ...pocBalanceV1.obligationForecast.recommendations.map(({ textId }) => textId),
     ];
     expect(referencedTextIds.every((textId) => knownTextIds.has(textId))).toBe(true);
@@ -1087,6 +1093,7 @@ describe("PoC D1-D4 authored surface", () => {
     expect(pocFacilityOpportunityDefinitionsV1).toEqual([
       {
         opportunityId: "action.facility_window",
+        skipLabelTextId: "text.poc.choice.facility.skip.label",
         availability: [
           {
             conditions: [

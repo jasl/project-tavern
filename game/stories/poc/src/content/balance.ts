@@ -116,6 +116,7 @@ function buildPocServiceModesV1() {
   return [
     {
       mode: serviceModeIdsV1[0],
+      nameTextId: pocTextIdsV1.serviceModeManualName,
       availability: [serviceModeDayGateV1(1)],
       confirmation: {
         benefitTextIds: [pocTextIdsV1.confirmationBenefitServiceManualControl],
@@ -134,6 +135,7 @@ function buildPocServiceModesV1() {
     },
     {
       mode: serviceModeIdsV1[1],
+      nameTextId: pocTextIdsV1.serviceModeAssistedName,
       availability: [serviceModeDayGateV1(2), pocHelperAvailabilityGateV1],
       confirmation: {
         benefitTextIds: [pocTextIdsV1.confirmationBenefitServiceAssistedCapacity],
@@ -152,6 +154,7 @@ function buildPocServiceModesV1() {
     },
     {
       mode: serviceModeIdsV1[2],
+      nameTextId: pocTextIdsV1.serviceModeDelegatedName,
       availability: [serviceModeDayGateV1(3), pocHelperAvailabilityGateV1],
       confirmation: {
         benefitTextIds: [pocTextIdsV1.confirmationBenefitServiceDelegatedRecovery],
@@ -170,6 +173,7 @@ function buildPocServiceModesV1() {
     },
     {
       mode: serviceModeIdsV1[3],
+      nameTextId: pocTextIdsV1.serviceModeClosedName,
       availability: [serviceModeDayGateV1(3)],
       confirmation: {
         benefitTextIds: [pocTextIdsV1.confirmationBenefitServiceClosedRecovery],

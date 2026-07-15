@@ -146,6 +146,7 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
       serviceModes: [
         {
           mode: "manual",
+          nameTextId: "text.fixture",
           availability: [],
           confirmation: {
             benefitTextIds: [],
@@ -164,6 +165,7 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
         },
         {
           mode: "assisted",
+          nameTextId: "text.fixture",
           availability: [],
           confirmation: {
             benefitTextIds: [],
@@ -182,6 +184,7 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
         },
         {
           mode: "delegated",
+          nameTextId: "text.fixture",
           availability: [],
           confirmation: {
             benefitTextIds: [],
@@ -200,6 +203,7 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
         },
         {
           mode: "closed",
+          nameTextId: "text.fixture",
           availability: [],
           confirmation: {
             benefitTextIds: [],
@@ -484,6 +488,7 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
       facilityOpportunities: [
         {
           opportunityId: "action.fixture_facility",
+          skipLabelTextId: "text.fixture",
           availability: [],
           facilityIds: ["facility.fixture", "facility.fixture_bed"],
           confirmation: {

@@ -1572,6 +1572,7 @@ export interface FacilityDefinitionV1 {
 
 export interface FacilityOpportunityDefinitionV1 {
   readonly opportunityId: ActionId;
+  readonly skipLabelTextId: TextId;
   readonly availability: readonly AvailabilityGateV1[];
   readonly facilityIds: readonly FacilityId[];
   readonly confirmation: ConfirmationMetadataV1;
@@ -1743,6 +1744,7 @@ export interface ActionCostDefinitionV1 {
 
 export interface ServiceModeDefinitionV1 {
   readonly mode: ServiceMode;
+  readonly nameTextId: TextId;
   readonly availability: readonly AvailabilityGateV1[];
   readonly confirmation: ConfirmationMetadataV1;
   readonly reasonId: ReasonId;
@@ -2395,6 +2397,73 @@ export interface PocLedgerProjectionV1 {
   readonly entries: readonly LedgerEntryV1[];
 }
 
+export interface PocActionInputCatalogV1 {
+  readonly purchase: {
+    readonly lineLimit: PositiveSafeInteger;
+    readonly ingredients: readonly {
+      readonly ingredientId: IngredientId;
+      readonly nameTextId: TextId;
+      readonly unitPrice: Money;
+      readonly shelfLifeDays: PositiveSafeInteger;
+      readonly refrigeratable: boolean;
+    }[];
+  };
+  readonly tavernPlan: {
+    readonly recipeLimit: PositiveSafeInteger;
+    readonly serviceModes: readonly {
+      readonly mode: ServiceMode;
+      readonly nameTextId: TextId;
+      readonly apCost: NonNegativeSafeInteger;
+      readonly playerStaminaCost: NonNegativeSafeInteger;
+      readonly heroineStaminaCost: NonNegativeSafeInteger;
+      readonly wage: Money;
+      readonly baseReceptionCapacity: NonNegativeSafeInteger;
+      readonly basePreparationPoints: NonNegativeSafeInteger;
+      readonly preparationPointsPerAction: NonNegativeSafeInteger;
+      readonly confirmation: ConfirmationMetadataV1;
+    }[];
+    readonly recipes: readonly {
+      readonly recipeId: RecipeId;
+      readonly nameTextId: TextId;
+      readonly ingredients: readonly RecipeIngredientV1[];
+      readonly salePrice: Money;
+      readonly prepPoints: PositiveSafeInteger;
+    }[];
+  };
+  readonly facility: {
+    readonly options: readonly (
+      | {
+          readonly opportunityId: ActionId;
+          readonly choice: {
+            readonly kind: "build";
+            readonly facilityId: FacilityId;
+          };
+          readonly labelTextId: TextId;
+          readonly cashCost: Money;
+          readonly confirmation: ConfirmationMetadataV1;
+        }
+      | {
+          readonly opportunityId: ActionId;
+          readonly choice: { readonly kind: "skip" };
+          readonly labelTextId: TextId;
+          readonly cashCost: Money;
+          readonly confirmation: ConfirmationMetadataV1;
+        }
+    )[];
+  };
+  readonly worldAction: {
+    readonly options: readonly {
+      readonly actionId: ActionId;
+      readonly optionId: ChoiceId;
+      readonly labelTextId: TextId;
+      readonly baseCashCost: Money;
+      readonly additionalCashCost: Money;
+      readonly playerStaminaCost: NonNegativeSafeInteger;
+      readonly confirmation: ConfirmationMetadataV1;
+    }[];
+  };
+}
+
 export type PocGameViewStatusV1 = "setup" | "active" | "terminal";
 
 export interface PocGameViewV1 {
@@ -2416,6 +2485,7 @@ export interface PocGameViewV1 {
 
 export interface PocGameQueriesV1 {
   getAvailableActions(): readonly ActionViewV1[];
+  getActionInputCatalog(): PocActionInputCatalogV1;
   explainAvailability(actionId: ActionId): AvailabilityExplanationV1;
   previewCommand<C extends PocGameCommandV1>(command: C): CommandPreviewV1<C>;
   previewTavernPlan(plan: TavernPlanV1): TavernPreviewV1;

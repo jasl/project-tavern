@@ -1657,6 +1657,7 @@ const lifePolicyDefinitionZodSchemaV1 = z.strictObject({
 
 const serviceModeDefinitionZodSchemaV1 = z.strictObject({
   mode: serviceModeZodSchemaV1,
+  nameTextId: textIdZodSchemaV1,
   availability: z.array(availabilityGateZodSchemaV1),
   confirmation: confirmationMetadataZodSchemaV1,
   reasonId: reasonIdZodSchemaV1,
@@ -1848,6 +1849,7 @@ const facilityDefinitionZodSchemaV1 = z.strictObject({
 });
 const facilityOpportunityDefinitionZodSchemaV1 = z.strictObject({
   opportunityId: actionIdZodSchemaV1,
+  skipLabelTextId: textIdZodSchemaV1,
   availability: z.array(availabilityGateZodSchemaV1),
   facilityIds: z.array(facilityIdZodSchemaV1),
   confirmation: confirmationMetadataZodSchemaV1,

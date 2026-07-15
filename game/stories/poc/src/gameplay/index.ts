@@ -53,14 +53,11 @@ import {
 import { parsePocInventoryLedgerEntryDraftV1 as parseRuleLedgerEntryDraftV1 } from "./modules/inventory/contract.js";
 import { parsePocProgressionCheckResultV1 as parseRuleCheckResultV1 } from "./modules/progression/contract.js";
 import { parsePocWorkflowModifierV1 as parseRuleModifierV1 } from "./modules/workflow/contract.js";
-import { createPocCheckResolverV1 } from "./resolvers/check-resolver.js";
+import { createPocRuleProvidersV1 } from "./rule-providers.js";
 import {
   assertPocTavernPreviewOutputV1 as assertRuleTavernPreviewOutputV1,
   assertPocTavernSettlementOutputV1 as assertRuleTavernSettlementOutputV1,
-  createPocTavernSettlementResolverV1,
 } from "./resolvers/tavern-settlement-resolver.js";
-import { createPocDemandRulesV1 } from "./rules/demand-rules.js";
-import { createPocEndingRuleV1 } from "./rules/ending-rule.js";
 
 function parsedRuleValueSchemaV1<T>(label: string, parser: (value: unknown) => T): z.ZodType<T> {
   return z.unknown().transform((value, context): T => {
@@ -763,18 +760,10 @@ export function createValidatedPocRulesV1(
 export function createPocRulesV1(
   data: DeepReadonly<PocSimulationDataV1>,
 ): DeepReadonly<PocRulesV1> {
-  const tavern = createPocTavernSettlementResolverV1(data);
-  const checks = createPocCheckResolverV1(data);
-  const endings = createPocEndingRuleV1(data);
-  const providers = deepFreezeRulesV1({
-    demand: createPocDemandRulesV1(data),
-    tavern: { preview: tavern.preview, settle: tavern.settle },
-    checks: { describe: checks.describe, resolve: checks.resolve },
-    endings: { evaluate: endings.evaluate },
-  });
-  return createValidatedPocRulesV1(data, providers);
+  return createValidatedPocRulesV1(data, createPocRuleProvidersV1(data));
 }
 
+export { createPocRuleProvidersV1 };
 export { createPocDemandRulesV1 } from "./rules/demand-rules.js";
 export { createPocEndingRuleV1 } from "./rules/ending-rule.js";
 export { createPocCheckResolverV1 } from "./resolvers/check-resolver.js";
@@ -1146,6 +1135,7 @@ export type {
   PocTavernProjectionV1,
   PocFacilitiesProjectionV1,
   PocLedgerProjectionV1,
+  PocActionInputCatalogV1,
   PocGameViewStatusV1,
   PocGameViewV1,
   PocGameQueriesV1,

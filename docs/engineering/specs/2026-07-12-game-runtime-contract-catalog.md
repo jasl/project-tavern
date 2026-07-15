@@ -2021,6 +2021,7 @@ interface FacilityOpportunityDefinitionV1 {
   readonly availability: readonly AvailabilityGateV1[];
   readonly facilityIds: readonly FacilityId[];
   readonly confirmation: ConfirmationMetadataV1;
+  readonly skipLabelTextId: TextId;
   readonly skipConfirmation: ConfirmationMetadataV1;
   readonly skipReasonId: ReasonId;
 }
@@ -2224,6 +2225,7 @@ interface ActionCostDefinitionV1 {
 
 interface ServiceModeDefinitionV1 {
   readonly mode: ServiceMode;
+  readonly nameTextId: TextId;
   readonly availability: readonly AvailabilityGateV1[];
   readonly confirmation: ConfirmationMetadataV1;
   readonly reasonId: ReasonId;
@@ -2316,11 +2318,17 @@ interface StoryBalanceV1 {
   readonly maxNarrativeCallDepth: PositiveSafeInteger;
 }
 
-// actionCosts 必须恰好各含四个 FixedActionCostKeyV1 一次；serviceModes 必须恰好各含四个 ServiceMode 一次。
+// actionCosts 必须恰好各含四个 FixedActionCostKeyV1 一次；serviceModes 必须恰好各含四个 ServiceMode 一次，
+// 且 nameTextId 必须引用 StoryContent 已声明的唯一玩家可见模式名称。
 // Engine preview 与 execute 读取同一表。baseDemand 对 serviceDays 与每个 CustomerSegment 的笛卡尔积恰好一行。
 // facility.choose 的 skip 分支是结构性零成本（AP、双方体力和现金均为 0），不进入 actionCosts；只有
 // build 分支读取 facility.choose.build，preview 与 execute 不得另行发明数值。
 ```
+
+`ServiceModeDefinitionV1.nameTextId` 与 `FacilityOpportunityDefinitionV1.skipLabelTextId` 在首个完整 PoC
+Story/fixture/golden 冻结前补全 revision 1 的 authoring ABI，不提升 State contract revision。它们随 resolved
+Simulation Program 和 simulation digest 保存；UI 只通过 Query/Semantic 投影取得这些 TextId，再经
+PresentationReadPort 解析 TextCatalog，不能按 enum/ID 字符串拼接 ID、复用语义不同的 Action label 或保留第二份映射。
 
 七日 PoC 的 `endingPolicy` 不是 Rule provider 内的私有常量。其 concrete value 精确为：
 
