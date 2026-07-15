@@ -12,7 +12,6 @@ import type {
   ActionPresentationDefinitionV1,
   ActiveWorkflowV1,
   AvailabilityGateV1,
-  AuraInstanceV1,
   ChangeReasonV1,
   CheckInputV1,
   CheckResultV1,
@@ -45,7 +44,6 @@ import type {
   ServiceModeDefinitionV1,
   StoryRuleSlotV1,
   TavernPlanV1,
-  TavernPreviewInputV1,
   TavernPreviewV1,
   WorldActionDefinitionV1,
   WorldActionSessionV1,
@@ -83,6 +81,14 @@ import {
   createPocSchedulingResolverV1,
   evaluatePocConditionsV1,
 } from "./resolvers/scheduling-resolver.js";
+import {
+  collectPocStateModifiersV1,
+  evaluatePocActionPresentationRejectionV1,
+  evaluatePocGameCommandV1,
+  evaluatePocLifecycleRejectionV1,
+  previewPocTavernPlanV1,
+  resolvePocActionPresentationV1,
+} from "./game-command-evaluation.js";
 import {
   commitPocCandidateV1,
   createPocTransactionCandidateV1,
@@ -305,50 +311,11 @@ function selectedReadPortsV1(
   };
 }
 
-function sourceOrderV1(left: AuraInstanceV1, right: AuraInstanceV1): number {
-  if (left.appliedAtSequence !== right.appliedAtSequence) {
-    return left.appliedAtSequence - right.appliedAtSequence;
-  }
-  return left.instanceId < right.instanceId ? -1 : left.instanceId > right.instanceId ? 1 : 0;
-}
-
 export function collectPocModifiersV1(
   candidate: PocTransactionCandidateV1,
-  modules: PocGameplayModuleTupleV1,
+  _modules: PocGameplayModuleTupleV1,
 ): readonly ModifierV1[] {
-  const data = candidate.data();
-  const ports = selectedReadPortsV1(candidate, modules);
-  const modifiers: ModifierV1[] = [];
-  for (const built of [...ports.facilities.built].sort(
-    ({ facilityId: left }, { facilityId: right }) => (left < right ? -1 : left > right ? 1 : 0),
-  )) {
-    const definition = data.content.facilities.find(
-      ({ facilityId }) => facilityId === built.facilityId,
-    );
-    if (definition === undefined) {
-      faultV1(
-        engineInvariantFaultV1(
-          "story.reference_missing",
-          new TypeError(`missing Facility ${built.facilityId}`),
-        ),
-      );
-    }
-    modifiers.push(...definition.modifiers);
-  }
-  for (const aura of [...ports.status.auras].sort(sourceOrderV1)) {
-    const definition = data.content.auras.find(({ auraId }) => auraId === aura.auraId);
-    if (definition === undefined) {
-      faultV1(
-        engineInvariantFaultV1(
-          "story.reference_missing",
-          new TypeError(`missing Aura ${aura.auraId}`),
-        ),
-      );
-    }
-    modifiers.push(...definition.modifiers);
-  }
-  if (ports.workflow?.kind === "opening") modifiers.push(...ports.workflow.sessionModifiers);
-  return deepFreezePocValueV1(modifiers);
+  return collectPocStateModifiersV1(candidate.snapshot().state, candidate.data());
 }
 
 function inventoryIngredientsV1(
@@ -423,22 +390,7 @@ function actionPresentationV1(
   commandKind: PocGameCommandV1["kind"],
   actionId?: ActionId,
 ): ActionPresentationDefinitionV1 {
-  const matches = candidate
-    .data()
-    .content.actions.filter(
-      (action) =>
-        action.commandKind === commandKind &&
-        (actionId === undefined || action.actionId === actionId),
-    );
-  if (matches.length !== 1 || matches[0] === undefined) {
-    faultV1(
-      engineInvariantFaultV1(
-        "story.reference_missing",
-        new TypeError(`missing unique Action presentation for ${commandKind}`),
-      ),
-    );
-  }
-  return matches[0];
+  return resolvePocActionPresentationV1(candidate.data(), commandKind, actionId);
 }
 
 function guardActionV1(
@@ -447,22 +399,12 @@ function guardActionV1(
   actionId?: ActionId,
 ): ActionPresentationDefinitionV1 {
   const action = actionPresentationV1(candidate, commandKind, actionId);
-  const calendar = candidate.calendarReadPort();
-  if (!action.availablePhases.includes(calendar.phase)) {
-    rejectV1({
-      code: "calendar.invalid_phase",
-      details: { actual: calendar.phase, allowed: action.availablePhases },
-    });
-  }
-  const observation = conditionObservationV1(candidate);
-  for (const gate of [...action.visibility, ...action.availability]) {
-    if (!evaluatePocConditionsV1(gate.conditions, observation, candidate.data())) {
-      rejectV1({
-        code: "action.unavailable",
-        details: { actionId: action.actionId, reasonId: gate.reasonId },
-      });
-    }
-  }
+  const rejection = evaluatePocActionPresentationRejectionV1(
+    candidate.snapshot().state,
+    candidate.data(),
+    action,
+  );
+  if (rejection !== null) rejectV1(rejection);
   return action;
 }
 
@@ -1142,62 +1084,13 @@ function finishCommandSchedulerV1(
   );
 }
 
-function currentStateTavernPreviewInputV1(
-  candidate: PocTransactionCandidateV1,
-  modules: PocGameplayModuleTupleV1,
-  plan: DeepReadonly<TavernPlanV1>,
-): TavernPreviewInputV1 {
-  const ports = selectedReadPortsV1(candidate, modules);
-  const available = new Map<IngredientId, number>();
-  for (const batch of ports.inventory.ingredientBatches) {
-    const current = available.get(batch.ingredientId) ?? 0;
-    if (current > Number.MAX_SAFE_INTEGER - batch.quantity) {
-      faultV1(
-        engineInvariantFaultV1(
-          "resource.negative",
-          new TypeError("available ingredient quantity exceeds safe integer bounds"),
-        ),
-      );
-    }
-    available.set(batch.ingredientId, current + batch.quantity);
-  }
-  return deepFreezePocValueV1({
-    basis: "current_state",
-    day: ports.calendar.day,
-    plan,
-    preparationActionCount: ports.tavern.preparation.actionCount,
-    availableIngredients: [...available]
-      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-      .map(([ingredientId, quantity]) => ({
-        ingredientId,
-        quantity: parseQuantity(quantity),
-      })),
-    demand: ports.tavern.currentDemand?.segments ?? [],
-    actors: {
-      playerAttributes: ports.actors.player.attributes,
-      heroineMood: ports.actors.heroine.mood,
-      relationship: ports.actors.relationship,
-      helper: ports.tavern.helper,
-    },
-    facilityIds: ports.facilities.built.map(({ facilityId }) => facilityId),
-    modifiers: collectPocModifiersV1(candidate, modules),
-    resources: {
-      apRemaining: ports.calendar.apRemaining,
-      cash: ports.inventory.cash,
-      playerStamina: ports.actors.player.stamina.current,
-      heroineStamina: ports.actors.heroine.stamina.current,
-    },
-  });
-}
-
 export function previewPocTavernPlanForCandidateV1(
   candidate: PocTransactionCandidateV1,
-  modules: PocGameplayModuleTupleV1,
+  _modules: PocGameplayModuleTupleV1,
   program: DeepReadonly<PocSimulationProgramV1>,
   plan: DeepReadonly<TavernPlanV1>,
 ): TavernPreviewV1 {
-  const input = currentStateTavernPreviewInputV1(candidate, modules, plan);
-  return invokeRuleV1("tavern.preview", () => program.rules.tavern.preview(input));
+  return previewPocTavernPlanV1(candidate.snapshot().state, program, plan, invokeRuleV1);
 }
 
 function openingModeForPlanV1(
@@ -2380,7 +2273,7 @@ function payOpeningCostsV1(
       {
         category: "wage",
         reasonId: candidate.data().balance.ledgerReasons.serviceWage,
-        cashDelta: parseSafeInteger(-wageCharge),
+        cashDelta: parseSafeInteger(wageCharge === 0 ? 0 : -wageCharge),
         valuationDelta: parseSafeInteger(0),
         subject: { kind: "service_mode", mode: mode.mode },
       },
@@ -2395,7 +2288,7 @@ function payOpeningCostsV1(
       {
         category: "opening_fee",
         reasonId: candidate.data().balance.ledgerReasons.openingFee,
-        cashDelta: parseSafeInteger(-openingFeeCharge),
+        cashDelta: parseSafeInteger(openingFeeCharge === 0 ? 0 : -openingFeeCharge),
         valuationDelta: parseSafeInteger(0),
         subject: { kind: "service_mode", mode: mode.mode },
       },
@@ -3148,90 +3041,22 @@ function payLevyV1(
 }
 
 function guardLifecycleV1(snapshot: PocGameSnapshotV1, command: PocGameCommandV1): void {
-  const { run, activeWorkflow, tavern, calendar } = snapshot.state.simulation;
-  const narrative = snapshot.state.story.narrative;
-  if (command.kind === "run.start") {
-    if (
-      snapshot.commandSequence > 0 ||
-      tavern.demandSeeds.length > 0 ||
-      narrative.status !== "idle"
-    ) {
-      if (snapshot.commandSequence <= 0) {
-        faultV1(
-          engineInvariantFaultV1(
-            "terminal_state.invalid",
-            new TypeError("pre-start Snapshot has materialized lifecycle state"),
-          ),
-        );
-      }
-      rejectV1({
-        code: "run.already_started",
-        details: { commandSequence: parsePositiveSafeInteger(snapshot.commandSequence) },
-      });
-    }
-    return;
+  const rejection = evaluatePocLifecycleRejectionV1(snapshot.state, command);
+  const stateLooksStarted =
+    snapshot.state.simulation.tavern.demandSeeds.length > 0 ||
+    snapshot.state.story.narrative.status !== "idle";
+  if (
+    (snapshot.commandSequence === 0 && stateLooksStarted) ||
+    (snapshot.commandSequence > 0 && !stateLooksStarted)
+  ) {
+    faultV1(
+      engineInvariantFaultV1(
+        "terminal_state.invalid",
+        new TypeError("Snapshot sequence disagrees with State-visible lifecycle"),
+      ),
+    );
   }
-  if (snapshot.commandSequence === 0 || tavern.demandSeeds.length === 0) {
-    rejectV1({
-      code: "run.not_started",
-      details: { commandKind: command.kind },
-    });
-  }
-  if (run.status !== "setup" && run.status !== "active") {
-    rejectV1({
-      code: "run.invalid_status",
-      details: { actual: run.status, allowed: ["setup", "active"] },
-    });
-  }
-  if (narrative.status === "active") {
-    if (command.kind === "narrative.advance" || command.kind === "narrative.choose") return;
-    if (narrative.cursor === null) {
-      faultV1(
-        engineInvariantFaultV1(
-          "narrative.invalid_cursor",
-          new TypeError("active Narrative has no cursor"),
-        ),
-      );
-    }
-    rejectV1({
-      code: "command.blocked_by_narrative",
-      details: { commandKind: command.kind, cursor: narrative.cursor },
-    });
-  }
-  if (calendar.lifePolicyId === null && command.kind !== "policy.choose") {
-    rejectV1({ code: "run.policy_required", details: { commandKind: command.kind } });
-  }
-  if (activeWorkflow === null) return;
-  if (activeWorkflow.kind === "opening") {
-    if (
-      command.kind === "tavern.opening.start" ||
-      command.kind === "tavern.opening.continue" ||
-      command.kind === "tavern.opening.finalize" ||
-      command.kind === "calendar.advance_phase"
-    ) {
-      return;
-    }
-    rejectV1({
-      code: "command.blocked_by_workflow",
-      details: {
-        commandKind: command.kind,
-        blocker: { kind: "opening", checkpoint: activeWorkflow.checkpoint },
-      },
-    });
-  }
-  const allowed =
-    (activeWorkflow.progress === "awaiting_completion_phase" &&
-      command.kind === "calendar.advance_phase") ||
-    (activeWorkflow.progress === "ready_to_complete" && command.kind === "world.action.complete");
-  if (!allowed) {
-    rejectV1({
-      code: "command.blocked_by_workflow",
-      details: {
-        commandKind: command.kind,
-        blocker: { kind: "world_action", progress: activeWorkflow.progress },
-      },
-    });
-  }
+  if (rejection !== null) rejectV1(rejection);
 }
 
 function assertNeverCommandV1(command: never): never {
@@ -3371,6 +3196,24 @@ function dispatchCoreCommandV1(
   scheduler: ReturnType<typeof createPocSchedulingResolverV1>,
 ): void {
   guardLifecycleV1(candidate.snapshot(), command);
+  const evaluation = evaluatePocGameCommandV1(
+    candidate.snapshot().state,
+    program,
+    command,
+    invokeRuleV1,
+  );
+  if (!evaluation.allowed) {
+    const reason = evaluation.reasons[0];
+    if (reason === undefined) {
+      faultV1(
+        engineInvariantFaultV1(
+          "terminal_state.invalid",
+          new TypeError("command evaluator rejected without a reason"),
+        ),
+      );
+    }
+    rejectV1(reason);
+  }
   switch (command.kind) {
     case "run.start":
       runStartV1(candidate, modules, program, scheduler);

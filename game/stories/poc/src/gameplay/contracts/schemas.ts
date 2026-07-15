@@ -23,8 +23,10 @@ import {
   parseFacilityId,
   parseIngredientId,
   parseItemId,
+  parseLedgerEntryId,
   parseModifierSourceId,
   parseNodeId,
+  parseOpeningSessionId,
   parseOutcomeId,
   parsePolicyId,
   parseQuestId,
@@ -37,24 +39,38 @@ import {
   parseWorldStepId,
 } from "./ids.js";
 import type {
+  DemandForecastV1,
+  LifePolicySelectionProjectionV1,
+  ObligationForecastV1,
   PocDebugCommandV1,
   PocDebugCommandValidationErrorV1,
   PocEffectIntentV1,
   PocEffectSourceV1,
+  PocFacilitiesProjectionV1,
   PocGameCommandV1,
+  PocGameViewV1,
+  PocHudProjectionV1,
+  PocInventoryProjectionV1,
+  PocLedgerProjectionV1,
+  PocRejectionReasonV1,
   PocNarrativeProgramV1,
   PocSimulationContentV1,
   PocSimulationDataV1,
   PocSimulationManifestV1,
+  PocTavernProjectionV1,
+  RunStartControlProjectionV1,
   StoryBalanceV1,
   StoryInitialStateV1,
   StoryStateDefinitionsV1,
+  TavernOpeningControlProjectionV1,
 } from "./types.js";
 
 import {
   deepFreezePocValueV1,
   parseAbsoluteDayIndex,
+  parseAttributeBonus,
   parseDayIndex,
+  parseDieFace,
   parseMoney,
   parseMoodPoint,
   parseNonNegativeSafeInteger,
@@ -188,6 +204,8 @@ const absoluteDayIndexZodSchemaV1 = parsedValueSchemaV1("AbsoluteDayIndex", pars
 const moodPointZodSchemaV1 = parsedValueSchemaV1("MoodPoint", parseMoodPoint);
 const moneyZodSchemaV1 = parsedValueSchemaV1("Money", parseMoney);
 const quantityZodSchemaV1 = parsedValueSchemaV1("Quantity", parseQuantity);
+const attributeBonusZodSchemaV1 = parsedValueSchemaV1("AttributeBonus", parseAttributeBonus);
+const dieFaceZodSchemaV1 = parsedValueSchemaV1("DieFace", parseDieFace);
 
 const actionIdZodSchemaV1 = parsedValueSchemaV1("ActionId", parseActionId);
 const auraIdZodSchemaV1 = parsedValueSchemaV1("AuraId", parseAuraId);
@@ -208,8 +226,10 @@ const factIdZodSchemaV1 = parsedValueSchemaV1("FactId", parseFactId);
 const facilityIdZodSchemaV1 = parsedValueSchemaV1("FacilityId", parseFacilityId);
 const ingredientIdZodSchemaV1 = parsedValueSchemaV1("IngredientId", parseIngredientId);
 const itemIdZodSchemaV1 = parsedValueSchemaV1("ItemId", parseItemId);
+const ledgerEntryIdZodSchemaV1 = parsedValueSchemaV1("LedgerEntryId", parseLedgerEntryId);
 const modifierSourceIdZodSchemaV1 = parsedValueSchemaV1("ModifierSourceId", parseModifierSourceId);
 const nodeIdZodSchemaV1 = parsedValueSchemaV1("NodeId", parseNodeId);
+const openingSessionIdZodSchemaV1 = parsedValueSchemaV1("OpeningSessionId", parseOpeningSessionId);
 const outcomeIdZodSchemaV1 = parsedValueSchemaV1("OutcomeId", parseOutcomeId);
 const policyIdZodSchemaV1 = parsedValueSchemaV1("PolicyId", parsePolicyId);
 const questIdZodSchemaV1 = parsedValueSchemaV1("QuestId", parseQuestId);
@@ -673,7 +693,7 @@ const pocDebugCommandValidationErrorZodSchemaV1 = z.union([
     code: z.literal("debug.value_out_of_range"),
     commandKind: z.literal("debug.inventory.adjust_cash"),
     field: z.literal("cash_delta_result"),
-    actual: safeIntegerZodSchemaV1,
+    actual: z.string().regex(/^(?:0|-?[1-9]\d*)$/u),
     minimum: z.literal(0),
     maximum: safeIntegerZodSchemaV1,
   }),
@@ -720,6 +740,390 @@ export const pocDebugCommandValidationErrorSchemaV1: RuntimeSchemaV1<PocDebugCom
   runtimeSchemaV1(
     pocDebugCommandValidationErrorZodSchemaV1 as z.ZodType<PocDebugCommandValidationErrorV1>,
   );
+
+const runStatusZodSchemaV1 = z.enum([
+  "setup",
+  "active",
+  "completed_stable",
+  "completed_danger",
+  "failed_arrears",
+]);
+const nonRunStartPocGameCommandKindZodSchemaV1 = z.enum([
+  "policy.choose",
+  "inventory.buy",
+  "actor.prepare_food",
+  "actor.rest",
+  "story.action.start",
+  "facility.choose",
+  "tavern.plan.set",
+  "tavern.opening.start",
+  "tavern.opening.continue",
+  "tavern.opening.finalize",
+  "world.action.begin",
+  "world.action.complete",
+  "narrative.advance",
+  "narrative.choose",
+  "calendar.advance_phase",
+  "levy.pay",
+]);
+const openingCheckpointZodSchemaV1 = z.enum([
+  "started",
+  "middle",
+  "before_finalize",
+  "ready_to_finalize",
+]);
+const worldActionProgressZodSchemaV1 = z.enum([
+  "begin_scene",
+  "awaiting_completion_phase",
+  "completion_scene",
+  "ready_to_complete",
+]);
+const activeWorkflowKindZodSchemaV1 = z.enum(["opening", "world_action"]);
+const commandReferenceZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("policy"), policyId: policyIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("action"), actionId: actionIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("ingredient"), ingredientId: ingredientIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("recipe"), recipeId: recipeIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("facility"), facilityId: facilityIdZodSchemaV1 }),
+  z.strictObject({
+    kind: z.literal("facility_opportunity"),
+    opportunityId: actionIdZodSchemaV1,
+  }),
+  z.strictObject({
+    kind: z.literal("world_option"),
+    actionId: actionIdZodSchemaV1,
+    optionId: choiceIdZodSchemaV1,
+  }),
+  z.strictObject({ kind: z.literal("scene"), sceneId: sceneIdZodSchemaV1 }),
+  z.strictObject({
+    kind: z.literal("node"),
+    sceneId: sceneIdZodSchemaV1,
+    nodeId: nodeIdZodSchemaV1,
+  }),
+  z.strictObject({
+    kind: z.literal("choice"),
+    sceneId: sceneIdZodSchemaV1,
+    nodeId: nodeIdZodSchemaV1,
+    choiceId: choiceIdZodSchemaV1,
+  }),
+]);
+const workflowBlockerZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("opening"), checkpoint: openingCheckpointZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("world_action"), progress: worldActionProgressZodSchemaV1 }),
+]);
+const facilityDecisionZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("built"), facilityId: facilityIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("skipped") }),
+]);
+const storyRuleSlotZodSchemaV1 = z.enum([
+  "demand.preview",
+  "demand.resolve",
+  "tavern.preview",
+  "tavern.settle",
+  "checks.describe",
+  "checks.resolve",
+  "endings.evaluate",
+]);
+const engineInvariantCodeZodSchemaV1 = z.enum([
+  "snapshot.schema",
+  "rng.invalid",
+  "resource.negative",
+  "stamina.above_maximum",
+  "calendar.invalid",
+  "workflow.conflict",
+  "scheduler.multiple_blocking_events",
+  "narrative.blocking_conflict",
+  "opening.invalid_checkpoint",
+  "narrative.invalid_cursor",
+  "story.reference_missing",
+  "story.value_invalid",
+  "collection.duplicate_id",
+  "collection.unstable_order",
+  "ledger.unbalanced",
+  "terminal_state.invalid",
+]);
+
+const pocRejectionReasonZodSchemaV1 = z.discriminatedUnion("code", [
+  z.strictObject({
+    code: z.literal("run.invalid_status"),
+    details: z.strictObject({
+      actual: runStatusZodSchemaV1,
+      allowed: z.array(runStatusZodSchemaV1),
+    }),
+  }),
+  z.strictObject({ code: z.literal("run.already_started"), details: z.strictObject({}) }),
+  z.strictObject({
+    code: z.literal("run.not_started"),
+    details: z.strictObject({ commandKind: nonRunStartPocGameCommandKindZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("run.policy_required"),
+    details: z.strictObject({ commandKind: pocGameCommandKindZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("command.unknown_reference"),
+    details: z.strictObject({
+      commandKind: pocGameCommandKindZodSchemaV1,
+      reference: commandReferenceZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("command.blocked_by_narrative"),
+    details: z.strictObject({
+      commandKind: pocGameCommandKindZodSchemaV1,
+      cursor: narrativeCursorZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("command.blocked_by_workflow"),
+    details: z.strictObject({
+      commandKind: pocGameCommandKindZodSchemaV1,
+      blocker: workflowBlockerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("policy.already_chosen"),
+    details: z.strictObject({ policyId: policyIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("calendar.invalid_phase"),
+    details: z.strictObject({
+      actual: calendarPhaseZodSchemaV1,
+      allowed: z.array(calendarPhaseZodSchemaV1),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("calendar.insufficient_ap"),
+    details: z.strictObject({
+      required: nonNegativeSafeIntegerZodSchemaV1,
+      available: nonNegativeSafeIntegerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("calendar.phase_blocked"),
+    details: z.strictObject({
+      blocker: z.enum(["narrative", "opening", "world_action", "evening_unresolved", "levy_due"]),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("action.unavailable"),
+    details: z.strictObject({ actionId: actionIdZodSchemaV1, reasonId: reasonIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("actor.insufficient_stamina"),
+    details: z.strictObject({
+      actorId: actorIdZodSchemaV1,
+      required: nonNegativeSafeIntegerZodSchemaV1,
+      available: nonNegativeSafeIntegerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("actor.stamina_at_maximum"),
+    details: z.strictObject({
+      actorId: actorIdZodSchemaV1,
+      maximum: positiveSafeIntegerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.preparation_limit_reached"),
+    details: z.strictObject({
+      current: nonNegativeSafeIntegerZodSchemaV1,
+      limit: positiveSafeIntegerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("inventory.invalid_quantity"),
+    details: z.strictObject({
+      ingredientId: ingredientIdZodSchemaV1,
+      quantity: safeIntegerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("inventory.duplicate_line"),
+    details: z.strictObject({ ingredientId: ingredientIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("inventory.line_limit_exceeded"),
+    details: z.strictObject({
+      actual: positiveSafeIntegerZodSchemaV1,
+      limit: positiveSafeIntegerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("inventory.insufficient_cash"),
+    details: z.strictObject({ required: moneyZodSchemaV1, available: moneyZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("inventory.insufficient_ingredient"),
+    details: z.strictObject({
+      ingredientId: ingredientIdZodSchemaV1,
+      required: quantityZodSchemaV1,
+      available: nonNegativeSafeIntegerZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("facility.unavailable"),
+    details: z.strictObject({
+      opportunityId: actionIdZodSchemaV1,
+      facilityId: facilityIdZodSchemaV1.nullable(),
+      reasonId: reasonIdZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("facility.target_not_offered"),
+    details: z.strictObject({
+      opportunityId: actionIdZodSchemaV1,
+      facilityId: facilityIdZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("facility.already_built"),
+    details: z.strictObject({ facilityId: facilityIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("facility.choice_committed"),
+    details: z.strictObject({
+      opportunityId: actionIdZodSchemaV1,
+      choice: facilityDecisionZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("aura.already_present"),
+    details: z.strictObject({ auraId: auraIdZodSchemaV1, target: auraTargetZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("aura.not_found"),
+    details: z.strictObject({ auraId: auraIdZodSchemaV1, target: auraTargetZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.invalid_plan"),
+    details: z.strictObject({
+      reason: z.enum([
+        "menu_size",
+        "closed_has_menu",
+        "open_has_no_menu",
+        "duplicate_recipe",
+        "unknown_recipe",
+        "locked_recipe",
+        "capacity",
+        "preparation_capacity",
+      ]),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.plan_frozen"),
+    details: z.strictObject({ day: dayIndexZodSchemaV1, phase: calendarPhaseZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.service_unavailable"),
+    details: z.strictObject({ mode: serviceModeZodSchemaV1, reasonId: reasonIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.opening_plan_missing"),
+    details: z.strictObject({ day: dayIndexZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.evening_resolved"),
+    details: z.strictObject({
+      day: dayIndexZodSchemaV1,
+      planMode: serviceModeZodSchemaV1.nullable(),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.opening_active"),
+    details: z.strictObject({ sessionId: openingSessionIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.opening_missing"),
+    details: z.strictObject({
+      commandKind: z.enum(["tavern.opening.continue", "tavern.opening.finalize"]),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.opening_checkpoint_blocked"),
+    details: z.strictObject({
+      checkpoint: openingCheckpointZodSchemaV1,
+      eventId: eventIdZodSchemaV1.nullable(),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.opening_continue_not_needed"),
+    details: z.strictObject({ checkpoint: z.literal("ready_to_finalize") }),
+  }),
+  z.strictObject({
+    code: z.literal("tavern.opening_not_ready"),
+    details: z.strictObject({ checkpoint: openingCheckpointZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("workflow.conflict"),
+    details: z.strictObject({
+      activeKind: activeWorkflowKindZodSchemaV1,
+      attemptedKind: activeWorkflowKindZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("workflow.missing"),
+    details: z.strictObject({
+      expectedKind: activeWorkflowKindZodSchemaV1,
+      commandKind: z.literal("world.action.complete"),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("world.action_unavailable"),
+    details: z.strictObject({
+      actionId: actionIdZodSchemaV1,
+      optionId: choiceIdZodSchemaV1.nullable(),
+      reasonId: reasonIdZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("world.action_wrong_phase"),
+    details: z.strictObject({
+      actionId: actionIdZodSchemaV1,
+      expected: calendarPhaseZodSchemaV1,
+      actual: calendarPhaseZodSchemaV1,
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("narrative.inactive"),
+    details: z.strictObject({ commandKind: z.enum(["narrative.advance", "narrative.choose"]) }),
+  }),
+  z.strictObject({
+    code: z.literal("narrative.cursor_mismatch"),
+    details: z.strictObject({
+      expected: narrativeCursorZodSchemaV1,
+      actual: narrativeCursorZodSchemaV1.nullable(),
+    }),
+  }),
+  z.strictObject({
+    code: z.literal("narrative.choice_required"),
+    details: z.strictObject({ cursor: narrativeCursorZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("narrative.choice_hidden"),
+    details: z.strictObject({ choiceId: choiceIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("narrative.choice_disabled"),
+    details: z.strictObject({ choiceId: choiceIdZodSchemaV1, reasonId: reasonIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("levy.not_due"),
+    details: z.strictObject({ day: dayIndexZodSchemaV1, phase: calendarPhaseZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("story.rule_rejected"),
+    details: z.strictObject({ slot: storyRuleSlotZodSchemaV1, reasonId: reasonIdZodSchemaV1 }),
+  }),
+  z.strictObject({
+    code: z.literal("engine.invariant_rejected"),
+    details: z.strictObject({ invariantCode: engineInvariantCodeZodSchemaV1 }),
+  }),
+]);
+
+export const pocRejectionReasonSchemaV1: RuntimeSchemaV1<PocRejectionReasonV1> = runtimeSchemaV1(
+  pocRejectionReasonZodSchemaV1 as z.ZodType<PocRejectionReasonV1>,
+);
 
 const ingredientQuantityZodSchemaV1 = z.strictObject({
   ingredientId: ingredientIdZodSchemaV1,
@@ -4085,3 +4489,542 @@ export function validatePocEffectIntentForSourceV1(
   if (effect === undefined) throw new TypeError("missing Effect");
   return effect;
 }
+
+function canonicalValuesEqualV1(left: unknown, right: unknown): boolean {
+  const leftBytes = canonicalJsonBytes(left);
+  const rightBytes = canonicalJsonBytes(right);
+  return (
+    leftBytes.byteLength === rightBytes.byteLength &&
+    leftBytes.every((byte, index) => byte === rightBytes[index])
+  );
+}
+
+function beforeAfterZodSchemaV1<TValue>(valueSchema: z.ZodType<TValue>) {
+  return z.strictObject({ before: valueSchema, after: valueSchema });
+}
+
+const openServiceModeZodSchemaV1 = z.enum(["manual", "assisted", "delegated"]);
+
+const appliedModifierZodSchemaV1 = z.strictObject({
+  modifier: modifierZodSchemaV1,
+  contribution: safeIntegerZodSchemaV1,
+});
+
+const pocRejectionCodesV1 = new Set<PocRejectionReasonV1["code"]>(
+  pocRejectionReasonZodSchemaV1.options.map(
+    (option) => option.shape.code.value as PocRejectionReasonV1["code"],
+  ),
+);
+
+const pocRejectionCodeZodSchemaV1 = z.custom<PocRejectionReasonV1["code"]>(
+  (value) =>
+    typeof value === "string" && pocRejectionCodesV1.has(value as PocRejectionReasonV1["code"]),
+  "invalid Poc rejection code",
+);
+
+const pocInventoryBatchProjectionZodSchemaV1 = z.strictObject({
+  batchId: batchIdZodSchemaV1,
+  ingredientId: ingredientIdZodSchemaV1,
+  quantity: quantityZodSchemaV1,
+  acquiredDay: dayIndexZodSchemaV1,
+  lastUsableDay: absoluteDayIndexZodSchemaV1,
+  refrigerationExtended: z.boolean(),
+});
+
+const dailyPreparationStateZodSchemaV1 = z.strictObject({
+  day: dayIndexZodSchemaV1,
+  actionCount: nonNegativeSafeIntegerZodSchemaV1,
+});
+
+const facilityStateZodSchemaV1 = z.strictObject({
+  facilityId: facilityIdZodSchemaV1,
+  builtAtSequence: positiveSafeIntegerZodSchemaV1,
+});
+
+const facilityDecisionRecordZodSchemaV1 = z.strictObject({
+  opportunityId: actionIdZodSchemaV1,
+  decision: facilityDecisionZodSchemaV1,
+});
+
+const ledgerEntryZodSchemaV1 = z.strictObject({
+  entryId: ledgerEntryIdZodSchemaV1,
+  category: z.enum([
+    "purchase",
+    "wage",
+    "opening_fee",
+    "revenue",
+    "discarded_food",
+    "spoiled_ingredient",
+    "facility",
+    "world_action",
+    "levy",
+    "story_reward",
+    "story_cost",
+    "debug_adjustment",
+  ]),
+  reasonId: reasonIdZodSchemaV1,
+  cashDelta: safeIntegerZodSchemaV1,
+  valuationDelta: safeIntegerZodSchemaV1,
+  subject: ledgerSubjectZodSchemaV1,
+  quantity: quantityZodSchemaV1.optional(),
+});
+
+const openingOrderLineZodSchemaV1 = z.strictObject({
+  segmentId: customerSegmentIdZodSchemaV1,
+  recipeId: recipeIdZodSchemaV1,
+  potentialCustomers: nonNegativeSafeIntegerZodSchemaV1,
+  effectiveOrders: nonNegativeSafeIntegerZodSchemaV1,
+  capacityAccepted: nonNegativeSafeIntegerZodSchemaV1,
+  actualSales: nonNegativeSafeIntegerZodSchemaV1,
+});
+
+const openingLedgerZodSchemaV1 = z.strictObject({
+  sessionId: openingSessionIdZodSchemaV1,
+  day: dayIndexZodSchemaV1,
+  mode: openServiceModeZodSchemaV1,
+  preparationActionCount: nonNegativeSafeIntegerZodSchemaV1,
+  menu: z.array(plannedRecipeZodSchemaV1),
+  orders: z.array(openingOrderLineZodSchemaV1),
+  receptionCapacity: nonNegativeSafeIntegerZodSchemaV1,
+  preparationCapacity: nonNegativeSafeIntegerZodSchemaV1,
+  discardedPortions: z.array(plannedRecipeZodSchemaV1),
+  entryIds: z.array(ledgerEntryIdZodSchemaV1),
+  ap: beforeAfterZodSchemaV1(nonNegativeSafeIntegerZodSchemaV1),
+  playerStamina: beforeAfterZodSchemaV1(nonNegativeSafeIntegerZodSchemaV1),
+  heroineStamina: beforeAfterZodSchemaV1(nonNegativeSafeIntegerZodSchemaV1),
+  cash: beforeAfterZodSchemaV1(moneyZodSchemaV1),
+  reputation: beforeAfterZodSchemaV1(nonNegativeSafeIntegerZodSchemaV1),
+  teamwork: beforeAfterZodSchemaV1(nonNegativeSafeIntegerZodSchemaV1),
+  heroineMood: beforeAfterZodSchemaV1(moodPointZodSchemaV1),
+  triggeredEventIds: z.array(eventIdZodSchemaV1),
+  appliedModifiers: z.array(appliedModifierZodSchemaV1),
+});
+
+const closureHistoryZodSchemaV1 = z.strictObject({
+  day: dayIndexZodSchemaV1,
+  kind: z.enum(["planned", "emergency"]),
+  reasonId: reasonIdZodSchemaV1,
+  reputation: beforeAfterZodSchemaV1(nonNegativeSafeIntegerZodSchemaV1),
+});
+
+const serviceHistoryEntryZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("opening"), opening: openingLedgerZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("closure"), closure: closureHistoryZodSchemaV1 }),
+]);
+
+const tavernOpeningCashCostZodSchemaV1 = z.strictObject({
+  wage: moneyZodSchemaV1,
+  openingFee: moneyZodSchemaV1,
+  modifierDelta: safeIntegerZodSchemaV1,
+  total: moneyZodSchemaV1,
+  appliedModifiers: z.array(appliedModifierZodSchemaV1),
+});
+
+const tavernOpeningCostsZodSchemaV1 = z.strictObject({
+  commitment: z.enum(["prospective", "committed"]),
+  modeReasonId: reasonIdZodSchemaV1,
+  ap: nonNegativeSafeIntegerZodSchemaV1,
+  playerStamina: nonNegativeSafeIntegerZodSchemaV1,
+  heroineStamina: nonNegativeSafeIntegerZodSchemaV1,
+  cash: tavernOpeningCashCostZodSchemaV1,
+  ingredientShortages: z.array(ingredientQuantityZodSchemaV1),
+});
+
+const tavernPreviewZodSchemaV1 = z.strictObject({
+  basis: z.enum(["current_state", "active_opening_baseline"]),
+  allowed: z.boolean(),
+  rejectionCodes: z.array(pocRejectionCodeZodSchemaV1),
+  openingCosts: tavernOpeningCostsZodSchemaV1,
+  receptionCapacity: nonNegativeSafeIntegerZodSchemaV1,
+  preparationCapacity: nonNegativeSafeIntegerZodSchemaV1,
+  expectedSales: z.array(
+    z.strictObject({ recipeId: recipeIdZodSchemaV1, range: integerRangeZodSchemaV1 }),
+  ),
+  cashDelta: integerRangeZodSchemaV1,
+});
+
+const pocHudProjectionZodSchemaV1 = z.strictObject({
+  day: dayIndexZodSchemaV1,
+  phase: calendarPhaseZodSchemaV1,
+  apRemaining: nonNegativeSafeIntegerZodSchemaV1,
+  cash: moneyZodSchemaV1,
+  reputation: nonNegativeSafeIntegerZodSchemaV1,
+  playerStamina: staminaStateZodSchemaV1,
+  heroineStamina: staminaStateZodSchemaV1,
+  heroineMood: moodPointZodSchemaV1,
+  relationship: relationshipStateZodSchemaV1,
+  levyAmount: moneyZodSchemaV1,
+});
+
+const pocInventoryProjectionZodSchemaV1 = z.strictObject({
+  ingredientBatches: z.array(pocInventoryBatchProjectionZodSchemaV1),
+  itemStacks: z.array(itemStackZodSchemaV1),
+});
+
+const pocTavernProjectionZodSchemaV1 = z
+  .strictObject({
+    unlockedRecipeIds: z.array(recipeIdZodSchemaV1),
+    helper: helperStateZodSchemaV1,
+    preparation: dailyPreparationStateZodSchemaV1,
+    servicePlan: tavernPlanZodSchemaV1.nullable(),
+    currentPlanPreview: tavernPreviewZodSchemaV1.nullable(),
+    serviceHistory: z.array(serviceHistoryEntryZodSchemaV1),
+  })
+  .superRefine(({ servicePlan, currentPlanPreview }, context) => {
+    if ((servicePlan === null) !== (currentPlanPreview === null)) {
+      context.addIssue({
+        code: "custom",
+        message: "Tavern plan and current preview must be present together",
+        path: ["currentPlanPreview"],
+      });
+    }
+  });
+
+const pocFacilitiesProjectionZodSchemaV1 = z.strictObject({
+  built: z.array(facilityStateZodSchemaV1),
+  decisions: z.array(facilityDecisionRecordZodSchemaV1),
+});
+
+const pocLedgerProjectionZodSchemaV1 = z.strictObject({
+  startingCash: moneyZodSchemaV1,
+  currentCash: moneyZodSchemaV1,
+  entries: z.array(ledgerEntryZodSchemaV1),
+});
+
+export const pocHudProjectionSchemaV1: RuntimeSchemaV1<PocHudProjectionV1> = runtimeSchemaV1(
+  pocHudProjectionZodSchemaV1 as z.ZodType<PocHudProjectionV1>,
+);
+
+export const pocInventoryProjectionSchemaV1: RuntimeSchemaV1<PocInventoryProjectionV1> =
+  runtimeSchemaV1(pocInventoryProjectionZodSchemaV1 as z.ZodType<PocInventoryProjectionV1>);
+
+export const pocTavernProjectionSchemaV1: RuntimeSchemaV1<PocTavernProjectionV1> = runtimeSchemaV1(
+  pocTavernProjectionZodSchemaV1 as z.ZodType<PocTavernProjectionV1>,
+);
+
+export const pocFacilitiesProjectionSchemaV1: RuntimeSchemaV1<PocFacilitiesProjectionV1> =
+  runtimeSchemaV1(pocFacilitiesProjectionZodSchemaV1 as z.ZodType<PocFacilitiesProjectionV1>);
+
+export const pocLedgerProjectionSchemaV1: RuntimeSchemaV1<PocLedgerProjectionV1> = runtimeSchemaV1(
+  pocLedgerProjectionZodSchemaV1 as z.ZodType<PocLedgerProjectionV1>,
+);
+
+const commandCostViewZodSchemaV1 = z.strictObject({
+  ap: nonNegativeSafeIntegerZodSchemaV1,
+  playerStamina: nonNegativeSafeIntegerZodSchemaV1,
+  heroineStamina: nonNegativeSafeIntegerZodSchemaV1,
+  cash: moneyZodSchemaV1,
+});
+
+const confirmationMetadataProjectionZodSchemaV1 = z.strictObject({
+  benefitTextIds: z.array(textIdZodSchemaV1),
+  mutuallyExcludedActionIds: z.array(actionIdZodSchemaV1),
+  majorRiskTextIds: z.array(textIdZodSchemaV1),
+});
+
+const previewDeltaTargetZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("cash") }),
+  z.strictObject({ kind: z.literal("reputation") }),
+  z.strictObject({ kind: z.literal("calendar.ap") }),
+  z.strictObject({ kind: z.literal("actor.stamina"), actorId: actorIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("actor.mood"), actorId: actorIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("relationship.affection") }),
+  z.strictObject({ kind: z.literal("relationship.teamwork") }),
+  z.strictObject({ kind: z.literal("ingredient"), ingredientId: ingredientIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("item"), itemId: itemIdZodSchemaV1 }),
+]);
+
+const previewChangeZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("numeric"),
+    target: previewDeltaTargetZodSchemaV1,
+    delta: integerRangeZodSchemaV1,
+    reasonId: reasonIdZodSchemaV1,
+  }),
+  z.strictObject({
+    kind: z.literal("relationship.stage.set"),
+    stage: relationshipStageZodSchemaV1,
+    reasonId: reasonIdZodSchemaV1,
+  }),
+  z.strictObject({
+    kind: z.literal("tavern.helper.set"),
+    helper: helperStateZodSchemaV1,
+    reasonId: reasonIdZodSchemaV1,
+  }),
+  z.strictObject({
+    kind: z.literal("aura.apply"),
+    auraId: auraIdZodSchemaV1,
+    target: auraTargetZodSchemaV1,
+    reasonId: reasonIdZodSchemaV1,
+  }),
+  z.strictObject({
+    kind: z.literal("aura.clear"),
+    auraId: auraIdZodSchemaV1,
+    target: auraTargetZodSchemaV1,
+    reasonId: reasonIdZodSchemaV1,
+  }),
+  factSetEffectIntentZodSchemaV1,
+  questSetEffectIntentZodSchemaV1,
+  outcomeSetEffectIntentZodSchemaV1,
+]);
+
+function allowedCommandPreviewZodSchemaV1<TCommand extends PocGameCommandV1>(
+  commandSchema: z.ZodType<TCommand>,
+  confirmationSchema: z.ZodType,
+) {
+  return z.strictObject({
+    allowed: z.literal(true),
+    command: commandSchema,
+    costs: commandCostViewZodSchemaV1,
+    changes: z.array(previewChangeZodSchemaV1),
+    unknownReasonIds: z.array(reasonIdZodSchemaV1),
+    confirmation: confirmationSchema,
+  });
+}
+
+function rejectedCommandPreviewZodSchemaV1<TCommand extends PocGameCommandV1>(
+  commandSchema: z.ZodType<TCommand>,
+) {
+  return z.strictObject({
+    allowed: z.literal(false),
+    command: commandSchema,
+    reasons: z.array(pocRejectionReasonZodSchemaV1),
+  });
+}
+
+function addCommandPreviewEqualityIssueV1(
+  command: PocGameCommandV1,
+  previewCommand: PocGameCommandV1,
+  context: z.core.$RefinementCtx,
+): void {
+  if (canonicalValuesEqualV1(command, previewCommand)) return;
+  context.addIssue({
+    code: "custom",
+    message: "Control command and preview.command must be Canonical JSON equal",
+    path: ["preview", "command"],
+  });
+}
+
+const runStartCommandZodSchemaV1 = z.strictObject({ kind: z.literal("run.start") });
+const runStartControlProjectionZodSchemaV1 = z
+  .strictObject({
+    command: runStartCommandZodSchemaV1,
+    preview: allowedCommandPreviewZodSchemaV1(runStartCommandZodSchemaV1, z.null()),
+  })
+  .superRefine(({ command, preview }, context) => {
+    addCommandPreviewEqualityIssueV1(command, preview.command, context);
+  });
+
+const policyChooseCommandZodSchemaV1 = z.strictObject({
+  kind: z.literal("policy.choose"),
+  policyId: policyIdZodSchemaV1,
+});
+
+const lifePolicyOptionProjectionZodSchemaV1 = z
+  .strictObject({
+    policyId: policyIdZodSchemaV1,
+    nameTextId: textIdZodSchemaV1,
+    apByPhase: apByPhaseZodSchemaV1,
+    playerNightRecovery: nonNegativeSafeIntegerZodSchemaV1,
+    nightRecoveryReasonId: reasonIdZodSchemaV1,
+    command: policyChooseCommandZodSchemaV1,
+    preview: allowedCommandPreviewZodSchemaV1(
+      policyChooseCommandZodSchemaV1,
+      confirmationMetadataProjectionZodSchemaV1,
+    ),
+  })
+  .superRefine(({ policyId, command, preview }, context) => {
+    if (policyId !== command.policyId) {
+      context.addIssue({
+        code: "custom",
+        message: "LifePolicy option policyId must equal command.policyId",
+        path: ["command", "policyId"],
+      });
+    }
+    addCommandPreviewEqualityIssueV1(command, preview.command, context);
+  });
+
+const lifePolicySelectionProjectionZodSchemaV1 = z.strictObject({
+  options: z.array(lifePolicyOptionProjectionZodSchemaV1).min(1),
+});
+
+function tavernOpeningControlBranchZodSchemaV1<
+  TControlKind extends "start" | "continue" | "finalize",
+  TCommandKind extends
+    "tavern.opening.start" | "tavern.opening.continue" | "tavern.opening.finalize",
+>(controlKind: TControlKind, commandKind: TCommandKind) {
+  const commandSchema = z.strictObject({ kind: z.literal(commandKind) });
+  const pocCommandSchema = commandSchema as unknown as z.ZodType<PocGameCommandV1>;
+  return z
+    .strictObject({
+      kind: z.literal(controlKind),
+      command: commandSchema,
+      preview: z.union([
+        allowedCommandPreviewZodSchemaV1(pocCommandSchema, z.null()),
+        rejectedCommandPreviewZodSchemaV1(pocCommandSchema),
+      ]),
+    })
+    .superRefine(({ command, preview }, context) => {
+      addCommandPreviewEqualityIssueV1(command as PocGameCommandV1, preview.command, context);
+    });
+}
+
+const tavernOpeningControlProjectionZodSchemaV1 = z.union([
+  tavernOpeningControlBranchZodSchemaV1("start", "tavern.opening.start"),
+  tavernOpeningControlBranchZodSchemaV1("continue", "tavern.opening.continue"),
+  tavernOpeningControlBranchZodSchemaV1("finalize", "tavern.opening.finalize"),
+]);
+
+const demandForecastZodSchemaV1 = z.strictObject({
+  day: dayIndexZodSchemaV1,
+  lines: z.array(
+    z.strictObject({
+      segmentId: customerSegmentIdZodSchemaV1,
+      range: integerRangeZodSchemaV1,
+      modifiers: z.array(appliedModifierZodSchemaV1),
+    }),
+  ),
+});
+
+const obligationRecommendationZodSchemaV1 = z.strictObject({
+  textId: textIdZodSchemaV1,
+  actionId: actionIdZodSchemaV1.nullable(),
+});
+
+const obligationForecastBaseZodShapeV1 = {
+  currentCash: moneyZodSchemaV1,
+  levyAmount: moneyZodSchemaV1,
+  currentGap: moneyZodSchemaV1,
+  reasonId: reasonIdZodSchemaV1,
+  recommendations: z.array(obligationRecommendationZodSchemaV1),
+} as const;
+
+const obligationForecastZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("current_gap"), ...obligationForecastBaseZodShapeV1 }),
+  z.strictObject({
+    kind: z.literal("committed_plan_conservative"),
+    ...obligationForecastBaseZodShapeV1,
+    projectedCashAfterOpening: integerRangeZodSchemaV1,
+    projectedCashAfterLevy: integerRangeZodSchemaV1,
+  }),
+  z.strictObject({
+    kind: z.literal("final"),
+    ...obligationForecastBaseZodShapeV1,
+    projectedCashAfterLevy: safeIntegerZodSchemaV1,
+  }),
+]);
+
+const actionViewZodSchemaV1 = z.strictObject({
+  actionId: actionIdZodSchemaV1,
+  labelTextId: textIdZodSchemaV1,
+  available: z.boolean(),
+  costs: commandCostViewZodSchemaV1,
+  availablePhases: z.array(calendarPhaseZodSchemaV1),
+  occupiedPhases: z.array(calendarPhaseZodSchemaV1),
+  confirmation: confirmationMetadataProjectionZodSchemaV1,
+  directCommand: pocGameCommandZodSchemaV1.nullable(),
+  rejectionCodes: z.array(pocRejectionCodeZodSchemaV1),
+});
+
+const resolvedCheckZodSchemaV1 = z.strictObject({
+  checkId: checkIdZodSchemaV1,
+  actorId: actorIdZodSchemaV1,
+  dice: z.tuple([dieFaceZodSchemaV1, dieFaceZodSchemaV1]),
+  attributeBonus: attributeBonusZodSchemaV1,
+  preparationBonus: safeIntegerZodSchemaV1,
+  modifiers: z.array(appliedModifierZodSchemaV1),
+  totalBonus: safeIntegerZodSchemaV1,
+  total: safeIntegerZodSchemaV1,
+  bandId: checkBandIdZodSchemaV1,
+  resolvedAtSequence: positiveSafeIntegerZodSchemaV1,
+});
+
+const outcomeEntryZodSchemaV1 = z.strictObject({
+  outcomeId: outcomeIdZodSchemaV1,
+  value: storyValueZodSchemaV1,
+});
+
+const levyResolutionZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("paid"),
+    levyAmount: moneyZodSchemaV1,
+    cash: beforeAfterZodSchemaV1(moneyZodSchemaV1),
+  }),
+  z.strictObject({
+    kind: z.literal("arrears"),
+    levyAmount: moneyZodSchemaV1,
+    availableCash: moneyZodSchemaV1,
+    shortfall: moneyZodSchemaV1,
+  }),
+]);
+
+const runCompletionZodSchemaV1 = z.strictObject({
+  endingId: endingIdZodSchemaV1,
+  status: z.enum(["completed_stable", "completed_danger", "failed_arrears"]),
+  levy: levyResolutionZodSchemaV1,
+  reasonIds: z.array(reasonIdZodSchemaV1),
+  summary: z.strictObject({
+    relationship: outcomeEntryZodSchemaV1,
+    investigation: outcomeEntryZodSchemaV1,
+  }),
+  completedAtSequence: positiveSafeIntegerZodSchemaV1,
+});
+
+const pocGameViewZodSchemaV1 = z
+  .strictObject({
+    status: z.enum(["setup", "active", "terminal"]),
+    hud: pocHudProjectionZodSchemaV1,
+    actions: z.array(actionViewZodSchemaV1),
+    runStartControl: runStartControlProjectionZodSchemaV1.nullable(),
+    lifePolicySelection: lifePolicySelectionProjectionZodSchemaV1.nullable(),
+    tavernOpeningControl: tavernOpeningControlProjectionZodSchemaV1.nullable(),
+    demandForecast: demandForecastZodSchemaV1.nullable(),
+    obligationForecast: obligationForecastZodSchemaV1.nullable(),
+    inventory: pocInventoryProjectionZodSchemaV1,
+    tavern: pocTavernProjectionZodSchemaV1,
+    facilities: pocFacilitiesProjectionZodSchemaV1,
+    ledger: pocLedgerProjectionZodSchemaV1,
+    resolvedChecks: z.array(resolvedCheckZodSchemaV1),
+    completion: runCompletionZodSchemaV1.nullable(),
+  })
+  .superRefine(({ status, hud, ledger, completion }, context) => {
+    if (hud.cash !== ledger.currentCash) {
+      context.addIssue({
+        code: "custom",
+        message: "HUD cash must equal Ledger currentCash",
+        path: ["hud", "cash"],
+      });
+    }
+    if ((status === "terminal") !== (completion !== null)) {
+      context.addIssue({
+        code: "custom",
+        message: "GameView terminal status and completion must be present together",
+        path: ["completion"],
+      });
+    }
+  });
+
+export const pocRunStartControlProjectionSchemaV1: RuntimeSchemaV1<RunStartControlProjectionV1> =
+  runtimeSchemaV1(runStartControlProjectionZodSchemaV1 as z.ZodType<RunStartControlProjectionV1>);
+
+export const pocLifePolicySelectionProjectionSchemaV1: RuntimeSchemaV1<LifePolicySelectionProjectionV1> =
+  runtimeSchemaV1(
+    lifePolicySelectionProjectionZodSchemaV1 as unknown as z.ZodType<LifePolicySelectionProjectionV1>,
+  );
+
+export const pocTavernOpeningControlProjectionSchemaV1: RuntimeSchemaV1<TavernOpeningControlProjectionV1> =
+  runtimeSchemaV1(
+    tavernOpeningControlProjectionZodSchemaV1 as z.ZodType<TavernOpeningControlProjectionV1>,
+  );
+
+export const pocDemandForecastSchemaV1: RuntimeSchemaV1<DemandForecastV1> = runtimeSchemaV1(
+  demandForecastZodSchemaV1 as z.ZodType<DemandForecastV1>,
+);
+
+export const pocObligationForecastSchemaV1: RuntimeSchemaV1<ObligationForecastV1> = runtimeSchemaV1(
+  obligationForecastZodSchemaV1 as z.ZodType<ObligationForecastV1>,
+);
+
+export const pocGameViewSchemaV1: RuntimeSchemaV1<PocGameViewV1> = runtimeSchemaV1(
+  pocGameViewZodSchemaV1 as z.ZodType<PocGameViewV1>,
+);

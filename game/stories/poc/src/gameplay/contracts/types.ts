@@ -1052,7 +1052,7 @@ export type PocRejectionReasonV1 =
     }
   | {
       readonly code: "run.already_started";
-      readonly details: { readonly commandSequence: PositiveSafeInteger };
+      readonly details: { readonly [key: string]: never };
     }
   | {
       readonly code: "run.not_started";
@@ -2419,6 +2419,7 @@ export interface PocGameQueriesV1 {
   explainAvailability(actionId: ActionId): AvailabilityExplanationV1;
   previewCommand<C extends PocGameCommandV1>(command: C): CommandPreviewV1<C>;
   previewTavernPlan(plan: TavernPlanV1): TavernPreviewV1;
+  getGameViewStatus(): PocGameViewStatusV1;
   getHudProjection(): PocHudProjectionV1;
   getInventoryProjection(): PocInventoryProjectionV1;
   getTavernProjection(): PocTavernProjectionV1;
@@ -2575,7 +2576,7 @@ export type PocDebugCommandValidationErrorV1 =
       readonly code: "debug.value_out_of_range";
       readonly commandKind: "debug.inventory.adjust_cash";
       readonly field: "cash_delta_result";
-      readonly actual: SafeInteger;
+      readonly actual: string;
       readonly minimum: 0;
       readonly maximum: SafeInteger;
     }

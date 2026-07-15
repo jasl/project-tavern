@@ -797,6 +797,18 @@ export {
 } from "./game-command-executor.js";
 export type { PocGameCommandExecutorV1 } from "./game-command-executor.js";
 
+export { createPocGameDebugCommandExecutorV1 } from "./game-debug-command-executor.js";
+export type { PocGameDebugCommandExecutorV1 } from "./game-debug-command-executor.js";
+
+export { createPocGameQueriesV1 } from "./game-queries.js";
+export { projectPocGameViewV1 } from "./game-view-projector.js";
+export {
+  createInitialPocGameStateV1,
+  createPocGameBootstrapInputV1,
+  createPocGameSimulationV1,
+} from "./game-simulation.js";
+export type { PocGameSimulationV1 } from "./game-simulation.js";
+
 export {
   deepFreezePocValueV1,
   parseSafeInteger,
@@ -1164,6 +1176,18 @@ export type { PocGameplayModuleKeyV1 } from "./contracts/module-catalog.js";
 export {
   pocGameCommandKindsV1,
   pocGameCommandSchemaV1,
+  pocRejectionReasonSchemaV1,
+  pocHudProjectionSchemaV1,
+  pocInventoryProjectionSchemaV1,
+  pocTavernProjectionSchemaV1,
+  pocFacilitiesProjectionSchemaV1,
+  pocLedgerProjectionSchemaV1,
+  pocRunStartControlProjectionSchemaV1,
+  pocLifePolicySelectionProjectionSchemaV1,
+  pocTavernOpeningControlProjectionSchemaV1,
+  pocDemandForecastSchemaV1,
+  pocObligationForecastSchemaV1,
+  pocGameViewSchemaV1,
   pocDebugCommandSchemaV1,
   pocDebugCommandValidationErrorSchemaV1,
   pocStoryStateDefinitionsSchemaV1,
