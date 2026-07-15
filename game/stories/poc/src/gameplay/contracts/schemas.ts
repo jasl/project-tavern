@@ -41,6 +41,7 @@ import type {
   PocDebugCommandValidationErrorV1,
   PocEffectIntentV1,
   PocEffectSourceV1,
+  PocGameCommandV1,
   PocNarrativeProgramV1,
   PocSimulationContentV1,
   PocSimulationDataV1,
@@ -49,6 +50,7 @@ import type {
   StoryInitialStateV1,
   StoryStateDefinitionsV1,
 } from "./types.js";
+
 import {
   deepFreezePocValueV1,
   parseAbsoluteDayIndex,
@@ -60,6 +62,20 @@ import {
   parseQuantity,
   parseSafeInteger,
 } from "./values.js";
+
+export class PocRuleInvocationErrorV1 extends TypeError {
+  readonly faultCode: "rule.returned_thenable" | "rule.output_invalid";
+
+  constructor(
+    faultCode: "rule.returned_thenable" | "rule.output_invalid",
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "PocRuleInvocationErrorV1";
+    this.faultCode = faultCode;
+  }
+}
 
 const dangerousObjectKeysV1 = new Set(["__proto__", "prototype", "constructor"]);
 
@@ -223,7 +239,7 @@ const serviceModeZodSchemaV1 = z.enum(["manual", "assisted", "delegated", "close
 const helperTierZodSchemaV1 = z.enum(["apprentice", "skilled", "senior", "master"]);
 const questStatusZodSchemaV1 = z.enum(["locked", "active", "completed", "failed"]);
 
-const pocGameCommandKindZodSchemaV1 = z.enum([
+export const pocGameCommandKindsV1 = Object.freeze([
   "run.start",
   "policy.choose",
   "inventory.buy",
@@ -241,7 +257,115 @@ const pocGameCommandKindZodSchemaV1 = z.enum([
   "narrative.choose",
   "calendar.advance_phase",
   "levy.pay",
+] as const satisfies readonly PocGameCommandV1["kind"][]);
+
+const pocGameCommandKindZodSchemaV1 = z.enum(pocGameCommandKindsV1);
+
+const purchaseLineZodSchemaV1 = z.strictObject({
+  ingredientId: ingredientIdZodSchemaV1,
+  quantity: quantityZodSchemaV1,
+});
+
+const purchaseLinesZodSchemaV1 = z
+  .array(purchaseLineZodSchemaV1)
+  .min(1)
+  .max(64)
+  .superRefine((lines, context) => {
+    const seen = new Set<string>();
+    for (const [index, line] of lines.entries()) {
+      if (seen.has(line.ingredientId)) {
+        context.addIssue({
+          code: "custom",
+          message: "duplicate inventory purchase ingredient",
+          path: [index, "ingredientId"],
+        });
+      }
+      seen.add(line.ingredientId);
+    }
+  });
+
+const facilityChoiceZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("build"), facilityId: facilityIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("skip") }),
 ]);
+
+const plannedRecipeZodSchemaV1 = z.strictObject({
+  recipeId: recipeIdZodSchemaV1,
+  portions: quantityZodSchemaV1,
+});
+
+const tavernPlanZodSchemaV1 = z
+  .strictObject({
+    mode: serviceModeZodSchemaV1,
+    menu: z.array(plannedRecipeZodSchemaV1).max(16),
+  })
+  .superRefine((plan, context) => {
+    if (plan.mode === "closed") {
+      if (plan.menu.length !== 0) {
+        context.addIssue({
+          code: "custom",
+          message: "closed Tavern plan must have an empty menu",
+          path: ["menu"],
+        });
+      }
+      return;
+    }
+    if (plan.menu.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "open Tavern plan must have a non-empty menu",
+        path: ["menu"],
+      });
+    }
+    const seen = new Set<string>();
+    for (const [index, recipe] of plan.menu.entries()) {
+      if (seen.has(recipe.recipeId)) {
+        context.addIssue({
+          code: "custom",
+          message: "duplicate Tavern plan recipe",
+          path: ["menu", index, "recipeId"],
+        });
+      }
+      seen.add(recipe.recipeId);
+    }
+  });
+
+const pocGameCommandZodSchemaV1 = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("run.start") }),
+  z.strictObject({ kind: z.literal("policy.choose"), policyId: policyIdZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("inventory.buy"), lines: purchaseLinesZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("actor.prepare_food") }),
+  z.strictObject({ kind: z.literal("actor.rest") }),
+  z.strictObject({ kind: z.literal("story.action.start"), actionId: actionIdZodSchemaV1 }),
+  z.strictObject({
+    kind: z.literal("facility.choose"),
+    opportunityId: actionIdZodSchemaV1,
+    choice: facilityChoiceZodSchemaV1,
+  }),
+  z.strictObject({ kind: z.literal("tavern.plan.set"), plan: tavernPlanZodSchemaV1 }),
+  z.strictObject({ kind: z.literal("tavern.opening.start") }),
+  z.strictObject({ kind: z.literal("tavern.opening.continue") }),
+  z.strictObject({ kind: z.literal("tavern.opening.finalize") }),
+  z.strictObject({
+    kind: z.literal("world.action.begin"),
+    actionId: actionIdZodSchemaV1,
+    optionId: choiceIdZodSchemaV1,
+  }),
+  z.strictObject({ kind: z.literal("world.action.complete") }),
+  z.strictObject({ kind: z.literal("narrative.advance") }),
+  z.strictObject({
+    kind: z.literal("narrative.choose"),
+    sceneId: sceneIdZodSchemaV1,
+    nodeId: nodeIdZodSchemaV1,
+    choiceId: choiceIdZodSchemaV1,
+  }),
+  z.strictObject({ kind: z.literal("calendar.advance_phase") }),
+  z.strictObject({ kind: z.literal("levy.pay") }),
+]);
+
+export const pocGameCommandSchemaV1: RuntimeSchemaV1<PocGameCommandV1> = runtimeSchemaV1(
+  pocGameCommandZodSchemaV1 as z.ZodType<PocGameCommandV1>,
+);
 
 const pocEffectSourceZodSchemaV1 = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("command"), commandKind: pocGameCommandKindZodSchemaV1 }),
@@ -916,7 +1040,7 @@ const confirmationMetadataZodSchemaV1 = z.strictObject({
 
 const checkRequestZodSchemaV1 = z.strictObject({
   checkId: checkIdZodSchemaV1,
-  actorId: actorIdZodSchemaV1,
+  actorId: z.literal("actor.player"),
   preparationBonus: safeIntegerZodSchemaV1,
 });
 
@@ -2908,6 +3032,25 @@ const pocSimulationDataZodSchemaV1 = z
         "confirmation",
       ]);
     });
+    const genericActionCommandKinds = [
+      "policy.choose",
+      "inventory.buy",
+      "actor.prepare_food",
+      "actor.rest",
+      "tavern.plan.set",
+      "calendar.advance_phase",
+      "levy.pay",
+    ] as const;
+    for (const commandKind of genericActionCommandKinds) {
+      const matches = data.content.actions.filter((action) => action.commandKind === commandKind);
+      if (matches.length !== 1) {
+        addAggregateValidationIssueV1(
+          context,
+          ["content", "actions"],
+          `commandKind ${commandKind} requires exactly one generic Action presentation`,
+        );
+      }
+    }
 
     data.content.storyActions.forEach((action, actionIndex) => {
       const actionPath = ["content", "storyActions", actionIndex] as const;
@@ -3119,6 +3262,16 @@ const pocSimulationDataZodSchemaV1 = z
         const stepPath = [...actionPath, "steps", stepIndex] as const;
         validateReferenceV1(sceneIds, step.sceneId, context, [...stepPath, "sceneId"], "SceneId");
       });
+      const beginPhase = worldAction.steps[0].phase;
+      const expectedCompletionPhase =
+        beginPhase === "morning" ? "afternoon" : beginPhase === "afternoon" ? "evening" : "morning";
+      if (worldAction.steps[1].phase !== expectedCompletionPhase) {
+        addAggregateValidationIssueV1(
+          context,
+          [...actionPath, "steps", 1, "phase"],
+          `WorldAction completion phase must immediately follow ${beginPhase}`,
+        );
+      }
       if (worldAction.checkId !== null) {
         validateReferenceV1(
           checkIds,

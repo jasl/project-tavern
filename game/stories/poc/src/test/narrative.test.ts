@@ -290,7 +290,7 @@ describe("PoC Narrative interpreter", () => {
                 },
                 check: {
                   checkId: "check.fixture",
-                  actorId: "actor.heroine",
+                  actorId: "actor.player",
                   preparationBonus: 0,
                 },
                 effects: [
@@ -350,7 +350,7 @@ describe("PoC Narrative interpreter", () => {
             choiceId === "choice.left"
               ? {
                   checkId: parseCheckId("check.fixture"),
-                  actorId: parseActorId("actor.heroine"),
+                  actorId: parseActorId("actor.player"),
                   bandId: parseCheckBandId("band.fixture"),
                 }
               : null,
@@ -508,7 +508,7 @@ describe("PoC Narrative interpreter", () => {
             nodeId: "node.check",
             request: {
               checkId: "check.fixture",
-              actorId: "actor.heroine",
+              actorId: "actor.player",
               preparationBonus: 0,
             },
             branches: [{ bandId: "band.fixture", nextNodeId: "node.result" }],
@@ -522,7 +522,7 @@ describe("PoC Narrative interpreter", () => {
     expect(yielded.request).toMatchObject({
       kind: "check",
       cursor: { sceneId: "scene.check", nodeId: "node.check" },
-      request: { checkId: "check.fixture", actorId: "actor.heroine" },
+      request: { checkId: "check.fixture", actorId: "actor.player" },
     });
     expect(yielded.gameplayFacts).toEqual([]);
 
@@ -532,7 +532,7 @@ describe("PoC Narrative interpreter", () => {
         cursor: cursorV1("scene.check", "node.check"),
         decision: {
           checkId: parseCheckId("check.fixture"),
-          actorId: parseActorId("actor.heroine"),
+          actorId: parseActorId("actor.player"),
           bandId: parseCheckBandId("band.fixture"),
         },
       }),

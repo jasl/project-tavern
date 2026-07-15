@@ -1381,7 +1381,7 @@ export type StageCueV1 =
 
 export interface CheckRequestV1 {
   readonly checkId: CheckId;
-  readonly actorId: ActorId;
+  readonly actorId: "actor.player";
   readonly preparationBonus: SafeInteger;
 }
 

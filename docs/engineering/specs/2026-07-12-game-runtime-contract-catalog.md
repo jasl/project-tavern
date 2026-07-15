@@ -1815,7 +1815,7 @@ type StageCueV1 =
 
 interface CheckRequestV1 {
   readonly checkId: CheckId;
-  readonly actorId: ActorId;
+  readonly actorId: "actor.player";
   readonly preparationBonus: SafeInteger;
 }
 
@@ -1907,6 +1907,9 @@ interface NarrativeSceneV1 {
   readonly nodes: readonly NarrativeNodeV1[];
 }
 ```
+
+PoC 选定的 Actors Module 只有 Player Actor 持有属性段位，因此 `CheckRequestV1` 只能引用
+`"actor.player"`；Heroine 仍可作为表现角色、关系对象和 stamina/mood Effect 目标，但不能成为 v1 Check actor。
 
 任何建立或推进 Narrative 的外层命令（包括 run.start、StoryAction/WorldAction、Scheduler 与 Narrative command）
 都在同一个事务内调用同一 interpreter 解释自动节点，直到下一个可呈现 line/narration/choice、Scene end 或故障；

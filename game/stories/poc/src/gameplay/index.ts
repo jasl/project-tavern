@@ -13,6 +13,7 @@ import {
   parseStoryToken as parseRuleStoryTokenV1,
 } from "./contracts/ids.js";
 import {
+  PocRuleInvocationErrorV1,
   pocEffectIntentSchemaV1 as pocRuleEffectIntentSchemaV1,
   pocSimulationDataSchemaV1 as pocRuleSimulationDataSchemaV1,
 } from "./contracts/schemas.js";
@@ -649,12 +650,21 @@ function isRuleThenableV1(value: unknown): boolean {
 }
 
 function parseRuleOutputV1<T>(slot: StoryRuleSlotV1, schema: z.ZodType<T>, value: unknown): T {
-  if (isRuleThenableV1(value)) throw new TypeError(`${slot} rule returned a thenable`);
+  if (isRuleThenableV1(value)) {
+    throw new PocRuleInvocationErrorV1(
+      "rule.returned_thenable",
+      `${slot} rule returned a thenable`,
+    );
+  }
   try {
     deepFreezeRulesV1(value);
     return deepFreezeRulesV1(schema.parse(value));
   } catch (cause) {
-    throw new TypeError(`${slot} rule returned invalid output`, { cause });
+    throw new PocRuleInvocationErrorV1(
+      "rule.output_invalid",
+      `${slot} rule returned invalid output`,
+      { cause },
+    );
   }
 }
 
@@ -669,7 +679,11 @@ function parseAndAssertRuleOutputV1<T>(
     assertSemantics(parsed);
     return parsed;
   } catch (cause) {
-    throw new TypeError(`${slot} rule returned invalid output`, { cause });
+    throw new PocRuleInvocationErrorV1(
+      "rule.output_invalid",
+      `${slot} rule returned invalid output`,
+      { cause },
+    );
   }
 }
 
@@ -775,6 +789,13 @@ export type {
   PocSchedulingInputV1,
   PocSchedulingResolverV1,
 } from "./resolvers/scheduling-resolver.js";
+
+export {
+  collectPocModifiersV1,
+  createPocGameCommandExecutorV1,
+  previewPocTavernPlanForCandidateV1,
+} from "./game-command-executor.js";
+export type { PocGameCommandExecutorV1 } from "./game-command-executor.js";
 
 export {
   deepFreezePocValueV1,
@@ -1141,6 +1162,8 @@ export {
 export type { PocGameplayModuleKeyV1 } from "./contracts/module-catalog.js";
 
 export {
+  pocGameCommandKindsV1,
+  pocGameCommandSchemaV1,
   pocDebugCommandSchemaV1,
   pocDebugCommandValidationErrorSchemaV1,
   pocStoryStateDefinitionsSchemaV1,
