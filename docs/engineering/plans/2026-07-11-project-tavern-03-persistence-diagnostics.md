@@ -659,13 +659,17 @@ Task 12 without exposing RNG, RunIntegrity, provenance or a complete Snapshot.
 - Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.ts`
 - Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.test.ts`
 - Modify only if required by the same public callback compilation: `game/stories/e2e/scripts/runtime-fixture-builder.mts`
+- Update reviewed provenance: `game/stories/e2e/src/runtime/runtime-fixture-provenance.ts`
+- Regenerate and review: `game/stories/e2e/src/test/fixtures/runtime/*.json`
 - Regenerate and review: `game/stories/e2e/fixtures/session-zero.json`
 - Regenerate and review: `game/stories/e2e/golden/semantic-flow.json`
 
 First add focused runtime and type assertions that the invariant callback receives the exact frozen
 `{ state, commandSequence }` view and cannot observe RNG/RunIntegrity, then implement the minimum contract repair.
-Because the public/runtime Base source changes the provenance-bound engine digest, run `pnpm regenerate:fixtures` and
-`pnpm update:golden`, then review the exact canonical diffs and SHA-256 values of both tracked baselines. Run the focused
+Because the public/runtime Base source changes the provenance-bound engine digest, first project and review the live
+runtime-fixture provenance, update only its `engineDigest`/`appBuildId`, then run
+`pnpm --filter @project-tavern/story-e2e regenerate:runtime-fixtures`, `pnpm regenerate:fixtures`, and
+`pnpm update:golden`. Review every exact canonical diff, runtime-fixture manifest, and SHA-256 value. Run the focused
 compatibility/persistence-service tests, `pnpm verify:public-exports`, `pnpm typecheck`,
 `pnpm verify:persistence-diagnostics`, `pnpm verify`, and `git diff --check`. Exact-stage only the files above that
 actually changed and commit `fix(base): scope save invariant validation`; no gameplay State or semantic outcome may change.
