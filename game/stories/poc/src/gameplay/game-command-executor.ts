@@ -105,11 +105,19 @@ export interface PocGameCommandExecutorV1 extends GameCommandExecutorV1<
 > {}
 
 class PocRejectedCommandV1 {
-  constructor(readonly rejection: PocRejectionReasonV1) {}
+  readonly rejection: PocRejectionReasonV1;
+
+  constructor(rejection: PocRejectionReasonV1) {
+    this.rejection = rejection;
+  }
 }
 
 class PocFaultedCommandV1 {
-  constructor(readonly fault: PocEngineFaultV1) {}
+  readonly fault: PocEngineFaultV1;
+
+  constructor(fault: PocEngineFaultV1) {
+    this.fault = fault;
+  }
 }
 
 interface PocBlockingNarrativeRequestV1 {
