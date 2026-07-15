@@ -1981,9 +1981,12 @@ it("owns exactly the ten replayable debug kinds and excludes anchors", () => {
   ).toBe(false);
 });
 
-it("rejects a foreign binding and duplicate state owner", () => {
-  expect(() => createSimulationWithDuplicateRunV1()).toThrow(/state slot owner/u);
-  expect(() => createSimulationWithE2eBindingV1()).toThrow(/simulation type witness/u);
+it("rejects a duplicate state owner at runtime", () => {
+  expect(() => createSimulationWithDuplicateRunSlotV1()).toThrow(/duplicate State slot/u);
+});
+
+it("keeps a foreign binding outside the PoC compile-time type witness", () => {
+  expectTypeOf<ForeignGameplayBindingV1>().not.toMatchTypeOf<PocGameplayModuleTupleV1[number]>();
 });
 
 it("keeps engine-owned integrity out of Story queries and projections", () => {
@@ -2197,6 +2200,8 @@ export function createPocGameSimulationV1(
 ```
 
 `createPocGameplayModuleTupleV1(program)` returns one frozen ten-binding tuple in the exact ownership-catalog order: five owner-slice-bound instances plus five static bindings, with identical descriptors, dependencies, and slots for every valid Program. `createPocGameBootstrapInputV1` calls `nextNonZeroUint32()` and then `nextUuidV4()` exactly once each, validates both values, and freezes the result. `createInitialPocGameStateV1(modules, bootstrap)` calls each binding's `createInitialState(bootstrap)` in that same fixed order and assembles the aggregate State from those exact ten results; it does not read Program data, write a Slice directly, or apply owner initialization proposals. Tests compare every aggregate owner Slice with the corresponding Module result, prove two Programs do not leak owner values, and prove descriptor/order stability. Base then independently verifies Canonical JSON byte equality for every owner. GameSimulation validation also proves the program's Narrative limits are positive safe integers and the Narrative interpreter observes the exact `128`/`8` fixture values.
+
+The Catalog's `GameSimulationTypeWitnessV1` is deliberately compile-time-only and emits no runtime field. Therefore the foreign-binding guard above is a static type assertion, while duplicate Module IDs/State slots, dependency closure/DAG, owner triads, and schemas remain runtime validation failures.
 
 Production composition calls the tuple factory only here; focused tests may call it directly to prove descriptor/order stability and cross-Program isolation. No module, Rule, Resolver, query, or executor imports `story-definition.ts`. `createPocRulesV1(data)` is used only by the default Story materializer and test fixtures. `createPocGameSimulationV1(program)` consumes the supplied, already frozen `program.rules` and must never regenerate Rules from data, otherwise a resolved Hotfix could be silently bypassed. GameSimulation validation proves descriptor/slot uniqueness, dependency closure/DAG, owner triads, aggregate schemas, both executors, and the same type witness. The debug command schema, validation-error schema, executor provider, owner-routing tables, and rule inputs are part of the simulation source projection; changing any of them must change `simulationDigest`, while fixture/tooling adapters must not enter it. Phase 4B's resolved-Story contract test verifies that split. The integration test composes the public GameSession factory around this exact simulation; test helpers may read Snapshot, but production Gameplay exports no Session or integrity mutation capability.
 
