@@ -1287,6 +1287,47 @@ git add -- game/stories/poc/src/gameplay/modules/narrative game/stories/poc/src/
 git commit -m "feat(story-poc): add narrative gameplay module"
 ```
 
+### Approved Task 8 Authority-Repair Checkpoint
+
+Before Task 8's expected-red, commit the approved field-level ABI repair independently. This repair closes inputs/outputs
+that the pure providers require; it is not permission to start Task 8 production files early and does not alter any phase
+checkbox.
+
+**Files:**
+
+- Modify: `game/stories/poc/src/gameplay/contracts/types.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
+- Modify: `game/stories/poc/src/testing/gameplay-fixture.ts`
+- Modify: `game/stories/poc/src/test/gameplay-contract.test.ts`
+- Modify: `docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md`
+- Modify: `docs/engineering/plans/2026-07-11-project-tavern-04a-poc-gameplay-simulation.md`
+- Modify: `docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md`
+
+The repair is exact: `TavernPreviewInputV1` becomes the strict `current_state` versus
+`active_opening_baseline` discriminated union in the Catalog; `SettlementDraftV1` adds ordered
+`appliedModifiers`; `EndingDefinitionV1` adds terminal `status`, the two named `summaryOutcomeIds`, and
+`ProgressionEffectIntentV1[]` effects. The shared contract schemas migrate Ending definitions/references and the fixture
+contains exactly one definition per terminal status. Task 8 owns its Tavern rule-invocation schemas and reuses the public
+Workflow parser; the aggregate contract schema must not duplicate a second `OpeningSessionV1` implementation.
+
+Run the focused contract test after changing its strict vectors and before completing the schemas/fixture; the expected red
+is the old data shape or missing repaired field/refinement, not a dependency failure. Then run:
+
+```bash
+pnpm --filter @project-tavern/story-poc exec vitest run src/test/gameplay-contract.test.ts
+pnpm typecheck
+pnpm verify
+```
+
+Expected: PASS; both Tavern branches are closed, all three terminal definitions are unique/referentially complete,
+definition effects are progression-only, the complete fixture remains deep-frozen, and no Task 8 implementation file
+exists yet. Stage exactly the seven files above and commit:
+
+```bash
+git add -- game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/testing/gameplay-fixture.ts game/stories/poc/src/test/gameplay-contract.test.ts docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md docs/engineering/plans/2026-07-11-project-tavern-04a-poc-gameplay-simulation.md docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md
+git commit -m "fix(story-poc): repair gameplay rule contracts"
+```
+
 ## Task 8: Implement Pure Demand, Settlement, Check, Ending, and Scheduling Rules/Resolvers
 
 **Files:**
@@ -1344,6 +1385,38 @@ it("schedules events in authored order without writing state", () => {
   ]);
 });
 
+it("keeps current-state trial calculation distinct from an active opening", () => {
+  const rules = createPocRulesV1(createPocGameplayFixtureV1().program.data);
+  const current = currentStateTavernPreviewInputFixtureV1({
+    resources: { apRemaining: 0, cash: 100, playerStamina: 10, heroineStamina: 10 },
+  });
+  expect(rules.tavern.preview(current)).toMatchObject({
+    basis: "current_state",
+    allowed: false,
+    rejectionCodes: ["calendar.insufficient_ap"],
+    openingCosts: { commitment: "prospective", modeReasonId: "reason.fixture" },
+  });
+
+  const active = activeOpeningTavernPreviewInputFixtureV1();
+  expect(rules.tavern.preview(active)).toMatchObject({
+    basis: "active_opening_baseline",
+    openingCosts: { commitment: "committed", ingredientShortages: [] },
+  });
+  expect(() => rules.tavern.preview({ ...active, plan: differentTavernPlanFixtureV1() })).toThrow();
+});
+
+it("uses stable largest remainders for reception and planned-portion caps", () => {
+  const fixture = proportionalTavernSettlementFixtureV1();
+  const resolver = createPocTavernSettlementResolverV1(fixture.data);
+  const draft = resolver.settle(fixture.input, fixedRuleRngV1([]));
+  expect(draft.orders).toEqual(fixture.expectedOrders);
+  expect(draft.appliedModifiers).toEqual(fixture.expectedAppliedModifiers);
+  expect(draft.orders.reduce((sum, line) => sum + line.actualSales, 0)).toBe(
+    fixture.expectedActualSales,
+  );
+  expectPreviewContainsSettlementV1(resolver.preview(fixture.currentStatePreviewInput), draft);
+});
+
 it("evaluates endings from the typed policy without private thresholds", () => {
   const fixture = createPocGameplayFixtureV1();
   expect(fixture.program.data.balance.endingPolicy).toEqual({
@@ -1366,7 +1439,16 @@ it("evaluates endings from the typed policy without private thresholds", () => {
         levyKind: "paid",
       }),
     ),
-  ).toMatchObject({ status: "completed_stable", reasonIds: ["reason.ending.stable"] });
+  ).toMatchObject({
+    endingId: "ending.fixture",
+    status: "completed_stable",
+    reasonIds: ["reason.ending.stable"],
+    effects: [],
+    summary: {
+      relationship: { outcomeId: "outcome.fixture.relationship" },
+      investigation: { outcomeId: "outcome.fixture.investigation" },
+    },
+  });
   expect(
     [
       { cash: 19, reputation: 50, facilityIds: [parseFacilityId("facility.fixture")] },
@@ -1375,14 +1457,17 @@ it("evaluates endings from the typed policy without private thresholds", () => {
     ].map((input) => evaluate(endingInputFixtureV1({ ...input, levyKind: "paid" }))),
   ).toEqual([
     expect.objectContaining({
+      endingId: "ending.fixture_danger",
       status: "completed_danger",
       reasonIds: ["reason.ending.danger"],
     }),
     expect.objectContaining({
+      endingId: "ending.fixture_danger",
       status: "completed_danger",
       reasonIds: ["reason.ending.danger"],
     }),
     expect.objectContaining({
+      endingId: "ending.fixture_danger",
       status: "completed_danger",
       reasonIds: ["reason.ending.danger"],
     }),
@@ -1396,14 +1481,20 @@ it("evaluates endings from the typed policy without private thresholds", () => {
         levyKind: "paid",
       }),
     ),
-  ).toMatchObject({ status: "completed_danger", reasonIds: ["reason.ending.danger"] });
+  ).toMatchObject({
+    endingId: "ending.fixture_danger",
+    status: "completed_danger",
+    reasonIds: ["reason.ending.danger"],
+  });
   expect(
     evaluate(endingInputFixtureV1({ cash: 19, reputation: 44, facilityIds: [], levyKind: "paid" })),
   ).toMatchObject({
+    endingId: "ending.fixture_danger",
     status: "completed_danger",
     reasonIds: ["reason.ending.danger", "reason.ending.reputation_crisis"],
   });
   expect(evaluate(endingInputFixtureV1({ levyKind: "arrears" }))).toMatchObject({
+    endingId: "ending.fixture_arrears",
     status: "failed_arrears",
     reasonIds: ["reason.ending.arrears"],
   });
@@ -1423,6 +1514,7 @@ it("evaluates endings from the typed policy without private thresholds", () => {
       }),
     ),
   ).toMatchObject({
+    endingId: "ending.fixture_danger",
     status: "completed_danger",
     reasonIds: ["reason.fixture.alternate_danger"],
   });
@@ -1471,13 +1563,13 @@ export function createPocRulesV1(
 }
 ```
 
-The only patchable `StoryRuleSlotV1` values are the seven ordered members of `pocStoryRuleSlotsV1`: `demand.preview`, `demand.resolve`, `tavern.preview`, `tavern.settle`, `checks.describe`, `checks.resolve`, and `endings.evaluate`. Runtime key tests reject any extra aggregate/nested member. Demand materializes stable per-day/segment offsets and previews ranges. Tavern preview/settlement calculate capacity, sales, ingredient cost, revenue, discard, modifiers, and effect/ledger drafts. Checks describe and resolve threshold/2D6 outcomes. Ending evaluation returns only progression effects and reads thresholds/Reason bindings exclusively from `data.balance.endingPolicy`; the validated alternate-policy vector proves the provider follows changed thresholds and Reason bindings, so no provider closure may retain a second `20/50/1/45` or ReasonId literal. Scheduling is a separate named resolver derived from validated event data and included in simulation source identity, but it is not a `PocRulesV1` member or PatchSurface rule slot. It evaluates each frozen context observation, orders candidates by priority descending then EventId, returns event requests/effects, and never dispatches or mutates; tests cover the Catalog's outer context order and prove that an earlier effect cannot enable a later event in the same context. `evaluatePocConditionsV1` is the one exhaustive, pure Condition implementation used by Scheduling, Task 10 Narrative execution, and Task 12 Query/Choice projection; none of those consumers may retain a second Condition switch.
+The only patchable `StoryRuleSlotV1` values are the seven ordered members of `pocStoryRuleSlotsV1`: `demand.preview`, `demand.resolve`, `tavern.preview`, `tavern.settle`, `checks.describe`, `checks.resolve`, and `endings.evaluate`. Runtime key tests reject any extra aggregate/nested member. Demand materializes stable per-day/segment offsets and previews ranges. Tavern preview/settlement implement the Catalog's one integer allocation pipeline: current-state input includes the four current resource values used by the rule's resource/shortage `allowed`; active-baseline input accepts only the exact frozen plan/session; effective orders, reception scaling, and per-recipe planned caps use proportional largest remainder with stable ID ties; mode reason/costs and base reputation/teamwork/heroine-mood effect reasons come from the exact ServiceMode definition, while each Modifier explanation keeps its own reason; negative service-cost/capacity/preparation totals clamp once at zero. Task 8 does not recreate structural/reference/day/mode availability guards or the shared Condition evaluator: Task 10/12's one calculator wrapper supplies a guard-valid plan to this rule and combines ordered guard rejections with its resource result. Preview exactly enumerates the current PoC demand-range Cartesian product and proves that each recipe's actual settlement and basis-appropriate cash delta are contained; any future non-enumerating replacement must be conservatively covering, never sampled. `SettlementDraftV1.appliedModifiers` is the ordered authority copied into the OpeningLedger and used for applicable opening-Aura consumption. Checks describe and resolve threshold/2D6 outcomes. Ending evaluation first derives status/reasons exclusively from `data.balance.endingPolicy`, then selects the unique `EndingDefinitionV1.status`, copies its endingId/effects, and resolves both summary entries through its `summaryOutcomeIds`; it never depends on array position or hard-coded Ending/Outcome IDs. The validated alternate-policy vector proves the provider follows changed thresholds and Reason bindings, so no provider closure may retain a second `20/50/1/45` or ReasonId literal. Scheduling is a separate named resolver derived from validated event data and included in simulation source identity, but it is not a `PocRulesV1` member or PatchSurface rule slot. It evaluates each frozen context observation, orders candidates by priority descending then EventId, returns event requests/effects, and never dispatches or mutates; tests cover the Catalog's outer context order and prove that an earlier effect cannot enable a later event in the same context. `evaluatePocConditionsV1` is the one exhaustive, pure Condition implementation used by Scheduling, Task 10 Narrative execution, and Task 12 Query/Choice projection; none of those consumers may retain a second Condition switch.
 
 - [ ] **Step 4: Run deterministic, mutation, and schema tests**
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/rules-resolvers.test.ts && pnpm typecheck && pnpm verify`
 
-Expected: PASS; same seed/input returns identical output and draw trace, invalid outputs/thenables are rejected by strict schemas, inputs remain byte-identical, and no rule accesses platform globals.
+Expected: PASS; same seed/input returns identical output and draw trace, both Tavern input branches and active-plan equality are strict-validated, proportional cap/tie vectors and negative-clamp vectors are exact, every actual sale/cash result falls inside preview, ending status-to-definition/summary/effects mapping is data-driven, invalid outputs/thenables are rejected by strict schemas, inputs remain byte-identical, and no rule accesses platform globals.
 
 - [ ] **Step 5: Commit Rules and Resolvers**
 
@@ -1735,7 +1827,7 @@ Expected: FAIL with the stable unhandled command fault for the six remaining kin
 
 - [ ] **Step 3: Implement the six cross-owner transactions**
 
-Opening start validates plan/demand/Actors/Inventory, calls `program.rules.tavern.preview`, commits AP/stamina/cash/ingredient costs and one immutable baseline, asks Workflow—not Tavern—to install the OpeningSession, then arbitrates at most one blocking event. Continue advances only the exact Opening checkpoint and never charges again. Finalize accepts only `ready_to_finalize`, calls `program.rules.tavern.settle` once from the stored baseline, applies revenue/discard/relationship/progression effects, decrements only actually applicable `opening` countdown Auras after successful settlement, appends one Tavern service-history row, clears Workflow, and sets Calendar `eveningResolved=true`; any rejection/fault preserves the already-committed Start state and baseline without a duplicate charge. WorldAction moves through exactly `begin_scene → awaiting_completion_phase → completion_scene → ready_to_complete`, records one persisted check/effect set, and starts no third result Narrative. Levy first proposes Inventory paid/arrears, then `program.rules.endings.evaluate`/Progression, and finally Run completion at D7 afternoon without changing phase; any failure rolls back all owners.
+Opening start uses the one shared Tavern calculator wrapper: it first applies the common structural/reference/day/mode guards, then builds the `current_state` rule input with exact current resources and combines the ordered guard/resource rejections. On success it commits AP/stamina/cash/ingredient costs and one immutable baseline, asks Workflow—not Tavern—to install the OpeningSession, then arbitrates at most one blocking event. Continue advances only the exact Opening checkpoint and never charges again. Finalize accepts only `ready_to_finalize`, calls `program.rules.tavern.settle` once from the stored baseline, applies revenue/discard/relationship/progression effects, copies `SettlementDraftV1.appliedModifiers` unchanged into the OpeningLedger, decrements only `opening` countdown Auras represented by actually applicable modifier sources after successful settlement, appends one Tavern service-history row, clears Workflow, and sets Calendar `eveningResolved=true`; any rejection/fault preserves the already-committed Start state and baseline without a duplicate charge. WorldAction moves through exactly `begin_scene → awaiting_completion_phase → completion_scene → ready_to_complete`, records one persisted check/effect set, and starts no third result Narrative. Levy first proposes Inventory paid/arrears, then `program.rules.endings.evaluate`/Progression using the unique status-matched Ending definition, and finally Run completion at D7 afternoon without changing phase; any failure rolls back all owners.
 
 ```ts
 const assertNeverCommandV1 = (value: never): never => {
@@ -2005,7 +2097,7 @@ export function createPocGameQueriesV1(
 ): PocGameQueriesV1;
 ```
 
-Every preview reuses the same guards, cost calculators, Rules/Resolvers, stable references, and confirmation metadata as execution without consuming RNG or mutating. `getAvailableActions`, `explainAvailability`, `previewCommand`, and execute share one ordered visibility/availability implementation. `previewTavernPlan` is the only prospective/committed Opening calculator projection. Run start, life-policy choice, and Opening start/continue/finalize are exposed only through their exact control projections; in particular `getTavernOpeningControl()` returns null during an active Narrative or WorldAction and otherwise returns exactly the one context-valid Opening branch. Demand and obligation forecasts follow their typed visibility/basis unions and never expose hidden actual demand/check results. The five `Poc*ProjectionV1` accessors return the exact deeply frozen Strict-JSON field sets above: HUD contains the exact player-facing counters; Inventory batch projection omits `source`; Tavern omits `demandSeeds`, `currentDemand`, and uncommitted actual demand, and sets `currentPlanPreview=null` exactly when `servicePlan=null`; Facilities exposes only `built`/`decisions`; Ledger exposes only starting/current cash plus committed entries. Their strict schemas reject every missing/extra field, and query tests assert exact `Object.keys` order plus the private-field omissions.
+Every preview reuses the same guards, cost calculators, Rules/Resolvers, stable references, and confirmation metadata as execution without consuming RNG or mutating. `getAvailableActions`, `explainAvailability`, `previewCommand`, and execute share one ordered visibility/availability implementation. `previewTavernPlan` is the only prospective/committed Opening calculator projection and calls the same shared wrapper as Opening start: without a session it supplies the current resource branch after the common structural/reference/day/mode guards; with a session it supplies only the exact baseline plan/session branch and never rebuilds a current-state hybrid. The Tavern rule does not duplicate the shared Condition evaluator. Run start, life-policy choice, and Opening start/continue/finalize are exposed only through their exact control projections; in particular `getTavernOpeningControl()` returns null during an active Narrative or WorldAction and otherwise returns exactly the one context-valid Opening branch. Demand and obligation forecasts follow their typed visibility/basis unions and never expose hidden actual demand/check results. The five `Poc*ProjectionV1` accessors return the exact deeply frozen Strict-JSON field sets above: HUD contains the exact player-facing counters; Inventory batch projection omits `source`; Tavern omits `demandSeeds`, `currentDemand`, and uncommitted actual demand, and sets `currentPlanPreview=null` exactly when `servicePlan=null`; Facilities exposes only `built`/`decisions`; Ledger exposes only starting/current cash plus committed entries. Their strict schemas reject every missing/extra field, and query tests assert exact `Object.keys` order plus the private-field omissions.
 
 `projectPocGameViewV1` calls these accessors and returns the exact field set above; it does not invent a second state reader. Narrative is deliberately absent from `PocGameViewV1`: Phase 4B publishes `queries.getNarrativeProjection()` as the separate atomic `SemanticPublicationV1.narrative` field from the same Queries instance. The Story-local query factory accepts Gameplay State rather than the full Snapshot, so it cannot inspect engine-owned RunIntegrity. The Story-local projector accepts only the already-created query object; it never receives Snapshot or creates a second query source.
 

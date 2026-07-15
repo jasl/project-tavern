@@ -486,7 +486,38 @@ function createContractFixtureDataV1(): PocSimulationDataV1 {
           ],
         },
       ],
-      endings: [{ endingId: "ending.fixture", nameTextId: "text.fixture" }],
+      endings: [
+        {
+          endingId: "ending.fixture",
+          status: "completed_stable",
+          nameTextId: "text.fixture",
+          summaryOutcomeIds: {
+            relationship: "outcome.fixture.relationship",
+            investigation: "outcome.fixture.investigation",
+          },
+          effects: [],
+        },
+        {
+          endingId: "ending.fixture_danger",
+          status: "completed_danger",
+          nameTextId: "text.fixture",
+          summaryOutcomeIds: {
+            relationship: "outcome.fixture.relationship",
+            investigation: "outcome.fixture.investigation",
+          },
+          effects: [],
+        },
+        {
+          endingId: "ending.fixture_arrears",
+          status: "failed_arrears",
+          nameTextId: "text.fixture",
+          summaryOutcomeIds: {
+            relationship: "outcome.fixture.relationship",
+            investigation: "outcome.fixture.investigation",
+          },
+          effects: [],
+        },
+      ],
     },
     narrative: {
       scenes: [
@@ -560,33 +591,52 @@ function createContractFixtureRulesV1(data: PocSimulationDataV1): PocRulesV1 {
     },
     tavern: {
       preview(input) {
-        const mode = data.balance.serviceModes.find(
-          (candidate) => candidate.mode === input.plan.mode,
-        );
+        const plan = input.plan;
+        const mode = data.balance.serviceModes.find((candidate) => candidate.mode === plan.mode);
         if (mode === undefined) throw new TypeError("missing fixture service mode");
         const totalCash = parseMoney(mode.wage + data.balance.openingFee);
+        const active = input.basis === "active_opening_baseline";
         return {
-          basis: "current_state",
+          basis: input.basis,
           allowed: true,
           rejectionCodes: [],
           openingCosts: {
-            commitment: "prospective",
+            commitment: active ? "committed" : "prospective",
             modeReasonId: mode.reasonId,
-            ap: mode.apCost,
-            playerStamina: mode.playerStaminaCost,
-            heroineStamina: mode.heroineStaminaCost,
+            ap: active
+              ? parseNonNegativeSafeInteger(
+                  input.session.baseline.ap.before - input.session.baseline.ap.after,
+                )
+              : mode.apCost,
+            playerStamina: active
+              ? parseNonNegativeSafeInteger(
+                  input.session.baseline.playerStamina.before -
+                    input.session.baseline.playerStamina.after,
+                )
+              : mode.playerStaminaCost,
+            heroineStamina: active
+              ? parseNonNegativeSafeInteger(
+                  input.session.baseline.heroineStamina.before -
+                    input.session.baseline.heroineStamina.after,
+                )
+              : mode.heroineStaminaCost,
             cash: {
               wage: mode.wage,
               openingFee: data.balance.openingFee,
               modifierDelta: parseSafeInteger(0),
-              total: totalCash,
+              total: active
+                ? parseMoney(
+                    input.session.baseline.cashAtStart.before -
+                      input.session.baseline.cashAtStart.after,
+                  )
+                : totalCash,
               appliedModifiers: [],
             },
             ingredientShortages: [],
           },
           receptionCapacity: mode.baseReceptionCapacity,
           preparationCapacity: mode.basePreparationPoints,
-          expectedSales: input.plan.menu.map(({ portions, recipeId }) => {
+          expectedSales: plan.menu.map(({ portions, recipeId }) => {
             const exact = parseSafeInteger(portions);
             return { recipeId, range: { min: exact, max: exact } };
           }),
@@ -599,6 +649,7 @@ function createContractFixtureRulesV1(data: PocSimulationDataV1): PocRulesV1 {
           receptionCapacity: parseNonNegativeSafeInteger(0),
           preparationCapacity: parseNonNegativeSafeInteger(0),
           discardedPortions: [],
+          appliedModifiers: [],
           effects: [],
           entries: [],
         };
@@ -654,15 +705,6 @@ function createContractFixtureRulesV1(data: PocSimulationDataV1): PocRulesV1 {
     },
     endings: {
       evaluate(input) {
-        const ending = requiredValueV1(data.content.endings[0], "ending");
-        const relationship = requiredValueV1(
-          data.stateDefinitions.outcomes[1],
-          "relationship outcome",
-        );
-        const investigation = requiredValueV1(
-          data.stateDefinitions.outcomes[0],
-          "investigation outcome",
-        );
         const policy = data.balance.endingPolicy;
         const arrears = input.levy.kind === "arrears";
         const stable =
@@ -675,6 +717,10 @@ function createContractFixtureRulesV1(data: PocSimulationDataV1): PocRulesV1 {
           : stable
             ? "completed_stable"
             : "completed_danger";
+        const ending = requiredValueV1(
+          data.content.endings.find((candidate) => candidate.status === status),
+          `${status} ending`,
+        );
         const reasonIds = arrears
           ? [policy.arrearsReasonId]
           : stable
@@ -682,20 +728,26 @@ function createContractFixtureRulesV1(data: PocSimulationDataV1): PocRulesV1 {
             : input.reputation < policy.reputationCrisisBelow
               ? [policy.dangerReasonId, policy.reputationCrisisReasonId]
               : [policy.dangerReasonId];
+        const relationship = requiredValueV1(
+          input.outcomes.find(
+            ({ outcomeId }) => outcomeId === ending.summaryOutcomeIds.relationship,
+          ),
+          "relationship outcome",
+        );
+        const investigation = requiredValueV1(
+          input.outcomes.find(
+            ({ outcomeId }) => outcomeId === ending.summaryOutcomeIds.investigation,
+          ),
+          "investigation outcome",
+        );
         return {
           endingId: ending.endingId,
           status,
           reasonIds,
-          effects: [],
+          effects: ending.effects,
           summary: {
-            relationship: {
-              outcomeId: relationship.outcomeId,
-              value: storyValueFromDefinitionV1(relationship.value),
-            },
-            investigation: {
-              outcomeId: investigation.outcomeId,
-              value: storyValueFromDefinitionV1(investigation.value),
-            },
+            relationship,
+            investigation,
           },
         };
       },

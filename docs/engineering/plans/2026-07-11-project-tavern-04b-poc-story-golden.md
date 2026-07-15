@@ -823,14 +823,60 @@ it("uses current, committed-plan, and final forecast bases", () => {
   ).toMatchObject({ kind: "final" });
 });
 
+it("binds each terminal status to one authored ending and the same two summary outcomes", () => {
+  expect(
+    pocEndingDefinitionsV1.map(({ endingId, status, summaryOutcomeIds, effects }) => ({
+      endingId,
+      status,
+      summaryOutcomeIds,
+      effects,
+    })),
+  ).toEqual([
+    {
+      endingId: "ending.stable",
+      status: "completed_stable",
+      summaryOutcomeIds: {
+        relationship: "outcome.relationship_opportunity",
+        investigation: "outcome.investigation",
+      },
+      effects: [],
+    },
+    {
+      endingId: "ending.danger",
+      status: "completed_danger",
+      summaryOutcomeIds: {
+        relationship: "outcome.relationship_opportunity",
+        investigation: "outcome.investigation",
+      },
+      effects: [],
+    },
+    {
+      endingId: "ending.failed_arrears",
+      status: "failed_arrears",
+      summaryOutcomeIds: {
+        relationship: "outcome.relationship_opportunity",
+        investigation: "outcome.investigation",
+      },
+      effects: [],
+    },
+  ]);
+});
+
 it.each([
   [stableEndingInputV1(), "ending.stable", "completed_stable"],
   [dangerEndingInputV1(), "ending.danger", "completed_danger"],
   [arrearsEndingInputV1(), "ending.failed_arrears", "failed_arrears"],
 ])("maps one ending vector", (input, endingId, status) => {
+  const definition = pocEndingDefinitionsV1.find((candidate) => candidate.status === status);
+  expect(definition).toBeDefined();
   expect(createPocRulesV1(pocSimulationDataV1).endings.evaluate(input)).toMatchObject({
     endingId,
     status,
+    effects: definition?.effects,
+    summary: {
+      relationship: { outcomeId: definition?.summaryOutcomeIds.relationship },
+      investigation: { outcomeId: definition?.summaryOutcomeIds.investigation },
+    },
   });
 });
 
@@ -973,7 +1019,7 @@ Expected: FAIL because final forecast/ending definitions, combined Narrative, an
 
 - [ ] **Step 3: Complete strict source data and its field-by-field simulation projection**
 
-Add only definitions, the exact `endingPolicy`/forecast policy, reason IDs, and effect lists. Invoke the Phase 4A factories and `createPocGameQueriesV1` in pure provider tests; do not add a new `rules/` or `resolvers/` implementation under `content`. The concrete initial-state vector above must differ from the Phase 4A fixture where authored data differs (`intellect="B"`/cash `70` here versus `"C"`/`100` there), while both Simulation instances keep the same ten descriptors/order and every aggregate owner Slice equals the corresponding binding initializer. This proves that no fixture singleton or cross-Program owner data leaks into the resolved Story. `PocRulesV1.endings.evaluate` reads the one Balance-owned ending policy and has no forecast method or private threshold copy. Forecast is exclusively `getObligationForecast()` over the latest Gameplay State plus the same Tavern preview calculator: before `visibleFrom` it returns `null`, then `current_gap`, only an eligible frozen D5+ plan yields `committed_plan_conservative`, and all service days resolved yields `final`. Stable requires paid levy plus the exact cash/reputation/facility thresholds and persists the two-field relationship/investigation summary. Arrears never deducts unavailable cash and records exact shortfall.
+Add only definitions, the exact `endingPolicy`/forecast policy, reason IDs, and effect lists. `pocEndingDefinitionsV1` contains exactly one row per terminal status in stable/danger/arrears order; each row declares its own EndingId, status, the same two named relationship/investigation OutcomeId bindings, and its progression-only effects (empty for this concrete PoC revision). Invoke the Phase 4A factories and `createPocGameQueriesV1` in pure provider tests; do not add a new `rules/` or `resolvers/` implementation under `content`. The concrete initial-state vector above must differ from the Phase 4A fixture where authored data differs (`intellect="B"`/cash `70` here versus `"C"`/`100` there), while both Simulation instances keep the same ten descriptors/order and every aggregate owner Slice equals the corresponding binding initializer. This proves that no fixture singleton or cross-Program owner data leaks into the resolved Story. `PocRulesV1.endings.evaluate` reads the one Balance-owned ending policy and has no forecast method or private threshold/EndingId/OutcomeId copy: policy decides status/reasons, then the status-matched definition supplies endingId/effects/summary bindings. Forecast is exclusively `getObligationForecast()` over the latest Gameplay State plus the same Tavern preview calculator wrapper: before `visibleFrom` it returns `null`, then `current_gap`, only an eligible frozen D5+ plan yields `committed_plan_conservative`, and all service days resolved yields `final`. The wrapper owns the shared structural/reference/day/mode guard and supplies either the current-resource rule branch or exact active plan/session branch; Story content does not duplicate the Condition evaluator. Stable requires paid levy plus the exact cash/reputation/facility thresholds and persists the two-field relationship/investigation summary. Arrears never deducts unavailable cash and records exact shortfall.
 
 `narrative/index.ts` combines the D1–D4, relationship and investigation scenes once in authored order. `story-data.ts` owns strict source schemas and the only complete source object:
 

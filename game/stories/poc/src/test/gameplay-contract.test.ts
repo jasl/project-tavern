@@ -40,6 +40,7 @@ import {
   type PocReplayableDebugExecutionAttemptV1,
   type PocRejectionReasonV1,
   type PocSimulationProgramV1,
+  type TavernPreviewInputV1,
 } from "../gameplay/contracts/types.js";
 import { deepFreezePocValueV1 } from "../gameplay/contracts/values.js";
 import { createPocGameplayFixtureV1 } from "../testing/gameplay-fixture.js";
@@ -148,6 +149,12 @@ describe("PoC gameplay contract", () => {
     >().toEqualTypeOf<never>();
     expectTypeOf<PocSimulationProgramV1>().toHaveProperty("data");
     expectTypeOf<PocSimulationProgramV1>().toHaveProperty("rules");
+    expectTypeOf<
+      Extract<TavernPreviewInputV1, { readonly basis: "current_state" }>
+    >().toHaveProperty("resources");
+    expectTypeOf<
+      Extract<TavernPreviewInputV1, { readonly basis: "active_opening_baseline" }>
+    >().toHaveProperty("session");
   });
 
   it("keeps replayable debug commands closed to the simulation-owned ten kinds", () => {
@@ -225,6 +232,16 @@ describe("PoC gameplay contract", () => {
       "endings",
     ]);
     expect(Object.keys(data.narrative)).toEqual(["scenes"]);
+    expect(data.content.endings.map((ending) => Object.keys(ending))).toEqual([
+      ["endingId", "status", "nameTextId", "summaryOutcomeIds", "effects"],
+      ["endingId", "status", "nameTextId", "summaryOutcomeIds", "effects"],
+      ["endingId", "status", "nameTextId", "summaryOutcomeIds", "effects"],
+    ]);
+    expect(data.content.endings.map(({ endingId, status }) => ({ endingId, status }))).toEqual([
+      { endingId: "ending.fixture", status: "completed_stable" },
+      { endingId: "ending.fixture_danger", status: "completed_danger" },
+      { endingId: "ending.fixture_arrears", status: "failed_arrears" },
+    ]);
     expect(Object.keys(data.balance)).toEqual([
       "lifePolicies",
       "actionCosts",
@@ -544,6 +561,81 @@ describe("PoC gameplay contract", () => {
         },
       }),
     ).not.toThrow();
+  });
+
+  it("binds every terminal status and ending summary role explicitly", () => {
+    const data = createPocGameplayFixtureV1().program.data;
+    const [stable, danger, arrears] = data.content.endings;
+    if (stable === undefined || danger === undefined || arrears === undefined) {
+      throw new TypeError("incomplete ending fixture");
+    }
+
+    const parseWithEndings = (endings: readonly unknown[]) =>
+      pocSimulationDataSchemaV1.parse({
+        ...data,
+        content: { ...data.content, endings },
+      });
+
+    expect(() => parseWithEndings(data.content.endings.toReversed())).not.toThrow();
+    expect(() => parseWithEndings([stable, danger])).toThrow();
+    expect(() =>
+      parseWithEndings([stable, { ...danger, status: "completed_stable" }, arrears]),
+    ).toThrow();
+    expect(() =>
+      parseWithEndings([
+        stable,
+        {
+          ...danger,
+          summaryOutcomeIds: {
+            relationship: danger.summaryOutcomeIds.investigation,
+            investigation: danger.summaryOutcomeIds.relationship,
+          },
+        },
+        arrears,
+      ]),
+    ).toThrow();
+    expect(() =>
+      parseWithEndings([
+        {
+          ...stable,
+          summaryOutcomeIds: {
+            relationship: stable.summaryOutcomeIds.relationship,
+            investigation: stable.summaryOutcomeIds.relationship,
+          },
+        },
+        danger,
+        arrears,
+      ]),
+    ).toThrow();
+    expect(() =>
+      parseWithEndings([
+        {
+          ...stable,
+          summaryOutcomeIds: {
+            ...stable.summaryOutcomeIds,
+            relationship: "outcome.fixture.missing",
+          },
+        },
+        danger,
+        arrears,
+      ]),
+    ).toThrow();
+    expect(() =>
+      parseWithEndings([
+        {
+          ...stable,
+          effects: [
+            {
+              kind: "reputation.adjust",
+              delta: 1,
+              reasonId: "reason.fixture",
+            },
+          ],
+        },
+        danger,
+        arrears,
+      ]),
+    ).toThrow();
   });
 
   it("rejects reversed stable-ID order in explicit state-definition collections", () => {

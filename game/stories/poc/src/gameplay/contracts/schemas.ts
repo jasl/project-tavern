@@ -682,6 +682,32 @@ const modifierZodSchemaV1 = z.discriminatedUnion("kind", [
   }),
 ]);
 
+const factSetEffectIntentZodSchemaV1 = z.strictObject({
+  kind: z.literal("fact.set"),
+  factId: factIdZodSchemaV1,
+  value: storyValueZodSchemaV1,
+  reasonId: reasonIdZodSchemaV1,
+});
+
+const questSetEffectIntentZodSchemaV1 = z.strictObject({
+  kind: z.literal("quest.set"),
+  quest: questEntryZodSchemaV1,
+  reasonId: reasonIdZodSchemaV1,
+});
+
+const outcomeSetEffectIntentZodSchemaV1 = z.strictObject({
+  kind: z.literal("outcome.set"),
+  outcomeId: outcomeIdZodSchemaV1,
+  value: storyValueZodSchemaV1,
+  reasonId: reasonIdZodSchemaV1,
+});
+
+const progressionEffectIntentZodSchemaV1 = z.discriminatedUnion("kind", [
+  factSetEffectIntentZodSchemaV1,
+  questSetEffectIntentZodSchemaV1,
+  outcomeSetEffectIntentZodSchemaV1,
+]);
+
 const effectIntentZodSchemaV1 = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("calendar.ap.adjust"),
@@ -760,23 +786,9 @@ const effectIntentZodSchemaV1 = z.discriminatedUnion("kind", [
     target: auraTargetZodSchemaV1,
     reasonId: reasonIdZodSchemaV1,
   }),
-  z.strictObject({
-    kind: z.literal("fact.set"),
-    factId: factIdZodSchemaV1,
-    value: storyValueZodSchemaV1,
-    reasonId: reasonIdZodSchemaV1,
-  }),
-  z.strictObject({
-    kind: z.literal("quest.set"),
-    quest: questEntryZodSchemaV1,
-    reasonId: reasonIdZodSchemaV1,
-  }),
-  z.strictObject({
-    kind: z.literal("outcome.set"),
-    outcomeId: outcomeIdZodSchemaV1,
-    value: storyValueZodSchemaV1,
-    reasonId: reasonIdZodSchemaV1,
-  }),
+  factSetEffectIntentZodSchemaV1,
+  questSetEffectIntentZodSchemaV1,
+  outcomeSetEffectIntentZodSchemaV1,
   z.strictObject({
     kind: z.literal("modifier.add"),
     lifetime: z.literal("opening_session"),
@@ -1340,7 +1352,13 @@ const checkDefinitionZodSchemaV1 = z.strictObject({
 });
 const endingDefinitionZodSchemaV1 = z.strictObject({
   endingId: endingIdZodSchemaV1,
+  status: z.enum(["completed_stable", "completed_danger", "failed_arrears"]),
   nameTextId: textIdZodSchemaV1,
+  summaryOutcomeIds: z.strictObject({
+    relationship: outcomeIdZodSchemaV1,
+    investigation: outcomeIdZodSchemaV1,
+  }),
+  effects: z.array(progressionEffectIntentZodSchemaV1),
 });
 
 const pocSimulationManifestZodSchemaV1 = z.strictObject({
@@ -3272,6 +3290,63 @@ const pocSimulationDataZodSchemaV1 = z
         ]);
       });
       checkBandIdsByCheck.set(check.checkId, bandIds);
+    });
+
+    const terminalEndingStatuses = [
+      "completed_stable",
+      "completed_danger",
+      "failed_arrears",
+    ] as const;
+    terminalEndingStatuses.forEach((status) => {
+      const matchingEndingIndexes = data.content.endings.flatMap((ending, endingIndex) =>
+        ending.status === status ? [endingIndex] : [],
+      );
+      if (matchingEndingIndexes.length !== 1) {
+        addAggregateValidationIssueV1(
+          context,
+          ["content", "endings"],
+          `Ending status ${status} must have exactly one definition`,
+        );
+      }
+    });
+
+    const sharedSummaryOutcomeIds = data.content.endings[0]?.summaryOutcomeIds;
+    data.content.endings.forEach((ending, endingIndex) => {
+      const endingPath = ["content", "endings", endingIndex] as const;
+      const { investigation, relationship } = ending.summaryOutcomeIds;
+      validateReferenceV1(
+        outcomeIds,
+        relationship,
+        context,
+        [...endingPath, "summaryOutcomeIds", "relationship"],
+        "OutcomeId",
+      );
+      validateReferenceV1(
+        outcomeIds,
+        investigation,
+        context,
+        [...endingPath, "summaryOutcomeIds", "investigation"],
+        "OutcomeId",
+      );
+      if (relationship === investigation) {
+        addAggregateValidationIssueV1(
+          context,
+          [...endingPath, "summaryOutcomeIds"],
+          "Ending relationship and investigation summary OutcomeIds must differ",
+        );
+      }
+      if (
+        sharedSummaryOutcomeIds !== undefined &&
+        (relationship !== sharedSummaryOutcomeIds.relationship ||
+          investigation !== sharedSummaryOutcomeIds.investigation)
+      ) {
+        addAggregateValidationIssueV1(
+          context,
+          [...endingPath, "summaryOutcomeIds"],
+          "Ending definitions must share the same summary OutcomeIds",
+        );
+      }
+      validateEffectIntentsV1(ending.effects, references, context, [...endingPath, "effects"]);
     });
 
     for (const action of data.content.actions) {

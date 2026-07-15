@@ -1664,7 +1664,13 @@ export interface CheckDefinitionV1 {
 
 export interface EndingDefinitionV1 {
   readonly endingId: EndingId;
+  readonly status: "completed_stable" | "completed_danger" | "failed_arrears";
   readonly nameTextId: TextId;
+  readonly summaryOutcomeIds: {
+    readonly relationship: OutcomeId;
+    readonly investigation: OutcomeId;
+  };
+  readonly effects: readonly ProgressionEffectIntentV1[];
 }
 
 export type StoryValueDefinitionV1 =
@@ -1933,16 +1939,29 @@ export interface DemandPreviewV1 {
   readonly lines: readonly DemandPreviewLineV1[];
 }
 
-export interface TavernPreviewInputV1 {
-  readonly day: DayIndex;
-  readonly plan: TavernPlanV1;
-  readonly preparationActionCount: NonNegativeSafeInteger;
-  readonly availableIngredients: readonly IngredientQuantityV1[];
-  readonly demand: readonly MaterializedDemandSegmentV1[];
-  readonly actors: OpeningActorInputsV1;
-  readonly facilityIds: readonly FacilityId[];
-  readonly modifiers: readonly ModifierV1[];
-}
+export type TavernPreviewInputV1 =
+  | {
+      readonly basis: "current_state";
+      readonly day: DayIndex;
+      readonly plan: TavernPlanV1;
+      readonly preparationActionCount: NonNegativeSafeInteger;
+      readonly availableIngredients: readonly IngredientQuantityV1[];
+      readonly demand: readonly MaterializedDemandSegmentV1[];
+      readonly actors: OpeningActorInputsV1;
+      readonly facilityIds: readonly FacilityId[];
+      readonly modifiers: readonly ModifierV1[];
+      readonly resources: {
+        readonly apRemaining: NonNegativeSafeInteger;
+        readonly cash: Money;
+        readonly playerStamina: NonNegativeSafeInteger;
+        readonly heroineStamina: NonNegativeSafeInteger;
+      };
+    }
+  | {
+      readonly basis: "active_opening_baseline";
+      readonly plan: TavernPlanV1;
+      readonly session: OpeningSessionV1;
+    };
 
 export interface TavernOpeningCashCostV1 {
   readonly wage: Money;
@@ -1985,6 +2004,7 @@ export interface SettlementDraftV1 {
   readonly receptionCapacity: NonNegativeSafeInteger;
   readonly preparationCapacity: NonNegativeSafeInteger;
   readonly discardedPortions: readonly PlannedRecipeV1[];
+  readonly appliedModifiers: readonly AppliedModifierV1[];
   readonly effects: readonly EffectIntentV1[];
   readonly entries: readonly LedgerEntryDraftV1[];
 }

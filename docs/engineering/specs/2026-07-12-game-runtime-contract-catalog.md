@@ -2081,7 +2081,13 @@ interface CheckDefinitionV1 {
 
 interface EndingDefinitionV1 {
   readonly endingId: EndingId;
+  readonly status: "completed_stable" | "completed_danger" | "failed_arrears";
   readonly nameTextId: TextId;
+  readonly summaryOutcomeIds: {
+    readonly relationship: OutcomeId;
+    readonly investigation: OutcomeId;
+  };
+  readonly effects: readonly ProgressionEffectIntentV1[];
 }
 
 type StoryValueDefinitionV1 =
@@ -3765,16 +3771,30 @@ interface DemandPreviewV1 {
   readonly lines: readonly DemandPreviewLineV1[];
 }
 
-interface TavernPreviewInputV1 {
-  readonly day: DayIndex;
-  readonly plan: TavernPlanV1;
-  readonly preparationActionCount: NonNegativeSafeInteger;
-  readonly availableIngredients: readonly IngredientQuantityV1[];
-  readonly demand: readonly MaterializedDemandSegmentV1[];
-  readonly actors: OpeningActorInputsV1;
-  readonly facilityIds: readonly FacilityId[];
-  readonly modifiers: readonly ModifierV1[];
-}
+type TavernPreviewInputV1 =
+  | {
+      readonly basis: "current_state";
+      readonly day: DayIndex;
+      readonly plan: TavernPlanV1;
+      readonly preparationActionCount: NonNegativeSafeInteger;
+      readonly availableIngredients: readonly IngredientQuantityV1[];
+      readonly demand: readonly MaterializedDemandSegmentV1[];
+      readonly actors: OpeningActorInputsV1;
+      readonly facilityIds: readonly FacilityId[];
+      readonly modifiers: readonly ModifierV1[];
+      readonly resources: {
+        readonly apRemaining: NonNegativeSafeInteger;
+        readonly cash: Money;
+        readonly playerStamina: NonNegativeSafeInteger;
+        readonly heroineStamina: NonNegativeSafeInteger;
+      };
+    }
+  | {
+      readonly basis: "active_opening_baseline";
+      readonly plan: TavernPlanV1;
+      readonly session: OpeningSessionV1;
+    };
+
 interface TavernOpeningCashCostV1 {
   readonly wage: Money;
   readonly openingFee: Money;
@@ -3812,6 +3832,7 @@ interface SettlementDraftV1 {
   readonly receptionCapacity: NonNegativeSafeInteger;
   readonly preparationCapacity: NonNegativeSafeInteger;
   readonly discardedPortions: readonly PlannedRecipeV1[];
+  readonly appliedModifiers: readonly AppliedModifierV1[];
   readonly effects: readonly EffectIntentV1[];
   readonly entries: readonly LedgerEntryDraftV1[];
 }
@@ -3934,12 +3955,70 @@ type StoryRuleSlotV1 =
   | "endings.evaluate";
 ```
 
+`TavernPreviewInputV1` 的判别字段同时冻结调用时点。`basis="current_state"` 只能由最新 Gameplay
+State 的窄投影建立；顶层 day/plan/preparation/ingredients/demand/actors/facilities/modifiers 保持各自领域
+含义，`resources` 只补齐决定 `allowed` 所必需的当前 AP、现金和双方体力，不能换成完整 Snapshot。
+`basis="active_opening_baseline"` 只接受当前 `OpeningSessionV1`，且 `plan` 必须与
+`session.baseline.{mode,menu}` Canonical JSON 深值相等；该分支不得读取 post-Start 库存、AP、现金或角色
+资源来重建已经冻结的承诺。Rule invocation 的 strict validation 拒绝 branch 字段混用和 active-plan 不等，
+而不是静默降级到 current-state 计算。
+
+Tavern preview 与 settlement 共用下面一条确定性计算管线：
+
+1. 所选模式必须解析到唯一 `StoryBalanceV1.serviceModes` 行；`openingCosts.modeReasonId` 精确复制该行的
+   `reasonId`，AP、双方体力、工资、base reception/preparation、teamwork 与 preparation-per-action 也只从
+   同一行读取，不能从 `ServiceMode` 字符串推断或保留第二份 mode 常量。结算生成的 base reputation、
+   teamwork 与 heroine-mood `EffectIntentV1.reasonId` 同样复制这条 mode definition 的 `reasonId`；Modifier
+   explanation 则继续保存每个 Modifier 自己的 `reasonId`，两类 provenance 不得混用；
+2. 对每个客群先取菜单最高偏好 `p`，计算
+   `effectiveOrders = round(potentialCustomers * p / 3)`；再按该客群各菜谱的非负偏好权重做最大余数分配，
+   floor 后剩余单位按余数降序、`RecipeId` 升序发放。最高偏好为 0 时该客群全部 order lines 为 0；
+3. 若全部 order lines 的 `effectiveOrders` 之和超过非负 reception capacity，按各 line 的
+   `effectiveOrders` 比例再次使用最大余数法分配 reception capacity；并列按
+   `(CustomerSegmentId, RecipeId)` 升序，结果写入 `capacityAccepted`；
+4. 随后逐菜谱应用 planned-portions cap。若该菜谱各客群的 `capacityAccepted` 之和大于计划份数，按这些
+   accepted 数的比例做最大余数分配；并列仍按 `(CustomerSegmentId, RecipeId)` 升序，结果才是各 line 的
+   `actualSales`。因此每道菜实际销量总和不超过该菜计划份数，且不会通过按数组位置截断而偏爱某一客群；
+5. 最大余数的 quotient/remainder 使用 safe-integer 算术；不以浮点近似余数决定 tie，也不引入 Decimal、
+   随机抽样或输入数组顺序。所有 `base + ordered modifier contributions` 在完整求和后以 `max(0, value)`
+   对 service cost、reception capacity 与 preparation capacity 做一次非负下界收敛；负 Modifier 不得产生
+   负成本/容量，`AppliedModifierV1.contribution` 仍保存其原始实际贡献，不因最终 clamp 被改写。
+
+当前七日 PoC 的 Tavern preview 对每个 demand segment 的闭区间枚举全部整数值的笛卡尔积，并对每个向量
+运行上述同一管线；每道菜 `expectedSales.min/max` 与 `cashDelta.min/max` 是全部结果的精确 extrema。
+当前 concrete Story 只有两个客群，D1 为单点区间、D2 起每个区间宽度至多 2，因此该枚举有明确小上界。
+若未来受验证的数据扩大这个上界，替代实现必须是可证明覆盖全部合法 demand 向量的保守区间算法；不得
+采样、截断枚举或只试端点后声称精确。无论采用哪条受控路径，stored actual-demand 向量运行同一管线所得的
+每道菜销量和 cash delta 必须落在 preview range 内。
+
+Tavern rule 只接受已经由 caller 的共享 guard 通过 structural/reference/day/mode availability 检查的 plan；
+它不得因为自身输入不足而复制 `ConditionV1` switch 或另写一套 mode gate。current-state rule preview 的
+`allowed` 只合并 `resources` 中 AP/现金/双方体力与 ingredient shortages，
+`openingCosts.commitment="prospective"`，cash range 包含未来 Start 的 wage/opening fee 后再加 Finalize
+revenue。Task 10 execute/preview 与 Task 12 Query 使用同一个 calculator wrapper，把共享 guard 的有序 rejection
+codes 与 rule resource result 合成最终公开 preview。active-baseline preview 的 costs 只从 baseline 展示已承诺
+值，`commitment="committed"`、shortages 为空，cash range 只含尚未提交的 Finalize revenue，绝不重复扣
+Start 成本。
+
+`SettlementDraftV1.appliedModifiers` 按统一 collector stable order 保存这次 opening 中实际参与 service cost、
+reception/preparation capacity 或 teamwork 决策的 baseline/session Modifier；筛选不改变相对顺序，同一
+source 的多条实际贡献可分别保留。Executor 原样复制该数组到 `OpeningLedgerV1.appliedModifiers`，并只据此
+识别成功 Finalize 后应扣一次的 applicable `opening` countdown Aura；不得从最终数值反推 Modifier 或 Aura。
+
 `RuleDrawRequestV1.purpose` 是唯一例外于 authored stable ID 格式的受控字符串，byte length 为 1..128，且必须匹配 `^(demand|check|scheduler):[a-z0-9._:-]+$`。
 
 `levy.pay` 由 GameCommandExecutor 使用 `StoryBalance.levyAmount` 编排：Inventory owner 在现金足够时追加 levy ledger/扣款，不足时保持 cash 并构造 `shortfall = levyAmount - availableCash`；Progression 以该 `LevyResolutionV1` 和各 read-port projection 调用 Ending rule、应用其 Fact/Quest/Outcome effects 并返回 terminal proposal；最后只有 Run owner 能把同一 levy resolution 与 `EndingResultV1` 物化为 `RunCompletionV1` 并写 `simulation.run.status/completion`。任一步失败全部回滚。终局 UI 与重载后查询读取 completion，不重新调用 Ending rule。
 
 `PocRulesV1.endings.evaluate` 必须只读取 `PocSimulationDataV1.balance.endingPolicy` 的阈值/Reason binding
 与闭合 ending/outcome definitions，不得在 provider closure 内保留第二份 `20/50/1/45` 或 ReasonId literal。
+三个 terminal status 在 `content.endings` 中必须各有且只有一个 `EndingDefinitionV1`。规则先只依
+`endingPolicy` 决定 status/reasonIds，再按该 status 选择 definition，原样复制 definition 的
+`endingId`/`effects`，并按 `summaryOutcomeIds.relationship/investigation` 从 effects 应用后的 Outcome
+投影构造 summary；不得依赖 definition 数组位置、EndingId 拼写或硬编码 OutcomeId。两个 summary OutcomeId
+必须不同、存在于 `stateDefinitions.outcomes`，且三条 definition 的 relationship/investigation 映射分别完全
+相同；definition effects 只能是引用合法的
+`ProgressionEffectIntentV1`。因此 Hotfix/Story data 可以在不更改 rule provider 的前提下替换合法结局身份与
+terminal progression effects，而 RunCompletion 仍保存本次已解析的精确结果。
 `PocRulesV1` 不提供 `ending.forecast`/`endings.forecast`：义务 Forecast 是对最新 Gameplay State、同一 Tavern
 preview calculator 与 `balance.obligationForecast/endingPolicy` 的只读 Query projection，唯一公开入口是
 `PocGameQueriesV1.getObligationForecast()`。
@@ -4280,19 +4359,21 @@ runtime state 的 cursor/stage/speaker/text/choices/check evidence。它由 Sema
 
 对任意 `previewCommand<C>(command)`，返回值的 `preview.command` 都必须与输入 command Canonical JSON 深值相等；泛型保持其 discriminant/字段类型，query implementation 的同值断言与 contract tests 防止运行时把另一条同 kind 参数命令塞入 preview。包含 command 与 preview 两份值的 LifePolicy/Opening 等组合投影还要由自身 Schema refinement 保证相等。preview 不得规范化、补写或替换玩家将提交的命令。
 
-`previewTavernPlan()` 使用当前库存、角色、设施/Aura、持久 `currentDemand` 与 preparationActionCount，调用
-StartOpening 之后也会使用的同一 Tavern preview calculator；它不暴露 Story rule，也不暴露菜谱销量范围以外的
-实际顾客数。`openingCosts` 精确给出当晚提交时的 AP、双方体力、工资、杂费、受控 service-cost modifier、
-总现金与原料短缺；closed plan 的这些值全为零且短缺为空。`previewCommand({kind:"tavern.plan.set", ...})`
+`previewTavernPlan()` 先通过 execute 共用的 structural/reference/day/mode guard，再使用当前 AP/现金/双方
+体力、库存、角色、设施/Aura、持久 `currentDemand` 与 preparationActionCount 建立
+`basis="current_state"` 的窄 `TavernPreviewInputV1`，由同一个 calculator wrapper 合并 guard rejection 与
+Rule resource result；StartOpening 使用同一 wrapper。它不暴露 Story rule，也不暴露菜谱销量范围以外的实际顾客数。
+`openingCosts` 精确给出当晚提交时的 AP、双方体力、工资、杂费、受控 service-cost modifier、总现金与原料
+短缺；closed plan 的这些值全为零且短缺为空。`previewCommand({kind:"tavern.plan.set", ...})`
 只报告“现在提交计划”这条零成本命令及 confirmation，不能把未来营业成本伪装成已应用 delta。
 ServicePlan UI 必须组合这两个强类型投影。
 
-若当前存在 active OpeningSession，`previewTavernPlan()` 只能对 baseline 中已冻结的 plan 返回
-`basis="active_opening_baseline"`：需求、prepared ingredients、开始前资源、成本与 Modifier 都从 baseline/ledger
-读取，`openingCosts.commitment="committed"`，短缺为空，`cashDelta` 只表示从当前 Snapshot 到 Finalize 的剩余
-settlement，不得再次扣工资/杂费或用 post-Start 库存制造假短缺。无 active Opening 时 basis 为 current_state、
-commitment 为 prospective，cashDelta 覆盖未来 Start+Finalize。Obligation projection 必须按同一 basis 取下界，
-不能在 Start 后重复扣成本或退回无关的 current-gap 分支。
+若当前存在 active OpeningSession，`previewTavernPlan()` 只能把 baseline 中已冻结的 exact plan 与该 session 一起
+建立 `basis="active_opening_baseline"` 输入：需求、prepared ingredients、开始前资源、成本与 Modifier 都从
+baseline/ledger 读取，`openingCosts.commitment="committed"`，短缺为空，`cashDelta` 只表示从当前 Snapshot 到
+Finalize 的剩余 settlement，不得再次扣工资/杂费或用 post-Start 库存制造假短缺。无 active Opening 时 basis
+为 current_state、commitment 为 prospective，cashDelta 覆盖未来 Start+Finalize。Obligation projection 必须按
+同一 basis 取下界，不能在 Start 后重复扣成本或退回无关的 current-gap 分支。
 
 `getDemandForecast()` 在 `run.start` 前或当前日不是 Story service day 时返回 `null`；否则只从已冻结的 `currentDemand` 投影 segment/range/modifiers，绝不暴露 `actualCustomers` 或持久 randomOffset。D1 的 range 可以 min=max；D2 起使用早晨已物化且不泄露实际偏移的范围。StartOpening 原样复制同一 currentDemand；查询不调用 Story rule、不消费 RNG、不写 Snapshot。
 
@@ -5258,18 +5339,18 @@ declare function validateSaveImportCandidateV1<
 1. `PocGameSnapshotV1` 是唯一权威容器；Narrative 只在 `state.story.narrative`，workflow 只在 `state.simulation.activeWorkflow`，设施建设/机会决策只在 `state.simulation.facilities`，Tavern 不复制这些状态。
 2. RNG cursor 是合法 `Uint32`，新局 `initialSeed` 非零；`rawDrawCount` 和 `commandSequence` 单调不减。每次 `RuleRng.nextInt` 满足 `1 <= exclusiveMax <= 2^32` 且 `0 <= result < exclusiveMax`。成功命令 sequence 恰加 1；拒绝/故障保持原 Snapshot 引用、RNG 和 sequence。
 3. cash、AP、stamina、reputation、teamwork、quantity 不为负；stamina 不超过 maximum；mood 只在 -2..2。Relationship 数值沿用字段已声明的完整整数域：affection 是 `Number.MIN_SAFE_INTEGER..Number.MAX_SAFE_INTEGER`，teamwork 是 `0..Number.MAX_SAFE_INTEGER`；v1 没有隐含的 `-100..100` 或 `0..100` 关系刻度。正常 delta 在各自已声明域上饱和，`debug.relationship.set` 仍接受同一 ABI 的绝对值。
-4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= PocSimulationDataV1.manifest.playableDays`。terminal status 的 day/phase 必须精确等于 `StoryBalance.levyDue`，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。completion 的 ending/reason/outcome 引用必须存在，并精确满足 `StoryBalance.endingPolicy` 的 stable/danger/arrears 分类与有序 Reason binding；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 PoC Story/GameSimulation invariant。
+4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= PocSimulationDataV1.manifest.playableDays`。terminal status 的 day/phase 必须精确等于 `StoryBalance.levyDue`，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。三个 terminal status 在 Ending definitions 中各有且只有一个映射；completion 的 ending/status/reason/outcome 必须与该 definition、其 `summaryOutcomeIds`/effects 和 `StoryBalance.endingPolicy` 的 stable/danger/arrears 分类及有序 Reason binding 精确一致；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 PoC Story/GameSimulation invariant。
 5. 只有 `calendar.advance_phase` 改变 day/phase；AP 不跨时段结转。不可行动时段与营业日由当前 Story 的 serviceDays、levyDue 和 Event/Condition 数据决定。当前 day/phase 已等于 `levyDue` 时，该命令固定拒绝为 `calendar.phase_blocked { blocker:"levy_due" }`，不能越过终局等待点；D7 普通动作则由 Action visibility/availability 的日界 gate 关闭。
 6. 只有明确作为集合的定义/状态数组按其 stable ID 升序规范化；同类 ID、BatchId、AuraInstanceId、LedgerEntryId、Facility opportunityId、Narrative slot 不重复。authored-order 数组（Confirmation、gates、recommendations、Scene nodes/options/steps，以及 AssetPack 的 `sources`/`licenses`/`providers`）保持 Story/pack 声明顺序；causal/reference 数组（GameplayFact、ledger、CommandLog、triggeredEventIds、start/entry/paid-cost ledger IDs、expiredAuraIds、AppliedModifier/components）保持应用/collector 顺序。不得为了“统一排序”把后两类改成字典序；每个具体 Schema 必须声明自己属于哪一类。
 7. Ingredient batch quantity 为正，`acquiredDay <= lastUsableDay`；expiry 可以超过七日 PoC 的 day 7；initial batch 必须使用 `batch:initial:<index>` 与 `source.kind=initial`，事务创建批次必须使用 `batch:<commandSequence>:<lineIndex>` 且不能冒充 initial；FIFO 消耗顺序为 `lastUsableDay, acquiredDay, batchId`。`inventory.grant` 必须创建确定性 batch IDs、按 Story ingredient unitPrice 追加 `story_reward`、cashDelta 0、正 valuationDelta 的 entries，并在 `inventory.ingredient_granted` 中携带 lines/createdBatchIds/entries/reason；不能要求 UI 从 Snapshot diff 猜奖励。
 8. `closed` plan 菜单为空；其他模式为 1..`StoryBalance.menuRecipeLimit` 道、结构上限 16，且 recipe 唯一、portions 为正。menu/mode/day gate、容量与 preparation 结构失败必须拒绝 `tavern.plan.set`；只有结构合法且 mode 可用、但因当前 cash/stamina/ingredients 等可恢复开店资源不足而 `previewTavernPlan.allowed=false` 的草案可在白天保存，UI 必须显示其短缺/风险。service plan 进入晚上后被冻结。营业日进入晚上时，已主动提交的 closed plan 直接把该晚标记为已解决、不受惩罚，并使用 `plannedClosureReasonId` 追加 planned closure history/fact；若 plan 仍为 null，同一次 `calendar.advance_phase` 设置 closed plan、应用 `emergencyClosure.reputationPenalty`、追加 emergency closure history/fact 并标记已解决。若进入 evening 后仍持有 non-closed plan，却尚未成功 StartOpening 且没有 active workflow，玩家再次 `calendar.advance_phase` 表示接受紧急收店：该命令在同一事务把 plan 改为 closed、应用同一 emergency penalty/history/fact，然后继续正常日终；不能留下不可推进的存档。若 OpeningSession 已 active，仍以 `calendar.phase_blocked { blocker:"opening" }` 拒绝，必须先 Finalize。`serviceHistory` 按 day 严格递增；每个已经解决的营业日恰有一项，opening 项引用已完成的 OpeningLedger，closure kind 与对应 GameplayFact 一致。OpeningLedger 的 AP/双方 stamina before-after 必须精确等于 StartOpening 已提交的服务成本，closure reputation 则精确记录 planned 零变化或 emergency penalty。每个 facility opportunityId 只允许一个 decision；build 目标必须在该 opportunity 的 facilityIds 内。
 9. 同时最多一个 workflow。`tavern.opening.start` 只在 evening 可提交，其他时段返回 `calendar.invalid_phase { allowed:["evening"] }`；eveningResolved 已为 true 时（包括 Finalize、planned closed、emergency closed）优先返回 `tavern.evening_resolved`，active Opening 则返回 `tavern.opening_active`。Opening 的 `blockingEvent` 非空时 Narrative 必须 active 且不能 continue/finalize。该 Event Scene 的 end 由 `narrative.advance` 提交时，必须在同一事务把 Narrative 置为 completed、把 `blockingEvent` 清为 null，同时保留 checkpoint 与 triggeredEventIds；这个可保存间隙尚未推进 Opening。随后只有 `tavern.opening.continue` 可以消费 completed Narrative、推进 checkpoint，并按 Scheduler 结果建立下一 blockingEvent 或进入 `ready_to_finalize`。Finalize 只接受 `ready_to_finalize`。
-10. OpeningBaseline 不包含 GameSnapshot、GamePackage/Story data、函数或未受控 JSON；开始成本只在 Start 提交一次。`preparationActionCount` 必须等于当日 Start 时的 Tavern preparation、位于 0..dailyPreparationLimit，并原样复制到 OpeningLedger。AP/双方 stamina before-after、cash Start 前后与 reputation Start 前值同时冻结；OpeningActorInputs 已冻结 relationship/teamwork 与 heroine mood。Finalize 的 OpeningLedger 必须以这些值为整个营业事务的 before，并原样复制 AP/stamina，不从可能经历 Narrative/Save 的当前状态重建；`appliedModifiers` 按 collector stable order 精确保存实际参与结算的 baseline/session Modifier 及 contribution/reason，即使来源 Aura 同次过期也可解释。Opening/WorldAction/历史记录只引用 `InventoryState.ledger` 中存在的 entryId，不复制第二份 LedgerEntry。
+10. OpeningBaseline 不包含 GameSnapshot、GamePackage/Story data、函数或未受控 JSON；开始成本只在 Start 提交一次。`preparationActionCount` 必须等于当日 Start 时的 Tavern preparation、位于 0..dailyPreparationLimit，并原样复制到 OpeningLedger。AP/双方 stamina before-after、cash Start 前后与 reputation Start 前值同时冻结；OpeningActorInputs 已冻结 relationship/teamwork 与 heroine mood。Finalize 的 OpeningLedger 必须以这些值为整个营业事务的 before，并原样复制 AP/stamina，不从可能经历 Narrative/Save 的当前状态重建；`SettlementDraftV1.appliedModifiers` 必须按 collector stable order 精确保存实际参与本次 opening 的 baseline/session Modifier 及 contribution/reason，OpeningLedger 原样复制同一数组，即使来源 Aura 同次过期也可解释。Opening/WorldAction/历史记录只引用 `InventoryState.ledger` 中存在的 entryId，不复制第二份 LedgerEntry。
 11. v1 每个 WorldAction 恰好两个按声明顺序且位于紧邻时段的 step，optionId 在该 action 内唯一。Session progress 只能按 `begin_scene → awaiting_completion_phase → completion_scene → ready_to_complete` 前进；两个 scene 阶段都必须有 active `NarrativeSource.kind="world_action"` 且 actionId 相同，两个 awaiting/ready 阶段 Narrative 不 active。Begin 原子校验 availability、互斥 Effect、基础+选项费用和体力，扣除第一 step AP，应用 beginEffects，再写 Session 并启动 begin scene；AdvancePhase 只在 awaiting 阶段进入 completion phase 并启动 completion scene；Complete 只在 ready 阶段扣第二 step AP、使用冻结 preparationBonus 结算并清空 workflow，不再扣现金或体力、也不启动第三段 Narrative。任一冲突全部回滚。
 12. Fact/Quest/Outcome ID 和值必须匹配当前 StoryStateDefinitions；resolvedChecks 按 `resolvedAtSequence` 升序、CheckId 唯一且 sequence 不超过 Snapshot sequence。每条 actor/band/modifier 引用合法，`totalBonus = attributeBonus + preparationBonus + sum(modifier.contribution)`，`total = dice[0] + dice[1] + totalBonus`；对应 band 必须覆盖 total。Narrative cursor/call frame/choice/jump/cue 引用必须存在且可达。Narrative `idle` 时 source/cursor 均为 null；`active` 时均非 null；`completed` 时 source 非 null、cursor 为 null、callStack 为空。Opening blockingEvent 的 eventId 必须等于 active Narrative event source。`enableWhen` 非空的 NarrativeChoice 必须存在 `disabledReasonId`，为空时必须省略该字段。
-13. Aura target、duration 与 definition 相容；同一 `(auraId,target)` 最多一个实例，重复 apply 拒绝为 `aura.already_present`，不自动叠层或刷新；`story_event`、`story_action`、`facility` 与 `world_action` source 必须引用当前 Story 对应 kind 中存在的稳定 ID。initial Aura 使用 `aura:initial:<index>`、`source.kind=initial` 和 `appliedAtSequence=0`，事务创建 Aura 使用 sequence 形式且 sequence 为正；`until_cleared` 表示仍在持续且可由显式命令/Story Event 解除，不表示永久不可撤销事实。倒计时只在成功提交的对应边界恰减一次：`phase_end` 在离开当前 phase 的直接边界效果完成后、进入新 phase Event 前扣；`day_end` 在旧日领域结算完成后、夜间恢复 collector 前扣；`night_recovery` 必须先以仍 active 的 Aura 参与本次 recovery collector/结算，再扣次数，因此 strain 会削减这一次恢复而不会提前消失。`opening` definition 必须至少含一个可由 Opening collector 选择的 Modifier；只有成功 `tavern.opening.finalize` 且 `OpeningBaseline.modifiers` 含该 auraId 来源时 remaining 才恰减 1，多个适用 Modifier 也只减一次。Start、Continue、主动/紧急 closed、模式不匹配、拒绝或故障均不扣 opening 次数。任一 unit 减到 0 都在同一事务发出 `aura.expired` GameplayFact 并移除；整个外层命令回滚时不扣次数、不产生该 Fact。
+13. Aura target、duration 与 definition 相容；同一 `(auraId,target)` 最多一个实例，重复 apply 拒绝为 `aura.already_present`，不自动叠层或刷新；`story_event`、`story_action`、`facility` 与 `world_action` source 必须引用当前 Story 对应 kind 中存在的稳定 ID。initial Aura 使用 `aura:initial:<index>`、`source.kind=initial` 和 `appliedAtSequence=0`，事务创建 Aura 使用 sequence 形式且 sequence 为正；`until_cleared` 表示仍在持续且可由显式命令/Story Event 解除，不表示永久不可撤销事实。倒计时只在成功提交的对应边界恰减一次：`phase_end` 在离开当前 phase 的直接边界效果完成后、进入新 phase Event 前扣；`day_end` 在旧日领域结算完成后、夜间恢复 collector 前扣；`night_recovery` 必须先以仍 active 的 Aura 参与本次 recovery collector/结算，再扣次数，因此 strain 会削减这一次恢复而不会提前消失。`opening` definition 必须至少含一个可由 Opening collector 选择的 Modifier；只有成功 `tavern.opening.finalize` 且 `SettlementDraftV1.appliedModifiers` 中实际包含该 auraId 来源时 remaining 才恰减 1，同一 Aura 的多个适用 Modifier 也只减一次；原样复制到 OpeningLedger 的同一数组保留结算后证据。Start、Continue、主动/紧急 closed、模式不匹配、拒绝或故障均不扣 opening 次数。任一 unit 减到 0 都在同一事务发出 `aura.expired` GameplayFact 并移除；整个外层命令回滚时不扣次数、不产生该 Fact。
 14. Modifier/EffectIntent 的 ID、目标、整数范围和生命周期合法；每个 Modifier、Aura definition、ActionCost、LifePolicy night recovery、ServiceMode、WorldAction、Facility skip、planned/emergency closure 与 heroine night recovery 的 ReasonId 都必须存在于 StoryContent，并由产生对应变化的 handler 原样写入 ChangeReason。Stamina 变化的 components 非空、按 base 后 Modifier stable order 保存 requestedDelta/reason，但应用策略由 handler 类型冻结：成本/支付及负向 Effect 必须先验证 `before + sum >= 0`，不足就以 `actor.insufficient_stamina` 拒绝，绝不能下界 clamp 后继续成功；恢复 resolution 允许 recovery modifier 为负，先计算 `effectiveRecovery = max(0, sum(requestedDelta))`，再只做一次 `min(before + effectiveRecovery, maximum)`，因此 strain 只能削减恢复而不会反向造成伤害，同时保留 base/bed/Aura 原因且不受应用顺序影响；`debug.actor.set_stamina` 是绝对值写入，只接受 `0..maximum`。所有成功路径都不得超过 maximum。`obligationForecast.visibleFrom <= conservativeFrom <= levyDue` 按 day/phase 全序成立且均不超过 playableDays。跨领域 Effect 全部验证后才按拥有者原子应用。
-15. StoryRule 输入是与 Snapshot 不共享可变引用的 plain-data projection；输出不得是 thenable，必须通过对应 strict Schema，且不能包含未声明 Effect。Demand resolve 只在 `run.start` 消费 RNG 并返回 base-line 对应的 offsets；Demand preview 没有 RNG capability，只用目标日 seeds、该日开始时的 reputation、Fact projection 与受控 modifiers，返回包含 actual 的确定 projection，且 preview range 必须包含 actual。`run.start` 物化 D1；之后 `calendar.advance_phase` 进入每个 service-day morning 时，在任何新日 Scheduler context 前物化并冻结当日 currentDemand，直到次日不再随当天 reputation/Fact 变化；每次物化恰追加一个包含同值的 `demand.materialized` GameplayFact，非 service day 清为 null 时不追加。因此 D1 营业人气影响 D2，D5 调查 Fact/人气影响 D6而不反改 D5。Query 隐藏 currentDemand.actual，StartOpening 原样复制完整 materialized demand 到 baseline，不重新调用规则。属性段位映射固定为 `C=0, B=1, A=2, S=3, S+=4`；2D6 每枚必须在 1..6。每个 CheckDefinition 的 CheckBandId 唯一、整数区间连续无重叠，CheckBranch 与 CheckResult 只引用这些 band；成功解析在同一命令把不含 effects 的 ResolvedCheckV1 追加到 Snapshot，再原子应用 band effects，因此读档不重掷也不重放 effects。band effects 才负责把对应 `OutcomeEntryV1` 设为封闭 StoryToken，CheckBandId 不冒充 OutcomeId。EndingResult 的 status 构成酒馆维度，summary.relationship/investigation 必须引用并等于 effects 应用后的两个 Snapshot Outcome entry；成功税负结算由 Run owner 把同一 LevyResolution 与 EndingResult 物化为 RunCompletionV1 后再结束命令，重载后不得重新 evaluate；不要第三个伪造的 tavern OutcomeId。
+15. StoryRule 输入是与 Snapshot 不共享可变引用的 plain-data projection；输出不得是 thenable，必须通过对应 strict Schema，且不能包含未声明 Effect。Tavern preview 输入必须精确属于 current-state/resources 或 active-opening/plan/session 分支，不能把 current resources 与 baseline 拼成第三种 basis；active branch 的 plan 与 baseline 不等时 invocation validation 失败。Demand resolve 只在 `run.start` 消费 RNG 并返回 base-line 对应的 offsets；Demand preview 没有 RNG capability，只用目标日 seeds、该日开始时的 reputation、Fact projection 与受控 modifiers，返回包含 actual 的确定 projection，且 preview range 必须包含 actual。`run.start` 物化 D1；之后 `calendar.advance_phase` 进入每个 service-day morning 时，在任何新日 Scheduler context 前物化并冻结当日 currentDemand，直到次日不再随当天 reputation/Fact 变化；每次物化恰追加一个包含同值的 `demand.materialized` GameplayFact，非 service day 清为 null 时不追加。因此 D1 营业人气影响 D2，D5 调查 Fact/人气影响 D6而不反改 D5。Query 隐藏 currentDemand.actual，StartOpening 原样复制完整 materialized demand 到 baseline，不重新调用规则。属性段位映射固定为 `C=0, B=1, A=2, S=3, S+=4`；2D6 每枚必须在 1..6。每个 CheckDefinition 的 CheckBandId 唯一、整数区间连续无重叠，CheckBranch 与 CheckResult 只引用这些 band；成功解析在同一命令把不含 effects 的 ResolvedCheckV1 追加到 Snapshot，再原子应用 band effects，因此读档不重掷也不重放 effects。band effects 才负责把对应 `OutcomeEntryV1` 设为封闭 StoryToken，CheckBandId 不冒充 OutcomeId。EndingResult 的 status 构成酒馆维度，endingId/effects/summary IDs 必须来自匹配该 status 的唯一 EndingDefinition；summary.relationship/investigation 必须引用并等于 effects 应用后的两个 Snapshot Outcome entry；成功税负结算由 Run owner 把同一 LevyResolution 与 EndingResult 物化为 RunCompletionV1 后再结束命令，重载后不得重新 evaluate；不要第三个伪造的 tavern OutcomeId。
 16. 每个 `ChangeReasonV1.reasonId` 必须存在于 StoryContent，并等于产生该变化的命令/Effect/结算 reason；`story_action`、`world_action`、event、Aura、facility 与 ending provenance 还必须引用当前 Story 对应 kind 中存在的稳定 ID，不能把 Story 变化退化成无来源的 `narrative.choose`。`InventoryState.ledger` 是所有现金与估值原因的唯一权威历史，`cash = startingCash + sum(ledger.cashDelta)`。任何命令、Effect 或 settlement 改变 cash 时，同一事务必须追加恰好对应的 ledger entries，新增 `cashDelta` 之和等于 cash before→after。`ledger.append` 是 Story Effect 唯一的直接现金/估值变化意图：Inventory Module 校验其 category/reason/subject/delta 后同时追加账本并改变 cash，不存在需要二次配对的 `cash.adjust`；`inventory.grant` 的受控批次创建按第 7 条由 Inventory Module 物化唯一 story-reward valuation entries。Opening Start 的原料 consume 是库存到 `OpeningBaseline.preparedPortions` 的内部数量转移，只发 `inventory.consumed` 并保留 batch slices，不改变总估值；Finalize 的 revenue entries 对售出成品扣除相应原料估值，discarded-food entries 对未售成品扣除估值，二者之和必须精确覆盖 baseline 已消费原料成本。Modules/GameSimulation 产生的采购、工资、开店杂费、收入、报废、腐败、设施、WorldAction 与税负账本必须使用 `StoryBalance.ledgerReasons` 对应字段，且这些 ReasonId 必须存在于 StoryContent。腐败/报废使用 `cashDelta=0` 和非零 `valuationDelta`，不会伪造现金支出。`debug.inventory.adjust_cash` 必须追加 `category="debug_adjustment"`、`subject.kind="debug"` 的账本行；调试 UI 若要设定目标现金，先用当前 cash 计算 delta，仍不可重置 startingCash 或绕过账本。
 17. `BuildProvenanceV1.story`、`.engine` 与 `.resolved` 分开保存。普通兼容键包含 `story.id/revision + stateContractRevision/digest + engine.digest + simulationDigest`；`story.digest`、`presentationDigest`、`engine.version` 与 `appBuildId` 不单独阻断恢复。state digest 只覆盖完整 GameSnapshot，不覆盖 provenance、slot、时间、lineage、CommandLog、runtimeFailures 或 UI。GameplayModule/GameSimulation/GameCommandExecutor 属于 simulation root，不能污染 engine root。
 18. Save/Debug 导入顺序固定为 bytes → Strict JSON → envelope Schema → state digest → identity/compatibility → stable references → invariants；失败不得写 IDB 或替换 Session。Save 必须满足 `slot.storyId === provenance.story.id`、`slot.capturedCommandSequence === snapshot.commandSequence`、`stateDigest === digest(snapshot)` 和 lineage 链式不变量。阻断键精确相等时返回 exact；只有 simulation digest 一项不同且满足精确 PatchSet adoption declaration 时返回 adopted，并建立新 anchor/清空旧日志；其余阻断差异只能 inspect-only。DebugBundle 必须满足两个显式 digest 分别等于 replayBase/currentSnapshot 的 state digest；空 CommandLog 仍执行这两次检查。authoritative simulation replay 要求 engine/state-contract revision/state-contract digest/simulation 四项精确匹配；presentation 差异只取消“精确视觉复现”资格。inspect-only 数据不能写 Save Slot。
@@ -5283,7 +5364,7 @@ declare function validateSaveImportCandidateV1<
 26. Scheduler 严格使用 §7.2 的外层 context 全序、单-context evaluation Snapshot、先选全再应用、跨-context 顺序可见语义；`story.explicit` 只允许 effects，`week.ended` 以及 trigger commandKinds 含 `levy.pay` 的 `command.succeeded` Event 还进一步要求 sceneId=null 且只允许 `fact.set | quest.set`。两个 Scheduler scene 以 `scheduler.multiple_blocking_events` 故障；Scheduler scene 与 active/base-command Narrative request 冲突以 `narrative.blocking_conflict` 故障。两者都必须回滚 effects、RNG、workflow、cursor、GameplayFacts 和 sequence；唯一请求只能在全部 Schema/invariants 通过后建立 Narrative 与可选 Opening blockingEvent。
 27. `StoryContent.storyActions` 的 actionId 必须是 `action.*`、在本表内唯一，且恰好对应一个 `ActionPresentationDefinitionV1.commandKind="story.action.start"`；`StoryEventDefinition.eventId` 必须是 `event.*`，玩家行动不得保留 `event.*` 兼容别名。该 ActionView 的 `directCommand` 必须精确为 `{ kind: "story.action.start", actionId }`。命令只能在 availability gates 全部通过且 Narrative 不 active 时执行：先原子验证/应用 startEffects，再在 sceneId 非 null 时建立 `NarrativeSource.kind="story_action"`，最后发出 `story.action_started`；任一步失败不提交。玩家不发出该命令时 Story 不得自动修改关系 Outcome，因此“完全不参与女主支线”是合法路径。
 28. `ModifierSourceRefV1.kind="story"` 的 sourceId 必须存在于 `StoryContent.modifierSources`，且只用于规则/Story 级派生贡献；其他 source variant 不仅要引用现有 ID，还必须与拥有该 Modifier/Effect 的实际 owner 相等：FacilityDefinition modifier=同 facility，AuraDefinition modifier=同 aura，Event/session modifier=触发它的 event。`aura.apply.source`、`inventory.grant.source` 及 story-cost/reward ledger subject 也必须与当前 Event/StoryAction/WorldAction/Facility 或 active Narrative source 精确一致；GameSimulation 中对应事务 owner 派生 ChangeReason 并验证 authored source，不能接受“存在但冒充另一个 owner”的 ID。Demand、Opening、Check 与恢复等 rule/collector 不得临时创造无法解析的 modifier source。`facility.choice_committed` 的 build reason 来自 `facility.choose.build` ActionCost，skip reason 来自 opportunity.skipReasonId；`food.prepared` 使用 prepare ActionCost reason，`tavern.plan_set` 使用所选 ServiceMode reason。
-29. 每个 `IntegerRangeV1` 都满足 `min <= max`；数量/客流/销量范围还必须满足 `min >= 0`。Story integer definition 的 defaultValue 必须落在其 range 内；Demand actual 必须落在 preview range，Tavern actual sales 必须落在对应 expectedSales range，Obligation 的 lower/upper 也不得倒置。Obligation policy 的 reason/text/action 引用必须存在，recommendation appliesTo 非空、唯一且按 Forecast kind 顺序规范化。
+29. 每个 `IntegerRangeV1` 都满足 `min <= max`；数量/客流/销量范围还必须满足 `min >= 0`。Story integer definition 的 defaultValue 必须落在其 range 内；Demand actual 必须落在 preview range。Tavern preview 对当前 PoC 枚举全部 demand-range 整数向量（扩大后只能换成可证明保守的覆盖算法），因此 stored actual demand 经同一 settlement 管线得到的每道菜 actual sales 与实际 cash delta 必须分别落在对应 expectedSales/cashDelta range；Obligation 的 lower/upper 也不得倒置。Obligation policy 的 reason/text/action 引用必须存在，recommendation appliesTo 非空、唯一且按 Forecast kind 顺序规范化。
 30. Aura countdown policy 满足 `defaultRemaining <= maximumRemaining`。initial 与普通 authored `aura.apply` 必须使用 definition 的 kind/unit/defaultRemaining；`debug.aura.apply` 可以在同一 countdown unit 内选择 `1..maximumRemaining`，但不能换 unit，until-cleared definition 也只能创建 until-cleared instance。持久实例的 kind/unit 必须匹配 definition，remaining 不超过 maximum；因此 PoC 的 angry/sign/strain 生命周期不会被合法但错误的 Effect payload 改写。
 31. Aura allowedTargets 按 `kind`、actorId 规范化且深值唯一，instance target 必须精确命中一项，不能只因同为 actor 就把 heroine Aura 加给 player。所有 collector 的适用 Modifier 使用同一全序：base component（若有）最先；随后 source-kind 为 `story < facility < aura < event`。story 以 sourceId、rule-output index 排序；facility 以 facilityId、definition index 排序；aura 以 appliedAtSequence、instanceId、definition index 排序；event/session 以 triggeredEventIds 的既有因果次序、append index 排序。筛选不改变相对顺序；AppliedModifier、OpeningBaseline、OpeningLedger、Demand explanation 与 stamina components 都保留该序，不能按 target/kind/数值重新排序。
 32. 每个 ResolvedGame 的 Module ID/state slot 唯一，依赖只引用已选 Module 且 DAG 无环；GameSimulation 的 State/Command/Fact/Rejection/DebugCommand schemas、normal/debug executors、queries 和 ViewModel projection 必须来自同一 type witness。PoC ViewModel 精确为 `PocGameViewV1`；独立 `NarrativeProjectionV1 | null` 从同一 Queries 进入 `SemanticPublicationV1.narrative`，不得嵌入 GameView。显式 State-contract manifest 必须与全部且仅有 stateful binding 的 module ID/revision/state slots 精确匹配，stateless binding 不得登记。Base generic contract tests 使用 synthetic GamePackage，不能以 PoC 联合类型代替泛型边界。
