@@ -604,6 +604,7 @@ git commit -m "feat(story-poc): encode initial economy data"
 - Create: `game/stories/poc/src/content/narrative/d1-d4.ts`
 - Create: `game/stories/poc/LICENSE.md`
 - Modify: `game/stories/poc/package.json`
+- Modify: `scripts/workspace-policy.mjs`
 - Modify: `game/stories/poc/src/test/daily-gates.test.ts`
 
 **Interfaces:**
@@ -657,7 +658,7 @@ export const pocEventDefinitionsV1 = deepFreeze(
 );
 ```
 
-Create `game/stories/poc/LICENSE.md` in the same commit: executable software remains PolyForm Noncommercial, while `src/content/narrative/**` is CC BY-NC-SA 4.0. Change package metadata to `SEE LICENSE IN LICENSE.md`; do not add a tooling export yet.
+Create `game/stories/poc/LICENSE.md` in the same commit: executable software remains PolyForm Noncommercial, while `src/content/narrative/**` is CC BY-NC-SA 4.0. Change package metadata and the frozen `scripts/workspace-policy.mjs` entry for `@project-tavern/story-poc` to `SEE LICENSE IN LICENSE.md`; the boundary verifier requires those two values to remain equal. Do not change another package policy and do not add a tooling export yet.
 
 - [ ] **Step 4: Run content, licensing, and full checks**
 
@@ -668,7 +669,7 @@ Expected: PASS; D1–D4 reachability/gates/counts/references pass and package li
 - [ ] **Step 5: Commit D1–D4 content**
 
 ```bash
-git add -- game/stories/poc/src/content/actions.ts game/stories/poc/src/content/facilities-auras.ts game/stories/poc/src/content/events.ts game/stories/poc/src/content/narrative/d1-d4.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/LICENSE.md game/stories/poc/package.json
+git add -- game/stories/poc/src/content/actions.ts game/stories/poc/src/content/facilities-auras.ts game/stories/poc/src/content/events.ts game/stories/poc/src/content/narrative/d1-d4.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/LICENSE.md game/stories/poc/package.json scripts/workspace-policy.mjs
 git commit -m "feat(story-poc): add early-week content"
 ```
 
