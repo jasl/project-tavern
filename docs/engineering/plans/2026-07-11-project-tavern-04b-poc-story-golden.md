@@ -748,30 +748,28 @@ git commit -m "feat(story-poc): add relationship branch"
 - Create: `game/stories/poc/src/content/narrative/investigation.ts`
 - Create: `game/stories/poc/src/content/checks-endings.ts`
 - Create: `game/stories/poc/src/test/investigation-content.test.ts`
-- Modify: `game/stories/poc/src/content/actions.ts`
 
 **Interfaces:**
 
 - Consumes: WorldAction/Workflow/Check/Outcome IR, PoC check resolver contract, mutual-exclusion facts/outcomes, and reference seed.
-- Produces: `pocInvestigationNarrativeV1`, the sole `pocWorldActionDefinitionsV1`, the sole `pocCheckDefinitionsV1`, one threshold choice, one four-band 2D6 check, investigation outcomes/effects, and D6 consequences.
+- Produces: `pocInvestigationNarrativeV1` as the exact two-scene `DeepReadonly<readonly NarrativeSceneV1[]>`, the sole `pocWorldActionDefinitionsV1`, the sole `pocCheckDefinitionsV1`, one four-band 2D6 check, investigation outcomes/effects, and data consumed by the existing D6 consequence mechanisms. The sole deterministic threshold choice already landed with the D2 supplier event in Task 3.
 
 - [ ] **Step 1: Write failing content and fixed-vector tests**
 
 ```ts
-it("defines one two-stage investigation and one persisted check", () => {
-  expect(pocInvestigationNarrativeV1.worldAction.steps).toHaveLength(2);
-  expect(pocInvestigationNarrativeV1.check.dice).toBe("2d6");
-  expect(pocInvestigationNarrativeV1.check.bands).toHaveLength(4);
-  expect(pocInvestigationNarrativeV1.start.conditions).toContainEqual({
-    kind: "outcome.equals",
-    outcomeId: parseOutcomeId("outcome.relationship_opportunity"),
-    value: "relationship.pending",
-  });
+it("defines one two-stage investigation and one four-band check", () => {
+  expect(pocInvestigationNarrativeV1.map(({ sceneId }) => sceneId)).toEqual([
+    "scene.old_trade_road.departure",
+    "scene.old_trade_road.investigation",
+  ]);
+  expect(pocWorldActionDefinitionsV1[0]?.steps).toHaveLength(2);
+  expect(pocCheckDefinitionsV1[0]?.dice).toBe("2d6");
+  expect(pocCheckDefinitionsV1[0]?.bands).toHaveLength(4);
 });
 
 it("keeps the reference basic/prepared totals at 8 and 9", () => {
-  const basic = resolvePocInvestigationFixtureV1({ prepared: false, seed: pocReferenceSeedV1 });
-  const prepared = resolvePocInvestigationFixtureV1({ prepared: true, seed: pocReferenceSeedV1 });
+  const basic = resolveReferenceInvestigationCheckV1({ preparationBonus: 0 });
+  const prepared = resolveReferenceInvestigationCheckV1({ preparationBonus: 1 });
   expect(basic.dice).toEqual([4, 3]);
   expect(basic.total).toBe(8);
   expect(prepared.total).toBe(9);
@@ -786,18 +784,22 @@ Expected: FAIL because investigation/check/ending content is absent.
 
 - [ ] **Step 3: Encode exact WorldAction/check/outcome data**
 
-The first stage records the chosen option and opens Narrative; the second resolves the one check and applies Inventory/Fact/Outcome effects once. The deterministic threshold choice consumes no RNG. The 2D6 check consumes exactly two draws, stores dice/bonuses/total/band at the committed sequence, and cannot retry. Relationship/investigation start conditions are mutually exclusive in both directions.
+`pocInvestigationNarrativeV1` is a recursively frozen two-scene array: departure narration then end, followed by investigation narration then end. There is no choice/check node or third result scene. The sole WorldAction has empty local availability because Task 3 already owns its Action visibility/availability gates. It declares base cash 4, player stamina 3, the morning/afternoon steps with AP 1/2, the basic option at additional cash/preparation 0/0, the prepared option at 4/+1, and one Begin effect that sets the relationship Outcome to the abandoned token. Basic has empty option confirmation because the Action confirmation already owns the shared clue/mutual-exclusion/base-risk copy; prepared alone adds its preparation benefit and extra-cost risk.
+
+The four Check bands are `[2,5]`, `[6,8]`, `[9,11]`, and `[12,null]`. In authored order, setback grants herb 1, applies the `night_recovery × 1` strain Aura, and sets the setback Outcome; success-with-cost grants meat 1/herb 2 then sets its Outcome; complete grants meat 2/herb 3, sets the war-clue Fact, then its Outcome; exceptional grants meat 3/herb 4, sets the Fact, adds reputation 1, then its Outcome. Each band uses its matching investigation ReasonId, and Inventory/Aura provenance is the old-trade-road WorldAction. Story values use strict `{ kind, value }` wrappers. D6 demand, FIFO Inventory, Aura recovery, and diagnostics consume these existing outputs; do not add a D6 Event, custom ledger, duplicate demand modifier, or third Narrative scene.
+
+The first stage records the chosen option and opens Narrative; the second resolves the one check and applies Inventory/Fact/Outcome effects once. The existing GameCommandExecutor owns Workflow progress and persisted `ResolvedCheckV1`; this content task does not add a second workflow or persistence harness. The 2D6 check consumes exactly two draws and cannot retry. The fixed-vector test uses the real Base RNG and Phase 4A resolver, consuming the twelve D1–D6 demand draws from a fresh `pocReferenceSeedV1` before the two Check draws; its helper is test-local, not a production API. Relationship/investigation start conditions remain mutually exclusive through the Task 3 Action gates.
 
 - [ ] **Step 4: Run investigation and repository checks**
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/investigation-content.test.ts && pnpm typecheck && pnpm verify`
 
-Expected: PASS; route reachability, four Workflow progress states, one persisted check, fixed vector, rewards, and D6 consequences pass.
+Expected: PASS; route reachability, two-stage definitions, the four Check bands, fixed vector, rewards, and existing D6 consequence bindings pass. Workflow progress and persisted-check behavior remain covered by Phase 4A and the later Story Session integration tasks.
 
 - [ ] **Step 5: Commit investigation content**
 
 ```bash
-git add -- game/stories/poc/src/content/narrative/investigation.ts game/stories/poc/src/content/checks-endings.ts game/stories/poc/src/content/actions.ts game/stories/poc/src/test/investigation-content.test.ts
+git add -- game/stories/poc/src/content/narrative/investigation.ts game/stories/poc/src/content/checks-endings.ts game/stories/poc/src/test/investigation-content.test.ts
 git commit -m "feat(story-poc): add investigation branch"
 ```
 
