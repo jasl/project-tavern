@@ -9,6 +9,7 @@ import {
   parseSafeInteger,
   type CheckDefinitionV1,
   type DeepReadonly,
+  type EndingDefinitionV1,
   type ReasonId,
   type WorldActionDefinitionV1,
 } from "../gameplay/index.js";
@@ -19,6 +20,7 @@ import {
   checkBandIdsV1,
   checkIdsV1,
   choiceIdsV1,
+  endingIdsV1,
   factIdsV1,
   ingredientIdsV1,
   investigationOutcomeTokensV1,
@@ -236,3 +238,37 @@ export const pocCheckDefinitionsV1: DeepReadonly<readonly CheckDefinitionV1[]> =
       ],
     },
   ] satisfies readonly CheckDefinitionV1[]);
+
+export const pocEndingDefinitionsV1: DeepReadonly<readonly EndingDefinitionV1[]> =
+  deepFreezePocValueV1([
+    {
+      endingId: endingIdsV1[0],
+      status: "completed_stable",
+      nameTextId: pocTextIdsV1.endingStableName,
+      summaryOutcomeIds: {
+        relationship: outcomeIdsV1[0],
+        investigation: outcomeIdsV1[1],
+      },
+      effects: [],
+    },
+    {
+      endingId: endingIdsV1[1],
+      status: "completed_danger",
+      nameTextId: pocTextIdsV1.endingDangerName,
+      summaryOutcomeIds: {
+        relationship: outcomeIdsV1[0],
+        investigation: outcomeIdsV1[1],
+      },
+      effects: [],
+    },
+    {
+      endingId: endingIdsV1[2],
+      status: "failed_arrears",
+      nameTextId: pocTextIdsV1.endingFailedArrearsName,
+      summaryOutcomeIds: {
+        relationship: outcomeIdsV1[0],
+        investigation: outcomeIdsV1[1],
+      },
+      effects: [],
+    },
+  ] satisfies readonly EndingDefinitionV1[]);
