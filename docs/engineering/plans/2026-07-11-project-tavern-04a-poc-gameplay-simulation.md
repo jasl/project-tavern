@@ -1183,10 +1183,7 @@ export interface PocNarrativeContinuationV1 {
   readonly pending: PocNarrativeInterpreterRequestV1;
 }
 
-export type PocNarrativeCheckDecisionV1 = Pick<
-  CheckResultV1,
-  "checkId" | "actorId" | "bandId"
->;
+export type PocNarrativeCheckDecisionV1 = Pick<CheckResultV1, "checkId" | "actorId" | "bandId">;
 
 export type PocNarrativeResolutionV1 =
   | {
@@ -1229,9 +1226,7 @@ export type PocNarrativeInterpreterRejectionV1 = Extract<
 export type PocNarrativeInterpreterFaultV1 =
   | {
       readonly category: "command_handler";
-      readonly code:
-        | "narrative.step_limit_exceeded"
-        | "narrative.call_depth_exceeded";
+      readonly code: "narrative.step_limit_exceeded" | "narrative.call_depth_exceeded";
     }
   | {
       readonly category: "engine_invariant";
