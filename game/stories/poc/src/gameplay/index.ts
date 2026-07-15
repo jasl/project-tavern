@@ -615,3 +615,86 @@ export {
 } from "./modules/tavern/module.js";
 
 export type { PocTavernGameplayModuleV1 } from "./modules/tavern/module.js";
+
+export {
+  parsePocWorkflowModifierV1,
+  parsePocOpeningBaselineV1,
+  parsePocWorkflowStateV1,
+  pocWorkflowStateSchemaV1,
+  pocWorkflowOwnerOperationSchemaV1,
+  pocWorkflowDependencyPortsSchemaV1,
+  pocWorkflowInvariantV1,
+  assertValidPocWorkflowStateV1,
+  pocWorkflowOwnerProposalSchemaV1,
+  pocWorkflowStatesEqualV1,
+} from "./modules/workflow/contract.js";
+
+export type {
+  PocWorkflowOwnerOperationV1,
+  PocWorkflowStartOpeningDependenciesV1,
+  PocWorkflowOpeningCheckpointDependenciesV1,
+  PocWorkflowOpeningModifierDependenciesV1,
+  PocWorkflowBeginWorldActionDependenciesV1,
+  PocWorkflowRecordWorldActionChoiceDependenciesV1,
+  PocWorkflowDependencyPortsV1,
+  PocWorkflowReadPortV1,
+  PocWorkflowGameplayFactV1,
+  PocWorkflowOwnerProposalPayloadV1,
+  PocWorkflowOwnerProposalV1,
+} from "./modules/workflow/contract.js";
+
+export {
+  createInitialPocWorkflowStateV1,
+  createPocWorkflowReadPortV1,
+  pocWorkflowOwnerV1,
+  pocWorkflowGameplayModuleV1,
+} from "./modules/workflow/module.js";
+
+export {
+  parsePocProgressionStoryValueV1,
+  parsePocProgressionFactEntryV1,
+  parsePocProgressionQuestEntryV1,
+  parsePocProgressionOutcomeEntryV1,
+  parsePocProgressionChangeReasonV1,
+  parsePocProgressionCheckResultV1,
+  parsePocProgressionResolvedCheckV1,
+  assertPocProgressionCheckFormulaV1,
+  assertPocProgressionCheckResultV1,
+  parsePocProgressionStateV1,
+  pocProgressionStateSchemaV1,
+  pocProgressionInvariantV1,
+  assertValidPocProgressionStateV1,
+  assertValidInitialPocProgressionStateV1,
+  pocProgressionStatesEqualV1,
+  pocProgressionOwnerOperationSchemaV1,
+  pocProgressionDependencyPortsSchemaV1,
+  assertPocProgressionStoryValueMatchesDefinitionV1,
+  assertPocProgressionFactEntryMatchesDefinitionV1,
+  assertPocProgressionQuestEntryMatchesDefinitionV1,
+  assertPocProgressionOutcomeEntryMatchesDefinitionV1,
+  createPocProgressionResolvedCheckV1,
+  pocProgressionOwnerProposalSchemaV1,
+} from "./modules/progression/contract.js";
+
+export type {
+  PocProgressionStateV1,
+  PocProgressionReadPortV1,
+  PocProgressionInvariantViolationV1,
+  PocProgressionOwnerOperationV1,
+  PocProgressionFactSetDependenciesV1,
+  PocProgressionQuestSetDependenciesV1,
+  PocProgressionOutcomeSetDependenciesV1,
+  PocProgressionCheckRecordDependenciesV1,
+  PocProgressionDependencyPortsV1,
+  PocProgressionGameplayFactV1,
+  PocProgressionOwnerProposalPayloadV1,
+  PocProgressionOwnerProposalV1,
+} from "./modules/progression/contract.js";
+
+export {
+  createPocProgressionReadPortV1,
+  pocProgressionOwnerV1,
+  createPocProgressionGameplayModuleV1,
+} from "./modules/progression/module.js";
+
+export type { PocProgressionGameplayModuleV1 } from "./modules/progression/module.js";
