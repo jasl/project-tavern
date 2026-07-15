@@ -11,16 +11,20 @@ SillyMaker 将在当前 Phase 2–6 本地工程 Goal、可复现 Artifact 和 R
 `StateStore`。它为 GameplayModule 组合状态、只读查询、owner-scoped 写事务和 canonical
 导入/导出提供统一 API。
 
-当前 Goal 不实现或部分接入这个 Store，不新增 Prisma、SQL、IndexedDB wrapper 或其他依赖，也不改变
-`GameSnapshotEnvelopeV1`、GameSession FIFO、GameplayModule owner proposal、GameQueries、Save envelope、
-Replay、Hotfix adoption 或现有 digest 合同。当前实现只允许建立可迁移的窄读取/评估边界，并修复已经确认的
-capability/ABI 缺口。
+当前 Goal 不实现或部分接入这个 Store，不新增 Prisma、SQL、IndexedDB wrapper 或其他依赖，也不替换
+`GameSnapshotEnvelopeV1`、GameSession FIFO、GameplayModule owner proposal、GameQueries authority、Save envelope、
+Replay、Hotfix adoption 或现有 digest 合同。当前实现只允许建立可迁移的命名窄读取/评估边界，并修复已经确认的
+capability/ABI 缺口；它可以给 Story-owned GameQueries 增加一个明确 DTO getter，但不能暴露通用 Store client、
+path/query DSL 或新的写入口。
 
 选择延后的原因不是认为统一 Store 没有价值，而是当前两个直接阻塞并非存储表示问题：
 
 - `PocGameViewV1.status` 仍需要一个明确、可审查的 Query/View ABI；通用数据库 reader 不会自动产生公开字段；
 - `run.already_started` 的玩家拒绝不需要 engine-owned `commandSequence`。为保留这个诊断字段而把 sequence
   开放给 Story Query 会扩大权限，而不是改善存储；
+- Parameterized Semantic action 需要 Ingredient/Recipe/ServiceMode 等安全输入目录，但采购数量和菜单份数不是
+  可完整枚举的有限 concrete invocations。正确的 v1 缝是一个只读、字段受限的 `PocActionInputCatalogV1`
+  Query DTO 与 `form` descriptor，不是让 UI 读取 State/Story content 或把通用数据库 client 交给 renderer；
 - 当前 v1 已经通过 Snapshot、candidate、FIFO、Save、Replay、Debug、Hotfix 和 digest 的大量验收。现在替换
   这些基础会让 Phase 2、Phase 3 和 Phase 4A 已通过的提交整体重新进入设计与验收，而不是一个 Task 12
   局部重构；
@@ -130,6 +134,26 @@ StateStore 统一读取机制，但不负责生成产品语义。`getAvailableAc
 
 当前 Phase 4A 的共享 evaluator 是这一迁移缝，但不是 v2 Store 的预实现，不能引入通用 path/query DSL。
 
+### 4.5 当前 Goal 的 parameterized-action 窄缝
+
+Phase 4B 允许给 `PocGameQueriesV1` 增加一个 `getActionInputCatalog()` getter。它只投影构造严格 Semantic options
+所需的玩家安全字段：Ingredient 采购目录、当前已解锁 Recipe、ServiceMode 输入元数据、Facility choices 和
+WorldAction choices。它不得返回原始 Story content、availability gate、Effect、Rule、owner port、State、RNG、
+sequence 或 Snapshot。
+
+该临时 DTO 还必须显式携带已有权威定义中的标签和结构上限：ServiceMode 使用
+`ServiceModeDefinitionV1.nameTextId`，采购使用 `balance.purchaseLineLimit`，营业菜单使用
+`min(16, balance.menuRecipeLimit)`。UI 不得按 ID 字符串拼接 TextId，也不得硬编码 `64`/`16` 或反向导入
+Story content 来补齐表单。动态资源、可用性和规则结果仍只通过同一 Semantic preview 计算。
+
+Semantic descriptor 以 `direct | choices | form` 区分交付方式。`purchase` 与 `service_plan` 使用 `form`：
+descriptor 携带上述 bounded Query DTO，Overlay 构造完整严格 options 后仍必须调用同一 Semantic preview 和
+dispatch。数量/份数保持 PositiveSafeInteger 输入，不伪造默认命令，也不试图枚举无界组合。有限的 Policy、
+Facility、WorldAction 和 Narrative 分支继续使用 `choices`。
+
+这是一项 v1 public Query DTO 修复，不是 StateStore v2 的局部接入。Post-Goal 原型必须证明同一 DTO 可从 scoped
+read transaction 等价投影，且 UI/Semantic public shape 无需因为内部 Store 迁移再次改变。
+
 ## 5. Persistence、Save 与 IndexedDB
 
 StateStore 与 persistence 是两个边界：
@@ -198,7 +222,7 @@ Decimal。
 4. 证明 canonical export/import 与当前 Snapshot digest、Save、Replay 和 Hotfix adoption 等价；
 5. 证明 derived index 重建、稳定排序、duplicate/reference/invariant failure；
 6. 对比 v1/v2 command corpus、semantic publication、内存和延迟，记录迁移门槛；
-7. 通过兼容 adapter 迁移 E2E，不改变 UI/Semantic public shape；
+7. 通过兼容 adapter 迁移 E2E，并证明命名 action-input DTO 可从 scoped reader 等价产生，不改变 UI/Semantic public shape；
 8. 只有 E2E 完整验收后，才为 PoC 制定逐 module 迁移计划并重生成受影响的 fixture/golden/Artifact；
 9. 所有 Story 迁移并通过 release gate 后，才能删除 v1 adapter。
 

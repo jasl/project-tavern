@@ -1137,17 +1137,35 @@ git commit -m "feat(story-poc): freeze ending and forecast data"
 - Create: `game/stories/poc/src/presentation/semantic-actions.ts`
 - Create: `game/stories/poc/src/patch-surfaces.ts`
 - Create: `game/stories/poc/src/story-definition.ts`
+- Create: `game/stories/poc/src/gameplay/rule-provider-entries/demand.ts`
+- Create: `game/stories/poc/src/gameplay/rule-provider-entries/tavern.ts`
+- Create: `game/stories/poc/src/gameplay/rule-provider-entries/checks.ts`
+- Create: `game/stories/poc/src/gameplay/rule-provider-entries/endings.ts`
+- Create: `game/stories/poc/src/gameplay/rule-providers.ts`
+- Create: `game/stories/poc/scripts/update-rule-source-digests.mts`
+- Create: `game/stories/poc/src/rule-source-digests.generated.ts`
+- Create: `game/stories/poc/src/test/rule-source-digests.test.ts`
+- Modify: `game/stories/poc/src/content/balance.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
+- Modify: `game/stories/poc/src/gameplay/contracts/types.ts`
+- Modify: `game/stories/poc/src/gameplay/game-queries.ts`
+- Modify: `game/stories/poc/src/gameplay/index.ts`
+- Modify: `game/stories/poc/src/testing/gameplay-fixture.ts`
+- Modify: `game/stories/poc/src/test/daily-gates.test.ts`
+- Modify: `game/stories/poc/src/test/game-queries.test.ts`
 - Modify: `game/stories/poc/src/index.ts`
 - Modify: `game/stories/poc/LICENSE.md`
+- Modify: `game/stories/poc/package.json`
 - Modify: `game/stories/poc/src/test/story-validation.test.ts`
+- Modify: `docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md`
 - Inspect unchanged: `game/packages/assets/src/index.ts`
 - Inspect unchanged: `game/packages/assets/src/approved-poc-pack.ts`
 - Inspect unchanged: `game/packages/assets/runtime/poc/**`
 
 **Interfaces:**
 
-- Consumes: Task 6's sole complete `pocStoryDataV1` source and field-by-field projector, `createPocRulesV1`, `createPocGameSimulationV1`, Base ResolvedGame/Story/Patch/asset contracts, the Node-safe data-only renderer/layout descriptor contract proven by Phase 2, stable Text/Asset/Action IDs, and the predecessor track's immutable `approvedPocAssetPacksV1` export from `@project-tavern/assets`. The default Story closure does not import `@sillymaker/ui` or a Web renderer registry.
-- Produces: `pocStoryEntryV1`, `definePocStoryV1`, `materializePocSimulationProgramV1`, `materializePocPresentationV1`, typed Patch Surfaces, one complete Chinese TextCatalog, fallback-complete assets with optional approved providers, `PocPresentationV1`, `PocStageSceneGraphV1`, `PocResolvedAssetsV1`, `PocResolvedGameV1`, `pocSceneGraphV1`, `pocHeroineStandardAppearanceV1`, `pocResolvedPresentationCatalogV1`, `pocContentMaturityPolicyV1`, the derived single-source `pocStandardRequiredAssetIdsByVariantV1` mapping, a data-only resolved StageScene/variant/rig/hitmap/interaction catalog, the empty-flag/zero-requirement PoC content policy, and the complete `PocSemantic*V1` contract plus `createPocSemanticActionCatalogV1(queries)`.
+- Consumes: Task 6's sole complete `pocStoryDataV1` source and field-by-field projector, `createPocRuleProvidersV1`, `createValidatedPocRulesV1`, `createPocRulesV1`, `createPocGameSimulationV1`, Base ResolvedGame/Story/Patch/asset contracts, the Node-safe data-only renderer/layout descriptor contract proven by Phase 2, stable Text/Asset/Action IDs, and the predecessor track's immutable `approvedPocAssetPacksV1` export from `@project-tavern/assets`. The default Story closure does not import `@sillymaker/ui` or a Web renderer registry.
+- Produces: `pocStoryEntryV1`, `definePocStoryV1`, `materializePocSimulationProgramV1`, `materializePocPresentationV1`, typed Patch Surfaces, build-generated slot-local Rule provider-closure digests, one complete Chinese TextCatalog, fallback-complete assets with optional approved providers, `PocPresentationV1`, `PocStageSceneGraphV1`, `PocResolvedAssetsV1`, `PocResolvedGameV1`, `pocSceneGraphV1`, `pocHeroineStandardAppearanceV1`, `pocResolvedPresentationCatalogV1`, `pocContentMaturityPolicyV1`, the derived single-source `pocStandardRequiredAssetIdsByVariantV1` mapping, a data-only resolved StageScene/variant/rig/hitmap/interaction catalog, the empty-flag/zero-requirement PoC content policy, one bounded `PocActionInputCatalogV1` Query projection, and the complete `PocSemantic*V1` contract plus `createPocSemanticActionCatalogV1(queries)`.
 
 - [ ] **Step 1: Write the failing complete-Story contract test**
 
@@ -1194,14 +1212,22 @@ it("keeps semantic actions strict and derived from GameQueries", () => {
   expect(actions.every((action) => action.actionId && action.textId)).toBe(true);
   expect(actions.some((action) => "snapshot" in action)).toBe(false);
   for (const action of actions) {
-    if (action.directInvocation === null) {
+    if (action.delivery === "choices") {
       expect(action.options.length).toBeGreaterThan(0);
+      expect(action.directInvocation).toBeNull();
+      expect(action.form).toBeNull();
       expect(
         action.options.every(({ invocation }) => invocation.actionId === action.actionId),
       ).toBe(true);
-    } else {
+    } else if (action.delivery === "direct") {
       expect(action.options).toEqual([]);
+      expect(action.form).toBeNull();
       expect(action.directInvocation.actionId).toBe(action.actionId);
+    } else {
+      expect(["action.purchase", "action.service_plan"]).toContain(action.actionId);
+      expect(action.directInvocation).toBeNull();
+      expect(action.options).toEqual([]);
+      expect(action.form.actionId).toBe(action.actionId);
     }
   }
   expect(Object.keys(pocSemanticInvocationOptionsSchemaByActionV1).sort()).toEqual(
@@ -1216,9 +1242,9 @@ it("keeps semantic actions strict and derived from GameQueries", () => {
 });
 ```
 
-`approvedPocAssetPackIdentitiesV1` and `approvedPocProviderAssetIdsV1` in this example are test-only, authored-order projections derived from the imported frozen pack; `resolvePocAssetsForTestV1(packs)` is a test helper that calls the one production Base asset resolver with an injected pack list. They do not create another resolver, pack catalog, or runtime authority.
+`approvedPocAssetPackIdentitiesV1` and `approvedPocProviderAssetIdsV1` in this example are test-only, authored-order projections derived from the imported frozen pack; `resolvePocAssetsForTestV1(packs)` constructs a test-only GamePackage with injected packs and resolves it through public `resolveStoryForTestV1`, which indirectly calls the one production Base asset resolver. It does not deep-import `@sillymaker/base/src/**`, copy the resolver, or create another pack catalog/runtime authority.
 
-Add provider-contract cases that an empty approved pack is valid and yields the complete fallback manifest, while a non-empty committed pack replaces only matching `replaceable` slots and preserves every slot's `fallbackToken`. Reject unknown/duplicate/sealed Asset IDs, archived/reference/remote/traversal paths, byte/hash/dimension mismatch, or any provider not rooted in `game/packages/assets/runtime/poc/**`. The default Story uses the imported phase-base pack unchanged; tests may inject an empty pack to exercise deterministic fallback presentation without changing the default provider selection. Asset Pack identities and providers enter only the presentation/asset digest, never simulation or Save compatibility.
+Add provider-contract cases that an empty approved pack is valid and yields the complete fallback manifest, while a non-empty synthetic pack replaces only matching `replaceable` slots and preserves every slot's `fallbackToken`. The Base resolution cases reject unknown/duplicate/sealed Asset IDs, invalid digest/byte/dimension metadata, and archived/reference/remote/traversal paths according to the public resolver contract. The already accepted `game/packages/assets/src/approved-poc-pack.test.ts` remains the sole live-byte/root gate for a non-empty committed pack: it verifies `game/packages/assets/runtime/poc/**`, media magic, byte length, dimensions and SHA-256. Task 7 reruns that gate and does not duplicate filesystem governance in Story tests. The default Story uses the imported phase-base pack unchanged; tests may inject an empty or synthetic pack without changing default provider selection. Asset Pack identities/providers enter only the presentation/asset digest, never simulation or Save compatibility.
 
 - [ ] **Step 2: Run and confirm missing Story/presentation files**
 
@@ -1248,13 +1274,57 @@ export const pocStoryEntryV1 = defineGamePackage({
 export default pocStoryEntryV1;
 ```
 
-`materializePocRulesFromPatchValuesV1` is implemented in `patch-surfaces.ts` and maps exactly seven declared slots—`demand.preview`, `demand.resolve`, `tavern.preview`, `tavern.settle`, `checks.describe`, `checks.resolve`, and `endings.evaluate`—into `PocRulesV1`; it performs no implicit merge of unknown keys. Scheduling remains a separate deterministic resolver over validated event data, enters simulation source identity, and is not a `PocRulesV1` member or PatchSurface rule slot. The source simulation facet exposes `stateContractRevision`, the explicitly projected `PocSimulationDataV1`, base rule providers, simulation PatchSurface, `materializeProgram`, and `createGameSimulation: createPocGameSimulationV1`. `pocStoryDataV1` is the authoring source but never enters the simulation root wholesale: `projectPocSimulationDataV1` rebuilds the exact field-level projection for the resolved Balance without spread, `Omit`, or implicit merge. That projection excludes real text/presentation/assets/tooling and contains no module instances or owner capabilities. Presentation consumes the source TextId declarations for closure validation and separately exposes source SceneGraph/text/assets, presentation PatchSurface, and one materializer. Resolved SceneGraph comes from resolved Presentation and is not recreated by an application root. Simulation value slots expose Balance plus the exact named rule providers; presentation slots expose complete TextCatalog and replaceable fallback assets. The canonical simulation source projection includes `PocGameDebugCommandExecutorV1`, its strict command/error schemas, owner-routing table, Scheduling resolver, and validation/rule providers, so changing those sources changes `simulationDigest`; tooling form adapters and fixture definitions are excluded from that projection.
+Four slot-local entry modules own the exact unvalidated provider groups: `demand.ts` returns the raw `preview/resolve` pair from `createPocDemandRulesV1(data)`, `tavern.ts` returns `preview/settle` from `createPocTavernSettlementResolverV1(data)`, `checks.ts` returns `describe/resolve` from `createPocCheckResolverV1(data)`, and `endings.ts` returns `evaluate` from `createPocEndingRuleV1(data)`. `gameplay/rule-providers.ts` only assembles those four already named groups without remapping their members and exports `createPocRuleProvidersV1(data)`; `gameplay/index.ts` re-exports it and `createPocRulesV1(data)` becomes the unchanged convenience composition `createValidatedPocRulesV1(data, createPocRuleProvidersV1(data))`. This extraction changes no Rule output or public `PocRulesV1` shape and lets each Patch slot bind the actual executable provider instead of a validation wrapper defined in the aggregate barrel.
+
+`materializePocRulesFromPatchValuesV1` is implemented in `patch-surfaces.ts` and maps exactly seven declared slots—`demand.preview`, `demand.resolve`, `tavern.preview`, `tavern.settle`, `checks.describe`, `checks.resolve`, and `endings.evaluate`—into `PocRulesV1`; it performs no implicit merge of unknown keys. The seven slot defaults are the exact raw functions from `createPocRuleProvidersV1(baseData)`. After resolving `values.balance`, the materializer first creates `reboundDefaults = createPocRuleProvidersV1(resolvedData)`. For each slot, exact reference equality with that slot's original `defaultValue` means “unreplaced” and selects the corresponding `reboundDefaults` provider; a different reference selects the Hotfix replacement. The explicit seven-field provider object then passes exactly once through `createValidatedPocRulesV1(resolvedData, providers)`. This ensures a Balance-only Hotfix cannot leave default Rules closed over old data, avoids double-wrapping default Rules, and keeps an actual Rule replacement exact and runtime-validated. Tests must prove `createPocRulesV1` parity, a Balance-only replacement changes both Program data and a representative default Rule result, a one-slot replacement changes only that provider, and no unknown slot is merged.
+
+Scheduling remains a separate deterministic resolver over validated event data, enters simulation source identity, and is not a `PocRulesV1` member or PatchSurface rule slot. The source simulation facet exposes `stateContractRevision`, the explicitly projected `PocSimulationDataV1`, base rule providers, simulation PatchSurface, `materializeProgram`, and `createGameSimulation: createPocGameSimulationV1`. `pocStoryDataV1` is the authoring source but never enters the simulation root wholesale: `projectPocSimulationDataV1` rebuilds the exact field-level projection for the resolved Balance without spread, `Omit`, or implicit merge. That projection excludes real text/presentation/assets/tooling and contains no module instances or owner capabilities. Presentation consumes the source TextId declarations for closure validation and separately exposes source SceneGraph/text/assets, presentation PatchSurface, `materializePresentation`, and one materializer. Resolved SceneGraph comes from resolved Presentation and is not recreated by an application root. Simulation value slots expose Balance plus the exact named rule providers; presentation slots expose complete TextCatalog and one `asset` slot for every replaceable fallback Asset ID. The canonical simulation source projection includes `PocGameDebugCommandExecutorV1`, its strict command/error schemas, owner-routing table, Scheduling resolver, and validation/rule providers, so changing those sources changes `simulationDigest`; tooling form adapters and fixture definitions are excluded from that projection.
+
+The seven executable Rule slots use generated slot-local source/import-closure digests. `update-rule-source-digests.mts` calls the repository's existing `scripts/collect-import-closure.mjs`, reads the sorted live-byte closure of the exact slot entry root below, and computes `digestCanonical("sillymaker:patch-provider:v1", { symbolId, records: [{ path, sha256 }] })` independently for each symbol:
+
+| Patch symbol       | actual provider entry root                                       |
+| ------------------ | ---------------------------------------------------------------- |
+| `demand.preview`   | `game/stories/poc/src/gameplay/rule-provider-entries/demand.ts`  |
+| `demand.resolve`   | `game/stories/poc/src/gameplay/rule-provider-entries/demand.ts`  |
+| `tavern.preview`   | `game/stories/poc/src/gameplay/rule-provider-entries/tavern.ts`  |
+| `tavern.settle`    | `game/stories/poc/src/gameplay/rule-provider-entries/tavern.ts`  |
+| `checks.describe`  | `game/stories/poc/src/gameplay/rule-provider-entries/checks.ts`  |
+| `checks.resolve`   | `game/stories/poc/src/gameplay/rule-provider-entries/checks.ts`  |
+| `endings.evaluate` | `game/stories/poc/src/gameplay/rule-provider-entries/endings.ts` |
+
+Two slots may legitimately share a closure only when they are members of the same raw provider group; changing Demand code invalidates the two Demand digests but not Check/Ending digests. The aggregate `rule-providers.ts` performs no member remapping and is not a substitute digest root; the validation wrapper from `gameplay/index.ts` is never a Patch default. The writer emits only `src/rule-source-digests.generated.ts`, refuses to overwrite dirty/foreign output bytes, and is exposed as `pnpm --filter @project-tavern/story-poc update:rule-source-digests`. The read-only `rule-source-digests.test.ts` independently recomputes all seven values from these exact roots, rejects a stale/misbound constant, and includes focused parity vectors proving every assembled provider member behaves exactly like its corresponding raw factory member. No test, build, verify, or release command invokes the writer.
+
+`pocStateContractManifestV1` is one explicit exact-data projection with aggregate schema `schema.poc.game-state` revision 1 and persistent runtime-IR schema `schema.poc.narrative-runtime-ir` revision 1. The latter describes only the persisted Narrative `status/source/cursor/callStack/stage` shape; the complete Narrative Program, conditions, commands, effects, Scheduler checkpoints and control flow remain simulation identity. The manifest registers all ten stateful modules in Unicode module-ID order, with each descriptor's exact module ID, contract revision and state slots, using these unique schema IDs:
+
+| Module ID            | State schema ID                       |
+| -------------------- | ------------------------------------- |
+| `module.actors`      | `schema.poc.module.actors-state`      |
+| `module.calendar`    | `schema.poc.module.calendar-state`    |
+| `module.facilities`  | `schema.poc.module.facilities-state`  |
+| `module.inventory`   | `schema.poc.module.inventory-state`   |
+| `module.narrative`   | `schema.poc.module.narrative-state`   |
+| `module.progression` | `schema.poc.module.progression-state` |
+| `module.run`         | `schema.poc.module.run-state`         |
+| `module.status`      | `schema.poc.module.status-state`      |
+| `module.tavern`      | `schema.poc.module.tavern-state`      |
+| `module.workflow`    | `schema.poc.module.workflow-state`    |
+
+The manifest's stable reference sets are exactly `references.poc.{action,actor,asset,aura,character,check,check-band,choice,customer-segment,ending,event,fact,facility,ingredient,item,modifier-source,node,outcome,policy,quest,reason,recipe,scene,story-token,world-step}` in set-ID order. Each set is the unique code-point-sorted projection of its same-named Task 1 registry; `action` uses only Gameplay `actionIdsV1` and never the seven Semantic workflow-adapter IDs, `character` uses only the simulation Narrative `characterIdsV1`, and the currently empty `item` set remains present. The logical `asset` set is present because `NarrativeStageStateV1` can persist `backgroundAssetId`/`poseAssetId`; renderer/provider identities remain presentation-only. These sets cover every authored stable ID (the Base stable-ID grammar requires a namespaced separator) that can occur in `PocGameStateV1`, including persisted Narrative cursor/stage and active-workflow references. Fixed schema enums such as `ServiceMode`, `CalendarPhase`, `RunStatus`, ranks and stages are validated by their State schema revision rather than encoded as stable-reference IDs; raw values such as `manual` intentionally fail the Base stable-ID grammar. Control-flow-only `CheckpointId`/`WeightedGroupId`, presentation `TextId`, and open schema-validated tooling `FixtureId` are not closed State reference sets; Run/Batch/Ledger/Session instance IDs are likewise schema-validated values rather than closed authored sets. Tests compare every exact set to its source registry, assert ordering/uniqueness, preserve each Module descriptor's declared `stateSlots` order, and prove no Semantic workflow ID, fixed enum, control-flow-only ID, presentation renderer/provider/content preference, or tooling ID enters the State contract.
+
+Run the guarded writer after implementing the source roots and inspect its sole generated diff:
+
+```bash
+pnpm --filter @project-tavern/story-poc update:rule-source-digests
+git diff -- game/stories/poc/src/rule-source-digests.generated.ts
+```
 
 - [ ] **Step 4: Add the data-only SceneGraph, Chinese text, and semantic action descriptors**
 
 `scene-graph.ts` exports only deeply frozen renderer IDs, layout/slot descriptors, and Strict JSON presentation data. It contains no JSX, React component, callback, class instance, DOM/browser global, or dynamic import. The default `src/index.ts`/StoryEntry/Headless import closure may import this descriptor but must not reach any `.tsx` file. Phase 5 adds the Story's Web-only `.tsx` renderer registry/contributions, which resolve these IDs without constructing a second graph or entering the default/Headless closure.
 
-The resolved graph registers exactly the StageScene/variant/surface/target/behavior IDs frozen in Task 1, the exact `pocHeroinePresentationIdsV1` identity, and one concept HitMap whose only PoC target is `target.poc.heroine.figure`. It must not invent head/face/body-part targets or persistent appearance state. `stage_variant.poc.tavern.day` and `.evening` are catalog variants selected later by the Story Application presentation projector; the catalog contains no Calendar trigger and the Gameplay `PocGameViewV1` contains no StageScene/variant/Asset ID.
+The resolved graph registers exactly the StageScene/variant/surface/target/behavior IDs frozen in Task 1, the exact `pocHeroinePresentationIdsV1` identity, and one concept HitMap whose only PoC target is `target.poc.heroine.figure`. It must not invent head/face/body-part targets or persistent appearance state. Renderer IDs are frozen here as `renderer.poc.stage.main_menu`, `renderer.poc.stage.tavern`, `renderer.poc.stage.market`, `renderer.poc.stage.world_map`, and `renderer.poc.stage.week_summary`; Tavern day/evening deliberately share the Tavern renderer. The character rig continues to use `renderer.poc.character.paper_doll`. `stage_variant.poc.tavern.day` and `.evening` are catalog variants selected later by the Story Application presentation projector; the catalog contains no Calendar trigger and the Gameplay `PocGameViewV1` contains no StageScene/variant/Asset ID.
+
+The Tavern heroine placement uses the visual baseline's normalized foot anchor `{ x: 0.6625, y: 0.93 }`, scale 1. The one concept HitMap uses the renderer-local rectangle `{ kind: "rect", x: 0.45, y: 0.05, width: 0.43, height: 0.9 }`, priority 0, and only `target.poc.heroine.figure`. Tavern/heroine surface anchors are `{ x: 0.5, y: 0.5 }`; Market and World Map use the same neutral surface anchor. These values are Story-authored interaction geometry, not Gameplay State or persisted appearance.
 
 `assets.ts` freezes exactly five initially selected appearance layers—back hair, costume body, face, front hair, and accessory—against Task 1's seven-slot authored rig order. `held_prop` and `foreground_effect` remain valid empty slots and therefore produce no invisible placeholder demand. It must preserve the explicit layer-to-asset pairs rather than relying on two parallel arrays:
 
@@ -1311,7 +1381,9 @@ export const pocResolvedPresentationCatalogV1 = deepFreeze({
 });
 ```
 
-All twelve Asset slots are registered fallback-complete before provider resolution: five selected appearance layers, one heroine static fallback, and one background for each of the six variants. The predecessor-approved pack may replace only matching `replaceable` slots; the empty-pack fixture resolves all twelve to `provider:null`, while the default Story resolves the exact committed pack without changing slot order or fallback tokens. `pocResolvedPresentationCatalogV1` is one deep-frozen object returned by resolved Presentation and passed to the Phase 5B projector; it is not a Web-only second catalog. Phase 5B derives the Runtime character's `appearance` directly from its explicit pairs and, after selecting a variant, reads `requiredAssetIds` only from `input.resolvedCatalog.requiredAssetIdsByVariant[variantId]`; it never ambient-imports the mapping or restates, zips, sorts, unions, or coarsens it. Tests assert the pair order matches the first five authored rig slots, all six exact variant keys and ordered demand arrays, every non-null `backgroundAssetId` equals the first ID of its variant demand, no duplicate within a demand, no unselected slot, and no non-standard asset.
+All twelve Asset slots are registered fallback-complete before provider resolution: five selected appearance layers, one heroine static fallback, and one background for each of the six variants. Every slot is `replaceable` and has a stable `fallback.poc.*` token. Background slots use the visual-pack master dimensions `2560×1600`, safe area `{ x: 213, y: 0, width: 2134, height: 1600 }`, null pivot, `scene` load group except the Main Menu's `bootstrap` group, and `scene_background` usage. All six character slots share the visual-pack logical canvas `1600×1000`, safe area `{ x: 133, y: 0, width: 1334, height: 1000 }`, foot pivot `{ x: 1060, y: 930 }`, `scene` load group and `character_pose` usage. The predecessor-approved pack may replace only matching slots with those exact dimensions; the empty-pack fixture resolves all twelve to `provider:null`, while the default Story resolves the exact committed pack without changing slot order or fallback tokens.
+
+`pocResolvedPresentationCatalogV1` is one deep-frozen object returned by resolved Presentation and passed to the Phase 5B projector; it is not a Web-only second catalog. Phase 5B derives the Runtime character's `appearance` directly from its explicit pairs and, after selecting a variant, reads `requiredAssetIds` only from `input.resolvedCatalog.requiredAssetIdsByVariant[variantId]`; it never ambient-imports the mapping or restates, zips, sorts, unions, or coarsens it. Tests assert the pair order matches the first five authored rig slots, all six exact variant keys and ordered demand arrays, every non-null `backgroundAssetId` equals the first ID of its variant demand, no duplicate within a demand, no unselected slot, and no non-standard asset.
 
 `interaction-catalog.ts` maps `behavior.poc.heroine.open_profile` to a closed Presentation intent symbol, while repair/apology/service-plan/purchase/old-trade-road map to the existing Semantic action IDs. It stores only stable provider symbols in Strict JSON—not invocations, commands, closures, or enabled flags. Phase 5B joins those symbols to the atomic action catalog and performs dynamic mode/cardinality validation; Phase 4B validates only static references, ID uniqueness, HitMap shapes, and the complete open-surface DAG.
 
@@ -1319,7 +1391,17 @@ The outer `surface.poc.tavern` contains a contextual binding from `target.poc.he
 
 `content-maturity-policy.ts` exports `pocContentMaturityPolicyV1` with `policyRevision=1`、an empty flag/preset catalog and `defaultAllowedFlags=emptyContentMaturityFlagsV1`. `scene-graph.ts` exports `pocSceneGraphV1`. Every runtime asset, variant, target, behavior, text, and fallback in this Story uses `requiredFlags=emptyContentMaturityFlagsV1`; no authored field uses a raw numeric zero to bypass the brand. No filtered AssetId or alternative suggestive asset enters the resolved graph. The complete `zh-CN` catalog maps `pocNoContentFilterOptionsTextIdV1` to the provisional truthful text `当前故事没有可调整的内容过滤选项。`; Story validation requires that exact ID to be nonblank, while later UI still resolves it through `PresentationReadPortV1` rather than importing a raw string.
 
-`semantic-actions.ts` owns these exact closed types; none may remain an implied name. Its catalog consumes all relevant Phase 4A getters rather than inspecting State: generic actions come from `getAvailableActions()`, run/policy controls from their dedicated getters, Narrative commands from `getNarrativeProjection()`, and Opening commands only from `getTavernOpeningControl()`. An active Narrative or WorldAction produces no Opening descriptor; otherwise the control contributes exactly one of start/continue/finalize with the exact command and preview carried by that branch:
+Task 7 extends `PocGameQueriesV1` with one `getActionInputCatalog()` getter so parameter construction remains on the same read-only Query boundary instead of importing raw Story content in React. Its exact deep-frozen `PocActionInputCatalogV1` projection contains only:
+
+- `purchase.lineLimit = balance.purchaseLineLimit` plus `purchase.ingredients`: `ingredientId`, `nameTextId`, `unitPrice`, `shelfLifeDays`, and `refrigeratable` for each authored ingredient;
+- `tavernPlan.recipeLimit = min(16, balance.menuRecipeLimit)` plus `tavernPlan.serviceModes`: `mode`, `nameTextId`, AP/stamina/wage/capacity fields and confirmation metadata, without availability gates or Rule providers;
+- `tavernPlan.recipes`: only currently unlocked `recipeId`, `nameTextId`, ingredient requirements, `salePrice`, and `prepPoints`;
+- `facility.options`: the one authored opportunity ID plus build/skip choice, label TextId, cash cost and confirmation metadata;
+- `worldAction.options`: Action/Choice IDs, label TextId, base/additional cash cost, player-stamina cost and confirmation metadata.
+
+`ServiceModeDefinitionV1` gains the explicit `nameTextId` field already frozen by Task 1. `pocStoryBalanceSchemaV1`, `content/balance.ts`, and the exact balance tests carry the four existing `text.poc.service_mode.{manual,assisted,delegated,closed}.name` IDs as the single source; the Query must not construct a TextId from `mode`, hard-code a second mapping, or reverse-import `content/ids.ts`. The getter projects from the closed Simulation Program and current Gameplay State, clones exact fields, and exposes no State object, module port, callback, availability gate, Effect, Rule, RNG, sequence, Snapshot or command executor. `game-queries.test.ts` proves the two effective limits, label closure, current unlocked-recipe filtering and deep immutability. This bounded projection is the temporary typed Query workaround for the deferred StateStore v2; it does not create a second state authority.
+
+`semantic-actions.ts` owns these exact closed types; none may remain an implied name. Its catalog consumes all relevant Phase 4A getters rather than inspecting State: generic actions come from `getAvailableActions()`, parameter metadata from `getActionInputCatalog()`, run/policy controls from their dedicated getters, Narrative commands from `getNarrativeProjection()`, and Opening commands only from `getTavernOpeningControl()`. An active Narrative or WorldAction produces no Opening descriptor; otherwise the control contributes exactly one of start/continue/finalize with the exact command and preview carried by that branch:
 
 ```ts
 type PocCommandOptionsV1<TKind extends PocGameCommandV1["kind"]> = Omit<
@@ -1363,18 +1445,76 @@ export interface PocSemanticActionOptionV1<TInvocation extends PocSemanticInvoca
   readonly invocation: DeepReadonly<TInvocation>;
 }
 
-type PocSemanticActionDeliveryV1<TInvocation extends PocSemanticInvocationV1> =
-  | {
-      readonly directInvocation: DeepReadonly<TInvocation>;
-      readonly options: readonly [];
-    }
-  | {
-      readonly directInvocation: null;
-      readonly options: readonly [
-        DeepReadonly<PocSemanticActionOptionV1<TInvocation>>,
-        ...DeepReadonly<PocSemanticActionOptionV1<TInvocation>>[],
-      ];
-    };
+export interface PocSemanticFormByActionV1 {
+  readonly "action.purchase": {
+    readonly kind: "purchase";
+    readonly actionId: "action.purchase";
+    readonly input: DeepReadonly<PocActionInputCatalogV1["purchase"]>;
+  };
+  readonly "action.service_plan": {
+    readonly kind: "tavern_plan";
+    readonly actionId: "action.service_plan";
+    readonly input: DeepReadonly<PocActionInputCatalogV1["tavernPlan"]>;
+  };
+}
+
+export interface PocSemanticDeliveryKindByActionV1 {
+  readonly "action.choose_life_policy": "choices";
+  readonly "action.purchase": "form";
+  readonly "action.prepare_food": "direct";
+  readonly "action.rest": "direct";
+  readonly "action.service_plan": "form";
+  readonly "action.advance_phase": "direct";
+  readonly "action.pay_levy": "direct";
+  readonly "action.facility_window": "choices";
+  readonly "action.repair_sign_with_heroine": "direct";
+  readonly "action.old_trade_road": "choices";
+  readonly "action.apologize_to_heroine": "direct";
+  readonly "action.run_start": "direct";
+  readonly "action.tavern_opening_start": "direct";
+  readonly "action.tavern_opening_continue": "direct";
+  readonly "action.tavern_opening_finalize": "direct";
+  readonly "action.world_action_complete": "direct";
+  readonly "action.narrative_advance": "direct";
+  readonly "action.narrative_choose": "choices";
+}
+
+type PocSemanticActionDeliveryV1<TActionId extends keyof PocSemanticInvocationOptionsByActionV1> =
+  PocSemanticDeliveryKindByActionV1[TActionId] extends "direct"
+    ? {
+        readonly delivery: "direct";
+        readonly directInvocation: DeepReadonly<
+          Extract<PocSemanticInvocationV1, { readonly actionId: TActionId }>
+        >;
+        readonly options: readonly [];
+        readonly form: null;
+      }
+    : PocSemanticDeliveryKindByActionV1[TActionId] extends "choices"
+      ? {
+          readonly delivery: "choices";
+          readonly directInvocation: null;
+          readonly options: readonly [
+            DeepReadonly<
+              PocSemanticActionOptionV1<
+                Extract<PocSemanticInvocationV1, { readonly actionId: TActionId }>
+              >
+            >,
+            ...DeepReadonly<
+              PocSemanticActionOptionV1<
+                Extract<PocSemanticInvocationV1, { readonly actionId: TActionId }>
+              >
+            >[],
+          ];
+          readonly form: null;
+        }
+      : TActionId extends keyof PocSemanticFormByActionV1
+        ? {
+            readonly delivery: "form";
+            readonly directInvocation: null;
+            readonly options: readonly [];
+            readonly form: DeepReadonly<PocSemanticFormByActionV1[TActionId]>;
+          }
+        : never;
 
 export type PocSemanticActionDescriptorV1 = {
   readonly [TActionId in keyof PocSemanticInvocationOptionsByActionV1]: {
@@ -1383,9 +1523,7 @@ export type PocSemanticActionDescriptorV1 = {
     readonly enabled: boolean;
     readonly reasons: readonly DeepReadonly<PocRejectionReasonV1>[];
     readonly confirmation: DeepReadonly<PocSemanticConfirmationV1> | null;
-  } & PocSemanticActionDeliveryV1<
-    Extract<PocSemanticInvocationV1, { readonly actionId: TActionId }>
-  >;
+  } & PocSemanticActionDeliveryV1<TActionId>;
 }[keyof PocSemanticInvocationOptionsByActionV1];
 
 export type PocSemanticConfirmationV1 = NonNullable<
@@ -1406,7 +1544,7 @@ export type PocSemanticActionResultV1 =
   | { readonly kind: "faulted"; readonly code: "gameplay_fault" };
 ```
 
-The file declares one strict schema in `pocSemanticInvocationOptionsSchemaByActionV1` for every generic and workflow action member and derives the discriminated union/parser from that closed map. Every descriptor has exactly one mapping: a no-parameter action has one `directInvocation` and zero `options`; a parameterized action has `directInvocation: null` plus finite controlled options whose invocations parse against its action-specific schema. The mapped descriptor union preserves `descriptor.actionId === directInvocation/options[].invocation.actionId` at compile time. Unknown actions, missing/extra options, callbacks, state paths, Snapshot fragments, and arbitrary JSON are rejected with stable typed errors. Type tests prove the schema keys equal the combined literal action-ID union in both directions, reject an extra property on `PocNoSemanticOptionsV1`, reject a mismatched descriptor/invocation action ID, and prove all five `PocSemantic*V1` names export from the Story root.
+The file declares one strict schema in `pocSemanticInvocationOptionsSchemaByActionV1` for every generic and workflow action member and derives the discriminated union/parser from that closed map. `PocSemanticDeliveryKindByActionV1` has exactly the same keys and fixes exactly one delivery per Action: a no-parameter action uses `direct`; policy/facility/WorldAction/Narrative choices use a finite non-empty `choices` tuple whose invocations parse against the action-specific schema; `action.purchase` and `action.service_plan` use `form` with the exact bounded Query input projection, `directInvocation:null`, and no fabricated concrete invocation. Their quantities/portions remain strict PositiveSafeInteger form values and therefore are not incorrectly enumerated as a finite list. Policy, Facility, and WorldAction choices retain authored order whenever their parent descriptor is visible; option-specific availability is not duplicated into this descriptor, and selecting one must call the same Semantic `preview` before dispatch so a currently invalid option returns the authoritative typed rejection. Narrative keeps disabled choices in `NarrativeProjectionV1` for display but includes only `enabled === true` choices as invokable Semantic options. The mapped descriptor union preserves `descriptor.actionId === directInvocation/options[].invocation.actionId/form.actionId` at compile time. Unknown actions, missing/extra options, callbacks, state paths, Snapshot fragments, and arbitrary JSON are rejected with stable typed errors. Type tests prove both maps' keys equal the combined literal action-ID union in both directions, reject an extra property on `PocNoSemanticOptionsV1`, reject `purchase/direct` and `rest/choices`, reject mismatched descriptor/invocation/form action IDs, and prove all public `PocSemantic*V1` names export from the Story root.
 
 `PocSemanticActionResultV1` is deliberately not the GameSession dispatch envelope. `projectPocSemanticActionResultV1` exhaustively maps `not_executed` unchanged, maps committed execution to `{ kind: "committed" }`, preserves only player-visible rejection reasons, and collapses an engine fault to `{ kind: "faulted", code: "gameplay_fault" }`. Snapshot, State, RNG, facts, internal fault details, attempts, and CommandLog evidence never cross SemanticGamePort; diagnostics remain the separate player-safe inspection path.
 
@@ -1414,16 +1552,18 @@ The resolved Story exports exact structural aliases `PocPresentationV1`, `PocSta
 
 Future Scene renderers receive only `{ viewSlice, semantic, presentation }`; no complete `GameApplicationPortV1`, Snapshot, persistence, diagnostics, capability/debug port, module owner, Rule, resolver, or raw content object. Semantic descriptors already contain stable ActionId/TextId, enabled, ordered reasons, and strict invocation options derived from `PocGameQueriesV1`. Do not activate React, JSX, DOM, or `DOM.Iterable` in this phase. Extend `LICENSE.md` so `src/presentation/text-catalogs/**` is CC BY-NC-SA while executable code remains PolyForm.
 
-- [ ] **Step 5: Run Story, boundary, type, and full checks**
+- [ ] **Step 5: Run source-digest, Story, asset, boundary, type, and full checks**
 
-Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/story-validation.test.ts && pnpm verify:stories && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
+Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/test/story-validation.test.ts src/test/game-queries.test.ts src/test/rule-source-digests.test.ts && pnpm exec vitest run game/packages/assets/src/approved-poc-pack.test.ts && pnpm verify:stories && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
 
-Expected: PASS; all stable references/reachability/catalog/rule/slot/fallback checks pass, the default entry imports under Node type stripping, the resolved SceneGraph is Strict JSON/data-only and preserved, replayable-debug simulation sources affect only simulation identity, and no `.tsx`, React, DOM, runtime image, tooling, Web, AIGC, or reference path enters the default Story/Headless closure.
+Expected: PASS; all generated Rule source digests match their exact live import closures, stable references/reachability/catalog/rule/slot/fallback checks pass, the default entry imports under Node type stripping, the resolved SceneGraph is Strict JSON/data-only and preserved, replayable-debug simulation sources affect only simulation identity, the approved Asset Pack retains its independent live-byte/root verification, and no `.tsx`, React, DOM, runtime image, tooling, Web, AIGC, or reference path enters the default Story/Headless closure. Rerun `pnpm --filter @project-tavern/story-poc update:rule-source-digests` only as a writer audit and require `git diff --exit-code -- game/stories/poc/src/rule-source-digests.generated.ts`; ordinary verification remains read-only.
 
 - [ ] **Step 6: Commit complete Story composition**
 
 ```bash
-git add -- game/stories/poc/src/presentation game/stories/poc/src/patch-surfaces.ts game/stories/poc/src/story-definition.ts game/stories/poc/src/index.ts game/stories/poc/LICENSE.md game/stories/poc/src/test/story-validation.test.ts
+git add -- game/stories/poc/src/presentation game/stories/poc/src/patch-surfaces.ts game/stories/poc/src/story-definition.ts game/stories/poc/src/rule-source-digests.generated.ts game/stories/poc/src/content/balance.ts game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/game-queries.ts game/stories/poc/src/gameplay/rule-provider-entries game/stories/poc/src/gameplay/rule-providers.ts game/stories/poc/src/gameplay/index.ts game/stories/poc/src/testing/gameplay-fixture.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/game-queries.test.ts game/stories/poc/src/test/rule-source-digests.test.ts game/stories/poc/src/test/story-validation.test.ts game/stories/poc/src/index.ts game/stories/poc/scripts/update-rule-source-digests.mts game/stories/poc/package.json game/stories/poc/LICENSE.md docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md
+git diff --cached --name-status
+git diff --cached --check
 git commit -m "feat(story-poc): compose seven-day story"
 ```
 
