@@ -1779,6 +1779,38 @@ git add -- game/stories/poc/src/application/create-poc-semantic-port.ts game/sto
 git commit -m "test(story-poc): prove semantic week routes"
 ```
 
+**Accepted-owner repair during the Task 10 full-root verification:** Task 8's first terminal-route
+case drives one complete seven-day week through the real `GameSessionV1` and Semantic port. On the
+exact Goal checkpoint toolchain it normally completes in about four seconds, leaving insufficient
+margin under Vitest's default five-second per-test timeout; ordinary full-suite CPU contention
+produced a correct result after 5.467 seconds and was misclassified as a timeout. This is a semantic
+integration contract, not a performance budget. Per the execution protocol's unique-answer
+earlier-owner rule, give only that complete-week case the same bounded 15-second timeout already
+used by long reference-strategy simulations. Do not change global timeouts, worker concurrency,
+production behavior, or the shorter independent terminal case.
+
+Repair files:
+
+- Modify: docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md
+- Modify: game/stories/poc/src/test/terminal-route.integration.test.ts
+
+Repair TDD and contract:
+
+1. Record the exact-toolchain full-root RED where the first terminal-route case alone exceeds the
+   inherited 5-second timeout while its focused rerun completes with all assertions passing. A
+   gameplay assertion failure or deterministic-result drift does not count as this RED.
+2. Add only `15_000` as the timeout argument on that first complete-week `it` case.
+3. Run the focused terminal-route file repeatedly, its four-file semantic suite, `pnpm verify`,
+   Prettier on the repair files, and `git diff --check`; every command must exit 0.
+4. Commit the accepted-owner repair exactly:
+
+   ```bash
+   git add -- docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md game/stories/poc/src/test/terminal-route.integration.test.ts
+   git diff --cached --name-status
+   git diff --cached --check
+   git commit -m "test(story-poc): bound terminal route timeout"
+   ```
+
 ## Task 9: Compile Six Reference Strategies into Literal Semantic Invocation Fixtures
 
 **Files:**

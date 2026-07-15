@@ -288,7 +288,7 @@ describe("PoC terminal routes through SemanticGamePort", () => {
     expect(afterRejectedAttempt.game).toBe(terminalPublication.game);
     expect(afterRejectedAttempt.narrative).toBe(terminalPublication.narrative);
     expect(afterRejectedAttempt.actions).toBe(terminalPublication.actions);
-  });
+  }, 15_000);
 
   it("distinguishes emergency and planned closures before an arrears terminal", async () => {
     const harness = createPocStoryHarnessV1({ bootstrap: fixedPocBootstrapV1() });
