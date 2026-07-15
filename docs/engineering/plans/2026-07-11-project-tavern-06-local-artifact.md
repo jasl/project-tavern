@@ -65,13 +65,15 @@ prefix. It never edits code, docs or baselines.
 Run the current full gate once and confirm that any failure is still threshold-only. Then run:
 
 ```bash
-pnpm --filter @project-tavern/story-poc calibrate:balance
+iteration=0
+pnpm --filter @project-tavern/story-poc calibrate:balance --iteration="$iteration"
 ```
 
 Apply exactly the returned field to `balance.ts` and every authoritative/direct expectation in the same change. Re-run the
-reference seed, commands, the complete 1–1000 corpus and all candidate-based counterfactuals after each iteration; stop after
-12 changes or `balance_contract_unsatisfied`. Never lower a threshold, change the six strategies/seed set, accept a partial
-candidate set, or tune from golden output.
+reference seed, commands, the complete 1–1000 corpus and all candidate-based counterfactuals after each iteration; increment
+`iteration` after each applied change and pass the new direct `--iteration="$iteration"` argument on the next invocation. At
+12 applied changes the `--iteration=12` invocation must return/stop at `iteration_limit`; never insert a standalone `--`.
+Never lower a threshold, change the six strategies/seed set, accept a partial candidate set, or tune from golden output.
 
 Once all frozen thresholds pass, capture two independent canonical reports and require byte equality:
 
