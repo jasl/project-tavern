@@ -179,13 +179,30 @@ function parsedValueSchemaV1<T>(label: string, parser: (value: unknown) => T): z
   });
 }
 
-function runtimeSchemaV1<T>(schema: z.ZodType<T>): RuntimeSchemaV1<T> {
+/**
+ * @internal Runtime schemas are pure and deterministic. Each schema may therefore treat only its
+ * own deeply frozen outputs as validated identity tokens on later admission.
+ */
+export function runtimeSchemaV1<T>(schema: z.ZodType<T>): RuntimeSchemaV1<T> {
+  const validatedOutputs = new WeakSet<object>();
+
   return Object.freeze({
     parse(value: unknown): T {
+      if (
+        ((typeof value === "object" && value !== null) || typeof value === "function") &&
+        validatedOutputs.has(value)
+      ) {
+        return value as T;
+      }
+
       assertCanonicalDataV1(value);
       const parsed = schema.parse(value);
       canonicalJsonBytes(parsed);
-      return deepFreezePocValueV1(parsed);
+      const frozen = deepFreezePocValueV1(parsed);
+      if ((typeof frozen === "object" && frozen !== null) || typeof frozen === "function") {
+        validatedOutputs.add(frozen);
+      }
+      return frozen;
     },
   });
 }

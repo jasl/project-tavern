@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { z } from "zod";
 import type {
   CommandExecutionAttemptEnvelopeV1,
   GameSimulationTypeMapV1,
@@ -34,6 +35,7 @@ import {
   pocEffectSourceSchemaV1,
   pocSimulationDataSchemaV1,
   pocStoryBalanceSchemaV1,
+  runtimeSchemaV1,
   validatePocEffectIntentForSourceV1,
 } from "../gameplay/contracts/schemas.js";
 import {
@@ -70,6 +72,79 @@ import {
 import { createPocGameplayFixtureV1 } from "../testing/gameplay-fixture.js";
 
 describe("PoC gameplay contract", () => {
+  it("reuses only identities returned by the same runtime schema", () => {
+    let refinementCount = 0;
+    let transformCount = 0;
+    const underlyingSchema = z
+      .strictObject({ value: z.number().int().nonnegative() })
+      .superRefine(() => {
+        refinementCount += 1;
+      })
+      .transform(({ value }) => {
+        transformCount += 1;
+        return { value };
+      });
+    const schema = runtimeSchemaV1(underlyingSchema);
+
+    const parsed = schema.parse({ value: 1 });
+    expect(Object.isFrozen(parsed)).toBe(true);
+    expect(refinementCount).toBe(1);
+    expect(transformCount).toBe(1);
+
+    expect(schema.parse(parsed)).toBe(parsed);
+    expect(refinementCount).toBe(1);
+    expect(transformCount).toBe(1);
+
+    const externalFrozenEqual = Object.freeze({ value: 1 });
+    const reparsedExternal = schema.parse(externalFrozenEqual);
+    expect(reparsedExternal).toEqual(parsed);
+    expect(reparsedExternal).not.toBe(externalFrozenEqual);
+    expect(refinementCount).toBe(2);
+    expect(transformCount).toBe(2);
+
+    const siblingSchema = runtimeSchemaV1(underlyingSchema);
+    expect(siblingSchema.parse(parsed)).not.toBe(parsed);
+    expect(refinementCount).toBe(3);
+    expect(transformCount).toBe(3);
+
+    const proxyMarker = new TypeError("proxy cache miss");
+    const wrappedParsed = new Proxy(parsed, {
+      getPrototypeOf() {
+        throw proxyMarker;
+      },
+    });
+    expect(() => schema.parse(wrappedParsed)).toThrow(proxyMarker);
+
+    const mutableInput = { value: 2 };
+    const parsedMutableInput = schema.parse(mutableInput);
+    mutableInput.value = -1;
+    expect(parsedMutableInput).toEqual({ value: 2 });
+    expect(() => schema.parse(mutableInput)).toThrow();
+    expect(() => schema.parse({ value: 1, unexpected: true })).toThrow();
+
+    let primitiveTransformCount = 0;
+    const primitiveSchema = runtimeSchemaV1(
+      z.string().transform((value) => {
+        primitiveTransformCount += 1;
+        return value.trim();
+      }),
+    );
+    const primitive = primitiveSchema.parse(" value ");
+    expect(primitive).toBe("value");
+    expect(primitiveSchema.parse(primitive)).toBe("value");
+    expect(primitiveTransformCount).toBe(2);
+
+    const nestedSchema = runtimeSchemaV1(
+      z.strictObject({ entries: z.array(z.strictObject({ value: z.number().int() })) }),
+    );
+    const nested = nestedSchema.parse({ entries: [{ value: 1 }] });
+    expect(Object.isFrozen(nested)).toBe(true);
+    expect(Object.isFrozen(nested.entries)).toBe(true);
+    expect(Object.isFrozen(nested.entries[0])).toBe(true);
+    expect(nestedSchema.parse(nested)).toBe(nested);
+    expect(() => Object.defineProperty(nested.entries[0], "value", { value: 2 })).toThrow();
+  });
+
   it("shares strict aggregate State and GameplayFact schemas", () => {
     const fixture = createPocGameplayFixtureV1();
     expect(pocGameStateSchemaV1.parse(fixture.snapshot.state)).toEqual(fixture.snapshot.state);
