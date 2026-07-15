@@ -20,6 +20,7 @@
 - `game/stories/e2e` and `game/stories/poc` are the only current Stories. Do not pre-create Sandbox, Demo, Full, `game/stories/common`, Electron, public npm packages or a public Mod manager.
 - PoC Gameplay belongs to `game/stories/poc`; E2E fixture Gameplay belongs to `game/stories/e2e`; Base/UI/Web cannot import either Story.
 - Simulation is snapshot-authoritative and command-driven. GameCommandExecutor owns candidate commit/RNG/sequence; GameQueries are a separate read-only responsibility.
+- [`2026-07-15-typed-state-store-v2-design.md`](../specs/2026-07-15-typed-state-store-v2-design.md) records the approved Post-Goal typed StateStore direction. Phase 2–6 keep the v1 Snapshot/transaction/Query/Save ABI; no partial Store, Prisma/SQL dependency, live IndexedDB state, or migration enters this Goal.
 - One GameSession FIFO owns every authoritative operation. UI, tooling, Automation and Hotfix never receive a Snapshot setter or Owner capability.
 - SemanticGamePort exposes only player-visible information and legal actions. Automation does not receive DebugTools and legal Automation never modifies RunIntegrity.
 - Debug/Cheat/Automation default to disabled. Successful rule-bypassing mutations persist RunIntegrity; read-only tooling and structurally invalid, `validation_failed`, or faulted debug operations do not.

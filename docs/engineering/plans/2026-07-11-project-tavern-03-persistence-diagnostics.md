@@ -557,7 +557,7 @@ it("includes RunIntegrity in the state digest", () => {
 });
 ```
 
-在 `persistence.test-d.ts` 中用一个含 `state`/`integrity` 的 synthetic Snapshot 实例化 validation context，证明 `validateReferences`/`validateInvariants` 参数只有 Gameplay State；对 `state.integrity`、`state.rng` 和 `state.commandSequence` 的访问都必须是 `@ts-expect-error`。
+在 `persistence.test-d.ts` 中用一个含 `state`/`integrity` 的 synthetic Snapshot 实例化 validation context，证明 `validateReferences` 参数只有 Gameplay State；`validateInvariants` 参数是 exact、deep-readonly `{ state, commandSequence }` view，使 Story 能验证 State 内 sequence 引用，但对 `view.integrity`、`view.rng`、`view.state.integrity` 和 `view.state.commandSequence` 的访问都必须是 `@ts-expect-error`。
 
 - [ ] **Step 2: Run focused tests and confirm codecs are absent**
 
@@ -573,19 +573,27 @@ Expected: FAIL because runtime Save codec/compatibility modules、new root contr
 - [ ] **Step 3: Implement the fixed validation stages**
 
 ```ts
+export interface SaveImportInvariantViewV1<TState> {
+  readonly state: TState;
+  readonly commandSequence: NonNegativeSafeInteger;
+}
+
 export interface SaveImportValidationContextV1<
   TState,
-  TSnapshot extends { readonly state: TState },
+  TSnapshot extends {
+    readonly state: TState;
+    readonly commandSequence: NonNegativeSafeInteger;
+  },
   TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
 > {
   readonly codec: SaveCodecContextV1<TSnapshot, TSaveRecord>;
   classifyCompatibility(record: DeepReadonly<TSaveRecord>): SaveCompatibilityClassificationV1;
   validateReferences(state: DeepReadonly<TState>): readonly string[];
-  validateInvariants(state: DeepReadonly<TState>): readonly string[];
+  validateInvariants(view: DeepReadonly<SaveImportInvariantViewV1<TState>>): readonly string[];
 }
 ```
 
-精确公共签名与 result unions 以 Contract Catalog 为准。decode owns only bytes → Strict JSON → envelope Schema/`validateEnvelope` → state digest。标准 envelope Schema 使用内部 tagged failure 区分 future positive format revision 和顶层 stateDigest 格式，不匹配异常文本；`validateEnvelope` 负责 slot/provenance、captured sequence 和 lineage 固定关系。Import classifier 先返回 exact、adoption_candidate、inspect_only 或 rejected；只有 exact/adoption_candidate 才运行 references/invariants，后者全部通过才提升为公开 adopted。Base 在调用 Story validator 前已经完成整个 envelope/integrity/digest 校验，然后只传入 `record.snapshot.state`；Story validator 的类型不能观察或改写 integrity、RNG、sequence 或 provenance。只有最终 exact/adopted 携带 runnable `candidate`；inspect_only/rejected 没有。Encoding 使用 Canonical JSON，无 BOM、缩进或换行差异。
+精确公共签名与 result unions 以 Contract Catalog 为准。decode owns only bytes → Strict JSON → envelope Schema/`validateEnvelope` → state digest。标准 envelope Schema 使用内部 tagged failure 区分 future positive format revision 和顶层 stateDigest 格式，不匹配异常文本；`validateEnvelope` 负责 slot/provenance、captured sequence 和 lineage 固定关系。Import classifier 先返回 exact、adoption_candidate、inspect_only 或 rejected；只有 exact/adoption_candidate 才运行 references/invariants，后者全部通过才提升为公开 adopted。Base 在调用 Story validator 前已经完成整个 envelope/integrity/digest 校验；reference validator 只收到 `record.snapshot.state`，invariant validator 只收到新建并深冻结的 exact `{ state: record.snapshot.state, commandSequence: record.snapshot.commandSequence }` view。Story validator 的类型不能观察或改写 integrity、RNG、provenance 或完整 Snapshot。只有最终 exact/adopted 携带 runnable `candidate`；inspect_only/rejected 没有。Encoding 使用 Canonical JSON，无 BOM、缩进或换行差异。
 
 - [ ] **Step 4: Implement exact/adopted/inspect-only classification**
 
@@ -629,6 +637,34 @@ git add -- engine/packages/base/src/contracts/persistence.ts engine/packages/bas
 git diff --cached --check
 git commit -m "feat(base): validate save compatibility"
 ```
+
+#### Accepted Task 3 owner repair: expose only sequence required by Story invariants
+
+The original State-only invariant callback cannot prove later PoC contracts such as
+`completion.completedAtSequence === snapshot.commandSequence` or
+`resolvedCheck.resolvedAtSequence <= snapshot.commandSequence`. Repair this earliest owner before Phase 4A
+Task 12 without exposing RNG, RunIntegrity, provenance or a complete Snapshot.
+
+**Exact repair files:**
+
+- Modify: `engine/packages/base/src/contracts/persistence.ts`
+- Modify: `engine/packages/base/src/contracts/index.ts`
+- Modify: `engine/packages/base/src/index.ts`
+- Modify: `engine/packages/base/src/runtime/persistence/compatibility.ts`
+- Modify: `engine/packages/base/src/runtime/persistence/compatibility.test.ts`
+- Modify: `engine/packages/base/src/runtime/persistence/persistence-service.ts`
+- Modify: `engine/packages/base/src/runtime/persistence/persistence-service.test.ts`
+- Modify: `engine/packages/base/type-tests/persistence.test-d.ts`
+- Modify: `engine/packages/base/public-exports.v1.json`
+- Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.ts`
+- Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.test.ts`
+- Modify only if required by the same public callback compilation: `game/stories/e2e/scripts/runtime-fixture-builder.mts`
+
+First add focused runtime and type assertions that the invariant callback receives the exact frozen
+`{ state, commandSequence }` view and cannot observe RNG/RunIntegrity, then implement the minimum contract repair.
+Run the focused compatibility/persistence-service tests, `pnpm verify:public-exports`, `pnpm typecheck`,
+`pnpm verify:persistence-diagnostics`, `pnpm verify`, and `git diff --check`. Exact-stage only the files above that
+actually changed and commit `fix(base): scope save invariant validation`; fixture/golden bytes must remain unchanged.
 
 ### Task 4: Implement the Web IndexedDB atomic record store
 

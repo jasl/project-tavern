@@ -1158,7 +1158,7 @@ type PocRejectionReasonV1 =
     }
   | {
       readonly code: "run.already_started";
-      readonly details: { readonly commandSequence: PositiveSafeInteger };
+      readonly details: { readonly [key: string]: never };
     }
   | {
       readonly code: "run.not_started";
@@ -1459,7 +1459,7 @@ type PocRejectionReasonV1 =
 
 拒绝不含玩家文案。UI 用 `code + details` 映射本地化文本，不解析 `message`。
 
-所有通过 Schema 的 `PocGameCommandV1` 都必须只以 committed、上述 Rejection 或稳定 Fault 结束，handler 不得临时发明 code：sequence 0/空 demandSeeds 时除 `run.start` 外的命令使用 `run.not_started`，demandSeeds 已物化后重复 Start 使用 `run.already_started`；未知 stable ID 使用 `command.unknown_reference`；非 Narrative 命令在 active Narrative 中使用 `command.blocked_by_narrative`；没有 WorldActionSession 的 Complete 使用 `workflow.missing`；Complete 不在第二 step 时段使用 `world.action_wrong_phase`；`narrative.advance` 停在 choice node 时使用 `narrative.choice_required`；无计划开店和已主动/紧急停业分别使用 `tavern.opening_plan_missing` 与 `tavern.evening_resolved`；Opening 已 ready 时多余 Continue 使用 `tavern.opening_continue_not_needed`。Story availability gate 失败仍使用对应领域的 `*.unavailable + reasonId`，不能拿 `engine.invariant_rejected` 代替普通玩家拒绝。
+所有通过 Schema 的 `PocGameCommandV1` 都必须只以 committed、上述 Rejection 或稳定 Fault 结束，handler 不得临时发明 code：sequence 0/空 demandSeeds 时除 `run.start` 外的命令使用 `run.not_started`，demandSeeds 已物化后重复 Start 使用 `run.already_started`，其 `details` 是 strict empty object，不泄漏 engine-owned sequence；未知 stable ID 使用 `command.unknown_reference`；非 Narrative 命令在 active Narrative 中使用 `command.blocked_by_narrative`；没有 WorldActionSession 的 Complete 使用 `workflow.missing`；Complete 不在第二 step 时段使用 `world.action_wrong_phase`；`narrative.advance` 停在 choice node 时使用 `narrative.choice_required`；无计划开店和已主动/紧急停业分别使用 `tavern.opening_plan_missing` 与 `tavern.evening_resolved`；Opening 已 ready 时多余 Continue 使用 `tavern.opening_continue_not_needed`。Story availability gate 失败仍使用对应领域的 `*.unavailable + reasonId`，不能拿 `engine.invariant_rejected` 代替普通玩家拒绝。
 
 Start 后、policy 为空期间的 guard 顺序固定：active manifest Narrative 时允许 Narrative controls 正常推进，
 所有非 Narrative 命令（包括 policy.choose）先返回 `command.blocked_by_narrative`；manifest completed 后只允许
@@ -4390,6 +4390,7 @@ interface PocGameQueriesV1 {
   explainAvailability(actionId: ActionId): AvailabilityExplanationV1;
   previewCommand<C extends PocGameCommandV1>(command: C): CommandPreviewV1<C>;
   previewTavernPlan(plan: TavernPlanV1): TavernPreviewV1;
+  getGameViewStatus(): PocGameViewStatusV1;
   getHudProjection(): PocHudProjectionV1;
   getInventoryProjection(): PocInventoryProjectionV1;
   getTavernProjection(): PocTavernProjectionV1;
@@ -4406,9 +4407,10 @@ interface PocGameQueriesV1 {
 }
 ```
 
-`PocGameViewV1.status` 只折叠生命周期：`RunState.status="setup"` 映射为 `setup`，`active` 映射为
-`active`，三个 terminal RunStatus 都映射为 `terminal`；精确 terminal 结果只从同一 view 的 `completion`
-读取。GameView 的每个字段必须从上面同名 Query/getter 的同一次 immutable Queries 投影建立：`actions` 等于
+`PocGameViewV1.status` 只折叠生命周期：`getGameViewStatus()` 将 `RunState.status="setup"` 映射为
+`setup`，`active` 映射为 `active`，三个 terminal RunStatus 都映射为 `terminal`；精确 terminal 结果只从
+同一 view 的 `completion` 读取。GameView 的每个字段必须从上面同名 Query/getter 的同一次 immutable Queries
+投影建立：`status` 等于 `getGameViewStatus()`，`actions` 等于
 `getAvailableActions()`，五个 control/forecast、resolved checks 与 completion 分别复用对应 getter，五个新 DTO
 分别复用 `get*Projection()`。projector 不接收 Snapshot，不读取 State path，也不重新实现 availability、preview、
 forecast 或 ending 规则。
@@ -4424,7 +4426,11 @@ plan 调用 `previewTavernPlan(servicePlan)` 的结果。已经提交到 `servic
 runtime state 的 cursor/stage/speaker/text/choices/check evidence。它由 Semantic port 的独立 `narrative` 通道发布，
 不进入 `PocGameViewV1`，也不允许 GameView projector 调用后再复制一份。
 
-`getRunStartControl()` 是 sequence-0 replay base 进入游戏的唯一 Player UI 投影：只在 Catalog Bootstrap 初始状态（sequence 0、setup、idle Narrative、空 demand seeds/currentDemand、无 workflow）返回非 null，携带精确 `{kind:"run.start"}` 与同值、`allowed=true`、`confirmation=null` 的 preview；成功 Start 或任一非初始状态都返回 null。`run.start` 仍有零个 Action presentation，React 不得自行拼装该系统命令。
+`getRunStartControl()` 是 replay base 进入游戏的唯一 Player UI 投影：只在 Story 可见的 Catalog Bootstrap
+初始 State（setup、policy null、D1 morning、idle Narrative、空 demand seeds、`currentDemand=null`、无 workflow、
+无 completion）返回非 null，携带精确 `{kind:"run.start"}` 与同值、`allowed=true`、`confirmation=null` 的
+preview；Base aggregate invariant 另行保证该 State 只存在于 sequence 0 replay base。GameQueries 不读取 sequence；
+成功 Start 或任一非初始 State 都返回 null。`run.start` 仍有零个 Action presentation，React 不得自行拼装该系统命令。
 
 `getLifePolicySelection()` 只在已完成 manifest Scene、run 仍为 setup 且 policy 为空时返回非 null；options 与 `StoryBalance.lifePolicies` 顺序一致且非空，每项 `policyId` 必须等于 `command.policyId`，`preview.command` 必须与该 command Canonical JSON 深值相等且 `preview.allowed=true`。这些相等关系由 projection Schema refinement 与 query tests 同时保证；UI 不能从 Balance 自行构造选项。
 
@@ -4810,7 +4816,7 @@ type DebugCommandValidationErrorV1 =
       readonly code: "debug.value_out_of_range";
       readonly commandKind: "debug.inventory.adjust_cash";
       readonly field: "cash_delta_result";
-      readonly actual: SafeInteger;
+      readonly actual: string;
       readonly minimum: 0;
       readonly maximum: SafeInteger;
     }
@@ -5085,6 +5091,11 @@ type DebugBundleV1 = DebugBundleEnvelopeV1<
 >;
 ```
 
+`debug.inventory.adjust_cash` 的 validator 必须先把当前 `Money` 与命令 delta 转为 `bigint` 再精确相加；
+若结果不在 `0..Number.MAX_SAFE_INTEGER`，`cash_delta_result.actual` 是该 bigint 的 canonical signed base-10
+字符串：`0` 恰为 `"0"`，非零值无前导零或 `+`，负值只含一个前导 `-`。该字符串只属于 validation error，
+不进入 Gameplay State、Money、Ledger 或 Save ABI；`minimum`/`maximum` 仍是当前 number 边界。
+
 State Dump 使用完整 `DebugBundleV1`，不另建弱类型 envelope。`simulationLineage` 遵守 SaveRecord 的同一链式不变量；adoption 之前的旧 CommandLog 只能作为另行导出的历史证据，当前 bundle 的 `replayBase → commandLog → currentSnapshot` 必须全部属于 provenance 中同一个 resolved simulation digest。
 
 所有会改变 Session 权威 Snapshot 的 GameCommand、Save load/import、lifecycle create/restart、replayable DebugCommand 与 `debug.fixture.load` 共用 GameSession 的一条 FIFO mutation tail；入队即同步标记 busy，公开 Port 不暴露绕过队列的 setter。DebugCommand 可在入口做 strict Schema 校验，但引用、Aura policy 与当前状态冲突等语义预校验必须等操作到达队首后针对最新 committed Snapshot 执行；`validation_failed` 不打开候选事务、不消费 RNG/sequence、不进入 CommandLog。被接受的 replayable DebugCommand 由 Story/GameSimulation-owned debug executor 通过同一 owner capabilities 执行，只可能 committed 或 faulted；两种结果都在同一队列项内把同一次 finalized attempt 追加为对应 Debug-source CommandLog entry，committed 更新 Snapshot，faulted 保持旧 Snapshot并另外暂停 Session、生成 failure bundle，不存在 Debug 版 `PocRejectionReasonV1`。`debug.fixture.load` 只从 capability-gated active-Story tooling resolver 解析；未知/外部 fixtureId 是 `debug.unknown_reference`，不引入不存在的跨 Story fixture-mismatch 状态。合法 fixture 经完整验证后在同一队列项内原子替换 current Snapshot 与 replay base并清空旧 CommandLog；普通 load/import、adoption 与 lifecycle create/restart 也必须在各自队列项内完成相同 anchor replacement。失败返回 validation/fault result并完整保留旧会话，绝不作为普通 log entry。tail 的内部异常被归一化后必须 settled，不能永久 rejected 而阻断允许的恢复操作。泛型 `DebugCommandOperationResultForV1<C>` 保证 replayable command 只能返回 committed/faulted，anchoring command 只能返回 anchor_established/faulted；两者都可在 admission 前返回 validation_failed，且 `error.commandKind` 必须精确等于该调用 command 的 kind。
@@ -5356,15 +5367,23 @@ type SaveImportValidationResultV1<TSaveRecord> =
     })
   | Extract<ImportCompatibilityOutcomeV1, { readonly kind: "inspect_only" | "rejected" }>;
 
+interface SaveImportInvariantViewV1<TState> {
+  readonly state: TState;
+  readonly commandSequence: NonNegativeSafeInteger;
+}
+
 interface SaveImportValidationContextV1<
   TState,
-  TSnapshot extends { readonly state: TState },
+  TSnapshot extends {
+    readonly state: TState;
+    readonly commandSequence: NonNegativeSafeInteger;
+  },
   TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
 > {
   readonly codec: SaveCodecContextV1<TSnapshot, TSaveRecord>;
   classifyCompatibility(record: DeepReadonly<TSaveRecord>): SaveCompatibilityClassificationV1;
   validateReferences(state: DeepReadonly<TState>): readonly string[];
-  validateInvariants(state: DeepReadonly<TState>): readonly string[];
+  validateInvariants(view: DeepReadonly<SaveImportInvariantViewV1<TState>>): readonly string[];
 }
 
 declare function encodeSaveRecordV1<
@@ -5389,7 +5408,10 @@ declare function classifySaveCompatibilityV1(
 
 declare function validateSaveImportCandidateV1<
   TState,
-  TSnapshot extends { readonly state: TState },
+  TSnapshot extends {
+    readonly state: TState;
+    readonly commandSequence: NonNegativeSafeInteger;
+  },
   TSaveRecord extends SaveRecordEnvelopeV1<TSnapshot, unknown, unknown, unknown>,
 >(
   bytes: Uint8Array,
@@ -5405,7 +5427,7 @@ declare function validateSaveImportCandidateV1<
 
 `hotfix_set` 对完整 `PatchSetIdentityV1` 的 Canonical JSON 做精确比较，不只信任其中一个字段。`engine.version` 与 `appBuildId` 不进入 mismatch 或 warning；前者仅 display-only，后者不在 Save provenance 中。compatibility callback 抛出的异常、reference/invariant callback 抛出的异常和 malformed callback result 都继续抛给上层 runtime-fault 归一化，不能伪装为普通 rejection。
 
-只有 `simulation_digest` 不同、其他阻断字段全部相同，且一份 `PatchSetAdoptionDeclarationV1` 与旧/新摘要、state contract revision/digest 和当前 simulation PatchSet 精确匹配时，classifier 才返回 `adoption_candidate`；其 `candidateCommandSequence` 必须来自候选 Snapshot。validator 随后只把 references/invariants 均通过的该候选提升为公开 `adopted`。adoption 在 GameSession 队首原子建立新 replay anchor、追加 lineage 并清空旧 CommandLog；它不是 authoritative replay。若旧 lineage 已有 16 项则返回 `rejected/compatibility.lineage_limit`。只有最终 `exact/adopted` 结果携带 runnable `candidate`；inspect-only 原文件保持可导出但不能建立 runnable GameSession。
+只有 `simulation_digest` 不同、其他阻断字段全部相同，且一份 `PatchSetAdoptionDeclarationV1` 与旧/新摘要、state contract revision/digest 和当前 simulation PatchSet 精确匹配时，classifier 才返回 `adoption_candidate`；其 `candidateCommandSequence` 必须来自候选 Snapshot。validator 随后只把 references/invariants 均通过的该候选提升为公开 `adopted`。Base 只把 Gameplay State 交给 reference validator，并为 invariant validator 新建、深只读的 exact `{ state, commandSequence }` view；它不传入 RNG、RunIntegrity、provenance 或完整 Snapshot。该 sequence 只用于验证 `completedAtSequence`、`resolvedAtSequence` 等 State 内引用，不能扩大 ordinary Story Query。adoption 在 GameSession 队首原子建立新 replay anchor、追加 lineage 并清空旧 CommandLog；它不是 authoritative replay。若旧 lineage 已有 16 项则返回 `rejected/compatibility.lineage_limit`。只有最终 `exact/adopted` 结果携带 runnable `candidate`；inspect-only 原文件保持可导出但不能建立 runnable GameSession。
 
 ## 11. 必须由 Schema + invariants 同时保证的条件
 

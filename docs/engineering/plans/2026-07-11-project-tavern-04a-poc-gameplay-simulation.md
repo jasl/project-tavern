@@ -380,7 +380,7 @@ export const pocDebugCommandKindsV1 = Object.freeze([
 ] as const satisfies readonly PocDebugCommandV1["kind"][]);
 ```
 
-`PocDebugCommandValidationErrorV1` is the PoC-prefixed closed specialization of the Catalog's replayable validation errors: unknown reason/actor/Aura/Aura-instance/fact/Narrative-node references; stamina, cash-result, and Aura-duration range errors; invalid Story values; disallowed Aura targets; Aura duration-policy mismatch; duplicate Aura state conflict; and inactive-Narrative jump conflict. Every variant carries the exact originating `commandKind`; there is no fixture-reference variant because `debug.fixture.load` is not a `PocDebugCommandV1`. `PocReplayableDebugExecutionAttemptV1` specializes Base diagnostics and has only `committed` or `faulted` results—never `rejected`. Task 1 implements the complete strict schemas for both closed debug unions plus the leaf/aggregate declarations needed by later modules; Task 12 completes the remaining State/normal-Command/Fact/Rejection aggregates and binds every schema into GameSimulation.
+`PocDebugCommandValidationErrorV1` is the PoC-prefixed closed specialization of the Catalog's replayable validation errors: unknown reason/actor/Aura/Aura-instance/fact/Narrative-node references; stamina, cash-result, and Aura-duration range errors; invalid Story values; disallowed Aura targets; Aura duration-policy mismatch; duplicate Aura state conflict; and inactive-Narrative jump conflict. Every variant carries the exact originating `commandKind`; there is no fixture-reference variant because `debug.fixture.load` is not a `PocDebugCommandV1`. The cash-result range error alone reports `actual` as the exact canonical signed base-10 string computed through `bigint`, because an unsafe sum cannot truthfully inhabit `SafeInteger`; this diagnostic string does not change `Money` or persisted State. `PocReplayableDebugExecutionAttemptV1` specializes Base diagnostics and has only `committed` or `faulted` results—never `rejected`. Task 1 implements the complete strict schemas for both closed debug unions plus the leaf/aggregate declarations needed by later modules; Task 12 completes the remaining State/normal-Command/Fact/Rejection aggregates and binds every schema into GameSimulation.
 
 `PocGameSnapshotV1` is `GameSnapshotEnvelopeV1<PocGameStateV1, RngStateV1>` and therefore includes Base-owned `integrity`; Gameplay State must not duplicate or read it. `PocSimulationProgramV1` is exactly `{ data: PocSimulationDataV1; rules: PocRulesV1 }`. The strict data contract is not `PocStoryDataV1`, a spread, or an open record; it has exactly the Catalog projection fields below and no presentation text/assets:
 
@@ -1895,11 +1895,14 @@ git commit -m "feat(story-poc): complete workflow transactions"
 
 - Modify: `game/stories/poc/src/gameplay/contracts/schemas.ts`
 - Modify: `game/stories/poc/src/gameplay/contracts/types.ts`
+- Modify: `game/stories/poc/src/gameplay/game-command-executor.ts`
+- Create: `game/stories/poc/src/gameplay/game-command-evaluation.ts`
 - Create: `game/stories/poc/src/gameplay/game-debug-command-executor.ts`
 - Create: `game/stories/poc/src/gameplay/game-queries.ts`
 - Create: `game/stories/poc/src/gameplay/game-view-projector.ts`
 - Create: `game/stories/poc/src/gameplay/game-simulation.ts`
 - Create: `game/stories/poc/src/test/game-debug-command-executor.test.ts`
+- Create: `game/stories/poc/src/test/game-command-evaluation.test.ts`
 - Create: `game/stories/poc/src/test/game-queries.test.ts`
 - Create: `game/stories/poc/src/test/game-simulation.test.ts`
 - Create: `game/stories/poc/src/test/game-session-integration.test.ts`
@@ -1925,6 +1928,7 @@ it("creates queries separately from command execution", () => {
     "explainAvailability",
     "previewCommand",
     "previewTavernPlan",
+    "getGameViewStatus",
     "getHudProjection",
     "getInventoryProjection",
     "getTavernProjection",
@@ -2098,6 +2102,7 @@ export interface PocGameQueriesV1 {
   explainAvailability(actionId: ActionId): AvailabilityExplanationV1;
   previewCommand<C extends PocGameCommandV1>(command: C): CommandPreviewV1<C>;
   previewTavernPlan(plan: TavernPlanV1): TavernPreviewV1;
+  getGameViewStatus(): PocGameViewStatusV1;
   getHudProjection(): PocHudProjectionV1;
   getInventoryProjection(): PocInventoryProjectionV1;
   getTavernProjection(): PocTavernProjectionV1;
@@ -2136,9 +2141,9 @@ export function createPocGameQueriesV1(
 ): PocGameQueriesV1;
 ```
 
-Every preview reuses the same guards, cost calculators, Rules/Resolvers, stable references, and confirmation metadata as execution without consuming RNG or mutating. `getAvailableActions`, `explainAvailability`, `previewCommand`, and execute share one ordered visibility/availability implementation. `previewTavernPlan` is the only prospective/committed Opening calculator projection and calls the same shared wrapper as Opening start: without a session it supplies the current resource branch after the common structural/reference/day/mode guards; with a session it supplies only the exact baseline plan/session branch and never rebuilds a current-state hybrid. The Tavern rule does not duplicate the shared Condition evaluator. Run start, life-policy choice, and Opening start/continue/finalize are exposed only through their exact control projections; in particular `getTavernOpeningControl()` returns null during an active Narrative or WorldAction and otherwise returns exactly the one context-valid Opening branch. Demand and obligation forecasts follow their typed visibility/basis unions and never expose hidden actual demand/check results. The five `Poc*ProjectionV1` accessors return the exact deeply frozen Strict-JSON field sets above: HUD contains the exact player-facing counters; Inventory batch projection omits `source`; Tavern omits `demandSeeds`, `currentDemand`, and uncommitted actual demand, and sets `currentPlanPreview=null` exactly when `servicePlan=null`; Facilities exposes only `built`/`decisions`; Ledger exposes only starting/current cash plus committed entries. Their strict schemas reject every missing/extra field, and query tests assert exact `Object.keys` order plus the private-field omissions.
+Every preview reuses the same guards, cost calculators, Rules/Resolvers, stable references, and confirmation metadata as execution without consuming RNG or mutating. `game-command-evaluation.ts` owns the one internal, pure, state-readable evaluator used by both `game-command-executor.ts` and `game-queries.ts`; it is a migration seam for a future capability-scoped StateStore reader, not a generic path/query DSL or second State. `getAvailableActions`, `explainAvailability`, `previewCommand`, and execute share its one ordered visibility/availability implementation. Executor-only Snapshot integrity checks may run outside that evaluator, but ordinary player rejection ordering and details may not diverge. `previewTavernPlan` is the only prospective/committed Opening calculator projection and calls the same shared wrapper as Opening start: without a session it supplies the current resource branch after the common structural/reference/day/mode guards; with a session it supplies only the exact baseline plan/session branch and never rebuilds a current-state hybrid. The Tavern rule does not duplicate the shared Condition evaluator. `getGameViewStatus()` is the only lifecycle-status projection used by GameView and folds the same State-visible Run status without reading sequence. Run start, life-policy choice, and Opening start/continue/finalize are exposed only through their exact control projections; in particular `getTavernOpeningControl()` returns null during an active Narrative or WorldAction and otherwise returns exactly the one context-valid Opening branch. `getRunStartControl()` recognizes the exact State-visible Bootstrap shape; the aggregate Snapshot invariant, not GameQueries, proves that shape is sequence 0. Demand and obligation forecasts follow their typed visibility/basis unions and never expose hidden actual demand/check results. The five `Poc*ProjectionV1` accessors return the exact deeply frozen Strict-JSON field sets above: HUD contains the exact player-facing counters; Inventory batch projection omits `source`; Tavern omits `demandSeeds`, `currentDemand`, and uncommitted actual demand, and sets `currentPlanPreview=null` exactly when `servicePlan=null`; Facilities exposes only `built`/`decisions`; Ledger exposes only starting/current cash plus committed entries. Their strict schemas reject every missing/extra field, and query tests assert exact `Object.keys` order plus the private-field omissions.
 
-`projectPocGameViewV1` calls these accessors and returns the exact field set above; it does not invent a second state reader. Narrative is deliberately absent from `PocGameViewV1`: Phase 4B publishes `queries.getNarrativeProjection()` as the separate atomic `SemanticPublicationV1.narrative` field from the same Queries instance. The Story-local query factory accepts Gameplay State rather than the full Snapshot, so it cannot inspect engine-owned RunIntegrity. The Story-local projector accepts only the already-created query object; it never receives Snapshot or creates a second query source.
+`projectPocGameViewV1` calls these accessors, including `getGameViewStatus()`, and returns the exact field set above; it does not invent a second state reader. Narrative is deliberately absent from `PocGameViewV1`: Phase 4B publishes `queries.getNarrativeProjection()` as the separate atomic `SemanticPublicationV1.narrative` field from the same Queries instance. The Story-local query factory accepts Gameplay State rather than the full Snapshot, so it cannot inspect engine-owned RunIntegrity, RNG or sequence. The Story-local projector accepts only the already-created query object; it never receives Snapshot or creates a second query source.
 
 - [ ] **Step 4: Implement queue-front debug validation and owner-routed attempts**
 
@@ -2161,7 +2166,7 @@ export function createPocGameDebugCommandExecutorV1(
 
 Only an `allowed` command reaches `executeAttempt`, exactly once. The executor clones the same transaction candidate used by normal Gameplay using the exact constructor-supplied `modules` tuple, and maps the command to Calendar, Actors, Status, Inventory, Progression, or Narrative owner proposals; it never imports or reconstructs bindings. `debug.rng.set` uses the candidate's debug-only RNG replacement primitive. It validates every proposal and aggregate invariant before commit. The result is only `committed` or `faulted`; an owner-level domain rejection after `allowed` is normalized to a stable engine contract fault, never exposed as a debug rejection. The executor reattaches the exact opaque input `integrity` reference and never calls `markRunModifiedV1`; `GameSession` owns that outer atomic mark after a committed replayable debug attempt.
 
-`pocReplayableDebugCommandVectorsV1` supplies one referentially complete allowed vector and at least one semantic validation-failure vector for each kind. Tests prove owner routing, no rejected result, no extra execution, rollback/RNG diagnostics on fault, and that `debug.fixture.load` is absent from the schema, executor, and vectors.
+`pocReplayableDebugCommandVectorsV1` supplies one referentially complete allowed vector and at least one semantic validation-failure vector for each kind. The cash vectors include `MAX_SAFE + 1` and a negative result; validation computes the candidate through `bigint`, returns exact canonical string `actual`, and never coerces the unsafe result back to number. Tests prove owner routing, no rejected result, no extra execution, rollback/RNG diagnostics on fault, and that `debug.fixture.load` is absent from the schema, executor, and vectors.
 
 - [ ] **Step 5: Define one closed GameSimulation**
 
@@ -2204,7 +2209,7 @@ Expected: PASS; all Gameplay tests pass, preview/execute rejection codes agree, 
 - [ ] **Step 7: Commit GameSimulation**
 
 ```bash
-git add -- game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/game-debug-command-executor.ts game/stories/poc/src/gameplay/game-queries.ts game/stories/poc/src/gameplay/game-view-projector.ts game/stories/poc/src/gameplay/game-simulation.ts game/stories/poc/src/test/game-debug-command-executor.test.ts game/stories/poc/src/test/game-queries.test.ts game/stories/poc/src/test/game-simulation.test.ts game/stories/poc/src/test/game-session-integration.test.ts game/stories/poc/src/gameplay/index.ts
+git add -- game/stories/poc/src/gameplay/contracts/schemas.ts game/stories/poc/src/gameplay/contracts/types.ts game/stories/poc/src/gameplay/game-command-evaluation.ts game/stories/poc/src/gameplay/game-command-executor.ts game/stories/poc/src/gameplay/game-debug-command-executor.ts game/stories/poc/src/gameplay/game-queries.ts game/stories/poc/src/gameplay/game-view-projector.ts game/stories/poc/src/gameplay/game-simulation.ts game/stories/poc/src/test/game-command-evaluation.test.ts game/stories/poc/src/test/game-debug-command-executor.test.ts game/stories/poc/src/test/game-queries.test.ts game/stories/poc/src/test/game-simulation.test.ts game/stories/poc/src/test/game-session-integration.test.ts game/stories/poc/src/gameplay/index.ts
 git commit -m "feat(story-poc): compose gameplay simulation"
 ```
 
@@ -2252,7 +2257,7 @@ test("keeps test:gameplay closed to Phase 4A files", async () => {
   );
   assert.equal(
     packageJson.scripts["test:gameplay"],
-    "vitest run src/test/gameplay-contract.test.ts src/test/run-calendar.test.ts src/test/actors-status.test.ts src/test/inventory.test.ts src/test/facilities-tavern.test.ts src/test/workflow-progression.test.ts src/test/narrative.test.ts src/test/rules-resolvers.test.ts src/test/transaction.test.ts src/test/command-executor-core.test.ts src/test/command-executor-workflows.test.ts src/test/game-debug-command-executor.test.ts src/test/game-queries.test.ts src/test/game-simulation.test.ts src/test/game-session-integration.test.ts",
+    "vitest run src/test/gameplay-contract.test.ts src/test/run-calendar.test.ts src/test/actors-status.test.ts src/test/inventory.test.ts src/test/facilities-tavern.test.ts src/test/workflow-progression.test.ts src/test/narrative.test.ts src/test/rules-resolvers.test.ts src/test/transaction.test.ts src/test/command-executor-core.test.ts src/test/command-executor-workflows.test.ts src/test/game-command-evaluation.test.ts src/test/game-debug-command-executor.test.ts src/test/game-queries.test.ts src/test/game-simulation.test.ts src/test/game-session-integration.test.ts",
   );
 });
 ```
@@ -2282,7 +2287,7 @@ export const pocGameplayVerificationCommandsV1 = Object.freeze([
 ] as const);
 ```
 
-The runner executes sequentially, stops on first nonzero status, rechecks the live materialization/Phase 2/Phase 3 checkpoint before the Phase 4A leaf, and never invokes a baseline writer. Set `test:gameplay` to the exact fifteen-file command frozen by the test above—never `vitest run src/test` or a glob—and root `verify:poc-gameplay` to the strip-only Node invocation.
+The runner executes sequentially, stops on first nonzero status, rechecks the live materialization/Phase 2/Phase 3 checkpoint before the Phase 4A leaf, and never invokes a baseline writer. Set `test:gameplay` to the exact sixteen-file command frozen by the test above—never `vitest run src/test` or a glob—and root `verify:poc-gameplay` to the strip-only Node invocation.
 
 - [ ] **Step 4: Run the task-local leaf and full verify without invoking the clean-tree phase gate**
 
@@ -2340,5 +2345,5 @@ git diff --check
 - [ ] No Story identity, SceneGraph, React, TextCatalog, asset, tooling, application, golden, or Save fixture is introduced before Phase 4B.
 - [ ] Phase 2 and Phase 3 prerequisite gates passed before Task 1, every task used exact-path staging/resume rules, and `pnpm-lock.yaml` remained byte-identical with no mid-Goal registry operation.
 - [ ] Narrative limits are program-owned and exactly `128` automatic nodes / `8` call frames in both fixture and concrete-program contracts; boundary tests prove the interpreter has no stale `64`/`4` literal.
-- [ ] `test:gameplay` is the exact fifteen-file Phase 4A leaf and remains unchanged when Phase 4B tests are later added.
+- [ ] `test:gameplay` is the exact sixteen-file Phase 4A leaf and remains unchanged when Phase 4B tests are later added.
 - [ ] `pnpm --filter @project-tavern/story-poc test:gameplay`, cumulative `pnpm verify:poc-gameplay`, and `pnpm verify` pass without changing tracked files.

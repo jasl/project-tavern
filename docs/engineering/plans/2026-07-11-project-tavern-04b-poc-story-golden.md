@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Phase 4A `pnpm verify:poc-gameplay` is a hard prerequisite. Consume `PocGameSimulationV1`, its ten Story-local GameplayModules, Rules/Resolvers, `PocGameCommandExecutorV1`, `PocGameDebugCommandExecutorV1`, `PocGameQueriesV1`, and `PocGameViewV1`; do not copy or replace them in content/presentation/tooling code.
-- Consume the exact Phase 4A surfaces: the seven `PocRulesV1` slots, the separate Scheduling resolver, all seventeen `PocGameQueriesV1` methods, and the Narrative-free `PocGameViewV1`. Story integration publishes `PocGameViewV1`, `NarrativeProjectionV1 | null`, and semantic actions as three atomic channels built from one Queries instance.
+- Consume the exact Phase 4A surfaces: the seven `PocRulesV1` slots, the separate Scheduling resolver, all eighteen `PocGameQueriesV1` methods, and the Narrative-free `PocGameViewV1`. Story integration publishes `PocGameViewV1`, `NarrativeProjectionV1 | null`, and semantic actions as three atomic channels built from one Queries instance.
 - `docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md` is authoritative for StageScene/variant/rig/HitMap/Interaction/content-policy boundaries and atomic SemanticPublication. Phase 4B registers PoC data and mappings against the Phase 2 contracts; it must not create engine contracts or a second GameView.
 - Story identity is exactly `{ id: "week.poc_001", revision: 1 }`; state-contract revision begins at `1`. Package/build key is `poc`, and the package name is `@project-tavern/story-poc`.
 - The run is exactly D1–D7: D1–D6 are service days, D7 has no service, levy is due D7 afternoon, and D7 evening is not actionable.
