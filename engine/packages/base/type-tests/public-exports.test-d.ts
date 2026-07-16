@@ -79,6 +79,7 @@ import type {
   StatefulGameplayModuleBindingV1,
   StatelessGameplayModuleBindingV1,
   StateSlotId,
+  StoryId,
   StoryToolingEntryV1,
   StoryToolingSupportV1,
   TextCatalogSetV1,
@@ -125,6 +126,7 @@ import {
   parseStageSceneId,
   parseStageSceneVariantId,
   parseStateSlotId,
+  parseStoryId,
   parseTextCatalogSetV1,
   parseTextId,
   requireContentPreferencePresetV1,
@@ -141,6 +143,7 @@ export declare const publicRunIntegritySchemaV1: typeof runIntegrityV1Schema;
 export declare const publicRuntimeInvalidationControllerV1: RuntimeInvalidationControllerV1;
 export const publicModuleId: ModuleId = parseModuleId("synthetic.parity");
 export const publicStateSlotId: StateSlotId = parseStateSlotId("simulation.counter");
+export const publicStoryId: StoryId = parseStoryId("story.synthetic");
 export const publicLocaleId: LocaleId = parseLocaleId("zh-CN");
 export const publicTextCatalogSetV1: TextCatalogSetV1 = parseTextCatalogSetV1({
   defaultLocale: "zh-CN",

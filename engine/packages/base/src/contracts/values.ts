@@ -19,6 +19,7 @@ export type DeepReadonly<T> = T extends
 
 export type ModuleId = Brand<string, "ModuleId">;
 export type StateSlotId = Brand<string, "StateSlotId">;
+export type StoryId = Brand<string, "StoryId">;
 export type SafeInteger = Brand<number, "SafeInteger">;
 export type NonNegativeSafeInteger = Brand<number, "NonNegativeSafeInteger">;
 export type PositiveSafeInteger = Brand<number, "PositiveSafeInteger">;
@@ -66,6 +67,10 @@ function parseStableId(value: unknown, label: string): string {
 
 export function parseModuleId(value: unknown): ModuleId {
   return parseStableId(value, "ModuleId") as ModuleId;
+}
+
+export function parseStoryId(value: unknown): StoryId {
+  return parseStableId(value, "StoryId") as StoryId;
 }
 
 export function parseStateSlotId(value: unknown): StateSlotId {

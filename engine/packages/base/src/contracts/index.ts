@@ -299,6 +299,7 @@ export {
   parsePositiveSafeInteger,
   parseRunId,
   parseStateSlotId,
+  parseStoryId,
 } from "./values.js";
 export type {
   Brand,
@@ -312,4 +313,5 @@ export type {
   RuntimeSchemaV1,
   SafeInteger,
   StateSlotId,
+  StoryId,
 } from "./values.js";

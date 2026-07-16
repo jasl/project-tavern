@@ -245,7 +245,7 @@ export const pocSaveFixtureProvenanceV1 = parsePocSaveFixtureProvenanceV1({
     stateContractRevision: 1,
     stateContractDigest: "sha256:16d04638a833b9ac79332a4539263a41a0d9492c06c5c62f3112120ecfcd135b",
     engineDigest: "sha256:028f85b8bb9beb5b9efd46d3b7ce287ec5ca726381a21f5fbb628651267e37f0",
-    simulationDigest: "sha256:b0d82b62de268f671394c8326bbe09ac5362c8d024b3ad45b6f3e37a43726c86",
+    simulationDigest: "sha256:bb30f86b69114c587370781e067a986a051f951f7ec26b0f8bb4951d3bcdcb19",
   },
   diagnosticAtGeneration: {
     storyDigest: "sha256:56d9489d88414dcfad4f85bced9c40569f41d7ad108fca4f531354be3b88b300",
