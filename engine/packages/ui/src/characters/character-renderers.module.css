@@ -1,0 +1,47 @@
+.character-root {
+  position: absolute;
+  box-sizing: border-box;
+  inline-size: min(72vmin, 38rem);
+  aspect-ratio: 2 / 3;
+  transform-origin: bottom center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.character-canvas {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.appearance-layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.character-image {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.code-native-silhouette {
+  display: grid;
+  inline-size: 100%;
+  block-size: 100%;
+  place-items: end center;
+  color: currentcolor;
+}
+
+.code-native-silhouette > * {
+  inline-size: min(62%, 18rem);
+  block-size: min(82%, 28rem);
+  border-radius: 48% 48% 18% 18% / 28% 28% 12% 12%;
+}

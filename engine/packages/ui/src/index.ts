@@ -17,6 +17,19 @@ export type {
   PresentationReadPortV1,
 } from "./assets/presentation-read-port.js";
 export { usePresentationAssetV1 } from "./assets/use-presentation-asset.js";
+export {
+  CharacterHostV1,
+  PaperDollCharacterRendererV1,
+  StaticCharacterRendererV1,
+  createCharacterRendererRegistryV1,
+} from "./characters/index.js";
+export type {
+  CharacterHostPropsV1,
+  CharacterRendererContributionV1,
+  CharacterRendererRegistryV1,
+  RuntimeAppearanceLayerV1,
+  RuntimeCharacterPresentationV1,
+} from "./characters/index.js";
 export { Button, IconButton, ProgressMeter } from "./primitives/index.js";
 export type { ButtonPropsV1, IconButtonPropsV1, ProgressMeterPropsV1 } from "./primitives/index.js";
 export { createUiContributionRegistryV1 } from "./contributions/registry.js";
