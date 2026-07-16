@@ -1,0 +1,98 @@
+.vn-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-items: end;
+  color: var(--silly-color-text);
+  background: linear-gradient(to bottom, transparent 40%, rgb(23 18 15 / 72%));
+  pointer-events: auto;
+}
+
+.vn-layer__panel {
+  overflow: auto;
+  inline-size: min(100%, 60rem);
+  max-block-size: min(48%, 30rem);
+  margin-inline: auto;
+  padding: var(--silly-space-3);
+  border: 1px solid var(--silly-color-border);
+  border-radius: var(--silly-radius-card) var(--silly-radius-card) 0 0;
+  background: var(--silly-color-surface-translucent);
+  box-shadow: 0 -0.5rem 1.5rem rgb(0 0 0 / 24%);
+  animation: vn-layer-reveal 180ms ease-out;
+  overscroll-behavior: contain;
+}
+
+.vn-layer__speaker,
+.vn-layer__text {
+  margin-block: 0;
+}
+
+.vn-layer__speaker {
+  color: var(--silly-color-accent);
+  font-weight: 700;
+}
+
+.vn-layer__text {
+  margin-block-start: var(--silly-space-2);
+  white-space: pre-wrap;
+}
+
+.vn-layer__choices,
+.vn-layer__disabled-reasons {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.vn-layer__choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--silly-space-2);
+  margin-block-start: var(--silly-space-3);
+}
+
+.vn-layer__choice {
+  display: grid;
+  gap: var(--silly-space-1);
+}
+
+.vn-layer__choice-control {
+  inline-size: 100%;
+}
+
+.vn-layer__disabled-reasons {
+  color: var(--silly-color-text-muted);
+  font-size: 0.875em;
+}
+
+.vn-layer__advance {
+  display: flex;
+  justify-content: end;
+  margin-block-start: var(--silly-space-3);
+}
+
+@keyframes vn-layer-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--silly-space-3));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@container game-stage (max-width: 48rem) {
+  .vn-layer__panel {
+    max-block-size: 60%;
+    border-radius: var(--silly-radius-card) var(--silly-radius-card) 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vn-layer__panel {
+    scroll-behavior: auto;
+    animation: none;
+  }
+}

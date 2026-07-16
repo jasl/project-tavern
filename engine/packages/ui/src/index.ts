@@ -46,6 +46,25 @@ export type {
   InputRouterV1,
   ViewportPointV1,
 } from "./input/index.js";
+export { VnLayerV1 } from "./narrative/index.js";
+export type { VnChoiceV1, VnLayerPropsV1 } from "./narrative/index.js";
+export {
+  ActionConfirmationDialogV1,
+  OverlayHostV1,
+  createOverlaySessionStoreV1,
+  maximumOverlayDetailDepthV1,
+} from "./overlays/index.js";
+export type {
+  ActionConfirmationDialogPropsV1,
+  ActionConfirmationDispatchPortV1,
+  OverlayCloseTopResultV1,
+  OverlayHostPropsV1,
+  OverlayPushDetailResultV1,
+  OverlayRendererResolutionV1,
+  OverlayRendererResolverV1,
+  OverlaySessionStateV1,
+  OverlaySessionStoreV1,
+} from "./overlays/index.js";
 export { SemanticActionControlV1 } from "./runtime/semantic-action-control.js";
 export type {
   SemanticActionControlDescriptorV1,
@@ -76,6 +95,13 @@ export type {
   StageViewportV1,
   TopCardHudPropsV1,
 } from "./shell/index.js";
+export { SettingsDialogV1, SettingsLauncherV1, SystemDialogHostV1 } from "./system/index.js";
+export type {
+  SettingsDialogPropsV1,
+  SettingsLauncherPropsV1,
+  SystemDialogHostPropsV1,
+  SystemDialogSettingsV1,
+} from "./system/index.js";
 export { GameSymbolV1, createGameSymbolRegistryV1, parseGameSymbolIdV1 } from "./symbols/index.js";
 export type {
   GameSymbolAccessibilityV1,
