@@ -2488,6 +2488,35 @@ git diff --cached --name-only
 git commit -m "test(story-poc): add tooling and save fixtures"
 ```
 
+**Accepted-owner repair during the Phase 5B Task 4 prerequisite gate:** the real tooling-anchor
+integration case lazily imports the fixed Story tooling export, establishes a D5 anchor through the
+Session FIFO, round-trips a Save, exports a Debug bundle, and replays it. It completes in about
+2.7–3.6 seconds when focused, but twice completed correctly after 5.550 and 6.067 seconds under the
+128-file unit matrix and was misclassified by Vitest's inherited five-second timeout. This is an
+integration correctness contract, not a five-second performance budget. Give only this complete
+anchor case the same bounded 15-second timeout used by other long Story integrations; do not change
+global timeout, worker concurrency, production behavior, assertions, or the shorter tooling tests.
+
+Repair files:
+
+- Modify: `docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md`
+- Modify: `game/stories/poc/src/test/tooling-runtime.integration.test.ts`
+
+Repair TDD and contract:
+
+1. Preserve the two exact-toolchain full-matrix REDs and the focused green as the timing witness.
+2. Add only `15_000` as the timeout argument on the complete tooling-anchor `it` case.
+3. Run the focused case, the full unit matrix, `pnpm verify:phase4`, `pnpm verify`, Prettier on both
+   repair files, and `git diff --check`; every command must exit 0.
+4. Commit the accepted-owner repair exactly:
+
+   ```bash
+   git add -- docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md game/stories/poc/src/test/tooling-runtime.integration.test.ts
+   git diff --cached --name-status
+   git diff --cached --check
+   git commit -m "test(story-poc): bound tooling anchor timeout"
+   ```
+
 ## Task 13: Add the Read-Only Phase 4B Verification Gate
 
 **Files:**

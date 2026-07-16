@@ -112,7 +112,7 @@ describe("PoC actual-Story DebugTools integration", () => {
       currentSnapshot: { integrity: { mode: "modified" } },
     });
     expect((await fixture.replayForTest()).finalSnapshot.integrity.mode).toBe("modified");
-  });
+  }, 15_000);
 
   it("rejects extra diagnostic fields through the public DebugTools inspector", async () => {
     const fixture = createPocRuntimeTestFixtureV1({ debugTools: true, cheats: true });
