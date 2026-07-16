@@ -451,6 +451,7 @@ export function createPocGameQueriesV1(
     return deepFreezePocValueV1({
       purchase: {
         lineLimit: program.data.balance.purchaseLineLimit,
+        quantityPerLineLimit: program.data.balance.purchaseQuantityPerLineLimit,
         ingredients: program.data.content.ingredients.map(
           ({ ingredientId, nameTextId, unitPrice, shelfLifeDays, refrigeratable }) => ({
             ingredientId,
@@ -463,6 +464,7 @@ export function createPocGameQueriesV1(
       },
       tavernPlan: {
         recipeLimit: parsePositiveSafeInteger(Math.min(16, program.data.balance.menuRecipeLimit)),
+        portionsPerRecipeLimit: program.data.balance.menuPortionsPerRecipeLimit,
         serviceModes: program.data.balance.serviceModes.map(
           ({
             mode,

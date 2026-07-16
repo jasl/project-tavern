@@ -22,8 +22,8 @@ path/query DSL 或新的写入口。
 - `PocGameViewV1.status` 仍需要一个明确、可审查的 Query/View ABI；通用数据库 reader 不会自动产生公开字段；
 - `run.already_started` 的玩家拒绝不需要 engine-owned `commandSequence`。为保留这个诊断字段而把 sequence
   开放给 Story Query 会扩大权限，而不是改善存储；
-- Parameterized Semantic action 需要 Ingredient/Recipe/ServiceMode 等安全输入目录，但采购数量和菜单份数不是
-  可完整枚举的有限 concrete invocations。正确的 v1 缝是一个只读、字段受限的 `PocActionInputCatalogV1`
+- Parameterized Semantic action 需要 Ingredient/Recipe/ServiceMode 等安全输入目录；采购数量和菜单份数虽然各有
+  Story-owned 有限上界，但购物车/菜单的组合空间仍不适合枚举为 concrete invocations。正确的 v1 缝是一个只读、字段受限的 `PocActionInputCatalogV1`
   Query DTO 与 `form` descriptor，不是让 UI 读取 State/Story content 或把通用数据库 client 交给 renderer；
 - 当前 v1 已经通过 Snapshot、candidate、FIFO、Save、Replay、Debug、Hotfix 和 digest 的大量验收。现在替换
   这些基础会让 Phase 2、Phase 3 和 Phase 4A 已通过的提交整体重新进入设计与验收，而不是一个 Task 12
@@ -142,14 +142,19 @@ WorldAction choices。它不得返回原始 Story content、availability gate、
 sequence 或 Snapshot。
 
 该临时 DTO 还必须显式携带已有权威定义中的标签和结构上限：ServiceMode 使用
-`ServiceModeDefinitionV1.nameTextId`，采购使用 `balance.purchaseLineLimit`，营业菜单使用
-`min(16, balance.menuRecipeLimit)`。UI 不得按 ID 字符串拼接 TextId，也不得硬编码 `64`/`16` 或反向导入
-Story content 来补齐表单。动态资源、可用性和规则结果仍只通过同一 Semantic preview 计算。
+`ServiceModeDefinitionV1.nameTextId`；采购使用 `balance.purchaseLineLimit` 与
+`balance.purchaseQuantityPerLineLimit`，营业菜单使用 `min(16, balance.menuRecipeLimit)` 与
+`balance.menuPortionsPerRecipeLimit`。UI 不得按 ID 字符串拼接 TextId，也不得硬编码 `64`/`16`/`99` 或反向导入
+Story content 来补齐表单。现金、接待容量、备菜能力、原料等动态资源、可用性和规则结果仍只通过同一 Semantic preview 计算。
 
 Semantic descriptor 以 `direct | choices | form` 区分交付方式。`purchase` 与 `service_plan` 使用 `form`：
 descriptor 携带上述 bounded Query DTO，Overlay 构造完整严格 options 后仍必须调用同一 Semantic preview 和
-dispatch。数量/份数保持 PositiveSafeInteger 输入，不伪造默认命令，也不试图枚举无界组合。有限的 Policy、
+dispatch。数量/份数保持有 Story 上限的 PositiveSafeInteger 输入，不伪造默认命令，也不试图枚举组合空间。有限的 Policy、
 Facility、WorldAction 和 Narrative 分支继续使用 `choices`。
+
+这两个上限属于 Balance、command evaluation 与 Semantic form ABI，不收窄持久 State Schema 的 `Quantity` 域，
+因此只改变 simulation identity，不提升 state-contract revision。若未来另行增加每种原料的聚合持有上限或 stack
+capacity，那才是 Inventory State invariant/Schema 设计，必须独立评估 state-contract revision 与存档迁移。
 
 这是一项 v1 public Query DTO 修复，不是 StateStore v2 的局部接入。Post-Goal 原型必须证明同一 DTO 可从 scoped
 read transaction 等价投影，且 UI/Semantic public shape 无需因为内部 Store 迁移再次改变。

@@ -180,6 +180,9 @@ function validatePlanV1(
   if (menu.some((line) => !unlocked.has(line.recipeId))) {
     return invalidPlanV1("locked_recipe");
   }
+  if (menu.some((line) => line.portions > dependencies.menuPortionsPerRecipeLimit)) {
+    return invalidPlanV1("portion_limit");
+  }
 
   let portions = 0;
   for (const line of menu) {

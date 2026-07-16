@@ -463,7 +463,7 @@ interface PlannedRecipeV1 {
 
 interface TavernPlanV1 {
   readonly mode: ServiceMode;
-  readonly menu: readonly PlannedRecipeV1[]; // structural 0..16; contextual <= StoryBalance.menuRecipeLimit
+  readonly menu: readonly PlannedRecipeV1[]; // structural 0..16; contextual recipe/portion limits come from StoryBalance
 }
 
 type DemandRandomOffset = -1 | 0 | 1;
@@ -822,7 +822,11 @@ type PocGameCommandV1 =
   | { readonly kind: "levy.pay" };
 ```
 
-`inventory.buy.lines` 结构上限为 1..64、ingredient ID 唯一，且上下文上限为 `StoryBalance.purchaseLineLimit`。`closed` plan 菜单必须为空；其他 mode 的菜单结构范围为 1..16、recipe ID 唯一，且上下文上限为 `StoryBalance.menuRecipeLimit`。命令不带时间戳、provenance、随机结果或 UI 字段。
+`inventory.buy.lines` 结构上限为 1..64、ingredient ID 唯一，且上下文行数上限为 `StoryBalance.purchaseLineLimit`、
+每行数量上限为 `StoryBalance.purchaseQuantityPerLineLimit`。`closed` plan 菜单必须为空；其他 mode 的菜单结构范围为
+1..16、recipe ID 唯一，且上下文菜谱数上限为 `StoryBalance.menuRecipeLimit`、每道菜份数上限为
+`StoryBalance.menuPortionsPerRecipeLimit`。这些静态上限先于现金、接待容量、备菜能力和原料等动态资源约束检查；
+命令不带时间戳、provenance、随机结果或 UI 字段。
 
 ## 5. PocGameplayFactV1 与 PocRejectionReasonV1
 
@@ -1325,6 +1329,7 @@ type PocRejectionReasonV1 =
           | "duplicate_recipe"
           | "unknown_recipe"
           | "locked_recipe"
+          | "portion_limit"
           | "capacity"
           | "preparation_capacity";
       };
@@ -2307,7 +2312,9 @@ interface StoryBalanceV1 {
   readonly heroineNightRecoveryReasonId: ReasonId;
   readonly restRecovery: NonNegativeSafeInteger;
   readonly purchaseLineLimit: PositiveSafeInteger; // <=64
+  readonly purchaseQuantityPerLineLimit: PositiveSafeInteger; // <=999; PoC = 99
   readonly menuRecipeLimit: PositiveSafeInteger;
+  readonly menuPortionsPerRecipeLimit: PositiveSafeInteger; // <=999; PoC = 99
   readonly dailyPreparationLimit: PositiveSafeInteger;
   readonly openingFee: Money;
   readonly levyAmount: Money;
@@ -4379,6 +4386,72 @@ interface PocLedgerProjectionV1 {
   readonly entries: readonly LedgerEntryV1[];
 }
 
+interface PocActionInputCatalogV1 {
+  readonly purchase: {
+    readonly lineLimit: PositiveSafeInteger;
+    readonly quantityPerLineLimit: PositiveSafeInteger;
+    readonly ingredients: readonly {
+      readonly ingredientId: IngredientId;
+      readonly nameTextId: TextId;
+      readonly unitPrice: Money;
+      readonly shelfLifeDays: PositiveSafeInteger;
+      readonly refrigeratable: boolean;
+    }[];
+  };
+  readonly tavernPlan: {
+    readonly recipeLimit: PositiveSafeInteger;
+    readonly portionsPerRecipeLimit: PositiveSafeInteger;
+    readonly serviceModes: readonly {
+      readonly mode: ServiceMode;
+      readonly nameTextId: TextId;
+      readonly apCost: NonNegativeSafeInteger;
+      readonly playerStaminaCost: NonNegativeSafeInteger;
+      readonly heroineStaminaCost: NonNegativeSafeInteger;
+      readonly wage: Money;
+      readonly baseReceptionCapacity: NonNegativeSafeInteger;
+      readonly basePreparationPoints: NonNegativeSafeInteger;
+      readonly preparationPointsPerAction: NonNegativeSafeInteger;
+      readonly confirmation: ConfirmationMetadataV1;
+    }[];
+    readonly recipes: readonly {
+      readonly recipeId: RecipeId;
+      readonly nameTextId: TextId;
+      readonly ingredients: readonly RecipeIngredientV1[];
+      readonly salePrice: Money;
+      readonly prepPoints: PositiveSafeInteger;
+    }[];
+  };
+  readonly facility: {
+    readonly options: readonly (
+      | {
+          readonly opportunityId: ActionId;
+          readonly choice: { readonly kind: "build"; readonly facilityId: FacilityId };
+          readonly labelTextId: TextId;
+          readonly cashCost: Money;
+          readonly confirmation: ConfirmationMetadataV1;
+        }
+      | {
+          readonly opportunityId: ActionId;
+          readonly choice: { readonly kind: "skip" };
+          readonly labelTextId: TextId;
+          readonly cashCost: Money;
+          readonly confirmation: ConfirmationMetadataV1;
+        }
+    )[];
+  };
+  readonly worldAction: {
+    readonly options: readonly {
+      readonly actionId: ActionId;
+      readonly optionId: ChoiceId;
+      readonly labelTextId: TextId;
+      readonly baseCashCost: Money;
+      readonly additionalCashCost: Money;
+      readonly playerStaminaCost: NonNegativeSafeInteger;
+      readonly confirmation: ConfirmationMetadataV1;
+    }[];
+  };
+}
+
 type PocGameViewStatusV1 = "setup" | "active" | "terminal";
 
 interface PocGameViewV1 {
@@ -4400,6 +4473,7 @@ interface PocGameViewV1 {
 
 interface PocGameQueriesV1 {
   getAvailableActions(): readonly ActionViewV1[];
+  getActionInputCatalog(): PocActionInputCatalogV1;
   explainAvailability(actionId: ActionId): AvailabilityExplanationV1;
   previewCommand<C extends PocGameCommandV1>(command: C): CommandPreviewV1<C>;
   previewTavernPlan(plan: TavernPlanV1): TavernPreviewV1;
@@ -4419,6 +4493,13 @@ interface PocGameQueriesV1 {
   getRunCompletion(): RunCompletionV1 | null;
 }
 ```
+
+`getActionInputCatalog()` 是 parameterized Semantic forms 的只读、Strict JSON、deep-frozen 输入目录，不是
+Snapshot slice，也不进入 `PocGameViewV1`。`purchase.lineLimit` 与 `purchase.quantityPerLineLimit` 分别精确投影
+`StoryBalanceV1.purchaseLineLimit` 与 `purchaseQuantityPerLineLimit`；`tavernPlan.recipeLimit` 为
+`min(16, StoryBalanceV1.menuRecipeLimit)`，`tavernPlan.portionsPerRecipeLimit` 精确投影
+`StoryBalanceV1.menuPortionsPerRecipeLimit`。当前 PoC 的两个单条数量上限均为 99；现金、接待容量、备菜能力和原料
+仍由同一 Semantic preview 动态判定，UI 不得据此目录重算第二套 gameplay limit。
 
 `PocGameViewV1.status` 只折叠生命周期：`getGameViewStatus()` 将 `RunState.status="setup"` 映射为
 `setup`，`active` 映射为 `active`，三个 terminal RunStatus 都映射为 `terminal`；精确 terminal 结果只从
@@ -5452,8 +5533,8 @@ declare function validateSaveImportCandidateV1<
 4. `run.initialSeed` 在整轮内不变；sequence 0 replay base 必须满足 Bootstrap 生命周期段的 idle Narrative/空 `demandSeeds`/null currentDemand 约束，第一条成功命令只能是 `run.start`，且该命令必须启动唯一的 `manifest_start` Narrative。成功 Start 后，demandSeeds 对 Story `serviceDays × customerSegments` 恰好各一行、baseCustomers 等于 StoryBalance、randomOffset 只为 -1/0/1 并保持稳定顺序；后续命令不得改写这些随机 seeds。当前日是 service day 时 currentDemand 必须非 null、day/segment 完整且 actual 落在 preview range；非 service day 必须为 null。`calendar.lifePolicyId === null` 当且仅当 `run.status="setup"`；active 与任一 terminal status 必须引用 `StoryBalance.lifePolicies` 中恰好一个存在的 PolicyId。setup/active 的 completion 必须为 null；`calendar.day <= PocSimulationDataV1.manifest.playableDays`。terminal status 的 day/phase 必须精确等于 `StoryBalance.levyDue`，且没有 workflow/active Narrative，completion 必须非 null 且 status 与 run 相同、`completedAtSequence === snapshot.commandSequence`。三个 terminal status 在 Ending definitions 中各有且只有一个映射；completion 的 ending/status/reason/outcome 必须与该 definition、其 `summaryOutcomeIds`/effects 和 `StoryBalance.endingPolicy` 的 stable/danger/arrears 分类及有序 Reason binding 精确一致；`failed_arrears` 当且仅当 levy.kind 为 arrears，其余 terminal status 当且仅当为 paid；paid 的 cash 差恰为 levyAmount，arrears 的 cash 不变且 `shortfall = levyAmount - availableCash > 0`；Base ABI 不硬编码七日，以上均为 PoC Story/GameSimulation invariant。
 5. 只有 `calendar.advance_phase` 改变 day/phase；AP 不跨时段结转。不可行动时段与营业日由当前 Story 的 serviceDays、levyDue 和 Event/Condition 数据决定。当前 day/phase 已等于 `levyDue` 时，该命令固定拒绝为 `calendar.phase_blocked { blocker:"levy_due" }`，不能越过终局等待点；D7 普通动作则由 Action visibility/availability 的日界 gate 关闭。
 6. 只有明确作为集合的定义/状态数组按其 stable ID 升序规范化；同类 ID、BatchId、AuraInstanceId、LedgerEntryId、Facility opportunityId、Narrative slot 不重复。authored-order 数组（Confirmation、gates、recommendations、Scene nodes/options/steps，以及 AssetPack 的 `sources`/`licenses`/`providers`）保持 Story/pack 声明顺序；causal/reference 数组（GameplayFact、ledger、CommandLog、triggeredEventIds、start/entry/paid-cost ledger IDs、expiredAuraIds、AppliedModifier/components）保持应用/collector 顺序。不得为了“统一排序”把后两类改成字典序；每个具体 Schema 必须声明自己属于哪一类。
-7. Ingredient batch quantity 为正，`acquiredDay <= lastUsableDay`；expiry 可以超过七日 PoC 的 day 7；initial batch 必须使用 `batch:initial:<index>` 与 `source.kind=initial`，事务创建批次必须使用 `batch:<commandSequence>:<lineIndex>` 且不能冒充 initial；FIFO 消耗顺序为 `lastUsableDay, acquiredDay, batchId`。`inventory.grant` 必须创建确定性 batch IDs、按 Story ingredient unitPrice 追加 `story_reward`、cashDelta 0、正 valuationDelta 的 entries，并在 `inventory.ingredient_granted` 中携带 lines/createdBatchIds/entries/reason；不能要求 UI 从 Snapshot diff 猜奖励。
-8. `closed` plan 菜单为空；其他模式为 1..`StoryBalance.menuRecipeLimit` 道、结构上限 16，且 recipe 唯一、portions 为正。menu/mode/day gate、容量与 preparation 结构失败必须拒绝 `tavern.plan.set`；只有结构合法且 mode 可用、但因当前 cash/stamina/ingredients 等可恢复开店资源不足而 `previewTavernPlan.allowed=false` 的草案可在白天保存，UI 必须显示其短缺/风险。service plan 进入晚上后被冻结。营业日进入晚上时，已主动提交的 closed plan 直接把该晚标记为已解决、不受惩罚，并使用 `plannedClosureReasonId` 追加 planned closure history/fact；若 plan 仍为 null，同一次 `calendar.advance_phase` 设置 closed plan、应用 `emergencyClosure.reputationPenalty`、追加 emergency closure history/fact 并标记已解决。若进入 evening 后仍持有 non-closed plan，却尚未成功 StartOpening 且没有 active workflow，玩家再次 `calendar.advance_phase` 表示接受紧急收店：该命令在同一事务把 plan 改为 closed、应用同一 emergency penalty/history/fact，然后继续正常日终；不能留下不可推进的存档。若 OpeningSession 已 active，仍以 `calendar.phase_blocked { blocker:"opening" }` 拒绝，必须先 Finalize。`serviceHistory` 按 day 严格递增；每个已经解决的营业日恰有一项，opening 项引用已完成的 OpeningLedger，closure kind 与对应 GameplayFact 一致。OpeningLedger 的 AP/双方 stamina before-after 必须精确等于 StartOpening 已提交的服务成本，closure reputation 则精确记录 planned 零变化或 emergency penalty。每个 facility opportunityId 只允许一个 decision；build 目标必须在该 opportunity 的 facilityIds 内。
+7. Ingredient batch quantity 为正，`acquiredDay <= lastUsableDay`；每条采购 line 的 quantity 必须先于金额乘法校验为不超过 `StoryBalance.purchaseQuantityPerLineLimit`，现金仍是随后独立的动态约束。expiry 可以超过七日 PoC 的 day 7；initial batch 必须使用 `batch:initial:<index>` 与 `source.kind=initial`，事务创建批次必须使用 `batch:<commandSequence>:<lineIndex>` 且不能冒充 initial；FIFO 消耗顺序为 `lastUsableDay, acquiredDay, batchId`。`inventory.grant` 必须创建确定性 batch IDs、按 Story ingredient unitPrice 追加 `story_reward`、cashDelta 0、正 valuationDelta 的 entries，并在 `inventory.ingredient_granted` 中携带 lines/createdBatchIds/entries/reason；不能要求 UI 从 Snapshot diff 猜奖励。
+8. `closed` plan 菜单为空；其他模式为 1..`StoryBalance.menuRecipeLimit` 道、结构上限 16，且 recipe 唯一、portions 为正且每道菜不超过 `StoryBalance.menuPortionsPerRecipeLimit`。menu/mode/day gate、静态份数、容量与 preparation 结构失败必须拒绝 `tavern.plan.set`；只有结构合法且 mode 可用、但因当前 cash/stamina/ingredients 等可恢复开店资源不足而 `previewTavernPlan.allowed=false` 的草案可在白天保存，UI 必须显示其短缺/风险。service plan 进入晚上后被冻结。营业日进入晚上时，已主动提交的 closed plan 直接把该晚标记为已解决、不受惩罚，并使用 `plannedClosureReasonId` 追加 planned closure history/fact；若 plan 仍为 null，同一次 `calendar.advance_phase` 设置 closed plan、应用 `emergencyClosure.reputationPenalty`、追加 emergency closure history/fact 并标记已解决。若进入 evening 后仍持有 non-closed plan，却尚未成功 StartOpening 且没有 active workflow，玩家再次 `calendar.advance_phase` 表示接受紧急收店：该命令在同一事务把 plan 改为 closed、应用同一 emergency penalty/history/fact，然后继续正常日终；不能留下不可推进的存档。若 OpeningSession 已 active，仍以 `calendar.phase_blocked { blocker:"opening" }` 拒绝，必须先 Finalize。`serviceHistory` 按 day 严格递增；每个已经解决的营业日恰有一项，opening 项引用已完成的 OpeningLedger，closure kind 与对应 GameplayFact 一致。OpeningLedger 的 AP/双方 stamina before-after 必须精确等于 StartOpening 已提交的服务成本，closure reputation 则精确记录 planned 零变化或 emergency penalty。每个 facility opportunityId 只允许一个 decision；build 目标必须在该 opportunity 的 facilityIds 内。
 9. 同时最多一个 workflow。`tavern.opening.start` 只在 evening 可提交，其他时段返回 `calendar.invalid_phase { allowed:["evening"] }`；eveningResolved 已为 true 时（包括 Finalize、planned closed、emergency closed）优先返回 `tavern.evening_resolved`，active Opening 则返回 `tavern.opening_active`。Opening 的 `blockingEvent` 非空时 Narrative 必须 active 且不能 continue/finalize。该 Event Scene 的 end 由 `narrative.advance` 提交时，必须在同一事务把 Narrative 置为 completed、把 `blockingEvent` 清为 null，同时保留 checkpoint 与 triggeredEventIds；这个可保存间隙尚未推进 Opening。随后只有 `tavern.opening.continue` 可以消费 completed Narrative、推进 checkpoint，并按 Scheduler 结果建立下一 blockingEvent 或进入 `ready_to_finalize`。Finalize 只接受 `ready_to_finalize`。
 10. OpeningBaseline 不包含 GameSnapshot、GamePackage/Story data、函数或未受控 JSON；开始成本只在 Start 提交一次。`preparationActionCount` 必须等于当日 Start 时的 Tavern preparation、位于 0..dailyPreparationLimit，并原样复制到 OpeningLedger。AP/双方 stamina before-after、cash Start 前后与 reputation Start 前值同时冻结；OpeningActorInputs 已冻结 relationship/teamwork 与 heroine mood。Finalize 的 OpeningLedger 必须以这些值为整个营业事务的 before，并原样复制 AP/stamina，不从可能经历 Narrative/Save 的当前状态重建；`SettlementDraftV1.appliedModifiers` 必须按 collector stable order 精确保存实际参与本次 opening 的 baseline/session Modifier 及 contribution/reason，OpeningLedger 原样复制同一数组，即使来源 Aura 同次过期也可解释。Opening/WorldAction/历史记录只引用 `InventoryState.ledger` 中存在的 entryId，不复制第二份 LedgerEntry。
 11. v1 每个 WorldAction 恰好两个按声明顺序且位于紧邻时段的 step，optionId 在该 action 内唯一。Session progress 只能按 `begin_scene → awaiting_completion_phase → completion_scene → ready_to_complete` 前进；两个 scene 阶段都必须有 active `NarrativeSource.kind="world_action"` 且 actionId 相同，两个 awaiting/ready 阶段 Narrative 不 active。Begin 原子校验 availability、互斥 Effect、基础+选项费用和体力，扣除第一 step AP，应用 beginEffects，再写 Session 并启动 begin scene；AdvancePhase 只在 awaiting 阶段进入 completion phase 并启动 completion scene；Complete 只在 ready 阶段扣第二 step AP、使用冻结 preparationBonus 结算并清空 workflow，不再扣现金或体力、也不启动第三段 Narrative。任一冲突全部回滚。

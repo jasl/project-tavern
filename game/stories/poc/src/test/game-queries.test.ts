@@ -111,6 +111,7 @@ describe("PoC GameQueries", () => {
     expect(catalog).toEqual({
       purchase: {
         lineLimit: 4,
+        quantityPerLineLimit: 99,
         ingredients: [
           {
             ingredientId: "ingredient.fixture",
@@ -123,6 +124,7 @@ describe("PoC GameQueries", () => {
       },
       tavernPlan: {
         recipeLimit: 2,
+        portionsPerRecipeLimit: 99,
         serviceModes: fixture.program.data.balance.serviceModes.map(
           ({
             availability: _availability,

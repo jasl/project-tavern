@@ -483,6 +483,12 @@ function planStructuralRejectionV1(
       details: { reason: "locked_recipe" },
     });
   }
+  if (plan.menu.some(({ portions }) => portions > data.balance.menuPortionsPerRecipeLimit)) {
+    return deepFreezePocValueV1({
+      code: "tavern.invalid_plan",
+      details: { reason: "portion_limit" },
+    });
+  }
   const unavailableReasonId = firstUnavailableReasonV1(mode.availability, state, data);
   return unavailableReasonId === null
     ? null
@@ -644,7 +650,7 @@ function purchaseCashCostV1(
   const seen = new Set<string>();
   let total = 0n;
   for (const line of command.lines) {
-    if (line.quantity <= 0) {
+    if (line.quantity <= 0 || line.quantity > data.balance.purchaseQuantityPerLineLimit) {
       return deepFreezePocValueV1({
         code: "inventory.invalid_quantity",
         details: { ingredientId: line.ingredientId, quantity: parseSafeInteger(line.quantity) },

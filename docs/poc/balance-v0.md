@@ -20,15 +20,21 @@
 | 周日城镇重建税负              |                                     140 |
 | 每次开店杂费                  |                                       2 |
 | 菜单上限                      |                                  2 道菜 |
+| 每道菜计划份数上限            |                                   99 份 |
 | 当日备菜行动上限              |                                    2 次 |
 | 单次采购行上限                |       5（恰好覆盖本 Story 的 5 种原料） |
+| 单条采购数量上限              |                                   99 份 |
 | 单命令 Narrative 自动节点上限 |                                     128 |
 | Narrative call 深度上限       |                                       8 |
 | 初始伙计                      | `{ unlocked:false, tier:"apprentice" }` |
 | 初始菜谱                      |                            四道全部解锁 |
 | 初始原料/道具/Aura            |                                全部为空 |
 
-上述两个 Narrative 数值在强类型 `StoryBalance` 中分别命名为 `maxNarrativeStepsPerCommand` 和 `maxNarrativeCallDepth`。Story materializer、Phase 4A fixture program 与 interpreter 只消费这两个字段；不得另设 `narrativeStepLimit`、`narrativeCallDepth` 或 `64/4` fallback。
+两个数量上限在强类型 `StoryBalance` 中分别命名为 `purchaseQuantityPerLineLimit` 与
+`menuPortionsPerRecipeLimit`；它们限制表单和命令中的单条数值，不替代现金、接待容量、备菜能力与原料等动态约束。
+上述两个 Narrative 数值则分别命名为 `maxNarrativeStepsPerCommand` 和 `maxNarrativeCallDepth`。Story materializer、
+Phase 4A fixture program 与 interpreter 只消费这两个字段；不得另设 `narrativeStepLimit`、`narrativeCallDepth` 或
+`64/4` fallback。
 
 基础夜间恢复：玩家 +3、女主 +3；夜猫子玩家仅 +2。舒适床铺在此基础上增加恢复。
 

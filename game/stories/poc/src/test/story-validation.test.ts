@@ -1158,7 +1158,7 @@ describe("PoC Semantic action contract", () => {
     });
   });
 
-  it("uses forms only for unbounded inputs and finite authored options for choices", () => {
+  it("uses forms for bounded combinatorial inputs and authored options for finite choices", () => {
     const { queries } = createResolvedPocQueriesV1();
     const selectedActionIds = Object.freeze([
       actionIdsV1[1],
@@ -1188,7 +1188,10 @@ describe("PoC Semantic action contract", () => {
       form: {
         kind: "purchase",
         actionId: "action.purchase",
-        input: { lineLimit: pocStoryDataV1.balance.purchaseLineLimit },
+        input: {
+          lineLimit: pocStoryDataV1.balance.purchaseLineLimit,
+          quantityPerLineLimit: pocStoryDataV1.balance.purchaseQuantityPerLineLimit,
+        },
       },
     });
     expect(actions.find(({ actionId }) => actionId === "action.service_plan")).toMatchObject({
@@ -1197,7 +1200,10 @@ describe("PoC Semantic action contract", () => {
       form: {
         kind: "tavern_plan",
         actionId: "action.service_plan",
-        input: { recipeLimit: Math.min(16, pocStoryDataV1.balance.menuRecipeLimit) },
+        input: {
+          recipeLimit: Math.min(16, pocStoryDataV1.balance.menuRecipeLimit),
+          portionsPerRecipeLimit: pocStoryDataV1.balance.menuPortionsPerRecipeLimit,
+        },
       },
     });
     const facility = actions.find(({ actionId }) => actionId === "action.facility_window");

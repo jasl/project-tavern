@@ -89,12 +89,15 @@ PoC 不记录小时、分钟、月份、季节或真实日期。v1 ABI 只有 `m
 | 文字冒险         | 周五上午+下午        |   3 |       -3 | WorldAction `action.old_trade_road`；上午开始1、下午完成2；option 在 Begin payload 中选择，出发时现金 -4 或 -8；与关系互斥 |
 | 道歉             | 周六上午/下午        |   1 |        0 | StoryAction `action.apologize_to_heroine`；仅在女主生气时可用                                                              |
 
-采购 UI 可以为每种原料选择非负整数，但提交命令时必须省略数量 0 的行；included lines 全为正、ID 唯一，
-全部为 0 时不发空命令。这样仍能一次购买多种原料，也与 reference driver 的零短缺规则一致。常用采购与菜单计划可以在 UI 中复制昨日设置，但复制不会跳过守卫或自动确认。
+采购 UI 可以为每种原料选择 `0..StoryBalance.purchaseQuantityPerLineLimit`；提交命令时必须省略数量 0 的行，
+included lines 全为正、ID 唯一，全部为 0 时不发空命令。PoC 的单条上限为 99，现金仍是独立的动态约束；
+超过静态上限必须在计算采购金额前返回领域拒绝。这样仍能一次购买多种原料，也与 reference driver 的零短缺规则一致。
+常用采购与菜单计划可以在 UI 中复制昨日设置，但复制不会跳过守卫或自动确认。
 
 所有营业承诺统一提交 `tavern.plan.set { plan }`，不存在独立 `ChoosePlannedClosure` command；非停业 payload 携带所选 mode/menu，计划停业 payload 固定为 `{ mode:"closed", menu:[] }`。该命令与关系场景的放弃/冲突 `narrative.choose` 都是 0 AP 承诺，但仍必须在各自窗口内提交，不能在进入晚上后补填。
 
-mode/day gate、菜单数量/重复/菜谱引用、容量和备菜结构非法时，`tavern.plan.set` 立即拒绝；结构合法但当前
+mode/day gate、菜单数量/重复/菜谱引用、每道菜超过 `StoryBalance.menuPortionsPerRecipeLimit`、容量和备菜结构非法时，
+`tavern.plan.set` 立即拒绝；PoC 的每道菜静态上限为 99，接待容量与备菜能力仍是独立动态上限。结构合法但当前
 现金、双方体力或原料尚不足的计划可以作为白天草案保存，计划 Overlay 必须显示精确缺口。玩家可以在入夜前
 补资源或改计划；若最终仍未成功 StartOpening，按上节紧急收店，不能把“可保存草案”误解成保证营业。
 

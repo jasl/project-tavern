@@ -52,6 +52,7 @@ function tavernPlanDependenciesV1(
     readonly mode?: "manual" | "assisted" | "delegated" | "closed";
     readonly unavailableReasonId?: ReturnType<typeof parseReasonId> | null;
     readonly menuRecipeLimit?: number;
+    readonly menuPortionsPerRecipeLimit?: number;
     readonly receptionCapacity?: number;
     readonly preparationCapacity?: number;
     readonly recipes?: readonly {
@@ -68,6 +69,9 @@ function tavernPlanDependenciesV1(
     modeReasonId: parseReasonId("reason.fixture"),
     unavailableReasonId: overrides.unavailableReasonId ?? null,
     menuRecipeLimit: parsePositiveSafeInteger(overrides.menuRecipeLimit ?? 4),
+    menuPortionsPerRecipeLimit: parsePositiveSafeInteger(
+      overrides.menuPortionsPerRecipeLimit ?? 99,
+    ),
     receptionCapacity: parseNonNegativeSafeInteger(overrides.receptionCapacity ?? 2),
     preparationCapacity: parseNonNegativeSafeInteger(overrides.preparationCapacity ?? 2),
     recipes: overrides.recipes ?? [
@@ -516,6 +520,28 @@ describe("PoC Facilities and Tavern ownership", () => {
         rejection: { code: "tavern.invalid_plan", details: { reason: fixture.expected } },
       });
     }
+
+    const portionLimitDependencies = pocTavernDependencyPortsSchemaV1.parse({
+      ...tavernPlanDependenciesV1({ receptionCapacity: 1_000, preparationCapacity: 1_000 }),
+      menuPortionsPerRecipeLimit: parsePositiveSafeInteger(99),
+    });
+    expect(
+      pocTavernOwnerV1.propose(
+        state,
+        {
+          kind: "tavern.plan.set",
+          plan: {
+            mode: "manual",
+            menu: [{ recipeId: parseRecipeId("recipe.fixture"), portions: parseQuantity(100) }],
+          },
+          reason,
+        },
+        portionLimitDependencies,
+      ),
+    ).toEqual({
+      kind: "rejected",
+      rejection: { code: "tavern.invalid_plan", details: { reason: "portion_limit" } },
+    });
   });
 
   it("installs demand once and materializes only non-null current demand", () => {

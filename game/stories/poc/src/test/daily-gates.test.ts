@@ -539,7 +539,9 @@ describe("PoC balance", () => {
       "heroineNightRecoveryReasonId",
       "restRecovery",
       "purchaseLineLimit",
+      "purchaseQuantityPerLineLimit",
       "menuRecipeLimit",
+      "menuPortionsPerRecipeLimit",
       "dailyPreparationLimit",
       "openingFee",
       "levyAmount",
@@ -583,7 +585,9 @@ describe("PoC balance", () => {
       heroineNightRecoveryReasonId: "reason.recovery.heroine_night",
       restRecovery: 3,
       purchaseLineLimit: 5,
+      purchaseQuantityPerLineLimit: 99,
       menuRecipeLimit: 2,
+      menuPortionsPerRecipeLimit: 99,
       dailyPreparationLimit: 2,
       openingFee: 2,
       levyAmount: 140,
@@ -695,6 +699,18 @@ describe("PoC balance", () => {
 
     expect(pocStoryBalanceSchemaV1.parse(pocBalanceV1)).toEqual(pocBalanceV1);
     expect(() => pocStoryBalanceSchemaV1.parse({ ...pocBalanceV1, extra: true })).toThrow();
+    expect(() =>
+      pocStoryBalanceSchemaV1.parse({
+        ...pocBalanceV1,
+        purchaseQuantityPerLineLimit: 1_000,
+      }),
+    ).toThrow();
+    expect(() =>
+      pocStoryBalanceSchemaV1.parse({
+        ...pocBalanceV1,
+        menuPortionsPerRecipeLimit: 1_000,
+      }),
+    ).toThrow();
     const { maxNarrativeCallDepth: _removed, ...missingBalanceField } = pocBalanceV1;
     expect(() => pocStoryBalanceSchemaV1.parse(missingBalanceField)).toThrow();
     expect(() =>

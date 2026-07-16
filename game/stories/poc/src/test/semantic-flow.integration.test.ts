@@ -2,6 +2,8 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import type { PocSemanticGamePortV1 } from "../application/create-poc-semantic-port.js";
+import { ingredientIdsV1, policyIdsV1, recipeIdsV1 } from "../content/ids.js";
+import { parseQuantity } from "../gameplay/index.js";
 import {
   consumeLastApInvocationV1,
   createBlockedPocStoryHarnessV1,
@@ -13,6 +15,25 @@ import {
   fixedPocBootstrapV1,
   requiresApInvocationV1,
 } from "../testing/poc-story-harness.js";
+
+async function enterActiveRunV1(semantic: PocSemanticGamePortV1): Promise<void> {
+  await expect(
+    semantic.dispatch({ kind: "invoke", actionId: "action.run_start", options: {} }),
+  ).resolves.toEqual({ kind: "committed" });
+  for (let count = 0; semantic.observe().narrative !== null; count += 1) {
+    if (count >= 32) throw new RangeError("manifest Narrative did not settle");
+    await expect(
+      semantic.dispatch({ kind: "invoke", actionId: "action.narrative_advance", options: {} }),
+    ).resolves.toEqual({ kind: "committed" });
+  }
+  await expect(
+    semantic.dispatch({
+      kind: "invoke",
+      actionId: "action.choose_life_policy",
+      options: { policyId: policyIdsV1[1] },
+    }),
+  ).resolves.toEqual({ kind: "committed" });
+}
 
 function collectObjectKeysRecursivelyV1(value: unknown): readonly string[] {
   const keys = new Set<string>();
@@ -31,6 +52,51 @@ function collectObjectKeysRecursivelyV1(value: unknown): readonly string[] {
 }
 
 describe("PoC SemanticGamePort integration", () => {
+  it("returns domain rejections for purchase and service quantities above Story limits", async () => {
+    const harness = createPocStoryHarnessV1({ bootstrap: fixedPocBootstrapV1() });
+    await enterActiveRunV1(harness.semantic);
+
+    const purchase = {
+      kind: "invoke" as const,
+      actionId: "action.purchase" as const,
+      options: {
+        lines: [{ ingredientId: ingredientIdsV1[0], quantity: parseQuantity(100) }],
+      },
+    };
+    await expect(harness.semantic.preview(purchase)).resolves.toMatchObject({
+      allowed: false,
+      reasons: [
+        {
+          code: "inventory.invalid_quantity",
+          details: { ingredientId: ingredientIdsV1[0], quantity: 100 },
+        },
+      ],
+    });
+    await expect(harness.semantic.dispatch(purchase)).resolves.toMatchObject({
+      kind: "rejected",
+      reasons: [{ code: "inventory.invalid_quantity" }],
+    });
+
+    const servicePlan = {
+      kind: "invoke" as const,
+      actionId: "action.service_plan" as const,
+      options: {
+        plan: {
+          mode: "manual" as const,
+          menu: [{ recipeId: recipeIdsV1[0], portions: parseQuantity(100) }],
+        },
+      },
+    };
+    await expect(harness.semantic.preview(servicePlan)).resolves.toMatchObject({
+      allowed: false,
+      reasons: [{ code: "tavern.invalid_plan", details: { reason: "portion_limit" } }],
+    });
+    await expect(harness.semantic.dispatch(servicePlan)).resolves.toMatchObject({
+      kind: "rejected",
+      reasons: [{ code: "tavern.invalid_plan", details: { reason: "portion_limit" } }],
+    });
+  });
+
   it("exposes only legal visible actions and waits by revision", async () => {
     const harness = createPocStoryHarnessV1({ bootstrap: fixedPocBootstrapV1() });
     expectTypeOf(harness.semantic).toEqualTypeOf<PocSemanticGamePortV1>();

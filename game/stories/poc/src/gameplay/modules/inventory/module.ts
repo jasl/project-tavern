@@ -336,6 +336,14 @@ function proposePurchaseV1(
       },
     });
   }
+  for (const line of operation.lines) {
+    if (line.quantity > dependencies.purchaseQuantityPerLineLimit) {
+      return rejectedInventoryChangeV1({
+        code: "inventory.invalid_quantity",
+        details: { ingredientId: line.ingredientId, quantity: parseSafeInteger(line.quantity) },
+      });
+    }
+  }
   if (operation.reasonId !== dependencies.purchaseReasonId) {
     throw new TypeError("Inventory purchase reason does not match authored binding");
   }

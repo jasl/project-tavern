@@ -141,6 +141,7 @@ export type PocInventoryDependencyPortsV1 =
       readonly nextBatchIndex: NonNegativeSafeInteger;
       readonly nextLedgerEntryIndex: NonNegativeSafeInteger;
       readonly purchaseLineLimit: PositiveSafeInteger;
+      readonly purchaseQuantityPerLineLimit: PositiveSafeInteger;
       readonly purchaseReasonId: ReasonId;
       readonly ingredients: readonly PocInventoryIngredientPortV1[];
       readonly shelfLifeExtensions: readonly PocInventoryShelfLifeExtensionV1[];
@@ -1065,6 +1066,7 @@ function parseAcquisitionDependenciesV1(
         "nextBatchIndex",
         "nextLedgerEntryIndex",
         "purchaseLineLimit",
+        "purchaseQuantityPerLineLimit",
         "purchaseReasonId",
         "ingredients",
         "shelfLifeExtensions",
@@ -1109,10 +1111,17 @@ function parseAcquisitionDependenciesV1(
     dataPropertyV1(parsedObject, "purchaseLineLimit", "Inventory dependency ports"),
   );
   if (purchaseLineLimit > 64) throw new TypeError("Inventory purchase line limit exceeds 64");
+  const purchaseQuantityPerLineLimit = parsePositiveSafeInteger(
+    dataPropertyV1(parsedObject, "purchaseQuantityPerLineLimit", "Inventory dependency ports"),
+  );
+  if (purchaseQuantityPerLineLimit > 999) {
+    throw new TypeError("Inventory purchase quantity per line limit exceeds 999");
+  }
   return deepFreezePocValueV1({
     ...common,
     kind: "inventory.purchase" as const,
     purchaseLineLimit,
+    purchaseQuantityPerLineLimit,
     purchaseReasonId: parseReasonId(
       dataPropertyV1(parsedObject, "purchaseReasonId", "Inventory dependency ports"),
     ),

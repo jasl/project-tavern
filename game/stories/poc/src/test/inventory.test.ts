@@ -123,6 +123,7 @@ function purchaseDependenciesV1() {
     nextBatchIndex: parseNonNegativeSafeInteger(0),
     nextLedgerEntryIndex: parseNonNegativeSafeInteger(0),
     purchaseLineLimit: parsePositiveSafeInteger(4),
+    purchaseQuantityPerLineLimit: parsePositiveSafeInteger(99),
     purchaseReasonId: parseReasonId("reason.fixture"),
     ingredients: [
       {
@@ -464,6 +465,35 @@ describe("PoC Inventory ownership", () => {
       },
     });
     expect(canonicalJsonBytes(state)).toEqual(beforeBytes);
+  });
+
+  it("rejects a purchase quantity above the Story limit before cost multiplication", () => {
+    const state = inventoryStateV1({ startingCash: Number.MAX_SAFE_INTEGER });
+    const dependencies = pocInventoryDependencyPortsSchemaV1.parse({
+      ...purchaseDependenciesV1(),
+      purchaseQuantityPerLineLimit: parsePositiveSafeInteger(99),
+      ingredients: [ingredientDefinitionV1({ unitPrice: Number.MAX_SAFE_INTEGER })],
+    });
+
+    expect(
+      pocInventoryOwnerV1.propose(
+        state,
+        {
+          kind: "inventory.purchase",
+          lines: [
+            { ingredientId: parseIngredientId("ingredient.fixture"), quantity: parseQuantity(100) },
+          ],
+          reasonId: parseReasonId("reason.fixture"),
+        },
+        dependencies,
+      ),
+    ).toEqual({
+      kind: "rejected",
+      rejection: {
+        code: "inventory.invalid_quantity",
+        details: { ingredientId: "ingredient.fixture", quantity: 100 },
+      },
+    });
   });
 
   it("fails closed when purchase multiplication would exceed safe integer bounds", () => {

@@ -1407,6 +1407,15 @@ function buyInventoryV1(
     candidate.data().content.ingredients.map(({ ingredientId }) => ingredientId),
   );
   for (const line of command.lines) {
+    if (line.quantity > candidate.data().balance.purchaseQuantityPerLineLimit) {
+      rejectV1({
+        code: "inventory.invalid_quantity",
+        details: {
+          ingredientId: line.ingredientId,
+          quantity: parseSafeInteger(line.quantity),
+        },
+      });
+    }
     if (!ingredientIds.has(line.ingredientId)) {
       unknownReferenceV1(command.kind, {
         kind: "ingredient",
@@ -1429,6 +1438,7 @@ function buyInventoryV1(
         nextBatchIndex: candidate.nextBatchIndex(),
         nextLedgerEntryIndex: candidate.nextLedgerEntryIndex(),
         purchaseLineLimit: candidate.data().balance.purchaseLineLimit,
+        purchaseQuantityPerLineLimit: candidate.data().balance.purchaseQuantityPerLineLimit,
         purchaseReasonId: candidate.data().balance.ledgerReasons.purchase,
         ingredients: inventoryIngredientsV1(candidate.data()),
         shelfLifeExtensions: builtShelfLifeExtensionsV1(candidate, modules),
@@ -1737,6 +1747,13 @@ function setTavernPlanV1(
   if (command.plan.menu.some(({ recipeId }) => !unlockedRecipeIds.has(recipeId))) {
     rejectV1({ code: "tavern.invalid_plan", details: { reason: "locked_recipe" } });
   }
+  if (
+    command.plan.menu.some(
+      ({ portions }) => portions > program.data.balance.menuPortionsPerRecipeLimit,
+    )
+  ) {
+    rejectV1({ code: "tavern.invalid_plan", details: { reason: "portion_limit" } });
+  }
   const unavailableReasonId = actionUnavailableReasonV1(mode.availability, candidate);
   if (unavailableReasonId !== null) {
     rejectV1({
@@ -1760,6 +1777,7 @@ function setTavernPlanV1(
         modeReasonId: mode.reasonId,
         unavailableReasonId,
         menuRecipeLimit: program.data.balance.menuRecipeLimit,
+        menuPortionsPerRecipeLimit: program.data.balance.menuPortionsPerRecipeLimit,
         receptionCapacity: preview.receptionCapacity,
         preparationCapacity: preview.preparationCapacity,
         recipes: program.data.content.recipes.map(({ recipeId, prepPoints }) => ({
@@ -2400,6 +2418,11 @@ function startOpeningV1(
     if (!unlocked.has(line.recipeId)) {
       rejectV1({ code: "tavern.invalid_plan", details: { reason: "locked_recipe" } });
     }
+  }
+  if (
+    plan.menu.some(({ portions }) => portions > program.data.balance.menuPortionsPerRecipeLimit)
+  ) {
+    rejectV1({ code: "tavern.invalid_plan", details: { reason: "portion_limit" } });
   }
   const mode = openingModeForPlanV1(program.data, plan);
   const unavailableReasonId = actionUnavailableReasonV1(mode.availability, candidate);

@@ -1196,6 +1196,7 @@ export type PocRejectionReasonV1 =
           | "duplicate_recipe"
           | "unknown_recipe"
           | "locked_recipe"
+          | "portion_limit"
           | "capacity"
           | "preparation_capacity";
       };
@@ -1820,7 +1821,9 @@ export interface StoryBalanceV1 {
   readonly heroineNightRecoveryReasonId: ReasonId;
   readonly restRecovery: NonNegativeSafeInteger;
   readonly purchaseLineLimit: PositiveSafeInteger;
+  readonly purchaseQuantityPerLineLimit: PositiveSafeInteger;
   readonly menuRecipeLimit: PositiveSafeInteger;
+  readonly menuPortionsPerRecipeLimit: PositiveSafeInteger;
   readonly dailyPreparationLimit: PositiveSafeInteger;
   readonly openingFee: Money;
   readonly levyAmount: Money;
@@ -2400,6 +2403,7 @@ export interface PocLedgerProjectionV1 {
 export interface PocActionInputCatalogV1 {
   readonly purchase: {
     readonly lineLimit: PositiveSafeInteger;
+    readonly quantityPerLineLimit: PositiveSafeInteger;
     readonly ingredients: readonly {
       readonly ingredientId: IngredientId;
       readonly nameTextId: TextId;
@@ -2410,6 +2414,7 @@ export interface PocActionInputCatalogV1 {
   };
   readonly tavernPlan: {
     readonly recipeLimit: PositiveSafeInteger;
+    readonly portionsPerRecipeLimit: PositiveSafeInteger;
     readonly serviceModes: readonly {
       readonly mode: ServiceMode;
       readonly nameTextId: TextId;

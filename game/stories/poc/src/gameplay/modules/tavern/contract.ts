@@ -992,6 +992,7 @@ export interface PocTavernPlanDependenciesV1 {
   readonly modeReasonId: ReasonId;
   readonly unavailableReasonId: ReasonId | null;
   readonly menuRecipeLimit: PositiveSafeInteger;
+  readonly menuPortionsPerRecipeLimit: PositiveSafeInteger;
   readonly receptionCapacity: NonNegativeSafeInteger;
   readonly preparationCapacity: NonNegativeSafeInteger;
   readonly recipes: readonly PocTavernPlanRecipePortV1[];
@@ -1043,6 +1044,7 @@ export const pocTavernDependencyPortsSchemaV1: RuntimeSchemaV1<PocTavernDependen
             "modeReasonId",
             "unavailableReasonId",
             "menuRecipeLimit",
+            "menuPortionsPerRecipeLimit",
             "receptionCapacity",
             "preparationCapacity",
             "recipes",
@@ -1065,6 +1067,12 @@ export const pocTavernDependencyPortsSchemaV1: RuntimeSchemaV1<PocTavernDependen
           }
           seenRecipeIds.add(recipe.recipeId);
         }
+        const menuPortionsPerRecipeLimit = parsePositiveSafeInteger(
+          dataPropertyV1(dependencies, "menuPortionsPerRecipeLimit", "Tavern dependency ports"),
+        );
+        if (menuPortionsPerRecipeLimit > 999) {
+          throw new TypeError("Tavern portion limit exceeds 999");
+        }
         return deepFreezePocValueV1({
           kind,
           day: parseDayIndex(dataPropertyV1(dependencies, "day", "Tavern dependency ports")),
@@ -1080,6 +1088,7 @@ export const pocTavernDependencyPortsSchemaV1: RuntimeSchemaV1<PocTavernDependen
           menuRecipeLimit: parsePositiveSafeInteger(
             dataPropertyV1(dependencies, "menuRecipeLimit", "Tavern dependency ports"),
           ),
+          menuPortionsPerRecipeLimit,
           receptionCapacity: parseNonNegativeSafeInteger(
             dataPropertyV1(dependencies, "receptionCapacity", "Tavern dependency ports"),
           ),
