@@ -1,8 +1,20 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { parseTextId } from "@sillymaker/base";
-import type { DeepReadonly, TextId } from "@sillymaker/base";
-import { createUiContributionRegistryV1 } from "@sillymaker/ui";
-import type { UiContributionRegistryV1, UiContributionRenderContextV1 } from "@sillymaker/ui";
+import type {
+  AssetId,
+  DeepReadonly,
+  LocaleId,
+  ResolvedAssetManifestV1,
+  TextId,
+} from "@sillymaker/base";
+import { SemanticActionControlV1, createUiContributionRegistryV1 } from "@sillymaker/ui";
+import type {
+  GameRendererContextV1,
+  PresentationReadPortV1,
+  UiContributionRegistryV1,
+  UiContributionSetV1,
+  UiRendererNamespaceV1,
+} from "@sillymaker/ui";
 
 import type {
   E2eSemanticActionDescriptorV1,
@@ -10,43 +22,51 @@ import type {
   E2eSemanticInvocationV1,
   E2eSemanticPublicationV1,
 } from "../runtime/e2e-semantic-game-port.js";
-import type { E2ePresentationV1 } from "./presentation-program.js";
 import { e2eCharacterRendererIdV1, e2eRendererIdsV1, e2eStageRendererIdV1 } from "./scene-graph.js";
 import type { E2eRendererIdV1, E2eSceneGraphV1 } from "./scene-graph.js";
 
-type E2eRendererContextV1 = UiContributionRenderContextV1<
-  E2eSemanticPublicationV1,
-  E2eSemanticGamePortV1,
-  E2ePresentationV1
+type AssetUsageV1 = ResolvedAssetManifestV1["assets"][number]["usage"];
+
+export type E2ePresentationReadPortV1 = PresentationReadPortV1<
+  TextId,
+  AssetId,
+  AssetUsageV1,
+  LocaleId,
+  string
 >;
 
-export type E2eRendererRegistryV1 = UiContributionRegistryV1<
+export type E2eRendererContextV1 = GameRendererContextV1<
   E2eSemanticPublicationV1,
   E2eSemanticGamePortV1,
-  E2ePresentationV1
+  E2ePresentationReadPortV1
 >;
+
+type E2eRendererContextsV1 = Readonly<{
+  [TNamespace in UiRendererNamespaceV1]: E2eRendererContextV1;
+}>;
+
+export type E2eRendererRegistryV1 = UiContributionRegistryV1<E2eRendererContextsV1>;
+
+const hudActionIdsV1 = Object.freeze([
+  "action.e2e.start",
+  "action.e2e.increment",
+  "action.e2e.complete",
+] as const satisfies readonly E2eSemanticInvocationV1["actionId"][]);
+const narrativeActionIdsV1 = Object.freeze([
+  "action.e2e.choose",
+  "action.e2e.continue",
+] as const satisfies readonly E2eSemanticInvocationV1["actionId"][]);
+const unavailableReasonTextIdV1 = parseTextId("text.e2e.reason.flow_unavailable");
 
 function compositionFailureV1(message: string): never {
   throw new TypeError(`E2E renderer composition failed: ${message}`);
 }
 
 export function readE2ePresentationTextV1(
-  presentation: DeepReadonly<E2ePresentationV1>,
+  presentation: E2ePresentationReadPortV1,
   textId: TextId,
 ): string {
-  const visited = new Set<string>();
-  let locale: string | null = presentation.textCatalogs.defaultLocale;
-  while (locale !== null && !visited.has(locale)) {
-    visited.add(locale);
-    const catalog = presentation.textCatalogs.catalogs.find(
-      (candidate) => candidate.locale === locale,
-    );
-    if (catalog === undefined) break;
-    const entry = catalog.entries.find((candidate) => candidate.textId === textId);
-    if (entry !== undefined) return entry.text;
-    locale = catalog.fallbackLocale;
-  }
-  return compositionFailureV1(`missing text ID "${textId}"`);
+  return presentation.text(textId).text;
 }
 
 function optionTextIdV1(
@@ -65,42 +85,40 @@ function optionTextIdV1(
   return descriptor.textId;
 }
 
-function reasonTextV1(
+function disabledReasonLabelsV1(
   context: E2eRendererContextV1,
   descriptor: DeepReadonly<E2eSemanticActionDescriptorV1>,
-): string | null {
-  if (descriptor.enabled || descriptor.reasons.length === 0) return null;
-  return readE2ePresentationTextV1(
-    context.presentation,
-    parseTextId("text.e2e.reason.flow_unavailable"),
+): readonly string[] {
+  return Object.freeze(
+    descriptor.reasons.map(() =>
+      readE2ePresentationTextV1(context.presentation, unavailableReasonTextIdV1),
+    ),
   );
 }
 
-function E2eSemanticActionsV1({ context }: { readonly context: E2eRendererContextV1 }) {
+function E2eSemanticActionGroupV1(props: {
+  readonly context: E2eRendererContextV1;
+  readonly actionIds: readonly E2eSemanticInvocationV1["actionId"][];
+  readonly accessibleName: string;
+}) {
   return (
-    <div aria-label="可用操作">
-      {context.viewSlice.actions.flatMap((descriptor, descriptorIndex) => {
-        const reasonText = reasonTextV1(context, descriptor);
-        return descriptor.options.map((invocation, optionIndex) => {
-          const reasonId = `e2e-action-reason-${descriptorIndex}-${optionIndex}`;
-          const label = readE2ePresentationTextV1(
-            context.presentation,
-            optionTextIdV1(descriptor, invocation),
-          );
-          return (
-            <div key={`${descriptor.actionId}:${optionIndex}`}>
-              <button
-                type="button"
-                disabled={!descriptor.enabled}
-                aria-describedby={reasonText === null ? undefined : reasonId}
-                onClick={() => void context.semantic.dispatch(invocation)}
-              >
-                {label}
-              </button>
-              {reasonText === null ? null : <small id={reasonId}>{reasonText}</small>}
-            </div>
-          );
-        });
+    <div role="group" aria-label={props.accessibleName}>
+      {props.context.viewSlice.actions.flatMap((descriptor) => {
+        if (!props.actionIds.includes(descriptor.actionId)) return [];
+        const disabledReasonLabels = disabledReasonLabelsV1(props.context, descriptor);
+        return descriptor.options.map((invocation, optionIndex) => (
+          <SemanticActionControlV1
+            key={`${descriptor.actionId}:${optionIndex}`}
+            descriptor={descriptor}
+            invocation={invocation}
+            semantic={props.context.semantic}
+            label={readE2ePresentationTextV1(
+              props.context.presentation,
+              optionTextIdV1(descriptor, invocation),
+            )}
+            disabledReasonLabels={disabledReasonLabels}
+          />
+        ));
       })}
     </div>
   );
@@ -128,7 +146,7 @@ export function selectE2eStageVariantV1(
   return variant;
 }
 
-function E2eStageRendererV1(context: E2eRendererContextV1, sceneGraph: E2eSceneGraphV1) {
+function renderE2eBackgroundV1(context: E2eRendererContextV1, sceneGraph: E2eSceneGraphV1) {
   const variant = selectE2eStageVariantV1(sceneGraph, context.viewSlice);
   if (variant.layout.kind !== "e2e_stage") {
     return compositionFailureV1(`unsupported stage layout "${String(variant.layout.kind)}"`);
@@ -138,13 +156,9 @@ function E2eStageRendererV1(context: E2eRendererContextV1, sceneGraph: E2eSceneG
     parseTextId(`text.e2e.flow.node.${context.viewSlice.game.flow.nodeId}`),
   );
   if (variant.layout.mode === "summary") {
-    const summaryName = readE2ePresentationTextV1(
-      context.presentation,
-      variant.accessibleNameTextId,
-    );
     return (
       <div data-renderer-id={e2eStageRendererIdV1}>
-        <h1>{summaryName}</h1>
+        <h1>{readE2ePresentationTextV1(context.presentation, variant.accessibleNameTextId)}</h1>
         <p>{context.viewSlice.game.counterLabel}</p>
         <p>{nodeText}</p>
       </div>
@@ -157,7 +171,6 @@ function E2eStageRendererV1(context: E2eRendererContextV1, sceneGraph: E2eSceneG
     <div data-renderer-id={e2eStageRendererIdV1}>
       <p>{context.viewSlice.game.counterLabel}</p>
       <p>{nodeText}</p>
-      <E2eSemanticActionsV1 context={context} />
     </div>
   );
 }
@@ -166,25 +179,32 @@ function E2eCharacterRendererV1(_context: E2eRendererContextV1) {
   return <span aria-hidden="true" data-renderer-id={e2eCharacterRendererIdV1} />;
 }
 
-const e2eRendererBindingsV1 = Object.freeze({
-  [e2eStageRendererIdV1]: Object.freeze({
-    namespace: "scenes" as const,
-    createRender: (sceneGraph: E2eSceneGraphV1) => (context: E2eRendererContextV1) =>
-      E2eStageRendererV1(context, sceneGraph),
-  }),
-  [e2eCharacterRendererIdV1]: Object.freeze({
-    namespace: "gameSymbols" as const,
-    createRender: (_sceneGraph: E2eSceneGraphV1) => E2eCharacterRendererV1,
-  }),
-}) satisfies Readonly<
-  Record<
-    E2eRendererIdV1,
-    {
-      readonly namespace: "scenes" | "gameSymbols";
-      createRender(sceneGraph: E2eSceneGraphV1): (context: E2eRendererContextV1) => React.ReactNode;
-    }
-  >
->;
+function E2eHudRendererV1(context: E2eRendererContextV1) {
+  if (context.viewSlice.game.terminal) return null;
+  return (
+    <E2eSemanticActionGroupV1
+      context={context}
+      actionIds={hudActionIdsV1}
+      accessibleName="经营操作"
+    />
+  );
+}
+
+function E2eNarrativeRendererV1(context: E2eRendererContextV1) {
+  if (context.viewSlice.game.terminal) return null;
+  return (
+    <E2eSemanticActionGroupV1
+      context={context}
+      actionIds={narrativeActionIdsV1}
+      accessibleName="叙事操作"
+    />
+  );
+}
+
+const expectedNamespacesByRendererIdV1 = Object.freeze({
+  [e2eStageRendererIdV1]: Object.freeze(["background", "hud", "narrative"] as const),
+  [e2eCharacterRendererIdV1]: Object.freeze(["character"] as const),
+}) satisfies Readonly<Record<E2eRendererIdV1, readonly UiRendererNamespaceV1[]>>;
 
 function rendererIdsInGraphV1(sceneGraph: E2eSceneGraphV1): ReadonlySet<string> {
   return new Set([
@@ -196,7 +216,7 @@ function rendererIdsInGraphV1(sceneGraph: E2eSceneGraphV1): ReadonlySet<string> 
 function requireClosedRendererSetV1(sceneGraph: E2eSceneGraphV1): void {
   const graphRendererIds = rendererIdsInGraphV1(sceneGraph);
   for (const rendererId of graphRendererIds) {
-    if (!Object.hasOwn(e2eRendererBindingsV1, rendererId)) {
+    if (!Object.hasOwn(expectedNamespacesByRendererIdV1, rendererId)) {
       compositionFailureV1(`unknown renderer ID "${rendererId}"`);
     }
   }
@@ -209,20 +229,26 @@ function requireClosedRendererSetV1(sceneGraph: E2eSceneGraphV1): void {
 
 export function createE2eRendererRegistryV1(sceneGraph: E2eSceneGraphV1): E2eRendererRegistryV1 {
   requireClosedRendererSetV1(sceneGraph);
-  return createUiContributionRegistryV1({
-    scenes: [
-      Object.freeze({
-        id: e2eStageRendererIdV1,
-        render: e2eRendererBindingsV1[e2eStageRendererIdV1].createRender(sceneGraph),
-      }),
-    ],
-    overlays: Object.freeze([]),
-    hud: Object.freeze([]),
-    gameSymbols: [
-      Object.freeze({
-        id: e2eCharacterRendererIdV1,
-        render: e2eRendererBindingsV1[e2eCharacterRendererIdV1].createRender(sceneGraph),
-      }),
-    ],
-  });
+  const Background = (context: E2eRendererContextV1) => renderE2eBackgroundV1(context, sceneGraph);
+  const contributionSet = Object.freeze({
+    contributionId: "contribution.e2e.web",
+    renderers: Object.freeze({
+      background: Object.freeze([
+        Object.freeze({ rendererId: e2eStageRendererIdV1, component: Background }),
+      ]),
+      character: Object.freeze([
+        Object.freeze({
+          rendererId: e2eCharacterRendererIdV1,
+          component: E2eCharacterRendererV1,
+        }),
+      ]),
+      hud: Object.freeze([
+        Object.freeze({ rendererId: e2eStageRendererIdV1, component: E2eHudRendererV1 }),
+      ]),
+      narrative: Object.freeze([
+        Object.freeze({ rendererId: e2eStageRendererIdV1, component: E2eNarrativeRendererV1 }),
+      ]),
+    }),
+  }) satisfies UiContributionSetV1<E2eRendererContextsV1>;
+  return createUiContributionRegistryV1<E2eRendererContextsV1>([contributionSet]);
 }

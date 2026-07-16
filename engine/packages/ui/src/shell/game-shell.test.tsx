@@ -4,106 +4,170 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { createViewSourceV1 } from "../runtime/create-view-bridge.js";
 import { createUiContributionRegistryV1 } from "../contributions/registry.js";
+import type { GameRendererContextV1, UiRendererNamespaceV1 } from "../contributions/types.js";
+import { createSemanticPublicationBridgeV1 } from "../runtime/semantic-publication-bridge.js";
 import { GameShell } from "./game-shell.js";
 
-describe("GameShell", () => {
-  it("renders a narrow semantic publication without owning a raw command", async () => {
-    const incrementInvocation = Object.freeze({
-      actionId: "action.test.increment" as const,
-      parameters: Object.freeze({}),
-    });
-    type Publication = {
-      readonly status: "ready";
-      readonly game: { readonly count: number };
-      readonly actions: readonly [
-        {
-          readonly actionId: "action.test.increment";
-          readonly textId: "text.test.increment";
-          readonly enabled: boolean;
-          readonly reasons: readonly [];
-          readonly options: readonly [typeof incrementInvocation];
-        },
-      ];
-    };
-    const publication = (count: number): Publication => {
-      const descriptor: Publication["actions"][0] = Object.freeze({
+const incrementInvocationV1 = Object.freeze({
+  actionId: "action.test.increment" as const,
+  parameters: Object.freeze({}),
+});
+
+type PublicationV1 = Readonly<{
+  revision: number;
+  status: "ready";
+  game: Readonly<{ count: number }>;
+  narrative: null;
+  actions: readonly [
+    Readonly<{
+      actionId: "action.test.increment";
+      enabled: true;
+      reasons: readonly [];
+      options: readonly [typeof incrementInvocationV1];
+    }>,
+  ];
+}>;
+
+function publicationV1(count: number): PublicationV1 {
+  return Object.freeze({
+    revision: count,
+    status: "ready" as const,
+    game: Object.freeze({ count }),
+    narrative: null,
+    actions: Object.freeze([
+      Object.freeze({
         actionId: "action.test.increment" as const,
-        textId: "text.test.increment" as const,
-        enabled: true,
-        reasons: Object.freeze([]) as Publication["actions"][0]["reasons"],
-        options: Object.freeze([incrementInvocation]) as Publication["actions"][0]["options"],
-      });
-      return Object.freeze({
-        status: "ready" as const,
-        game: Object.freeze({ count }),
-        actions: Object.freeze([descriptor]) as Publication["actions"],
-      });
-    };
-    const view = createViewSourceV1<Publication>(publication(0));
+        enabled: true as const,
+        reasons: Object.freeze([]),
+        options: Object.freeze([incrementInvocationV1]),
+      }),
+    ]) as PublicationV1["actions"],
+  });
+}
+
+function createPublicationSourceV1(initial: PublicationV1) {
+  let current = initial;
+  const listeners = new Set<() => void>();
+  return Object.freeze({
+    observe: () => current,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      let subscribed = true;
+      return () => {
+        if (!subscribed) return;
+        subscribed = false;
+        listeners.delete(listener);
+      };
+    },
+    publish(next: PublicationV1) {
+      current = next;
+      for (const listener of [...listeners]) listener();
+    },
+  });
+}
+
+describe("GameShell", () => {
+  it("renders the atomic publication through only seven-namespace narrow contexts", async () => {
+    const source = createPublicationSourceV1(publicationV1(0));
+    const bridge = createSemanticPublicationBridgeV1(source);
     const invocations: unknown[] = [];
     const semantic = Object.freeze({
-      async dispatch(invocation: typeof incrementInvocation) {
+      async dispatch(invocation: typeof incrementInvocationV1) {
         invocations.push(invocation);
-        view.publish(publication(1));
+        source.publish(publicationV1(1));
         return Object.freeze({ kind: "committed" as const });
       },
     });
-    const presentation = Object.freeze({
-      text: Object.freeze({ "text.test.increment": "增加计数" }),
-    });
-    const rendererContextKeys: string[][] = [];
-    const contributions = createUiContributionRegistryV1<
-      Publication,
-      typeof semantic,
-      typeof presentation
-    >({
-      scenes: [
-        {
-          id: "renderer.test.scene",
-          render: (context) => {
-            rendererContextKeys.push(Object.keys(context));
-            const { viewSlice, semantic: semanticPort, presentation: textPresentation } = context;
-            const descriptor = viewSlice.actions[0];
-            if (descriptor === undefined) throw new TypeError("missing test action descriptor");
-            const invocation = descriptor.options[0];
-            if (invocation === undefined) throw new TypeError("missing test action invocation");
-            return (
-              <section>
-                <p>计数：{viewSlice.game.count}</p>
-                <button
-                  type="button"
-                  disabled={!descriptor.enabled}
-                  onClick={() => void semanticPort.dispatch(invocation)}
-                >
-                  {textPresentation.text[descriptor.textId]}
-                </button>
-              </section>
-            );
-          },
-        },
-      ],
-      overlays: [],
-      hud: [],
-      gameSymbols: [],
-    });
+    const presentation = Object.freeze({ label: "增加计数" });
+    type ContextV1 = GameRendererContextV1<PublicationV1, typeof semantic, typeof presentation>;
+    type ContextsV1 = Readonly<Record<UiRendererNamespaceV1, ContextV1>>;
+    const seenContextKeys: string[][] = [];
+    const Background = (context: ContextV1) => {
+      seenContextKeys.push(Object.keys(context));
+      return <p>计数：{context.viewSlice.game.count}</p>;
+    };
+    const Hud = (context: ContextV1) => (
+      <button type="button" onClick={() => void context.semantic.dispatch(incrementInvocationV1)}>
+        {context.presentation.label}
+      </button>
+    );
+    const Narrative = (context: ContextV1) => <p>语义修订：{context.viewSlice.revision}</p>;
+    const contributions = createUiContributionRegistryV1<ContextsV1>([
+      Object.freeze({
+        contributionId: "contribution.test.shell",
+        renderers: Object.freeze({
+          background: Object.freeze([
+            Object.freeze({ rendererId: "renderer.test.background", component: Background }),
+          ]),
+          hud: Object.freeze([Object.freeze({ rendererId: "renderer.test.hud", component: Hud })]),
+          narrative: Object.freeze([
+            Object.freeze({ rendererId: "renderer.test.narrative", component: Narrative }),
+          ]),
+        }),
+      }),
+    ]);
+
     render(
       <GameShell
-        view={view}
+        publication={bridge}
         semantic={semantic}
         presentation={presentation}
         contributions={contributions}
-        sceneId="renderer.test.scene"
-        hudId={null}
+        rendererIds={Object.freeze({
+          background: "renderer.test.background",
+          character: null,
+          scene_interaction: null,
+          hud: "renderer.test.hud",
+          workspace_overlay: null,
+          narrative: "renderer.test.narrative",
+          system: null,
+        })}
         accessibleName="测试游戏舞台"
       />,
     );
+
     expect(screen.getByRole("main", { name: "测试游戏舞台" })).toBeVisible();
-    expect(rendererContextKeys).toEqual([["viewSlice", "semantic", "presentation"]]);
+    expect(seenContextKeys).toEqual([["viewSlice", "semantic", "presentation"]]);
     expect(screen.getByText("计数：0")).toBeVisible();
+    expect(screen.getByText("语义修订：0")).toBeVisible();
+
     await userEvent.setup().click(screen.getByRole("button", { name: "增加计数" }));
-    expect(invocations).toEqual([incrementInvocation]);
+
+    expect(invocations).toEqual([incrementInvocationV1]);
     expect(await screen.findByText("计数：1")).toBeVisible();
+    expect(screen.getByText("语义修订：1")).toBeVisible();
+    bridge.dispose();
+  });
+
+  it("reports the exact missing namespace and renderer ID", () => {
+    const source = createPublicationSourceV1(publicationV1(0));
+    const bridge = createSemanticPublicationBridgeV1(source);
+    const semantic = Object.freeze({ dispatch: async () => Object.freeze({ kind: "committed" }) });
+    const presentation = Object.freeze({ label: "unused" });
+    type ContextV1 = GameRendererContextV1<PublicationV1, typeof semantic, typeof presentation>;
+    type ContextsV1 = Readonly<Record<UiRendererNamespaceV1, ContextV1>>;
+    const contributions = createUiContributionRegistryV1<ContextsV1>([]);
+
+    expect(() =>
+      render(
+        <GameShell
+          publication={bridge}
+          semantic={semantic}
+          presentation={presentation}
+          contributions={contributions}
+          rendererIds={Object.freeze({
+            background: "renderer.test.missing",
+            character: null,
+            scene_interaction: null,
+            hud: null,
+            workspace_overlay: null,
+            narrative: null,
+            system: null,
+          })}
+        />,
+      ),
+    ).toThrowError("ui.renderer_not_found:background:renderer.test.missing");
+    bridge.dispose();
   });
 });

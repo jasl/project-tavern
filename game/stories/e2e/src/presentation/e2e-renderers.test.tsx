@@ -3,22 +3,33 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import type { ComponentType } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { UiContributionRenderContextV1 } from "@sillymaker/ui";
+import {
+  createAssetRegistryV1,
+  createPresentationReadPortV1,
+  type GameRendererContextV1,
+  type RuntimeAssetLoaderV1,
+  type RuntimeAssetLoadRequestV1,
+} from "@sillymaker/ui";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import { createWebHostV1 } from "@sillymaker/web";
 
 import { createE2eGameRuntimeV1 } from "../application/create-e2e-game-runtime.js";
-import type { E2ePresentationV1 } from "./presentation-program.js";
 import type {
   E2eSemanticGamePortV1,
   E2eSemanticPublicationV1,
 } from "../runtime/e2e-semantic-game-port.js";
 import { e2eSceneGraphV1 } from "./scene-graph.js";
 import type { E2eSceneGraphV1 } from "./scene-graph.js";
-import { createE2eRendererRegistryV1 } from "./e2e-renderers.js";
+import {
+  createE2eRendererRegistryV1,
+  type E2ePresentationReadPortV1,
+  type E2eRendererContextV1,
+} from "./e2e-renderers.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
+import type { E2eResolvedGameV1 } from "../story-entry.js";
 
 afterEach(cleanup);
 
@@ -29,23 +40,50 @@ function rendererIdsInGraphV1(sceneGraph: E2eSceneGraphV1): readonly string[] {
   ]);
 }
 
+function createPresentationFixtureV1(resolvedGame: E2eResolvedGameV1) {
+  const loader: RuntimeAssetLoaderV1 = Object.freeze({
+    cacheKey: ({ runtimePath, sha256 }: RuntimeAssetLoadRequestV1) => `${runtimePath}#${sha256}`,
+    load: async () => Object.freeze({ kind: "failed" as const, code: "fetch_failed" as const }),
+    dispose: vi.fn(),
+  });
+  const assets = createAssetRegistryV1(resolvedGame.assets, loader, vi.fn());
+  const presentation = createPresentationReadPortV1({
+    catalogs: resolvedGame.presentation.textCatalogs,
+    locale: resolvedGame.presentation.textCatalogs.defaultLocale,
+    assets,
+  });
+  return Object.freeze({ presentation, dispose: () => assets.dispose() });
+}
+
+function requireRendererV1(
+  registry: ReturnType<typeof createE2eRendererRegistryV1>,
+  namespace: "background" | "character" | "hud" | "narrative",
+  rendererId: string,
+) {
+  const result = registry.resolve(namespace, rendererId);
+  if (result.kind !== "found") throw new TypeError(`missing ${namespace} renderer`);
+  return result.component as ComponentType<E2eRendererContextV1>;
+}
+
 describe("E2E Web renderer registry", () => {
-  it("binds every resolved SceneGraph renderer ID exactly once", () => {
+  it("maps the closed SceneGraph into background, character, HUD, and narrative namespaces", () => {
     const registry = createE2eRendererRegistryV1(e2eSceneGraphV1);
     const graphIds = rendererIdsInGraphV1(e2eSceneGraphV1);
-    const registryIds = [
-      ...registry.scenes.keys(),
-      ...registry.overlays.keys(),
-      ...registry.hud.keys(),
-      ...registry.gameSymbols.keys(),
-    ];
 
     expect([...new Set(graphIds)].sort()).toEqual([
       "renderer.e2e.character.layered",
       "renderer.e2e.stage.css",
     ]);
-    expect(registryIds.sort()).toEqual([...new Set(graphIds)].sort());
-    expect(registryIds).toHaveLength(new Set(registryIds).size);
+    expect(registry.resolve("background", "renderer.e2e.stage.css").kind).toBe("found");
+    expect(registry.resolve("character", "renderer.e2e.character.layered").kind).toBe("found");
+    expect(registry.resolve("hud", "renderer.e2e.stage.css").kind).toBe("found");
+    expect(registry.resolve("narrative", "renderer.e2e.stage.css").kind).toBe("found");
+    expect(registry.resolve("scene_interaction", "renderer.e2e.stage.css")).toEqual({
+      kind: "not_found",
+      code: "ui.renderer_not_found",
+    });
+    expect(registry.resolve("workspace_overlay", "renderer.e2e.stage.css").kind).toBe("not_found");
+    expect(registry.resolve("system", "renderer.e2e.stage.css").kind).toBe("not_found");
   });
 
   it("rejects an unknown renderer ID with a stable composition failure", () => {
@@ -75,7 +113,7 @@ describe("E2E Web renderer registry", () => {
     );
   });
 
-  it("renders through only the narrow Semantic view and presentation context", async () => {
+  it("renders only the narrow publication, Semantic port, and PresentationReadPort", async () => {
     const resolvedGame = resolveStoryForTestV1(e2eStoryEntryV1);
     const application = await createE2eGameRuntimeV1({
       resolved: resolvedGame,
@@ -86,19 +124,21 @@ describe("E2E Web renderer registry", () => {
         now: () => "2026-07-12T00:00:00.000Z",
       }),
     });
+    const presentationFixture = createPresentationFixtureV1(resolvedGame);
     const registry = createE2eRendererRegistryV1(resolvedGame.sceneGraph);
-    const stageRenderer = registry.scenes.get("renderer.e2e.stage.css");
-    if (stageRenderer === undefined) throw new TypeError("missing E2E stage renderer");
+    const Background = requireRendererV1(registry, "background", "renderer.e2e.stage.css");
+    const Hud = requireRendererV1(registry, "hud", "renderer.e2e.stage.css");
+    const Narrative = requireRendererV1(registry, "narrative", "renderer.e2e.stage.css");
     const accessed = new Set<PropertyKey>();
     const context = new Proxy(
       Object.freeze({
         viewSlice: application.semantic.observe(),
         semantic: application.semantic,
-        presentation: resolvedGame.presentation,
-      }) satisfies UiContributionRenderContextV1<
+        presentation: presentationFixture.presentation,
+      }) satisfies GameRendererContextV1<
         E2eSemanticPublicationV1,
         E2eSemanticGamePortV1,
-        E2ePresentationV1
+        E2ePresentationReadPortV1
       >,
       {
         get(target, property, receiver) {
@@ -108,14 +148,26 @@ describe("E2E Web renderer registry", () => {
       },
     );
 
-    render(stageRenderer.render(context));
+    render(
+      <>
+        <Background {...context} />
+        <Hud {...context} />
+        <Narrative {...context} />
+      </>,
+    );
 
     expect(screen.getByText("计数 0")).toBeVisible();
-    const increment = screen.getByRole("button", { name: "增加计数" });
-    expect(increment).toBeEnabled();
-    await userEvent.setup().click(increment);
+    const hud = screen.getByRole("group", { name: "经营操作" });
+    const narrative = screen.getByRole("group", { name: "叙事操作" });
+    expect(hud).toContainElement(screen.getByRole("button", { name: "增加计数" }));
+    expect(hud).not.toContainElement(screen.getByRole("button", { name: "选择左侧" }));
+    expect(narrative).toContainElement(screen.getByRole("button", { name: "选择左侧" }));
+    expect(narrative).toContainElement(screen.getByRole("button", { name: "继续" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "增加计数" }));
     expect([...accessed].sort()).toEqual(["presentation", "semantic", "viewSlice"]);
     expect(context).not.toHaveProperty("host");
     expect(context).not.toHaveProperty("snapshot");
+    expect(context.presentation).not.toHaveProperty("textCatalogs");
+    presentationFixture.dispose();
   });
 });

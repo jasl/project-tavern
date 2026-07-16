@@ -62,11 +62,24 @@ async function createResolvedOnlyFixtureV1() {
 function wrapSemanticDispatchV1(application: E2eGameApplicationPortV1) {
   const invocations: E2eSemanticInvocationV1[] = [];
   let subscriptions = 0;
+  let unsubscriptions = 0;
+  let availableActionCalls = 0;
   const semantic = Object.freeze({
     ...application.semantic,
     subscribe(listener: () => void) {
       subscriptions += 1;
-      return application.semantic.subscribe(listener);
+      const unsubscribe = application.semantic.subscribe(listener);
+      let active = true;
+      return () => {
+        if (!active) return;
+        active = false;
+        unsubscriptions += 1;
+        unsubscribe();
+      };
+    },
+    availableActions() {
+      availableActionCalls += 1;
+      return application.semantic.availableActions();
     },
     async dispatch(invocation: E2eSemanticInvocationV1) {
       invocations.push(invocation);
@@ -77,6 +90,8 @@ function wrapSemanticDispatchV1(application: E2eGameApplicationPortV1) {
     application: Object.freeze({ ...application, semantic }),
     invocations: () => Object.freeze([...invocations]),
     subscriptions: () => subscriptions,
+    unsubscriptions: () => unsubscriptions,
+    availableActionCalls: () => availableActionCalls,
   });
 }
 
@@ -99,7 +114,7 @@ describe("E2eApplicationRootV1", () => {
     await runtime.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
     const fixture = wrapSemanticDispatchV1(runtime);
 
-    render(
+    const rendered = render(
       <E2eApplicationRootV1
         resolvedGame={resolvedGame}
         application={fixture.application}
@@ -114,7 +129,10 @@ describe("E2eApplicationRootV1", () => {
     expect(screen.getByRole("button", { name: "继续" })).toHaveAccessibleDescription(
       "当前流程不可用",
     );
+    expect(screen.getByRole("group", { name: "经营操作" })).not.toContainElement(chooseLeft);
+    expect(screen.getByRole("group", { name: "叙事操作" })).toContainElement(chooseLeft);
     expect(fixture.subscriptions()).toBe(1);
+    expect(fixture.availableActionCalls()).toBe(0);
 
     await userEvent.setup().click(chooseLeft);
 
@@ -124,6 +142,8 @@ describe("E2eApplicationRootV1", () => {
         parameters: { choice: "left" },
       },
     ]);
+    rendered.unmount();
+    expect(fixture.unsubscriptions()).toBe(1);
   });
 
   it("renders the resolved terminal summary layout without normal action controls", async () => {
