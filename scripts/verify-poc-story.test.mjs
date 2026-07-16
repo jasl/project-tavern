@@ -101,11 +101,34 @@ test("keeps the cumulative Phase 4 root mapping exact", async () => {
   );
 });
 
-test("keeps Phase 4 and semantic as separate root verification children", async () => {
+function reachesPnpmScriptV1(scripts, start, target, visiting = new Set()) {
+  if (start === target) return true;
+  if (visiting.has(start)) throw new TypeError(`recursive package script: ${start}`);
+  const command = scripts[start];
+  if (typeof command !== "string") return false;
+
+  visiting.add(start);
+  const children = [
+    ...command.matchAll(/(?:^|&&)\s*pnpm\s+(?:run\s+)?(verify:[a-z0-9:-]+)/giu),
+  ].map((match) => match[1]);
+  const reaches = children.some(
+    (child) => child !== undefined && reachesPnpmScriptV1(scripts, child, target, visiting),
+  );
+  visiting.delete(start);
+  return reaches;
+}
+
+test("keeps Phase 4 transitively owned separately from semantic", async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  );
   const { coreVerificationCommandsV1 } = await import("./verify.mjs");
   const names = coreVerificationCommandsV1.map(([, args]) => args[0]);
-  assert.equal(names.filter((name) => name === "verify:phase4").length, 1);
+  const phaseOwners = names.filter((name) =>
+    reachesPnpmScriptV1(packageJson.scripts, name, "verify:phase4"),
+  );
+  assert.equal(phaseOwners.length, 1);
   assert.equal(names.filter((name) => name === "verify:semantic").length, 1);
-  assert(names.indexOf("verify:phase4") < names.indexOf("verify:semantic"));
+  assert(names.indexOf(phaseOwners[0]) < names.indexOf("verify:semantic"));
   assert(!names.includes("verify"));
 });
