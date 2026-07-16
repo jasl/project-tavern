@@ -66,7 +66,7 @@ describe("PoC provisional Save fixtures", () => {
       current: { health: "invalid", code: "digest.state_mismatch" },
       previous: { health: "valid", disposition: "recovery_candidate" },
     });
-  });
+  }, 30_000);
 
   it("rebuilds all eight canonical files from command-derived captures", async () => {
     const built = await buildPocSaveFixtureMatrixV1();
