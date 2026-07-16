@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-import "./theme/global.css";
-
 export { createAssetRegistryV1 } from "./assets/asset-registry.js";
 export type {
   AssetLoadFaultCodeV1,
