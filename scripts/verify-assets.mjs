@@ -11,10 +11,26 @@ export const assetVerificationCommandV1 = Object.freeze([
   "contract",
   "game/stories/e2e/src/story-contract.test.ts",
 ]);
-export function verifyAssetsV1(root) {
-  const [command, ...args] = assetVerificationCommandV1;
-  if (spawnSync(command, args, { cwd: root, stdio: "inherit" }).status !== 0)
-    throw new TypeError("asset verification failed");
+export const runtimeAssetVerificationCommandV1 = Object.freeze([
+  "node",
+  "--experimental-strip-types",
+  "scripts/assets/verify-runtime-assets.mts",
+]);
+export const assetVerificationCommandsV1 = Object.freeze([
+  assetVerificationCommandV1,
+  runtimeAssetVerificationCommandV1,
+]);
+export function verifyAssetsV1(root, spawn = spawnSync) {
+  for (const [command, ...args] of assetVerificationCommandsV1) {
+    const result = spawn(command, args, {
+      cwd: root,
+      shell: false,
+      stdio: "inherit",
+    });
+    if (result.status !== 0 || (result.signal !== null && result.signal !== undefined)) {
+      throw new TypeError(`asset verification failed: ${command} ${args.join(" ")}`);
+    }
+  }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
   verifyAssetsV1(dirname(dirname(fileURLToPath(import.meta.url))));

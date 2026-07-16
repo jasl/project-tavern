@@ -157,6 +157,22 @@ test("registers the semantic verifier test exactly once", async () => {
   );
 });
 
+test("registers every Phase 5A runtime asset and UI gate test exactly once", async () => {
+  const root = join(import.meta.dirname, "..");
+  const discovered = await discoverScriptTestsV1(root);
+  for (const path of [
+    "scripts/assets/runtime-image-metadata.test.ts",
+    "scripts/assets/validate-runtime.test.ts",
+    "scripts/assets/verify-runtime-assets.test.ts",
+  ]) {
+    assert.equal(discovered.vitest.filter((candidate) => candidate === path).length, 1);
+    assert.equal(discovered.node.filter((candidate) => candidate === path).length, 0);
+  }
+  const uiGateTest = "scripts/ui/verify-ui.test.mjs";
+  assert.equal(discovered.node.filter((candidate) => candidate === uiGateTest).length, 1);
+  assert.equal(discovered.vitest.filter((candidate) => candidate === uiGateTest).length, 0);
+});
+
 test("freezes Goal materialization root mappings and writer reachability", async () => {
   const root = join(import.meta.dirname, "..");
   const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
