@@ -35,18 +35,26 @@
 
 .game-stage__layer[data-stage-layer="hud"] {
   z-index: var(--silly-stage-z-hud);
+  display: grid;
+  align-items: start;
 }
 
 .game-stage__layer[data-stage-layer="workspace_overlay"] {
   z-index: var(--silly-stage-z-workspace-overlay);
+  display: grid;
+  place-items: center;
 }
 
 .game-stage__layer[data-stage-layer="narrative"] {
   z-index: var(--silly-stage-z-narrative);
+  display: grid;
+  align-items: end;
 }
 
 .game-stage__layer[data-stage-layer="system"] {
   z-index: var(--silly-stage-z-system);
+  display: grid;
+  place-items: center;
 }
 
 .game-stage__layer:is(

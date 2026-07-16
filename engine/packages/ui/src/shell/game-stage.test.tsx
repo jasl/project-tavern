@@ -113,6 +113,12 @@ describe("GameStageV1", () => {
     expect(css).toContain("@container game-stage");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
     expect(css).toContain("transition: none");
+    expect(css).toMatch(
+      /\[data-stage-layer="hud"\]\s*\{[^}]*display:\s*grid;[^}]*align-items:\s*start;/su,
+    );
+    expect(css).toMatch(
+      /\[data-stage-layer="narrative"\]\s*\{[^}]*display:\s*grid;[^}]*align-items:\s*end;/su,
+    );
 
     for (const layerId of stageLayerIdsV1) {
       expect(css).toContain(`var(--silly-stage-z-${layerId.replaceAll("_", "-")})`);
