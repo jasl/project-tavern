@@ -1,0 +1,101 @@
+.game-stage {
+  position: relative;
+  z-index: 1;
+  container: game-stage / inline-size;
+  box-sizing: border-box;
+  inline-size: min(100%, var(--silly-stage-max-width), calc(100dvh * 8 / 5));
+  max-inline-size: var(--silly-stage-max-width);
+  max-block-size: 100dvh;
+  aspect-ratio: var(--silly-stage-aspect-ratio);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.game-stage__layer {
+  position: absolute;
+  inset: 0;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.game-stage__layer[data-stage-layer="background"] {
+  z-index: var(--silly-stage-z-background);
+}
+
+.game-stage__layer[data-stage-layer="character"] {
+  z-index: var(--silly-stage-z-character);
+}
+
+.game-stage__layer[data-stage-layer="scene_interaction"] {
+  z-index: var(--silly-stage-z-scene-interaction);
+  pointer-events: auto;
+}
+
+.game-stage__layer[data-stage-layer="hud"] {
+  z-index: var(--silly-stage-z-hud);
+}
+
+.game-stage__layer[data-stage-layer="workspace_overlay"] {
+  z-index: var(--silly-stage-z-workspace-overlay);
+}
+
+.game-stage__layer[data-stage-layer="narrative"] {
+  z-index: var(--silly-stage-z-narrative);
+}
+
+.game-stage__layer[data-stage-layer="system"] {
+  z-index: var(--silly-stage-z-system);
+}
+
+.game-stage__layer:is(
+  [data-stage-layer="hud"],
+  [data-stage-layer="workspace_overlay"],
+  [data-stage-layer="narrative"],
+  [data-stage-layer="system"]
+) {
+  box-sizing: border-box;
+  padding-block: var(--silly-safe-area-block-start) var(--silly-safe-area-block-end);
+  padding-inline: var(--silly-safe-area-inline-start) var(--silly-safe-area-inline-end);
+}
+
+.game-stage__layer:is(
+    [data-stage-layer="hud"],
+    [data-stage-layer="workspace_overlay"],
+    [data-stage-layer="narrative"],
+    [data-stage-layer="system"]
+  )
+  > * {
+  pointer-events: auto;
+}
+
+@container game-stage (max-width: 48rem) {
+  .game-stage__layer:is(
+    [data-stage-layer="hud"],
+    [data-stage-layer="workspace_overlay"],
+    [data-stage-layer="narrative"],
+    [data-stage-layer="system"]
+  ) {
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (aspect-ratio < 4 / 3) {
+  .game-stage {
+    inline-size: 100%;
+    max-inline-size: none;
+    block-size: 100dvh;
+    max-block-size: 100dvh;
+    aspect-ratio: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-stage,
+  .game-stage__layer {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

@@ -103,6 +103,16 @@ describe("E2eApplicationRootV1", () => {
 
     expect(screen.getByRole("main", { name: "E2E 游戏舞台" })).toBeVisible();
     expect(screen.getByText("计数 0")).toBeVisible();
+    expect(screen.getAllByTestId(/^stage-/u)).toHaveLength(7);
+    expect(screen.getByTestId("stage-character")).toBeEmptyDOMElement();
+    expect(screen.getByTestId("stage-scene-interaction")).toBeEmptyDOMElement();
+    expect(screen.getByTestId("stage-workspace-overlay")).toBeEmptyDOMElement();
+    expect(screen.getByTestId("stage-system")).toBeEmptyDOMElement();
+    expect(
+      screen
+        .getAllByTestId(/^stage-/u)
+        .filter((node) => node.hasAttribute("data-stage-pointer-surface")),
+    ).toEqual([screen.getByTestId("stage-scene-interaction")]);
     expect(fixture.storyDefineCalls()).toBe(2);
     expect(fixture.sceneGraphFactoryCalls()).toBe(1);
   });

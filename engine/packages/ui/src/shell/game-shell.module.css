@@ -1,40 +1,126 @@
 .game-shell {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  min-height: 100%;
-  grid-template-rows: minmax(16rem, 1fr) auto auto;
-  color: #f7f1e5;
-  background: #171412;
+  overflow: hidden;
+  inline-size: 100%;
+  min-block-size: 100%;
+  block-size: 100dvh;
+  place-items: center;
+  color: var(--silly-color-text);
+  background: var(--silly-color-canvas);
 }
 
-.game-shell__stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  padding: 2rem;
-}
-.game-shell__hud {
+.game-shell__backdrop {
   position: absolute;
-  inset: 1rem 1rem auto auto;
-}
-.game-shell__workspace {
-  display: flex;
-  justify-content: center;
-  padding: 1rem;
-}
-.game-shell__narrative {
-  min-height: 3rem;
-  padding: 1rem;
-}
-.game-shell__status {
-  position: absolute;
+  z-index: 0;
+  inset: 0;
   overflow: hidden;
-  width: 1px;
-  height: 1px;
-  clip: rect(0 0 0 0);
+  pointer-events: none;
+  user-select: none;
 }
+
+.game-shell__top-card {
+  display: grid;
+  inline-size: min(100%, 72rem);
+  min-block-size: var(--silly-target-min-size);
+  grid-template-columns: minmax(0, 1fr) minmax(min-content, auto) minmax(0, 1fr);
+  gap: var(--silly-space-2);
+  align-items: center;
+  padding: var(--silly-space-2) var(--silly-space-3);
+  overflow: auto;
+  border: 1px solid var(--silly-color-border);
+  border-radius: var(--silly-radius-card);
+  background: var(--silly-color-surface-translucent);
+  backdrop-filter: blur(0.5rem);
+}
+
+.game-shell__top-card-slot {
+  min-inline-size: 0;
+}
+
+.game-shell__top-card-slot[data-slot="center"] {
+  text-align: center;
+}
+
+.game-shell__top-card-slot[data-slot="end"] {
+  text-align: end;
+}
+
 .game-shell__action {
-  min-width: 44px;
-  min-height: 44px;
+  min-block-size: var(--silly-target-min-size);
+  min-inline-size: var(--silly-target-min-size);
+  padding-block: var(--silly-space-2);
+  padding-inline: var(--silly-space-3);
+  border: 1px solid var(--silly-color-border);
+  border-radius: var(--silly-radius-control);
+  color: var(--silly-color-accent-text);
   font: inherit;
+  background: var(--silly-color-accent);
   cursor: pointer;
+}
+
+.game-shell__action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@container game-stage (max-width: 44rem) {
+  .game-shell__top-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "start end"
+      "center center";
+    border-radius: 0;
+    background: var(--silly-color-surface);
+    backdrop-filter: none;
+  }
+
+  .game-shell__top-card-slot[data-slot="start"] {
+    grid-area: start;
+  }
+
+  .game-shell__top-card-slot[data-slot="center"] {
+    grid-area: center;
+  }
+
+  .game-shell__top-card-slot[data-slot="end"] {
+    grid-area: end;
+  }
+}
+
+@media (aspect-ratio < 4 / 3) {
+  .game-shell {
+    overflow: auto;
+    place-items: stretch;
+  }
+
+  .game-shell__top-card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "start"
+      "center"
+      "end";
+  }
+
+  .game-shell__top-card-slot[data-slot="start"] {
+    grid-area: start;
+  }
+
+  .game-shell__top-card-slot[data-slot="center"] {
+    grid-area: center;
+  }
+
+  .game-shell__top-card-slot[data-slot="end"] {
+    grid-area: end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-shell,
+  .game-shell * {
+    scroll-behavior: auto;
+    transition: none !important;
+    animation: none !important;
+  }
 }

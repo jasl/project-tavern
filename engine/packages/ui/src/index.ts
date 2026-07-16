@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import "./theme/global.css";
+
 export { createAssetRegistryV1 } from "./assets/asset-registry.js";
 export type {
   AssetLoadFaultCodeV1,
@@ -17,6 +19,8 @@ export type {
   PresentationReadPortV1,
 } from "./assets/presentation-read-port.js";
 export { usePresentationAssetV1 } from "./assets/use-presentation-asset.js";
+export { Button, IconButton, ProgressMeter } from "./primitives/index.js";
+export type { ButtonPropsV1, IconButtonPropsV1, ProgressMeterPropsV1 } from "./primitives/index.js";
 export { createUiContributionRegistryV1 } from "./contributions/registry.js";
 export type {
   GameRendererContextV1,
@@ -56,8 +60,24 @@ export type {
   SemanticPublicationSourceV1,
 } from "./runtime/semantic-publication-bridge.js";
 export { useSemanticPublicationV1 } from "./runtime/use-semantic-publication.js";
-export { GameShell } from "./shell/game-shell.js";
-export type { GameShellPropsV1, GameShellRendererIdsV1 } from "./shell/game-shell.js";
+export {
+  GameShell,
+  GameStageV1,
+  TopCardHudV1,
+  computeStageFrameV1,
+  stageLayerIdsV1,
+  stageLayoutConstantsV1,
+} from "./shell/index.js";
+export type {
+  GameShellPropsV1,
+  GameStageLayersV1,
+  GameStagePropsV1,
+  StageFrameV1,
+  StageHudSlotsV1,
+  StageLayerIdV1,
+  StageViewportV1,
+  TopCardHudPropsV1,
+} from "./shell/index.js";
 export { GameSymbolV1, createGameSymbolRegistryV1, parseGameSymbolIdV1 } from "./symbols/index.js";
 export type {
   GameSymbolAccessibilityV1,

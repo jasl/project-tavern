@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "verify:docs": "node scripts/docs/verify-docs.mjs",
     "lint": "oxlint --type-aware --deny-warnings --react-plugin --import-plugin engine game scripts",
+    "lint:styles": "stylelint \"engine/packages/**/*.css\" \"game/packages/**/*.css\" \"game/stories/**/*.css\"",
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -p tsconfig.check.json --noEmit --pretty false",
     "verify:boundaries": "node scripts/verify-boundaries.mjs",

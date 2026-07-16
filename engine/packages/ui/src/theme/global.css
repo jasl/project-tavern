@@ -1,0 +1,78 @@
+@import url("@fontsource/noto-sans-sc/chinese-simplified-400.css");
+@import url("@fontsource/noto-sans-sc/chinese-simplified-700.css");
+@import url("./tokens.css");
+
+:where(*, *::before, *::after) {
+  box-sizing: border-box;
+}
+
+:root {
+  color: var(--silly-color-text);
+  font-family: var(--silly-font-family);
+  font-size: var(--silly-text-size-base);
+  line-height: var(--silly-line-height-readable);
+  background: var(--silly-color-canvas);
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizelegibility;
+}
+
+body {
+  min-inline-size: 20rem;
+  min-block-size: 100dvh;
+  margin: 0;
+  background: var(--silly-color-canvas);
+}
+
+:where(button, input, progress, select, textarea) {
+  color: inherit;
+  font: inherit;
+}
+
+.silly-button,
+.silly-icon-button {
+  min-block-size: var(--silly-target-min-size);
+  min-inline-size: var(--silly-target-min-size);
+  border: 1px solid var(--silly-color-border);
+  border-radius: var(--silly-radius-control);
+  color: var(--silly-color-accent-text);
+  background: var(--silly-color-accent);
+  cursor: pointer;
+}
+
+.silly-button {
+  padding-block: var(--silly-space-2);
+  padding-inline: var(--silly-space-3);
+}
+
+.silly-icon-button {
+  display: inline-grid;
+  padding: var(--silly-space-2);
+  place-items: center;
+}
+
+:where(.silly-button, .silly-icon-button):disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+:is(button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--silly-focus-ring-inner);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--silly-focus-ring-outer);
+}
+
+.silly-progress-meter {
+  display: block;
+  inline-size: 100%;
+  min-block-size: 0.75rem;
+  accent-color: var(--silly-color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(*, *::before, *::after) {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}

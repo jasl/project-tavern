@@ -1,0 +1,36 @@
+:root {
+  --silly-stage-basis-width: 1600px;
+  --silly-stage-basis-height: 1000px;
+  --silly-stage-max-width: 1600px;
+  --silly-stage-aspect-ratio: 8 / 5;
+  --silly-target-min-size: 44px;
+  --silly-text-size-base: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  --silly-line-height-readable: 1.6;
+  --silly-font-family: "Noto Sans SC", system-ui, sans-serif;
+  --silly-space-1: 0.25rem;
+  --silly-space-2: 0.5rem;
+  --silly-space-3: 0.75rem;
+  --silly-radius-control: 0.5rem;
+  --silly-radius-card: 0.75rem;
+  --silly-color-canvas: #17120f;
+  --silly-color-surface: #2a211b;
+  --silly-color-surface-translucent: rgb(42 33 27 / 88%);
+  --silly-color-text: #fff8e8;
+  --silly-color-text-muted: #d9cbb8;
+  --silly-color-border: #b98b50;
+  --silly-color-accent: #f1b75b;
+  --silly-color-accent-text: #21160b;
+  --silly-focus-ring-inner: #fff;
+  --silly-focus-ring-outer: #1769e0;
+  --silly-safe-area-block-start: env(safe-area-inset-top, 0px);
+  --silly-safe-area-block-end: env(safe-area-inset-bottom, 0px);
+  --silly-safe-area-inline-start: env(safe-area-inset-left, 0px);
+  --silly-safe-area-inline-end: env(safe-area-inset-right, 0px);
+  --silly-stage-z-background: 0;
+  --silly-stage-z-character: 10;
+  --silly-stage-z-scene-interaction: 20;
+  --silly-stage-z-hud: 30;
+  --silly-stage-z-workspace-overlay: 40;
+  --silly-stage-z-narrative: 50;
+  --silly-stage-z-system: 60;
+}
