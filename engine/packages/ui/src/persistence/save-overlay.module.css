@@ -1,0 +1,71 @@
+.save-overlay {
+  display: grid;
+  gap: calc(2 * var(--silly-space-3));
+  color: var(--silly-color-text);
+}
+
+.save-overlay__header h2,
+.save-overlay__header p,
+.save-overlay__slot h3,
+.save-overlay__slot p {
+  margin-block: 0;
+}
+
+.save-overlay__header {
+  display: grid;
+  gap: var(--silly-space-2);
+}
+
+.save-overlay__slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--silly-space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.save-overlay__slot {
+  display: grid;
+  gap: var(--silly-space-2);
+  min-inline-size: 0;
+  padding: var(--silly-space-3);
+  border: 1px solid var(--silly-color-border);
+  border-radius: var(--silly-radius-card);
+  background: var(--silly-color-canvas);
+}
+
+.save-overlay__slot-actions,
+.save-overlay__global-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--silly-space-2);
+}
+
+.save-overlay__global-actions {
+  justify-content: end;
+}
+
+.save-overlay__result {
+  min-block-size: 1lh;
+  margin: 0;
+  color: var(--silly-color-text-muted);
+}
+
+.save-overlay__result:focus-visible {
+  border-radius: var(--silly-radius-control);
+  outline: 2px solid var(--silly-focus-ring-inner);
+  box-shadow: 0 0 0 4px var(--silly-focus-ring-outer);
+}
+
+@container game-stage (max-width: 44rem) {
+  .save-overlay__slots {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-overlay {
+    scroll-behavior: auto;
+  }
+}

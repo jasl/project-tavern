@@ -27,6 +27,16 @@ export type {
   UiRendererContributionV1,
   UiRendererNamespaceV1,
 } from "./contributions/types.js";
+export { DiagnosticExportButtonV1 } from "./diagnostics/index.js";
+export type { DiagnosticExportButtonPropsV1, DiagnosticExportPortV1 } from "./diagnostics/index.js";
+export { RootErrorBoundaryV1, RuntimeFailureDialogV1 } from "./errors/index.js";
+export type {
+  RootErrorBoundaryFailureDialogV1,
+  RootErrorBoundaryPropsV1,
+  RootErrorBoundaryRecoveryActionsV1,
+  RuntimeFailureDialogActionsV1,
+  RuntimeFailureDialogPropsV1,
+} from "./errors/index.js";
 export { createViewSourceV1, useReadonlyViewV1 } from "./runtime/create-view-bridge.js";
 export type { MutableViewSourceV1 } from "./runtime/create-view-bridge.js";
 export {
@@ -65,6 +75,14 @@ export type {
   OverlaySessionStateV1,
   OverlaySessionStoreV1,
 } from "./overlays/index.js";
+export { SaveOverlayV1 } from "./persistence/index.js";
+export type {
+  SaveOverlayLabelsV1,
+  SaveOverlayPortV1,
+  SaveOverlayPropsV1,
+  SaveUiReadableSlotIdV1,
+  SaveUiWritableSlotIdV1,
+} from "./persistence/index.js";
 export { SemanticActionControlV1 } from "./runtime/semantic-action-control.js";
 export type {
   SemanticActionControlDescriptorV1,
