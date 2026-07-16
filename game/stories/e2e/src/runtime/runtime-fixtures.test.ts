@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { canonicalJsonBytes } from "@sillymaker/base";
+import { canonicalJsonBytes, digestBytes } from "@sillymaker/base";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
@@ -35,6 +35,11 @@ import {
   verifyRuntimeFixtureDirectoryStructureV1,
   verifyRuntimeFixtureDirectoryV1,
 } from "../../scripts/verify-runtime-fixtures.mjs";
+import {
+  isRuntimeFixtureProvenanceCurrentV1,
+  parseRuntimeFixtureProvenanceV1,
+  runtimeFixtureProvenanceV1,
+} from "./runtime-fixture-provenance.js";
 
 const trackedRuntimeFixtureDirectoryV1 = new URL("../test/fixtures/runtime/", import.meta.url);
 const trackedRuntimeFixtureParentV1 = fileURLToPath(new URL("../test/fixtures/", import.meta.url));
@@ -245,6 +250,58 @@ afterEach(async () => {
       await rm(directory, { recursive: true, force: true });
     }),
   );
+});
+
+describe("runtime fixture provenance modes", () => {
+  it("keeps diagnostic-only drift nonblocking for verification and strict for generation", () => {
+    const diagnosticDrift = parseRuntimeFixtureProvenanceV1({
+      ...runtimeFixtureProvenanceV1,
+      diagnosticAtGeneration: {
+        ...runtimeFixtureProvenanceV1.diagnosticAtGeneration,
+        appBuildId: digestBytes(Uint8Array.of(1)),
+      },
+    });
+
+    expect(
+      isRuntimeFixtureProvenanceCurrentV1(
+        diagnosticDrift,
+        runtimeFixtureProvenanceV1,
+        "read_only_verification",
+      ),
+    ).toBe(true);
+    expect(
+      isRuntimeFixtureProvenanceCurrentV1(
+        diagnosticDrift,
+        runtimeFixtureProvenanceV1,
+        "fixture_generation",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects blocking provenance drift in both modes", () => {
+    const blockingDrift = parseRuntimeFixtureProvenanceV1({
+      ...runtimeFixtureProvenanceV1,
+      blocking: {
+        ...runtimeFixtureProvenanceV1.blocking,
+        engineDigest: digestBytes(Uint8Array.of(2)),
+      },
+    });
+
+    expect(
+      isRuntimeFixtureProvenanceCurrentV1(
+        blockingDrift,
+        runtimeFixtureProvenanceV1,
+        "read_only_verification",
+      ),
+    ).toBe(false);
+    expect(
+      isRuntimeFixtureProvenanceCurrentV1(
+        blockingDrift,
+        runtimeFixtureProvenanceV1,
+        "fixture_generation",
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("reviewed E2E runtime fixtures", () => {

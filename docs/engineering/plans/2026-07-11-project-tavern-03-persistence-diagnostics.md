@@ -1976,6 +1976,37 @@ git diff --cached --check
 git commit -m "test(runtime): freeze persistence diagnostics evidence"
 ```
 
+#### Accepted Task 11 owner repair: keep generation diagnostics strict but nonblocking
+
+Phase 5 application/UI source correctly changes diagnostics-only `appBuildId` while the frozen
+runtime Save/replay tuple remains unchanged. Read-only fixture verification therefore compares the
+live blocking provenance tuple and continues to verify the tracked manifest's complete historical
+`diagnosticAtGeneration` and the separately frozen generator-source-digest-at-generation value. Its
+in-memory reconstruction uses those historical diagnostic values while proving every payload and
+manifest byte remains reproducible; an arbitrary manifest digest is still rejected. It must not
+require historical diagnostics to equal the current Artifact. The sole tracked writer remains
+stricter, refuses to build a candidate unless both provenance tuples match the reviewed source
+constant, and always records the current generator source digest. Custom temporary writer targets
+retain the read-only reconstruction mode solely for transaction/recovery testing.
+
+**Exact repair files:**
+
+- Modify: `game/stories/e2e/src/runtime/runtime-fixture-provenance.ts`
+- Modify: `game/stories/e2e/src/runtime/runtime-fixtures.test.ts`
+- Modify: `game/stories/e2e/scripts/runtime-fixture-builder.mts`
+- Modify: `game/stories/e2e/scripts/regenerate-runtime-fixtures.mts`
+- Modify: `game/stories/e2e/scripts/verify-runtime-fixtures.mts`
+- Modify: `docs/engineering/plans/2026-07-11-project-tavern-03-persistence-diagnostics.md`
+
+First add focused assertions that diagnostic-only drift is accepted in
+`read_only_verification` mode but rejected in `fixture_generation` mode, while blocking drift is
+rejected in both. Then route the read-only builder/verifier through the former mode, reconstruct
+with the manifest's historical diagnostic values, and route only the tracked writer through the
+latter. Do not run the writer or change any tracked fixture, Golden, Save or digest byte. Run the
+focused runtime-fixture suite, `pnpm verify:runtime-fixtures`,
+`pnpm verify:persistence-diagnostics`, `pnpm verify`, and `git diff --check`; exact-stage only the
+six files above and commit `fix(story-e2e): keep fixture diagnostics nonblocking`.
+
 ## Phase 3 Acceptance
 
 从 Phase 3 最终 HEAD 运行：

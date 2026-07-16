@@ -31,7 +31,9 @@ interface RuntimeFixtureSetV1 {
 
 interface RuntimeFixtureBuilderModuleV1 {
   readonly runtimeFixturePayloadNamesV1: readonly string[];
-  readonly buildRuntimeFixtureSetV1: () => Promise<RuntimeFixtureSetV1>;
+  readonly buildRuntimeFixtureSetV1: (options?: {
+    readonly provenanceMode?: "read_only_verification" | "fixture_generation";
+  }) => Promise<RuntimeFixtureSetV1>;
 }
 
 interface RuntimeFixtureVerifierModuleV1 {
@@ -802,7 +804,12 @@ export async function regenerateRuntimeFixturesV1(
   if (recovered !== undefined) return recovered;
 
   await assertTrackedTargetCleanV1(targetClassification);
-  const builtFixtureSet = options.fixtureSet ?? (await modules.builder.buildRuntimeFixtureSetV1());
+  const builtFixtureSet =
+    options.fixtureSet ??
+    (await modules.builder.buildRuntimeFixtureSetV1({
+      provenanceMode:
+        targetClassification.kind === "tracked" ? "fixture_generation" : "read_only_verification",
+    }));
   const fixtureSet = normalizeFixtureSetV1(
     builtFixtureSet,
     modules.builder.runtimeFixturePayloadNamesV1,

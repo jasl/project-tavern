@@ -62,6 +62,8 @@ function loadBuilderV1(): Promise<typeof import("./runtime-fixture-builder.mjs")
 const trackedRuntimeFixtureDirectoryV1 = fileURLToPath(
   new URL("../src/test/fixtures/runtime/", import.meta.url),
 );
+const runtimeFixtureGeneratorSourceDigestAtGenerationV1 =
+  "sha256:80f44fb064786d93c9a809d58b3a064711e70df903aefe86fdb90a5ee8f98f1d";
 
 type ExactFieldsV1 = Readonly<Record<string, unknown>>;
 
@@ -356,8 +358,15 @@ export async function verifyRuntimeFixtureDirectoryV1(
   const manifestBytes = actual.get("manifest.v1.json");
   if (manifestBytes === undefined) throw new TypeError("missing runtime fixture manifest");
   const manifest = await parseManifestV1(manifestBytes);
-  const expectedSourceDigest = await computeRuntimeFixtureGeneratorSourceDigestV1(context.root);
-  if (manifest.generatorSourceDigest !== expectedSourceDigest) {
+  const currentSourceDigest = await computeRuntimeFixtureGeneratorSourceDigestV1(context.root);
+  const historicalSourceDigest = modules.base.parseDigest(
+    runtimeFixtureGeneratorSourceDigestAtGenerationV1,
+  );
+  if (
+    manifest.generatorSourceDigest !== currentSourceDigest &&
+    (options.compareWithBuilder !== true ||
+      manifest.generatorSourceDigest !== historicalSourceDigest)
+  ) {
     throw new TypeError("runtime fixture generator source digest drifted");
   }
   const expectedProvenance = context.frozenProvenance;
@@ -396,7 +405,14 @@ export async function verifyRuntimeFixtureDirectoryV1(
     assertFixtureSetBytesV1(actual, options.compareWithFixtureSet);
   }
   if (options.compareWithBuilder === true) {
-    assertFixtureSetBytesV1(actual, await buildRuntimeFixtureSetV1({ root: context.root }));
+    assertFixtureSetBytesV1(
+      actual,
+      await buildRuntimeFixtureSetV1({
+        root: context.root,
+        provenanceMode: "read_only_verification",
+        historicalGeneratorSourceDigest: historicalSourceDigest,
+      }),
+    );
   }
   return Object.freeze({
     fileCount: 11 as const,

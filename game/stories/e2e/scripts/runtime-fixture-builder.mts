@@ -23,7 +23,10 @@ import type {
   E2eGameSnapshotV1,
 } from "../src/gameplay/contracts/index.js";
 import type { E2eResolvedGameV1 } from "../src/story-entry.js";
-import type { RuntimeFixtureProvenanceV1 } from "../src/runtime/runtime-fixture-provenance.js";
+import type {
+  RuntimeFixtureProvenanceModeV1,
+  RuntimeFixtureProvenanceV1,
+} from "../src/runtime/runtime-fixture-provenance.js";
 import type { GameSessionDebugInputV1 } from "@sillymaker/base/runtime";
 import type { E2eDebugBundleV1 } from "../src/runtime/e2e-debug-bundle.js";
 
@@ -146,6 +149,8 @@ export interface RuntimeFixtureSetV1 {
 export interface BuildRuntimeFixtureSetOptionsV1 {
   readonly root?: string;
   readonly generatedAt?: string;
+  readonly provenanceMode?: RuntimeFixtureProvenanceModeV1;
+  readonly historicalGeneratorSourceDigest?: Digest;
 }
 
 type ExactFieldsV1 = Readonly<Record<string, unknown>>;
@@ -502,18 +507,9 @@ function createRuntimeFixtureCodecV1(
   return Object.freeze({ codec, snapshotSchema });
 }
 
-function canonicalBytesEqualV1(
-  left: unknown,
-  right: unknown,
-  base: Awaited<ReturnType<typeof loadModulesV1>>["base"],
-): boolean {
-  return Buffer.from(base.canonicalJsonBytes(left)).equals(
-    Buffer.from(base.canonicalJsonBytes(right)),
-  );
-}
-
 export async function createRuntimeFixtureVerificationContextV1(
   root = repositoryRootV1,
+  provenanceMode: RuntimeFixtureProvenanceModeV1 = "read_only_verification",
 ): Promise<RuntimeFixtureVerificationContextV1> {
   const modules = await loadModulesV1();
   const absoluteRoot = resolve(root);
@@ -542,9 +538,19 @@ export async function createRuntimeFixtureVerificationContextV1(
   const frozenProvenance = modules.provenance.parseRuntimeFixtureProvenanceV1(
     modules.provenance.runtimeFixtureProvenanceV1,
   );
-  if (!canonicalBytesEqualV1(projected, frozenProvenance, modules.base)) {
+  if (
+    !modules.provenance.isRuntimeFixtureProvenanceCurrentV1(
+      projected,
+      frozenProvenance,
+      provenanceMode,
+    )
+  ) {
     throw new TypeError("runtime_fixture_generation.provenance_drift");
   }
+  const fixtureAppBuildId =
+    provenanceMode === "read_only_verification"
+      ? frozenProvenance.diagnosticAtGeneration.appBuildId
+      : appBuildId;
   const codec = createRuntimeFixtureCodecV1(modules, resolved);
   const debugCodec = modules.debugBundle.createE2eDebugBundleCodecV1(
     resolved.gameSimulation.stateSchema,
@@ -556,7 +562,7 @@ export async function createRuntimeFixtureVerificationContextV1(
   return Object.freeze({
     root: absoluteRoot,
     resolved,
-    appBuildId,
+    appBuildId: fixtureAppBuildId,
     frozenProvenance,
     codec: codec.codec,
     snapshotSchema: codec.snapshotSchema,
@@ -1025,9 +1031,16 @@ export async function buildRuntimeFixtureSetV1(
 ): Promise<RuntimeFixtureSetV1> {
   const root = resolve(options.root ?? repositoryRootV1);
   const generatedAt = parseGeneratedAtV1(options.generatedAt ?? "2026-07-14T00:00:00.000Z");
+  const provenanceMode = options.provenanceMode ?? "read_only_verification";
+  if (
+    provenanceMode === "fixture_generation" &&
+    options.historicalGeneratorSourceDigest !== undefined
+  ) {
+    throw new TypeError("runtime_fixture_generation.historical_source_digest_forbidden");
+  }
   const [modules, verificationContext] = await Promise.all([
     loadModulesV1(),
-    createRuntimeFixtureVerificationContextV1(root),
+    createRuntimeFixtureVerificationContextV1(root, provenanceMode),
   ]);
   const payloads = await buildPayloadsV1(verificationContext, generatedAt);
   const files: RuntimeFixtureManifestEntryV1[] = [];
@@ -1048,7 +1061,9 @@ export async function buildRuntimeFixtureSetV1(
     files: Object.freeze(files),
     blockingProvenance: verificationContext.frozenProvenance.blocking,
     diagnosticAtGeneration: verificationContext.frozenProvenance.diagnosticAtGeneration,
-    generatorSourceDigest: await computeRuntimeFixtureGeneratorSourceDigestV1(root),
+    generatorSourceDigest:
+      options.historicalGeneratorSourceDigest ??
+      (await computeRuntimeFixtureGeneratorSourceDigestV1(root)),
   });
   const manifestBytes = modules.base.canonicalJsonBytes(manifest);
   const allFiles = new Map<string, Uint8Array>(payloads);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
+  canonicalJsonBytes,
   parseDigest,
   parsePositiveSafeInteger,
   type BuildProvenanceV1,
@@ -33,6 +34,36 @@ export interface RuntimeFixtureProvenanceV1 {
   readonly formatRevision: 1;
   readonly blocking: RuntimeFixtureBlockingProvenanceV1;
   readonly diagnosticAtGeneration: RuntimeFixtureDiagnosticProvenanceV1;
+}
+
+export type RuntimeFixtureProvenanceModeV1 = "read_only_verification" | "fixture_generation";
+
+function canonicalDataEqualV1(left: unknown, right: unknown): boolean {
+  const leftBytes = canonicalJsonBytes(left);
+  const rightBytes = canonicalJsonBytes(right);
+  if (leftBytes.byteLength !== rightBytes.byteLength) return false;
+  return leftBytes.every((byte, index) => byte === rightBytes[index]);
+}
+
+/**
+ * Keeps Save/replay compatibility provenance blocking while preserving generation diagnostics as
+ * immutable evidence. A writer must additionally prove that its diagnostic-at-generation tuple is
+ * current before it can produce new reviewed bytes.
+ */
+export function isRuntimeFixtureProvenanceCurrentV1(
+  live: DeepReadonly<RuntimeFixtureProvenanceV1>,
+  frozen: DeepReadonly<RuntimeFixtureProvenanceV1>,
+  mode: RuntimeFixtureProvenanceModeV1,
+): boolean {
+  if (!canonicalDataEqualV1(live.blocking, frozen.blocking)) return false;
+  switch (mode) {
+    case "read_only_verification":
+      return true;
+    case "fixture_generation":
+      return canonicalDataEqualV1(live.diagnosticAtGeneration, frozen.diagnosticAtGeneration);
+    default:
+      throw new TypeError("invalid runtime fixture provenance mode");
+  }
 }
 
 function parseNonemptyAsciiTextV1(value: unknown, label: string): string {
