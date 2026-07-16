@@ -321,8 +321,11 @@ The Contract Catalog and StageScene/Interaction design assign renderer registrie
 `UiRendererBindingV1` and four-bucket `UiContributionSetV1` types. They conflict with Task 2's
 seven renderer namespaces and orthogonal GameSymbol registry. Before Task 2 RED, remove those two
 type-only exports from Base and make the package-qualified UI contract the only renderer
-contribution ABI. This repair changes no Gameplay State, state-contract revision, Simulation,
-semantic outcome, dependency or materialization input.
+contribution ABI. This repair changes no Gameplay State, state-contract revision, Gameplay
+behavior, semantic outcome, dependency or materialization input. The source-based identity chain
+must still be allowed to move: the PoC Rule provider entry closures transitively import the Base
+public entry, so removing the two exports changes all seven generated provider-source digests and
+therefore the resolved PoC simulation digest even though every Rule result stays identical.
 
 **Exact repair files:**
 
@@ -356,13 +359,48 @@ Review the exact 10 payloads, manifest, session-zero and golden diffs plus their
 After the runtime writer succeeds, update the read-only verifier's separately frozen
 generation-time source digest to the exact new manifest value; this verifier constant changes only
 when the sole tracked writer creates a newly reviewed baseline.
-The state-contract and simulation digests, serialized State, command sequence and semantic results
-must remain unchanged. Before staging run `pnpm typecheck`, `pnpm verify:public-exports`,
+The state-contract digest, serialized State, command sequence and semantic results must remain
+unchanged. Before staging run `pnpm typecheck`, `pnpm verify:public-exports`,
 `pnpm verify:runtime-fixtures`, and `git diff --check`; exact-stage only the repair files above that
 changed and commit `fix(base): retire obsolete UI contribution ABI`. The cumulative
 `pnpm verify:persistence-diagnostics` and `pnpm verify` gates begin with the strict clean-tree
 materialization precondition, so run both immediately after that commit and accept the repair only
 when they exit 0 without tracked-byte drift.
+
+The first clean-tree post-commit `pnpm verify:persistence-diagnostics` run exposed the expected
+provider-closure drift as exactly seven `rule-source-digests.test.ts` mismatches. Complete the same
+earlier-owner recovery with one narrow follow-up repair commit. Its exact files are this plan,
+`game/stories/poc/src/rule-source-digests.generated.ts`,
+`game/stories/poc/src/testing/save-fixture-provenance.ts`, and the eight tracked JSON files under
+`game/stories/poc/src/test/fixtures/saves/`. Run only the existing sole writers, in this order:
+
+```bash
+pnpm --filter @project-tavern/story-poc update:rule-source-digests
+# project and review the live PoC fixture provenance, then update its frozen identity tuple
+pnpm --filter @project-tavern/story-poc update:fixtures
+```
+
+Review all seven generated provider digests and all eight Save writer outputs; seven legal/derived
+records change only their current simulation digest, while the dedicated digest-mismatch negative
+remains byte-identical because it already carries its fixed alternative digest. The PoC
+simulation digest and any diagnostic identity derived from that source are expected to change;
+Story behavior, state-contract identity, PatchSet identity, every serialized Snapshot/State,
+state digest, command sequence, integrity value, and negative-fixture classification must remain
+unchanged. Before staging, rerun the independent rule-source verifier, `pnpm verify:fixtures`,
+`pnpm verify:golden`, `pnpm typecheck`, and `git diff --check`; none may invoke a writer or leave
+additional tracked-byte drift. Then exact-stage and commit:
+
+```bash
+git add -- docs/engineering/plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md game/stories/poc/src/rule-source-digests.generated.ts game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/saves
+git diff --cached --name-status
+git diff --cached --check
+git commit -m "fix(story-poc): refresh rule provenance after Base ABI repair"
+```
+
+The staged set is exactly the plan, generated source digests, frozen provenance, and the seven Save
+JSON files that changed. Immediately after the commit, require a clean tree and run
+`pnpm verify:materialization`, `pnpm verify:persistence-diagnostics`, and `pnpm verify`; accept the
+owner repair and begin Task 2 RED only when all three exit 0 without tracked-byte drift.
 
 Task 2 additionally freezes `SemanticActionControlV1.disabledReasonLabels` as one resolved,
 nonempty label for each `descriptor.reasons` entry in the same authored order. The Story renderer
