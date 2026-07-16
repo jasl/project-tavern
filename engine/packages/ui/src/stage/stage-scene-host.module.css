@@ -1,0 +1,47 @@
+.stage-scene-background {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.stage-scene-variant {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 1;
+  transition: opacity 200ms ease-in-out;
+}
+
+@starting-style {
+  .stage-scene-variant {
+    opacity: 0;
+  }
+}
+
+.stage-scene-fallback {
+  display: grid;
+  box-sizing: border-box;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  color: currentcolor;
+  background: color-mix(in srgb, currentcolor 8%, transparent);
+  pointer-events: none;
+}
+
+.stage-scene-fallback > * {
+  inline-size: min(50%, 18rem);
+  block-size: min(50%, 12rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-scene-variant {
+    transition: none;
+  }
+}

@@ -126,6 +126,12 @@ export type {
   StageViewportV1,
   TopCardHudPropsV1,
 } from "./shell/index.js";
+export { CodeFallbackStageSceneV1, StageSceneHostV1 } from "./stage/index.js";
+export type {
+  RuntimeStageSceneV1,
+  StageBackgroundPresentationV1,
+  StageSceneHostPropsV1,
+} from "./stage/index.js";
 export { SettingsDialogV1, SettingsLauncherV1, SystemDialogHostV1 } from "./system/index.js";
 export type {
   SettingsDialogPropsV1,
