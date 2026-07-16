@@ -42,8 +42,6 @@ export type {
   SessionLeaseOwnerId,
   SessionLeasePortV1,
   SessionLifecyclePortV1,
-  UiContributionSetV1,
-  UiRendererBindingV1,
 } from "./application.js";
 export type {
   GamePackageV1,

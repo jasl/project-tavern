@@ -257,6 +257,4 @@ export type {
   StatelessGameplayModuleBindingV1,
   TextCatalogSetV1,
   TextId,
-  UiContributionSetV1,
-  UiRendererBindingV1,
 } from "./contracts/index.js";

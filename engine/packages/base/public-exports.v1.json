@@ -192,8 +192,6 @@
         "StrictJsonValueV1",
         "TextCatalogSetV1",
         "TextId",
-        "UiContributionSetV1",
-        "UiRendererBindingV1",
         "canonicalJsonBytes",
         "canonicalPresentationJsonBytesV1",
         "combineContentMaturityFlagsV1",

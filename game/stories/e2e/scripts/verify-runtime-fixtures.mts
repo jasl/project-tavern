@@ -63,7 +63,7 @@ const trackedRuntimeFixtureDirectoryV1 = fileURLToPath(
   new URL("../src/test/fixtures/runtime/", import.meta.url),
 );
 const runtimeFixtureGeneratorSourceDigestAtGenerationV1 =
-  "sha256:80f44fb064786d93c9a809d58b3a064711e70df903aefe86fdb90a5ee8f98f1d";
+  "sha256:b22d5bd19f36eba7598a220876d6e468d8add0d6d3231923fb5ec1ddc037a56f";
 
 type ExactFieldsV1 = Readonly<Record<string, unknown>>;
 

@@ -314,6 +314,63 @@ git commit -m "feat(ui): add demand-driven asset presentation"
 
 Expected staged paths are only `engine/packages/ui/src/assets/**`, `engine/packages/ui/type-tests/assets-public.test-d.ts`, `engine/packages/ui/package.json`, `engine/packages/ui/src/index.ts`, `engine/packages/web/src/assets/**`, and `engine/packages/web/src/index.ts`.
 
+### Authorized pre-Task 2 owner repair: retire the provisional Base UI contribution ABI
+
+The Contract Catalog and StageScene/Interaction design assign renderer registries to
+`@sillymaker/ui`, but the accepted Phase 2 Base surface still exports unused provisional
+`UiRendererBindingV1` and four-bucket `UiContributionSetV1` types. They conflict with Task 2's
+seven renderer namespaces and orthogonal GameSymbol registry. Before Task 2 RED, remove those two
+type-only exports from Base and make the package-qualified UI contract the only renderer
+contribution ABI. This repair changes no Gameplay State, state-contract revision, Simulation,
+semantic outcome, dependency or materialization input.
+
+**Exact repair files:**
+
+- Modify: `docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md`
+- Modify: `docs/engineering/plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md`
+- Modify: `engine/packages/base/src/contracts/application.ts`
+- Modify: `engine/packages/base/src/contracts/index.ts`
+- Modify: `engine/packages/base/src/index.ts`
+- Modify: `engine/packages/base/type-tests/application.test-d.ts`
+- Modify: `engine/packages/base/public-exports.v1.json`
+- Modify: `game/stories/e2e/src/runtime/runtime-fixture-provenance.ts`
+- Modify: `game/stories/e2e/scripts/verify-runtime-fixtures.mts`
+- Regenerate and review: `game/stories/e2e/src/test/fixtures/runtime/*.json`
+- Regenerate and review: `game/stories/e2e/fixtures/session-zero.json`
+- Regenerate and review: `game/stories/e2e/golden/semantic-flow.json`
+
+First replace the positive Base type consumer with negative `@ts-expect-error` assertions and run
+`pnpm typecheck`; expected RED is exactly TS2578 while Base still exports the two obsolete names.
+Remove the declarations and named exports, update the reviewed public inventory, and rerun
+typecheck/public-export checks. Because Base source bytes intentionally change the source-based
+engine digest, project and review the live provenance, update only the frozen `engineDigest` and
+`appBuildId`, then run the existing sole writers in this order:
+
+```bash
+pnpm --filter @project-tavern/story-e2e regenerate:runtime-fixtures
+pnpm regenerate:fixtures
+pnpm update:golden
+```
+
+Review the exact 10 payloads, manifest, session-zero and golden diffs plus their SHA-256 values.
+After the runtime writer succeeds, update the read-only verifier's separately frozen
+generation-time source digest to the exact new manifest value; this verifier constant changes only
+when the sole tracked writer creates a newly reviewed baseline.
+The state-contract and simulation digests, serialized State, command sequence and semantic results
+must remain unchanged. Before staging run `pnpm typecheck`, `pnpm verify:public-exports`,
+`pnpm verify:runtime-fixtures`, and `git diff --check`; exact-stage only the repair files above that
+changed and commit `fix(base): retire obsolete UI contribution ABI`. The cumulative
+`pnpm verify:persistence-diagnostics` and `pnpm verify` gates begin with the strict clean-tree
+materialization precondition, so run both immediately after that commit and accept the repair only
+when they exit 0 without tracked-byte drift.
+
+Task 2 additionally freezes `SemanticActionControlV1.disabledReasonLabels` as one resolved,
+nonempty label for each `descriptor.reasons` entry in the same authored order. The Story renderer
+resolves those strings through its `PresentationReadPortV1`; neutral UI never stringifies or maps a
+Story rejection DTO. The E2E migration assigns `choose`/`continue` controls to `narrative`,
+`start`/`increment`/`complete` controls to `hud`, and the existing character renderer to
+`character`; it adds no Gameplay or second availability calculation.
+
 ## Task 2: Bridge one atomic SemanticPublication and register neutral renderers
 
 **Files:**
@@ -389,6 +446,7 @@ it("dispatches the Story-supplied invocation unchanged", async () => {
       invocation={typedInvocation}
       semantic={semantic}
       label="营业"
+      disabledReasonLabels={[]}
     />,
   );
   await userEvent.setup().click(screen.getByRole("button", { name: "营业" }));
@@ -541,11 +599,17 @@ export function GameSymbolV1(props: GameSymbolPropsV1): ReactElement;
 
 `createGameSymbolRegistryV1` is deliberately separate from the seven Stage renderer maps. It rejects empty/duplicate IDs, preserves authored order for diagnostics, and never imports Lucide or project IDs. `GameSymbolV1` accepts only 16/20/24/32 px, requires exactly one of a nonempty `accessibleName` or `decorative=true`, and renders a visible code-native fallback for an unknown/failed provider. Lucide remains the implementation choice for system buttons only; Story applications register world-semantic providers in Phase 5B.
 
-`SemanticActionControlV1` takes the descriptor and the exact typed invocation from a Story renderer. It uses descriptor `enabled`, emits disabled reasons in authored order through `aria-describedby`, and calls only `semantic.dispatch(invocation)`. It never constructs parameters, maps to a Gameplay Command, calls Queries, performs optimistic Gameplay mutation, or reads `GameApplicationPortV1`.
+`SemanticActionControlV1` takes the descriptor, the exact typed invocation and
+`disabledReasonLabels` from a Story renderer. The labels must be a frozen one-to-one projection of
+`descriptor.reasons`, contain no empty string and retain authored order; a mismatch fails with
+`ui.semantic_action_reason_mismatch`. It uses descriptor `enabled`, emits those resolved labels in
+order through `aria-describedby`, and calls only `semantic.dispatch(invocation)`. It never
+stringifies or maps a Story rejection DTO, constructs parameters, maps to a Gameplay Command,
+calls Queries, performs optimistic Gameplay mutation, or reads `GameApplicationPortV1`.
 
 Type/boundary tests prove `GameRendererContextV1` cannot expose `GameSnapshot`, `GameSession`, `GameQueries`, State, owner capability, DebugTools, RuntimeCapabilities, or Story tooling. The `presentation` parameter is the narrow `PresentationReadPortV1`, not `ResolvedGame.presentation` or the resolved asset manifest.
 
-Migrate the already-existing Phase-2 E2E renderer set and `E2eApplicationRootV1` to the new namespaces in the same task: its existing scene renderer becomes a `background` contribution, its current semantic controls become `hud` or `narrative` contributions according to their existing role, and unused namespaces are empty. Update `GameShell` only enough to resolve those new namespaces while preserving the Phase-2 visual checkpoint; Task 4 replaces that temporary flat placement with the fixed seven-layer Stage. This is a contract migration of the existing E2E root, not a new root, renderer, scene, or behavior.
+Migrate the already-existing Phase-2 E2E renderer set and `E2eApplicationRootV1` to the new namespaces in the same task: its existing scene renderer becomes a `background` contribution, `start`/`increment`/`complete` controls become `hud`, `choose`/`continue` controls become `narrative`, the existing character renderer becomes `character`, and unused namespaces are empty. Update `GameShell` only enough to resolve those new namespaces while preserving the Phase-2 visual checkpoint; Task 4 replaces that temporary flat placement with the fixed seven-layer Stage. This is a contract migration of the existing E2E root, not a new root, renderer, scene, or behavior.
 
 - [ ] **Step 5: Run runtime, type, architecture, UI, and full verification**
 

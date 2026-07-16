@@ -212,21 +212,3 @@ export interface SemanticGamePortInputV1<
   preview(queries: TQueries, invocation: DeepReadonly<TInvocation>): TPreview;
   dispatch(invocation: DeepReadonly<TInvocation>): Promise<TResult>;
 }
-
-export interface UiRendererBindingV1<TId, TViewModel, TViewSlice, TRenderer> {
-  readonly id: TId;
-  select(view: DeepReadonly<TViewModel>): DeepReadonly<TViewSlice>;
-  readonly renderer: TRenderer;
-}
-
-export interface UiContributionSetV1<
-  TSceneBinding,
-  TOverlayBinding,
-  THudBinding,
-  TGameSymbolProvider,
-> {
-  readonly scenes: readonly TSceneBinding[];
-  readonly overlays: readonly TOverlayBinding[];
-  readonly hud: readonly THudBinding[];
-  readonly gameSymbols: readonly TGameSymbolProvider[];
-}

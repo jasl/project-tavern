@@ -170,7 +170,7 @@ export const runtimeFixtureProvenanceV1 = parseRuntimeFixtureProvenanceV1({
     storyRevision: 1,
     stateContractRevision: 1,
     stateContractDigest: "sha256:e3c1273a0bd3514a7a75a848873051f39170026624ae47ccae6790640b69897e",
-    engineDigest: "sha256:495a4e46f2352a19e68838b62e1bd63d0b500d1408c0dc6d911407ff74838077",
+    engineDigest: "sha256:e13a88de834d5f243ae8824ea3ed42414bef1678d86daef61eb207a4d162d1b2",
     simulationDigest: "sha256:6ef07f9708aca997c1ab2fe782ed038f4d5757274d0b3f87dcfbd6877a981ca5",
   },
   diagnosticAtGeneration: {
@@ -183,6 +183,6 @@ export const runtimeFixtureProvenanceV1 = parseRuntimeFixtureProvenanceV1({
       appliedHotfixes: [],
     },
     engineVersion: "0.0.0",
-    appBuildId: "sha256:1f8e2061ff30a923160b1e31c9910d1a607a2ee50c44d3c8f955c455bb1ab997",
+    appBuildId: "sha256:8fb52c221f2c7187d7e7bde77bd117057b24f5150aba699175cd698b2930148b",
   },
 });

@@ -9,7 +9,6 @@ import type {
   ReadonlyViewSourceV1,
   RuntimeCapabilitiesV1,
   RuntimeCapabilityPortV1,
-  UiRendererBindingV1,
 } from "@sillymaker/base";
 import {
   createCapabilityDisabledDebugToolsPortV1,
@@ -100,21 +99,6 @@ export const composedApplication = createGameApplicationV1({
   debugTools: typedDebugTools,
 });
 
-export const renderer: UiRendererBindingV1<
-  "hud",
-  {},
-  {},
-  (context: {
-    readonly viewSlice: {};
-    readonly semantic: SyntheticSemanticPortV1;
-    readonly presentation: typeof presentation;
-  }) => unknown
-> = {
-  id: "hud",
-  select: () => ({}),
-  renderer: () => null,
-};
-
 // @ts-expect-error the unified application has no nested Player application
 application.player;
 // @ts-expect-error the unified application has no nested Developer application
@@ -148,6 +132,20 @@ export type OldDeveloperControl = import("@sillymaker/base").DeveloperControlPor
   unknown,
   unknown,
   unknown,
+  unknown,
+  unknown,
+  unknown,
+  unknown
+>;
+// @ts-expect-error renderer contribution contracts belong to @sillymaker/ui
+export type OldUiRendererBinding = import("@sillymaker/base").UiRendererBindingV1<
+  string,
+  unknown,
+  unknown,
+  unknown
+>;
+// @ts-expect-error renderer contribution contracts belong to @sillymaker/ui
+export type OldUiContributionSet = import("@sillymaker/base").UiContributionSetV1<
   unknown,
   unknown,
   unknown,

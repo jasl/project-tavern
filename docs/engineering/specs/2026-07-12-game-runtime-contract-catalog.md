@@ -3492,20 +3492,14 @@ interface GameApplicationPortV1<
   readonly capabilities: TCapabilities;
   readonly debugTools: TDebugTools;
 }
-
-interface UiRendererBindingV1<TId, TViewModel, TViewSlice, TRenderer> {
-  readonly id: TId;
-  select(view: DeepReadonly<TViewModel>): DeepReadonly<TViewSlice>;
-  readonly renderer: TRenderer;
-}
-
-interface UiContributionSetV1<TSceneBinding, TOverlayBinding, THudBinding, TGameSymbolProvider> {
-  readonly scenes: readonly TSceneBinding[];
-  readonly overlays: readonly TOverlayBinding[];
-  readonly hud: readonly THudBinding[];
-  readonly gameSymbols: readonly TGameSymbolProvider[];
-}
 ```
+
+Base 的 Application ABI 到 `GameApplicationPortV1`、`SemanticGamePortV1` 与
+`PresentationReadPortV1` 为止，不导出 renderer binding、React contribution 或 GameSymbol provider
+合同。旧的四桶 `UiRendererBindingV1`/`UiContributionSetV1` 是 Phase 2 provisional public-ABI
+残留，在 Phase 5A Task 2 前移除；它们从未进入 Story 定义、ResolvedGame、Simulation、Save 或
+Artifact 行为。`@sillymaker/ui` 独占七 namespace runtime renderer contribution 合同，GameSymbol
+使用正交 registry；二者都不能反向进入 Base、GameSimulation 或 Headless closure。
 
 `ContentMaturityFlagsV1` 是 `0..0xffffffff` 的规范 uint32；Base 导出唯一零值 `emptyContentMaturityFlagsV1`，authoring/runtime 代码不得用裸 `0` 冒充 branded mask。`ContentMaturityFlagBitV1` 是它的 nominal refinement/subtype，还必须是 `2^0..2^31` 中的非零 one-hot 位。它不能用第二个 `Brand<..., Name>` 与 mask brand 相交，因为当前单 brand-symbol helper 会把不同名称交成 `never`；专用 private unique-symbol refinement 保证 bit 可安全传给任何 mask 参数，反向则不成立。Base helper 的每次按位结果都执行 `>>> 0`，不得把 JavaScript signed int32 表象泄漏到公共结果或 JSON。`combineContentMaturityFlagsV1` 使用规范化 OR；`setContentMaturityFlagV1` 是 checkbox/adapter 唯一通用置位/清位 helper，精确语义分别为 `((flags | flag) >>> 0)` 与 `((flags & ~flag) >>> 0)`。零掩码表示无受限特征的标准内容，不登记为 flag 且始终允许。`isContentRequirementAllowedV1` 的精确语义是 `((requiredFlags & allowedFlags) >>> 0) === requiredFlags`；v1 不提供 any-of DSL。
 
@@ -3528,7 +3522,7 @@ Runtime-gated DebugTools 的 `inspectDebugBundle` 与 `inspectReplayBestEffort` 
 
 `DebugToolsOperationResultV1` 是 Application capability 外层；Story-specific allowed result 不重复携带权限状态。`listFixtures` 的 `{ kind: "listed", fixtureIds: [] }` 表示已授权但没有 fixture，`{ kind: "capability_disabled" }` 表示调用时未授权。所有八个方法关闭时都 resolve 后者，不 reject、不 throw、不导入 tooling，也不进入 FIFO。
 
-`@sillymaker/ui` 实现中性 renderer/contribution 注册，Story/GameSimulation 提供具体 ID 与只读 GameQueries 投影。所有 Scene/Overlay/HUD ID 在各自 registry 内唯一；renderer 只能收到 view slice、Story-specialized SemanticGamePort 与 PresentationReadPort，不能收到 Snapshot、GameSession、DebugTools 或 Module owner capability。
+`@sillymaker/ui` 实现中性 renderer/contribution 注册，Story/GameSimulation 提供具体 ID 与只读 GameQueries 投影。七个 namespace 精确为 `background | character | scene_interaction | hud | workspace_overlay | narrative | system`；renderer ID 只要求在同一 namespace 内唯一，GameSymbol 不属于任何 renderer namespace。renderer 只能收到 view slice、Story-specialized SemanticGamePort 与 PresentationReadPort，不能收到 Snapshot、GameSession、DebugTools 或 Module owner capability。
 
 Story runtime 默认入口只引用统一 `GameApplicationPort` 的低权限表面。Tooling UI、fixtures 和 notes 可以存在于同一 Artifact，但只能从固定 `./tooling`/`./tooling-ui` exports 按 `debug_tools`/`cheats` capability 延迟取得；bundle absence 不是权限边界，不存在 Developer-only graph 或第二 Artifact。
 
