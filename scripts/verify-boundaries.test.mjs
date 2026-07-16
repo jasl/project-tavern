@@ -160,6 +160,15 @@ test("rejects references imports", async (t) => {
   );
 });
 
+test("allows preferences imports without mistaking them for references", async (t) => {
+  const root = await fixture('export { value } from "./preferences/index.js";\n');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  assert.equal(
+    (await verifyBoundaries(root)).some((error) => error.includes("references/ is forbidden")),
+    false,
+  );
+});
+
 test("rejects an unregistered workspace package", async (t) => {
   const root = await fixture("export {};\n");
   t.after(() => rm(root, { recursive: true, force: true }));

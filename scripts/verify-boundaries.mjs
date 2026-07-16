@@ -13,6 +13,7 @@ const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/u;
 const HTML_REFERENCE_PATTERN = /\b(?:href|src)=["']([^"']+)["']/gu;
 const IMPORT_PATTERN =
   /(?:import|export)\s+(?:type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/gu;
+const FORBIDDEN_REFERENCES_PATH_SEGMENT = /(?:^|\/)references(?:\/|$)/u;
 
 async function sourceFiles(root) {
   const files = [];
@@ -195,7 +196,7 @@ export async function verifyBoundaries(root) {
       const specifier = match[1] ?? match[2];
       if (!specifier) continue;
 
-      if (specifier.includes("references/")) {
+      if (FORBIDDEN_REFERENCES_PATH_SEGMENT.test(specifier)) {
         errors.push(`${relative(root, file)}: references/ is forbidden`);
         continue;
       }
