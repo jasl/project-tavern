@@ -74,6 +74,7 @@ scripts/ui/                             # read-only Phase 5A UI verification orc
 - Create: `engine/packages/ui/src/assets/index.ts`
 - Create: `engine/packages/ui/type-tests/assets-public.test-d.ts`
 - Modify: `engine/packages/ui/package.json`
+- Modify: `engine/packages/ui/src/index.ts`
 - Create: `engine/packages/web/src/assets/create-browser-image-loader.ts`
 - Create: `engine/packages/web/src/assets/create-browser-image-loader.test.ts`
 - Create: `engine/packages/web/src/assets/index.ts`
@@ -305,13 +306,13 @@ Expected: every command exits 0; the test fixture proves the filtered asset was 
 - [ ] **Step 6: Stage the exact asset slice and commit**
 
 ```bash
-git add -- engine/packages/ui/src/assets engine/packages/ui/type-tests/assets-public.test-d.ts engine/packages/ui/package.json engine/packages/web/src/assets engine/packages/web/src/index.ts
+git add -- engine/packages/ui/src/assets engine/packages/ui/type-tests/assets-public.test-d.ts engine/packages/ui/package.json engine/packages/ui/src/index.ts engine/packages/web/src/assets engine/packages/web/src/index.ts
 git diff --cached --name-only
 git diff --cached --check
 git commit -m "feat(ui): add demand-driven asset presentation"
 ```
 
-Expected staged paths are only `engine/packages/ui/src/assets/**`, `engine/packages/ui/type-tests/assets-public.test-d.ts`, `engine/packages/ui/package.json`, `engine/packages/web/src/assets/**`, and `engine/packages/web/src/index.ts`.
+Expected staged paths are only `engine/packages/ui/src/assets/**`, `engine/packages/ui/type-tests/assets-public.test-d.ts`, `engine/packages/ui/package.json`, `engine/packages/ui/src/index.ts`, `engine/packages/web/src/assets/**`, and `engine/packages/web/src/index.ts`.
 
 ## Task 2: Bridge one atomic SemanticPublication and register neutral renderers
 
