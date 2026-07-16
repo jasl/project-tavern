@@ -96,6 +96,19 @@ export type {
 } from "./runtime/semantic-publication-bridge.js";
 export { useSemanticPublicationV1 } from "./runtime/use-semantic-publication.js";
 export {
+  RuntimePresentationConstructionErrorV1,
+  createRuntimePresentationStoreV1,
+  useRuntimePresentationV1,
+} from "./runtime/index.js";
+export type {
+  CreateRuntimePresentationStoreInputV1,
+  PresentationRuntimeFailureV1,
+  RuntimePresentationProjectionInputV1,
+  RuntimePresentationProjectionV1,
+  RuntimePresentationPublicationV1,
+  RuntimePresentationStoreV1,
+} from "./runtime/index.js";
+export {
   GameShell,
   GameStageV1,
   TopCardHudV1,
