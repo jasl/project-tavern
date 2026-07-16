@@ -254,23 +254,29 @@ foreground_effect
 - 特殊 CG 不强行复用纸娃娃层，可以作为独立 renderer/StageScene asset；
 - 服装解锁、选择和持久化若进入某个 Story，就属于该 Story Gameplay；预览与图层合成属于 Presentation。当前七日 PoC 不新增持久换装，只使用固定 appearance 和无状态预览夹具。
 
+Story-owned resolved appearance catalog 必须为每层登记 `fallbackPolicy`，projector 将它原样投影到 runtime appearance layer：`omit` 表示该装饰层不可用时只省略本层，`character_fallback` 表示该层不可用时整名角色切换到静态 fallback。通用 renderer 不得通过 `body`、`costume_body` 或其他 Story 图层名猜测关键性。该策略属于 Runtime Presentation，不扩张 Base 的 Character rig ABI，也不进入 Gameplay、Save、state-contract digest 或 simulation digest；它可以进入 presentation/application identity。
+
 ### 6.3 Live2D 适配边界
 
 第一版不引入 Live2D SDK、模型格式或运行时依赖。未来 adapter 负责：
 
-- 把 Story pose/expression/activity/cue ID 映射到 Live2D 参数或 Motion；
+- 把 Story pose/expression/activity/cue ID 映射到 Live2D 参数或 Motion；该方向固定为稳定 Story ID → 外部 renderer ID；
 - 把 Live2D HitArea/ArtMesh 名称映射到稳定 `InteractionTargetId`；
 - 向通用 Input/Interaction 层报告命中结果；
 - 提供静态 fallback，以便 reduced-motion、加载失败、测试和无 WebGL 环境使用。
 
 Gameplay 和 Story 内容不得读取 Live2D 参数、帧、物理摆动或 SDK 对象。
 
+当前里程碑只冻结上述 ID 映射 seam，不提供外部 adapter player、Motion 生命周期、异常回报或失败请求清理 API。`presentation.play_cue` 只更新 application-owned 的瞬态 cue lens；在真正引入某个 adapter 时，其 scoped player/controller 必须另行定义请求身份、执行目标、失败诊断和条件清理合同。不得把这些写能力加入所有 renderer 共用的 `GameRendererContextV1` 或只读 `PresentationReadPortV1`。
+
 ### 6.4 角色与动画 fallback
 
-- 角色 renderer 或关键图层失败时，先使用 Story 登记的兼容静态 pose fallback，再使用带可访问名称的 code-native 占位角色；
+- 角色 renderer 或声明为 `character_fallback` 的图层失败时，由内建通用 Static Character renderer 直接读取 Story 登记的 `staticFallbackAssetId`，再使用带可访问名称的 code-native 占位角色；本里程碑不建立 renderer-to-renderer fallback edge；
 - 只有 fallback 与原 rig/pose 共享兼容局部坐标时才保留空间 HitMap，否则禁用空间命中，并保留等价的语义 DOM 行为入口；
 - 动画、Motion 或 cue 缺失时保持新的 committed GameView 所指定的静态 pose/expression，不让 Gameplay 回滚或卡住；
 - 背景继续使用 §5.3 的“标准图片 → code-native/CSS 场景”顺序；角色、背景和动画各自只使用已登记、可诊断的 fallback，不互相猜测资源。
+
+静态/纸娃娃 Character renderer 只决定可见角色与空间 HitMap 是否保留；等价的具名 DOM 行为入口统一由 Interaction 层拥有和渲染。AssetRegistry 继续拥有加载/解码/usage 失败诊断，Character renderer 不建立第二套资源 fault sink。
 
 ## 7. HitMap 与 InteractionSurface
 

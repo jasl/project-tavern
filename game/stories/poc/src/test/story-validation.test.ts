@@ -564,6 +564,7 @@ describe("complete Story composition", () => {
       pocHeroineAppearanceLayerOrderV1.slice(0, 5).map((layerId, index) => ({
         layerId,
         assetId: assetIdsV1[index],
+        fallbackPolicy: index === 1 ? "character_fallback" : "omit",
       })),
     );
 

@@ -76,7 +76,7 @@
 - The default interaction path is figure activation → enter `surface.poc.heroine` → activate the figure target → direct one behavior or choose among the currently projected behaviors. `behavior.poc.heroine.open_profile` is Presentation-only; relationship effects remain limited to the two already-frozen Story actions.
 - HitMap coordinates are normalized renderer-local coordinates. Startup validation rejects duplicate IDs, invalid shapes, missing references, every possible `open_surface` cycle, and incompatible rig/pose references with stable codes. Runtime validation disables only the bad spatial surface, records a bounded fault, and preserves an accessible DOM fallback with the original disabled reason.
 - Spatial pointer input, native keyboard activation, and accessible DOM controls converge on the same `InteractionActivationV1` or Semantic invocation. A physical mouse/touch/pen operation activates once; native buttons are left to browser click/keyboard behavior. Interaction uses the Phase 5A priority `System > Overlay > Narrative > Interaction > Gameplay` and clears on pointer cancel, focus loss, or StageScene replacement.
-- Static, hybrid paper-doll, and fake Live2D adapters use the same Character/rig/pose/target IDs. A changed appearance does not change the default HitMap; a changed pose may explicitly select another registered HitMap. No Live2D SDK or model file is added.
+- Static, hybrid paper-doll, and fake Live2D adapters use the same Character/rig/pose/target IDs. A changed appearance does not change the default HitMap; a changed pose may explicitly select another registered HitMap. Each projected appearance layer declares neutral `omit | character_fallback` failure policy, and the generic renderer never guesses Story layer names. No Live2D SDK, adapter player, or model file is added.
 - Background, character, and animation failures follow their separately registered fallback chains. A spatial HitMap remains active only when the selected character fallback declares compatible local coordinates; otherwise the visible DOM behavior list remains and the transparent spatial hotspot is removed.
 - `RuntimePresentationPublicationV1.requiredAssetIds` is the exact allowed-and-needed `AssetId` list in first-use order. Phase 5A `AssetRegistryV1.preload(assetIds, signal)` receives that list directly; no scene/group preload or preload-then-hide behavior is reintroduced.
 - World-semantic icons are independent of the seven Stage renderer namespaces. Phase 5B registers the exact Story-owned `symbol.poc.*` IDs above through the Phase 5A `GameSymbolProviderV1`/`GameSymbolRegistryV1` surface; `@sillymaker/ui` owns no PoC ID, Lucide remains system-only, and symbol providers cannot become asset, Gameplay, or presentation-routing authorities.
@@ -1053,6 +1053,28 @@ git diff --cached --check
 git commit -m "feat(ui): render stage scene variants"
 ```
 
+#### Authorized owner repair before Task 4
+
+The Task 4 input audit found that the original plan required generic UI to distinguish critical and decorative Story layers without a neutral field, described an unexecutable renderer-to-renderer fallback edge, and assigned cue-player/DOM behavior responsibilities before their owners existed. The approved narrow repair aligns the presentation design, this plan, the Phase 4B Story catalog authority, and the already accepted PoC catalog before Task 4's expected-red. It does not change a Base ABI, Gameplay, Save, state-contract digest, simulation digest, asset demand, or materialized dependency.
+
+**Repair files:**
+
+- Modify: `docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md`
+- Modify: `docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md`
+- Modify: `docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md`
+- Modify: `game/stories/poc/src/presentation/assets.ts`
+- Modify: `game/stories/poc/src/test/story-validation.test.ts`
+
+Before committing, run the focused Story validation, `pnpm typecheck`, and `git diff --check`. Then stage exactly the repair files and commit independently:
+
+```bash
+git add -- docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md game/stories/poc/src/presentation/assets.ts game/stories/poc/src/test/story-validation.test.ts
+git diff --cached --check
+git commit -m "fix(story-poc): declare appearance fallback policy"
+```
+
+From that clean commit run `pnpm verify:materialization`, `pnpm verify:phase4`, and `pnpm verify`. The repair is accepted only when all three pass and the worktree remains clean; otherwise follow the execution protocol's owner-repair recovery before starting Task 4.
+
 ### Task 4: Add Static and Hybrid Paper-Doll Character Renderers with Compatible Fallbacks
 
 **Files:**
@@ -1064,6 +1086,8 @@ git commit -m "feat(ui): render stage scene variants"
 - Create: `engine/packages/ui/src/characters/character-host.test.tsx`
 - Create: `engine/packages/ui/src/characters/static-character-renderer.tsx`
 - Create: `engine/packages/ui/src/characters/paper-doll-character-renderer.tsx`
+- Create: `engine/packages/ui/src/characters/use-character-assets.ts`
+- Create: `engine/packages/ui/src/characters/character-renderers.module.css`
 - Create: `engine/packages/ui/src/characters/character-renderers.test.tsx`
 - Create: `engine/packages/ui/src/characters/index.ts`
 - Modify: `engine/packages/ui/src/index.ts`
@@ -1127,22 +1151,14 @@ it("disables only spatial hit testing when the static fallback is not coordinate
   renderCharacterV1(characterWithFailedCriticalLayer);
   expect(screen.getByRole("img", { name: "测试角色" })).toBeVisible();
   expect(screen.getByTestId("character-root")).toHaveAttribute("data-spatial-hit-test", "disabled");
-  expect(screen.getByRole("button", { name: "与测试角色互动" })).toBeVisible();
 });
 
-it.each([
-  ["missing", "presentation.character.cue_missing"],
-  ["throwing", "presentation.character.cue_failed"],
-] as const)("keeps the committed static pose when a %s cue cannot play", (mode, code) => {
-  const fixture = createCharacterCueFailureFixtureV1(mode);
-  const before = fixture.currentCharacter();
-  fixture.requestCue("cue.synthetic.guide.greet");
-  expect(fixture.currentCharacter()).toMatchObject({
-    poseId: before.poseId,
-    expressionId: before.expressionId,
-  });
-  expect(fixture.failures()).toEqual([expect.objectContaining({ code })]);
-  expect(fixture.gameplayWitness()).toEqual(fixture.initialGameplayWitness);
+it("keeps committed pose and expression outside adapter mapping", () => {
+  const before = paperDollCharacterView;
+  expect(fakeAdapter.mapStoryCue?.("cue.synthetic.guide.greet")).toBe("Greet");
+  expect(paperDollCharacterView.poseId).toBe(before.poseId);
+  expect(paperDollCharacterView.expressionId).toBe(before.expressionId);
+  expect(gameplayWitness()).toEqual(initialGameplayWitness);
 });
 
 it("rerenders paper-doll layers after deferred readiness without a new gameplay view", async () => {
@@ -1175,6 +1191,7 @@ Expected: FAIL because the Character renderer contracts, registry, and implement
 export interface RuntimeAppearanceLayerV1 {
   readonly layerId: AppearanceLayerId;
   readonly assetId: AssetId;
+  readonly fallbackPolicy: "omit" | "character_fallback";
 }
 
 export interface RuntimeCharacterPresentationV1 {
@@ -1196,30 +1213,28 @@ export interface RuntimeCharacterPresentationV1 {
 export interface CharacterRendererContributionV1 {
   readonly rendererId: string;
   readonly kind: "static" | "paper_doll" | "adapter";
-  readonly staticFallbackRendererId: string | null;
-  mapExternalPose?(externalPoseId: string): CharacterPoseId | null;
-  mapExternalCue?(externalCueId: string): string | null;
+  mapStoryPose?(poseId: CharacterPoseId): string | null;
+  mapStoryCue?(cueId: string): string | null;
   mapExternalTarget?(externalTargetId: string): InteractionTargetId | null;
 }
 ```
 
-`CharacterRendererRegistryV1` is the neutral adapter-metadata catalog for `kind`, static-fallback edge, and optional external-target mapping; it is not a second React component registry. Actual component lookup remains exclusively in Phase 5A `UiContributionRegistryV1`'s `character` namespace, and `CharacterHostV1` passes that contribution exactly `{ viewSlice: character, semantic, presentation }`. The adapter catalog validates unique renderer IDs and that every fallback edge points to registered static metadata. `PaperDollCharacterRendererV1` uses the resolved rig's authored layer sequence and one shared canvas/origin/foot pivot; it does not recognize `back_hair`, `costume_body`, or any other Story layer name. Static, paper-doll layer, and static-fallback asset reads all use `usePresentationAssetV1`; no production character component calls raw `presentation.asset()`. Appearance layers are decorative/`aria-hidden`; the character root alone exposes `presentation.text(character.accessibleNameTextId).text`, so a seven-layer paper doll is announced once. Failure of a noncritical layer omits that layer and records a fault. Failure of the critical body/pose path first resolves the registered static fallback, then a code-native named silhouette. Spatial hit testing is retained only for a declared compatible fallback; the semantic DOM list is always retained.
+`CharacterRendererRegistryV1` is the neutral adapter-metadata catalog for `kind` and optional stable-ID mappings; it is not a second React component registry. Actual component lookup remains exclusively in Phase 5A `UiContributionRegistryV1`'s `character` namespace, and `CharacterHostV1` passes that contribution exactly `{ viewSlice: character, semantic, presentation }`. The adapter catalog validates unique renderer IDs. `PaperDollCharacterRendererV1` uses the resolved rig's authored layer sequence and one shared canvas/origin/foot pivot; it does not recognize `back_hair`, `costume_body`, or any other Story layer name. Static reads use `usePresentationAssetV1`; variable-length layer reads use private `useCharacterAssetsV1`, which owns one `useSyncExternalStore` subscription and resolves every request in the same render, so Hooks are never called from a data-dependent loop. Only those two hooks call raw `presentation.asset()`. Appearance layers are decorative/`aria-hidden`; the character root alone exposes `presentation.text(character.accessibleNameTextId).text`, so a seven-layer paper doll is announced once. A failed `omit` layer is omitted; AssetRegistry retains load/usage diagnostics. A failed `character_fallback` layer invokes the built-in generic static renderer with `staticFallbackAssetId`, then a code-native named silhouette. Spatial hit testing is retained only for a declared compatible static fallback. Character rendering never creates a DOM action; Task 6's `InteractionBehaviorListV1` owns the always-present semantic DOM equivalent.
 
-Cue playback is presentation-local and never speculative Gameplay. A missing cue mapping records one bounded `presentation.character.cue_missing`; an adapter/player exception records `presentation.character.cue_failed`. Both retain the latest committed static `poseId`/`expressionId`, clear only the failed transient cue request, and leave Semantic publication, Snapshot, RNG, CommandLog, and relationship state untouched. The fallback is independently testable from background and appearance-asset fallback, and introduces no animation library.
+This task freezes mapping direction only: stable Story pose/cue IDs map outward to adapter IDs, while external target names map inward to stable Story targets. It does not invent a player, cue target, request identity, failure sink, or clear port. Task 6's `presentation.play_cue` updates only the application-owned transient cue lens; a future concrete adapter must add its scoped execution/failure contract before playback. Mapping and fallback leave Semantic publication, Snapshot, RNG, CommandLog, relationship state, and the committed static `poseId`/`expressionId` untouched. The fallback is independently testable from background and appearance-asset fallback and introduces no animation library.
 
 - [ ] **Step 4: Prove the future Live2D adapter seam without adding the SDK**
 
 ```ts
-it("maps fake Live2D pose, cue, and hit-area names to stable Story IDs", () => {
+it("maps stable Story pose and cue IDs outward and hit-area names inward", () => {
   const adapter = createFakeLive2dCharacterContributionV1({
     rendererId: "renderer.synthetic.fake_live2d",
-    staticFallbackRendererId: "renderer.synthetic.character.static",
-    poses: { Standing: "pose.synthetic.guide.standing" },
-    cues: { Greet: "cue.synthetic.guide.greet" },
+    poses: { "pose.synthetic.guide.standing": "Standing" },
+    cues: { "cue.synthetic.guide.greet": "Greet" },
     targets: { Body: "target.synthetic.guide.figure" },
   });
-  expect(adapter.mapExternalPose?.("Standing")).toBe("pose.synthetic.guide.standing");
-  expect(adapter.mapExternalCue?.("Greet")).toBe("cue.synthetic.guide.greet");
+  expect(adapter.mapStoryPose?.("pose.synthetic.guide.standing")).toBe("Standing");
+  expect(adapter.mapStoryCue?.("cue.synthetic.guide.greet")).toBe("Greet");
   expect(adapter.mapExternalTarget?.("Body")).toBe("target.synthetic.guide.figure");
   expect(adapter.mapExternalTarget?.("Unknown")).toBeNull();
   expect(collectProductionImports(adapter)).not.toContain("live2d");
@@ -2145,7 +2160,7 @@ export const pocRuntimePresentationProjectorV1: PocRuntimePresentationProjectorV
 });
 ```
 
-`projectPocRuntimePresentationV1` copies `input.semantic.narrative` unchanged into the Runtime view, builds indices from `input.semantic.actions` once, selects a Stage from route/Overlay state, selects only the tavern light variant from `input.semantic.game.hud.phase`, and joins registered characters/surfaces from `input.resolvedCatalog.sceneGraph`. It copies Runtime appearance pairs only from `input.resolvedCatalog.heroineStandardAppearance` and reads exact demand only from `input.resolvedCatalog.requiredAssetIdsByVariant[selectedVariantId]`; it never ambient-imports a parallel mapping, zips a layer list to an AssetId list, or imports a second appearance catalog. It never imports or calls `createPocGameQueriesV1`, `createPocSemanticActionCatalogV1`, any module Read Port, or any availability function. Missing/duplicate action descriptors create bounded presentation faults and a disabled DOM behavior; they never create a substitute invocation.
+`projectPocRuntimePresentationV1` copies `input.semantic.narrative` unchanged into the Runtime view, builds indices from `input.semantic.actions` once, selects a Stage from route/Overlay state, selects only the tavern light variant from `input.semantic.game.hud.phase`, and joins registered characters/surfaces from `input.resolvedCatalog.sceneGraph`. It copies Runtime layer/asset/`fallbackPolicy` records only from `input.resolvedCatalog.heroineStandardAppearance` and reads exact demand only from `input.resolvedCatalog.requiredAssetIdsByVariant[selectedVariantId]`; it never ambient-imports a parallel mapping, zips a layer list to an AssetId list, or imports a second appearance catalog. It never imports or calls `createPocGameQueriesV1`, `createPocSemanticActionCatalogV1`, any module Read Port, or any availability function. Missing/duplicate action descriptors create bounded presentation faults and a disabled DOM behavior; they never create a substitute invocation.
 
 `surface.poc.tavern` maps its service target to the exact `action.service_plan` descriptor. The heroine placement uses `surface_activation/open_surface`; within `surface.poc.heroine`, the single figure target is `direct` for profile alone and `choose` when either existing relationship action descriptor is visible. Repair/apology use exact direct invocations from their descriptors. Purchase/WorldAction/service-plan retain their parameterized descriptors and open the controlled overlay. Profile is the only PoC Presentation-only behavior.
 
