@@ -198,27 +198,22 @@ export const pocHeroineStandardAppearanceV1 = deepFreezePresentationDataV1([
   {
     layerId: pocHeroineAppearanceLayerOrderV1[0],
     assetId: assetIdsV1[0],
-    fallbackPolicy: "omit",
   },
   {
     layerId: pocHeroineAppearanceLayerOrderV1[1],
     assetId: assetIdsV1[1],
-    fallbackPolicy: "character_fallback",
   },
   {
     layerId: pocHeroineAppearanceLayerOrderV1[2],
     assetId: assetIdsV1[2],
-    fallbackPolicy: "omit",
   },
   {
     layerId: pocHeroineAppearanceLayerOrderV1[3],
     assetId: assetIdsV1[3],
-    fallbackPolicy: "omit",
   },
   {
     layerId: pocHeroineAppearanceLayerOrderV1[4],
     assetId: assetIdsV1[4],
-    fallbackPolicy: "omit",
   },
 ] as const);
 

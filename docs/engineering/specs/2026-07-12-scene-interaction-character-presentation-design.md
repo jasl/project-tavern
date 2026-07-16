@@ -254,7 +254,7 @@ foreground_effect
 - 特殊 CG 不强行复用纸娃娃层，可以作为独立 renderer/StageScene asset；
 - 服装解锁、选择和持久化若进入某个 Story，就属于该 Story Gameplay；预览与图层合成属于 Presentation。当前七日 PoC 不新增持久换装，只使用固定 appearance 和无状态预览夹具。
 
-Story-owned resolved appearance catalog 必须为每层登记 `fallbackPolicy`，projector 将它原样投影到 runtime appearance layer：`omit` 表示该装饰层不可用时只省略本层，`character_fallback` 表示该层不可用时整名角色切换到静态 fallback。通用 renderer 不得通过 `body`、`costume_body` 或其他 Story 图层名猜测关键性。该策略属于 Runtime Presentation，不扩张 Base 的 Character rig ABI，也不进入 Gameplay、Save、state-contract digest 或 simulation digest；它可以进入 presentation/application identity。
+Story application projector 必须为每个 runtime appearance layer 明示 `fallbackPolicy`：`omit` 表示该装饰层不可用时只省略本层，`character_fallback` 表示该层不可用时整名角色切换到静态 fallback。策略必须来自 Story-owned、严格全覆盖且拒绝未知/额外 layer ID 的 application-closure policy；通用 renderer 不得通过 `body`、`costume_body` 或其他 Story 图层名猜测关键性。该策略属于 Runtime Presentation，不扩张 Base 的 Character rig ABI，也不进入 Gameplay、Save、materialized Story Presentation、state-contract digest 或 simulation digest；它进入相应 Web application identity。
 
 ### 6.3 Live2D 适配边界
 

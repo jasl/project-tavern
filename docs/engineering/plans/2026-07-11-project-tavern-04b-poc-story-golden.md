@@ -1334,34 +1334,29 @@ The resolved graph registers exactly the StageScene/variant/surface/target/behav
 
 The Tavern heroine placement uses the visual baseline's normalized foot anchor `{ x: 0.6625, y: 0.93 }`, scale 1. The one concept HitMap uses the renderer-local rectangle `{ kind: "rect", x: 0.45, y: 0.05, width: 0.43, height: 0.9 }`, priority 0, and only `target.poc.heroine.figure`. Tavern/heroine surface anchors are `{ x: 0.5, y: 0.5 }`; Market and World Map use the same neutral surface anchor. These values are Story-authored interaction geometry, not Gameplay State or persisted appearance.
 
-`assets.ts` freezes exactly five initially selected appearance layers—back hair, costume body, face, front hair, and accessory—against Task 1's seven-slot authored rig order. `held_prop` and `foreground_effect` remain valid empty slots and therefore produce no invisible placeholder demand. It must preserve explicit layer-to-asset records plus their Story-owned runtime fallback policy rather than relying on parallel arrays or generic renderer inference. Costume body is the only `character_fallback` layer; the four decorative layers are `omit`:
+`assets.ts` freezes exactly five initially selected appearance layers—back hair, costume body, face, front hair, and accessory—against Task 1's seven-slot authored rig order. `held_prop` and `foreground_effect` remain valid empty slots and therefore produce no invisible placeholder demand. It must preserve the explicit layer-to-asset pairs rather than relying on two parallel arrays:
 
 ```ts
 export const pocHeroineStandardAppearanceV1 = deepFreeze([
   {
     layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.back_hair"),
     assetId: parseAssetId("asset.poc.character.heroine.back_hair.standard"),
-    fallbackPolicy: "omit",
   },
   {
     layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.costume_body"),
     assetId: parseAssetId("asset.poc.character.heroine.costume_body.standard"),
-    fallbackPolicy: "character_fallback",
   },
   {
     layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.face"),
     assetId: parseAssetId("asset.poc.character.heroine.face.neutral"),
-    fallbackPolicy: "omit",
   },
   {
     layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.front_hair"),
     assetId: parseAssetId("asset.poc.character.heroine.front_hair.standard"),
-    fallbackPolicy: "omit",
   },
   {
     layerId: parseAppearanceLayerId("appearance_layer.poc.heroine.accessory"),
     assetId: parseAssetId("asset.poc.character.heroine.accessory.standard"),
-    fallbackPolicy: "omit",
   },
 ] as const);
 
@@ -1396,7 +1391,7 @@ export const pocResolvedPresentationCatalogV1 = deepFreeze({
 
 All twelve Asset slots are registered fallback-complete before provider resolution: five selected appearance layers, one heroine static fallback, and one background for each of the six variants. Every slot is `replaceable` and has a stable `fallback.poc.*` token. Background slots use the visual-pack master dimensions `2560×1600`, safe area `{ x: 213, y: 0, width: 2134, height: 1600 }`, null pivot, `scene` load group except the Main Menu's `bootstrap` group, and `scene_background` usage. All six character slots share the visual-pack logical canvas `1600×1000`, safe area `{ x: 133, y: 0, width: 1334, height: 1000 }`, foot pivot `{ x: 1060, y: 930 }`, `scene` load group and `character_pose` usage. The predecessor-approved pack may replace only matching slots with those exact dimensions; the empty-pack fixture resolves all twelve to `provider:null`, while the default Story resolves the exact committed pack without changing slot order or fallback tokens.
 
-`pocResolvedPresentationCatalogV1` is one deep-frozen object returned by resolved Presentation and passed to the Phase 5B projector; it is not a Web-only second catalog. Phase 5B derives the Runtime character's `appearance` directly from its explicit layer/asset/`fallbackPolicy` records and, after selecting a variant, reads `requiredAssetIds` only from `input.resolvedCatalog.requiredAssetIdsByVariant[variantId]`; it never ambient-imports the mapping or restates, zips, sorts, unions, or coarsens it. Tests assert the record order and policies match the first five authored rig slots, all six exact variant keys and ordered demand arrays, every non-null `backgroundAssetId` equals the first ID of its variant demand, no duplicate within a demand, no unselected slot, and no non-standard asset.
+`pocResolvedPresentationCatalogV1` is one deep-frozen object returned by resolved Presentation and passed to the Phase 5B projector; it is not a Web-only second catalog. Phase 5B derives the Runtime character's layer and asset IDs directly from its explicit pairs and, after selecting a variant, reads `requiredAssetIds` only from `input.resolvedCatalog.requiredAssetIdsByVariant[variantId]`; it never ambient-imports the asset mapping or restates, zips, sorts, unions, or coarsens it. The Phase 5B Story application projector owns the separate exhaustive runtime fallback-policy enrichment so this frozen catalog and its presentation digest remain unchanged. Tests assert the pair order matches the first five authored rig slots, all six exact variant keys and ordered demand arrays, every non-null `backgroundAssetId` equals the first ID of its variant demand, no duplicate within a demand, no unselected slot, and no non-standard asset.
 
 `interaction-catalog.ts` maps `behavior.poc.heroine.open_profile` to a closed Presentation intent symbol, while repair/apology/service-plan/purchase/old-trade-road map to the existing Semantic action IDs. It stores only stable provider symbols in Strict JSON—not invocations, commands, closures, or enabled flags. Phase 5B joins those symbols to the atomic action catalog and performs dynamic mode/cardinality validation; Phase 4B validates only static references, ID uniqueness, HitMap shapes, and the complete open-surface DAG.
 

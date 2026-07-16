@@ -1055,7 +1055,7 @@ git commit -m "feat(ui): render stage scene variants"
 
 #### Authorized owner repair before Task 4
 
-The Task 4 input audit found that the original plan required generic UI to distinguish critical and decorative Story layers without a neutral field, described an unexecutable renderer-to-renderer fallback edge, and assigned cue-player/DOM behavior responsibilities before their owners existed. The approved narrow repair aligns the presentation design, this plan, the Phase 4B Story catalog authority, and the already accepted PoC catalog before Task 4's expected-red. It does not change a Base ABI, Gameplay, Save, state-contract digest, simulation digest, asset demand, or materialized dependency.
+The Task 4 input audit found that the original plan required generic UI to distinguish critical and decorative Story layers without a neutral field, described an unexecutable renderer-to-renderer fallback edge, and assigned cue-player/DOM behavior responsibilities before their owners existed. The approved narrow repair adds the neutral runtime field and assigns its PoC policy to Task 8's Story application projector before Task 4's expected-red. It does not change a Base ABI, Gameplay, Save, materialized Story Presentation, state-contract digest, simulation digest, asset demand, or materialized dependency.
 
 **Repair files:**
 
@@ -1073,7 +1073,15 @@ git diff --cached --check
 git commit -m "fix(story-poc): declare appearance fallback policy"
 ```
 
-From that clean commit run `pnpm verify:materialization`, `pnpm verify:phase4`, and `pnpm verify`. The repair is accepted only when all three pass and the worktree remains clean; otherwise follow the execution protocol's owner-repair recovery before starting Task 4.
+The first repair attempt placed `fallbackPolicy` inside Phase 4B `pocResolvedPresentationCatalogV1`. The clean post-commit gate correctly rejected all eight Save fixtures because that field changed the diagnostic `presentationDigest`, even though state-contract, engine, and simulation digests remained identical. Phase 5B requires those fixture bytes to remain unchanged, so the accepted recovery restores the Phase 4B pairs and keeps one exhaustive policy function solely in Task 8's Web/application closure. Do not weaken the provenance guard or regenerate the fixtures. Stage the same five repair files for the recovery commit:
+
+```bash
+git add -- docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md game/stories/poc/src/presentation/assets.ts game/stories/poc/src/test/story-validation.test.ts
+git diff --cached --check
+git commit -m "fix(story-poc): preserve presentation provenance"
+```
+
+From that clean recovery commit run `pnpm verify:materialization`, `pnpm verify:phase4`, and `pnpm verify`. The repair is accepted only when all three pass and the worktree remains clean; otherwise follow the execution protocol's owner-repair recovery before starting Task 4.
 
 ### Task 4: Add Static and Hybrid Paper-Doll Character Renderers with Compatible Fallbacks
 
@@ -2160,7 +2168,7 @@ export const pocRuntimePresentationProjectorV1: PocRuntimePresentationProjectorV
 });
 ```
 
-`projectPocRuntimePresentationV1` copies `input.semantic.narrative` unchanged into the Runtime view, builds indices from `input.semantic.actions` once, selects a Stage from route/Overlay state, selects only the tavern light variant from `input.semantic.game.hud.phase`, and joins registered characters/surfaces from `input.resolvedCatalog.sceneGraph`. It copies Runtime layer/asset/`fallbackPolicy` records only from `input.resolvedCatalog.heroineStandardAppearance` and reads exact demand only from `input.resolvedCatalog.requiredAssetIdsByVariant[selectedVariantId]`; it never ambient-imports a parallel mapping, zips a layer list to an AssetId list, or imports a second appearance catalog. It never imports or calls `createPocGameQueriesV1`, `createPocSemanticActionCatalogV1`, any module Read Port, or any availability function. Missing/duplicate action descriptors create bounded presentation faults and a disabled DOM behavior; they never create a substitute invocation.
+`projectPocRuntimePresentationV1` copies `input.semantic.narrative` unchanged into the Runtime view, builds indices from `input.semantic.actions` once, selects a Stage from route/Overlay state, selects only the tavern light variant from `input.semantic.game.hud.phase`, and joins registered characters/surfaces from `input.resolvedCatalog.sceneGraph`. It copies layer/asset pairs only from `input.resolvedCatalog.heroineStandardAppearance`, then enriches them through one non-exported Story application function whose exact closed policy is `costume_body → character_fallback` and `back_hair | face | front_hair | accessory → omit`. Startup/projector validation requires every resolved pair exactly once, rejects every unknown or extra policy key, and preserves authored order. This policy function remains under `presentation/runtime`, is unreachable from the default Story/Headless/materialized Presentation closure, and therefore changes only the Web application identity. The projector reads exact demand only from `input.resolvedCatalog.requiredAssetIdsByVariant[selectedVariantId]`; it never zips a layer list to an AssetId list or imports a second asset/appearance catalog. It never imports or calls `createPocGameQueriesV1`, `createPocSemanticActionCatalogV1`, any module Read Port, or any availability function. Missing/duplicate action descriptors create bounded presentation faults and a disabled DOM behavior; they never create a substitute invocation.
 
 `surface.poc.tavern` maps its service target to the exact `action.service_plan` descriptor. The heroine placement uses `surface_activation/open_surface`; within `surface.poc.heroine`, the single figure target is `direct` for profile alone and `choose` when either existing relationship action descriptor is visible. Repair/apology use exact direct invocations from their descriptors. Purchase/WorldAction/service-plan retain their parameterized descriptors and open the controlled overlay. Profile is the only PoC Presentation-only behavior.
 
@@ -2221,12 +2229,18 @@ it.each([
   );
 });
 
-it("projects the heroine appearance from explicit layer-to-asset pairs", () => {
+it("projects explicit appearance pairs through the exhaustive Story fallback policy", () => {
   const projected = projectPocPresentationFixtureV1({
     uiState: pocUiStateV1({ route: "play" }),
   });
   expect(projected.view.characters[0]?.appearance).toEqual(
-    pocResolvedPresentationCatalogV1.heroineStandardAppearance,
+    pocResolvedPresentationCatalogV1.heroineStandardAppearance.map((layer) => ({
+      ...layer,
+      fallbackPolicy:
+        layer.layerId === "appearance_layer.poc.heroine.costume_body"
+          ? "character_fallback"
+          : "omit",
+    })),
   );
 });
 
