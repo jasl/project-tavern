@@ -27,6 +27,23 @@ export type {
 } from "./contributions/types.js";
 export { createViewSourceV1, useReadonlyViewV1 } from "./runtime/create-view-bridge.js";
 export type { MutableViewSourceV1 } from "./runtime/create-view-bridge.js";
+export {
+  InputContextProviderV1,
+  createInputRouterV1,
+  parseInputActionIdV1,
+  systemInputActionIdsV1,
+  useInputRouterV1,
+} from "./input/index.js";
+export type {
+  InputActionIdV1,
+  InputContextIdV1,
+  InputContextProviderPropsV1,
+  InputEventV1,
+  InputHandlerResultV1,
+  InputRouteResultV1,
+  InputRouterV1,
+  ViewportPointV1,
+} from "./input/index.js";
 export { SemanticActionControlV1 } from "./runtime/semantic-action-control.js";
 export type {
   SemanticActionControlDescriptorV1,

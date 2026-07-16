@@ -20,6 +20,8 @@ export type {
 } from "./application/resolved-game-hmr.js";
 export { createWebHostV1 } from "./host/create-web-host.js";
 export type { CreateWebHostOptionsV1 } from "./host/create-web-host.js";
+export { installPointerAdapterV1 } from "./input/index.js";
+export type { InstalledPointerAdapterV1, PointerAdapterInputV1 } from "./input/index.js";
 export { createGameBootstrapControllerV1, Loader } from "./loader/loader.js";
 export type { GameBootstrapResolutionResultV1 } from "./loader/loader.js";
 export { createBrowserImageLoaderV1 } from "./assets/index.js";
