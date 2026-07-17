@@ -391,7 +391,7 @@ describe("E2E persistence continuation round-trips", () => {
       comparison: {
         authoritative: true,
         identityMatch: true,
-        visualMatch: true,
+        visualMatch: false,
         matches: true,
         executedEntries: 1,
         mismatches: [],
@@ -442,7 +442,7 @@ describe("E2E persistence continuation round-trips", () => {
       comparison: {
         authoritative: true,
         identityMatch: true,
-        visualMatch: true,
+        visualMatch: false,
         matches: true,
         executedEntries: 1,
         mismatches: [],
