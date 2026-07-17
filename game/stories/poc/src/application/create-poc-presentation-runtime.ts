@@ -44,6 +44,7 @@ import {
   createBrowserImageLoaderV1,
   createGameBootstrapControllerV1,
   createHashRouterV1,
+  createPlayerUiPortsV1,
   createWebContentPreferencePortV1,
   installPointerAdapterV1,
 } from "@sillymaker/web";
@@ -105,6 +106,7 @@ const pocOverlayIdsV1 = Object.freeze([
   "overlay.poc.ledger",
   "overlay.poc.relationship",
   "overlay.poc.run_summary",
+  "overlay.poc.save",
 ] as const satisfies readonly PocOverlayIdV1[]);
 
 const noPresentationCueIdsV1 = Object.freeze([]) as readonly string[];
@@ -119,6 +121,7 @@ export interface PocPresentationRuntimeV1 {
   readonly applicationId: typeof pocApplicationIdV1;
   readonly resolvedGame: PocResolvedGameV1;
   readonly application: PocGameApplicationPortV1;
+  readonly playerUi: ReturnType<typeof createPlayerUiPortsV1>;
   readonly contentPreference: ContentPreferencePortV1;
   readonly uiState: ReadonlyViewSourceV1<PocPresentationUiStateV1>;
   readonly presentation: RuntimePresentationStoreV1<PocRuntimePresentationPublicationV1>;
@@ -280,6 +283,11 @@ export async function createPocPresentationRuntimeV1(
       ? {}
       : { onRebootstrapLifecycle: input.onRebootstrapLifecycle }),
   });
+  const playerUi = createPlayerUiPortsV1({
+    files: input.host.files,
+    persistence: application.persistence,
+    diagnostics: application.diagnostics,
+  });
 
   const locationPort = input.location ?? browserLocationV1();
   const router = createHashRouterV1({
@@ -439,6 +447,7 @@ export async function createPocPresentationRuntimeV1(
     applicationId: pocApplicationIdV1,
     resolvedGame,
     application,
+    playerUi,
     contentPreference,
     uiState,
     presentation,

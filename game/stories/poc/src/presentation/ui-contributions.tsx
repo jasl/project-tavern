@@ -275,6 +275,8 @@ function PocWorkspaceOverlayRendererV1(
       return game.completion === null ? null : (
         <RunSummaryOverlayV1 completion={game.completion} presentation={props.presentation} />
       );
+    case "overlay.poc.save":
+      return null;
   }
 
   const unsupportedOverlay: never = overlayId;

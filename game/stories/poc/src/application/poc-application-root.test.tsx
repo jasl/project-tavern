@@ -5,7 +5,7 @@ import { digestCanonical, resolveGamePackageV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
 import { createWebHostV1 } from "@sillymaker/web";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -104,6 +104,64 @@ describe("PocApplicationRootV1", () => {
 
     expect(screen.getByRole("dialog", { name: "设置" })).toBeVisible();
     expect(screen.getByText("当前故事没有可调整的内容过滤选项。")).toBeVisible();
+    expect(runtime.application.semantic.observe().revision).toBe(semanticRevision);
+
+    runtime.dispose();
+  });
+
+  it("exposes the public Semantic witness and player-safe System controls", async () => {
+    const runtime = await createRuntimeV1();
+    const semantic = runtime.application.semantic.observe();
+    render(<PocApplicationRootV1 runtime={runtime} />);
+
+    expect(screen.getByTestId("semantic-publication")).toHaveAttribute(
+      "data-semantic-revision",
+      String(semantic.revision),
+    );
+    expect(screen.getByTestId("semantic-publication")).toHaveAttribute(
+      "data-semantic-status",
+      semantic.status,
+    );
+    expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "导出调试包" })).toBeEnabled();
+
+    runtime.dispose();
+  });
+
+  it("opens Purchase from tavern, projects market, and visibly returns with no Gameplay change", async () => {
+    const runtime = await createRuntimeV1();
+    const user = userEvent.setup();
+    const initialSemanticRevision = runtime.application.semantic.observe().revision;
+    render(<PocApplicationRootV1 runtime={runtime} />);
+
+    await user.click(screen.getByRole("button", { name: "开始这一周" }));
+    expect(runtime.application.semantic.observe().revision).toBe(initialSemanticRevision + 1);
+    const narrative = screen.getByRole("dialog", { name: "旅店的一周" });
+    await user.click(within(narrative).getByRole("button", { name: "继续" }));
+    expect(runtime.application.semantic.observe().revision).toBe(initialSemanticRevision + 2);
+    expect(screen.queryByRole("dialog", { name: "旅店的一周" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "选择生活策略" }));
+    const policyDialog = screen.getByRole("dialog", { name: "生活策略" });
+    await user.click(within(policyDialog).getByRole("radio", { name: "夜猫子作息" }));
+    await user.click(within(policyDialog).getByRole("button", { name: "确认" }));
+    expect(runtime.application.semantic.observe().revision).toBe(initialSemanticRevision + 3);
+    await user.click(within(policyDialog).getByRole("button", { name: "关闭" }));
+    const semanticRevision = runtime.application.semantic.observe().revision;
+
+    const opener = screen.getByRole("button", { name: "采购原料" });
+    await user.click(opener);
+    expect(screen.getByRole("dialog", { name: "采购食材" })).toBeVisible();
+    expect(
+      document.querySelector('[data-stage-scene-id="stage_scene.poc.market"]'),
+    ).toBeInTheDocument();
+    expect(runtime.application.semantic.observe().revision).toBe(semanticRevision);
+
+    await user.click(screen.getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "采购食材" })).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-stage-scene-id="stage_scene.poc.tavern"]'),
+    ).toBeInTheDocument();
+    expect(opener).toHaveFocus();
     expect(runtime.application.semantic.observe().revision).toBe(semanticRevision);
 
     runtime.dispose();

@@ -220,6 +220,12 @@ describe("createPocPresentationRuntimeV1", () => {
       fixture.runtime.application.semantic.observe(),
     );
     expect(fixture.runtime.contentPreference.observe()).toEqual({ allowedFlags: 0 });
+    expect(Object.isFrozen(fixture.runtime.playerUi)).toBe(true);
+    expect(Object.isFrozen(fixture.runtime.playerUi.save)).toBe(true);
+    expect(Object.isFrozen(fixture.runtime.playerUi.diagnostics)).toBe(true);
+    await expect(fixture.runtime.playerUi.save.getStatus()).resolves.toEqual(
+      await fixture.runtime.application.persistence.getStatus(),
+    );
     expect(fixture.runtime.gameSymbols).toBe(pocGameSymbolRegistryV1);
     for (const symbolId of pocGameSymbolIdsV1) {
       expect(fixture.runtime.gameSymbols.resolve(parseGameSymbolIdV1(symbolId)).kind).toBe("found");
@@ -245,6 +251,18 @@ describe("createPocPresentationRuntimeV1", () => {
     );
     expect(fixture.runtime.application).toBe(sessionApplication);
     expect(fixture.runtime.resolvedGame.gameSimulation).toBe(simulation);
+    expect(sessionApplication.semantic.observe().revision).toBe(semanticRevision);
+
+    expect(
+      fixture.runtime.intents.execute({
+        kind: "overlay.open",
+        overlayId: "overlay.poc.save",
+      }),
+    ).toEqual({ kind: "executed" });
+    expect(fixture.runtime.rendering.overlaySession.getSnapshot()).toEqual({
+      primaryId: "overlay.poc.save",
+      detailIds: [],
+    });
     expect(sessionApplication.semantic.observe().revision).toBe(semanticRevision);
 
     fixture.runtime.dispose();

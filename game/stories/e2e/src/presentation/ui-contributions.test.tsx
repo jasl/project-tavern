@@ -15,7 +15,9 @@ import {
   createInputRouterV1,
   createInteractionSessionStoreV1,
   createPresentationReadPortV1,
+  InputContextProviderV1,
   initialInteractionSessionStateV1,
+  systemInputActionIdsV1,
   type RuntimeAssetLoaderV1,
   type RuntimeAssetLoadRequestV1,
   type UiRendererNamespaceV1,
@@ -189,6 +191,8 @@ const flowTextIdsV1 = Object.freeze({
   continue: parseTextId("text.e2e.action.continue"),
   complete: parseTextId("text.e2e.action.complete"),
   unavailable: parseTextId("text.e2e.reason.flow_unavailable"),
+  choiceNode: parseTextId("text.e2e.flow.node.choice"),
+  rejoinNode: parseTextId("text.e2e.flow.node.rejoin"),
 });
 
 type FlowTextIdV1 = (typeof flowTextIdsV1)[keyof typeof flowTextIdsV1];
@@ -322,9 +326,11 @@ function RenderContributionV1(props: {
     props.rendererId,
   );
   return (
-    <div data-tested-ui-namespace={props.namespace}>
-      <Renderer {...context} />
-    </div>
+    <InputContextProviderV1 router={props.fixture.inputRouter}>
+      <div data-tested-ui-namespace={props.namespace}>
+        <Renderer {...context} />
+      </div>
+    </InputContextProviderV1>
   );
 }
 
@@ -487,21 +493,15 @@ describe("e2eUiContributionsV1", () => {
       expect(
         screen.getByRole("group", { name: flowCatalogWitnessV1(flowTextIdsV1.hud) }),
       ).toBeVisible();
-      expect(
-        screen.getByRole("group", { name: flowCatalogWitnessV1(flowTextIdsV1.narrative) }),
-      ).toBeVisible();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: labels.start })).toBeEnabled();
-      for (const name of [
-        labels.complete,
-        labels.chooseLeft,
-        labels.chooseRight,
-        labels.continue,
-      ]) {
-        expect(screen.getByRole("button", { name })).toBeDisabled();
-        expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(
-          labels.unavailable,
-        );
-      }
+      expect(screen.getByRole("button", { name: labels.complete })).toBeDisabled();
+      expect(screen.getByRole("button", { name: labels.complete })).toHaveAccessibleDescription(
+        labels.unavailable,
+      );
+      expect(screen.queryByRole("button", { name: labels.chooseLeft })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: labels.chooseRight })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: labels.continue })).not.toBeInTheDocument();
       expect(screen.getAllByRole("button", { name: "增加计数" })).toHaveLength(1);
 
       await clickAndAwaitExactInvocationV1(
@@ -522,6 +522,21 @@ describe("e2eUiContributionsV1", () => {
           candidate.actionId === "action.e2e.choose" && candidate.parameters.choice === "right",
       );
       if (rightInvocation === undefined) throw new TypeError("missing published E2E right option");
+      const choosingDialog = screen.getByRole("dialog", {
+        name: flowCatalogWitnessV1(flowTextIdsV1.narrative),
+      });
+      expect(choosingDialog).toBeVisible();
+      expect(choosingDialog).toHaveTextContent(flowCatalogWitnessV1(flowTextIdsV1.choiceNode));
+      expect(screen.getByRole("button", { name: labels.chooseLeft })).toBeEnabled();
+      expect(screen.getByRole("button", { name: labels.chooseRight })).toBeEnabled();
+      const callsBeforeBlockedInput = fixture.dispatch.mock.calls.length;
+      expect(
+        fixture.inputRouter.route({
+          kind: "action",
+          actionId: systemInputActionIdsV1.openMenu,
+        }),
+      ).toEqual({ kind: "handled", context: "narrative" });
+      expect(fixture.dispatch).toHaveBeenCalledTimes(callsBeforeBlockedInput);
       await clickAndAwaitExactInvocationV1(
         fixture,
         user,
@@ -541,6 +556,14 @@ describe("e2eUiContributionsV1", () => {
       if (continueInvocation === undefined) {
         throw new TypeError("missing published E2E continue option");
       }
+      const blockedDialog = screen.getByRole("dialog", {
+        name: flowCatalogWitnessV1(flowTextIdsV1.narrative),
+      });
+      expect(blockedDialog).toBeVisible();
+      expect(blockedDialog).toHaveTextContent(flowCatalogWitnessV1(flowTextIdsV1.rejoinNode));
+      expect(screen.getByRole("button", { name: labels.continue })).toBeEnabled();
+      expect(screen.queryByRole("button", { name: labels.chooseLeft })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: labels.chooseRight })).not.toBeInTheDocument();
       await clickAndAwaitExactInvocationV1(
         fixture,
         user,
@@ -560,6 +583,14 @@ describe("e2eUiContributionsV1", () => {
       if (completeInvocation === undefined) {
         throw new TypeError("missing published E2E complete option");
       }
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(
+        fixture.inputRouter.route({
+          kind: "action",
+          actionId: systemInputActionIdsV1.openMenu,
+        }),
+      ).toEqual({ kind: "ignored" });
+      expect(screen.getByRole("button", { name: labels.complete })).toBeEnabled();
       await clickAndAwaitExactInvocationV1(
         fixture,
         user,
@@ -636,6 +667,47 @@ describe("e2eUiContributionsV1", () => {
         leftInvocation,
       );
       rendered.unmount();
+    } finally {
+      fixture.dispose();
+    }
+  });
+
+  it("overlays bounded semantic controls without displacing the spatial hit plane", async () => {
+    const fixture = await createContributionFixtureV1();
+    try {
+      const rendered = render(
+        <RenderContributionV1
+          fixture={fixture}
+          namespace="scene_interaction"
+          view={fixture.project(emptyContentMaturityFlagsV1)}
+        />,
+      );
+      const root = rendered.container.querySelector("[data-e2e-counter-interaction]");
+      const spatialPlane = rendered.container.querySelector(
+        '[data-e2e-interaction-layer="spatial"]',
+      );
+      const semanticPlane = rendered.container.querySelector(
+        '[data-e2e-interaction-layer="controls"]',
+      );
+      const spatialWitness = screen.getByTestId("spatial-increment-target");
+
+      expect(root).toHaveStyle({ position: "absolute", inset: "0", display: "grid" });
+      expect(spatialPlane).toHaveStyle({
+        gridArea: "1 / 1",
+        minInlineSize: "0",
+        minBlockSize: "0",
+      });
+      expect(spatialWitness).toHaveStyle({ position: "absolute", inset: "0" });
+      expect(semanticPlane).toHaveStyle({
+        gridArea: "1 / 1",
+        alignSelf: "start",
+        justifySelf: "start",
+        zIndex: "1",
+        maxInlineSize: "100%",
+        maxBlockSize: "100%",
+        overflow: "auto",
+      });
+      expect(screen.getByRole("button", { name: "增加计数" })).toBeVisible();
     } finally {
       fixture.dispose();
     }

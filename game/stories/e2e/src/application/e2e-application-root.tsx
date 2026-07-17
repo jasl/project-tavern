@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
+  Button,
   CharacterHostV1,
+  DiagnosticExportButtonV1,
   GameShell,
+  OverlayHostV1,
+  SaveOverlayV1,
   SettingsLauncherV1,
   StageSceneHostV1,
   SystemDialogHostV1,
   useRuntimePresentationV1,
   validateRuntimeInteractionSurfaceV1,
   type GameStageLayersV1,
+  type OverlayRendererResolverV1,
+  type SaveOverlayLabelsV1,
   type UiContributionRegistryV1,
 } from "@sillymaker/ui";
 import type { ComponentType, ReactElement } from "react";
@@ -15,6 +21,7 @@ import type { ComponentType, ReactElement } from "react";
 import type { E2ePresentationRuntimeV1 } from "./create-e2e-presentation-runtime.js";
 import { E2eSettingsSectionV1 } from "../presentation/e2e-settings-section.js";
 import type { E2eRuntimePresentationPublicationV1 } from "../presentation/runtime-presentation.js";
+import { e2eApplicationTextIdsV1 } from "../presentation/text-catalogs.js";
 import {
   e2eUiRendererIdsV1,
   type E2eInteractionRendererContextV1,
@@ -24,6 +31,91 @@ import {
 export interface E2eApplicationRootPropsV1 {
   readonly runtime: E2ePresentationRuntimeV1;
 }
+
+const e2eInteractionEntryIdV1 = "e2e-interaction-entry";
+
+const e2eSaveOverlayLabelsV1 = Object.freeze({
+  accessibleName: "保存",
+  title: "保存",
+  storageLoading: "正在读取本地存档…",
+  storageReady: "本地存档可用",
+  storageBusy: "存档操作进行中",
+  storageUnavailable: "本地存储不可用",
+  slotsUnavailable: "无法读取存档槽",
+  safelySaved: (commandSequence: number) => `已安全保存至指令 ${commandSequence}`,
+  lastFailure: (code: string) => `上次存档失败：${code}`,
+  slotNames: Object.freeze({
+    "auto.current": "当前自动存档",
+    "auto.previous": "上一自动存档",
+    quick: "快速存档",
+    manual: "手动存档",
+  }),
+  slotHealth: Object.freeze({
+    empty: "空",
+    valid: "可用",
+    invalid: "已损坏",
+    recovery_candidate: "可恢复",
+    unavailable: "不可用",
+  }),
+  quickSave: "快速保存",
+  manualSave: "手动保存",
+  importSave: "导入存档",
+  exportCurrentSave: "导出当前进度",
+  loadSlot: (slotName: string) => `载入${slotName}`,
+  clearSlot: (slotName: string) => `清除${slotName}`,
+  exportSlot: (slotName: string) => `导出${slotName}`,
+  confirmation: Object.freeze({
+    loadTitle: (slotName: string) => `载入${slotName}`,
+    loadDescription: (slotName: string) => `当前进度将被${slotName}替换。`,
+    clearTitle: (slotName: string) => `清除${slotName}`,
+    clearDescription: (slotName: string) => `${slotName}将被永久清除。`,
+    importTitle: "导入存档",
+    importDescription: "当前进度将被所选存档替换。",
+    confirmLabel: "确认",
+    cancelLabel: "取消",
+    pendingText: "正在处理…",
+    completedText: "操作完成",
+    failedText: "操作失败",
+  }),
+  operation: Object.freeze({
+    saving: (slotName: string) => `正在保存到${slotName}…`,
+    loading: (slotName: string) => `正在载入${slotName}…`,
+    clearing: (slotName: string) => `正在清除${slotName}…`,
+    importing: "正在导入存档…",
+    exporting: (slotName: string) => `正在导出${slotName}…`,
+    exportingCurrent: "正在导出当前进度…",
+    saved: (slotName: string) => `已保存到${slotName}`,
+    cleared: (slotName: string) => `已清除${slotName}`,
+    loadedExact: "已载入存档",
+    loadedAdopted: "已兼容载入存档",
+    importedExact: "已导入存档",
+    importedAdopted: "已兼容导入存档",
+    importCancelled: "已取消导入存档",
+    importFileRejected: Object.freeze({
+      too_large: "所选存档文件过大",
+      unsupported_type: "所选文件类型不受支持",
+    }),
+    exported: (slotName: string) => `已导出${slotName}`,
+    exportedCurrent: "已导出当前进度",
+    rejected: Object.freeze({
+      busy: "会话正忙",
+      unavailable: "存储不可用",
+      empty_slot: "存档槽为空",
+      conflict: "存档发生冲突",
+      invalid_record: "存档无效",
+      lineage_limit: "存档兼容链过长",
+      incompatible: "存档不兼容",
+    }),
+    exportRejected: Object.freeze({
+      unavailable: "存储不可用",
+      empty_slot: "存档槽为空",
+      conflict: "存档发生冲突",
+      invalid_record: "存档无效",
+    }),
+    faulted: (code: string) => `存档故障：${code}`,
+    unexpectedFailure: "存档操作意外失败",
+  }),
+}) satisfies SaveOverlayLabelsV1;
 
 function requireRendererV1<TNamespace extends keyof E2eUiRendererContextsV1>(
   registry: UiContributionRegistryV1<E2eUiRendererContextsV1>,
@@ -93,6 +185,69 @@ function createCharacterLayerV1(
   );
 }
 
+function createOverlayResolverV1(
+  runtime: E2ePresentationRuntimeV1,
+  publication: E2eRuntimePresentationPublicationV1,
+): OverlayRendererResolverV1<string> {
+  const OverlayRenderer = requireRendererV1(
+    runtime.contributions,
+    "workspace_overlay",
+    e2eUiRendererIdsV1.overlay,
+  );
+  const overlayContext = Object.freeze({
+    viewSlice: publication.view,
+    semantic: runtime.application.semantic,
+    presentation: runtime.presentationRead,
+  }) satisfies E2eUiRendererContextsV1["workspace_overlay"];
+  return Object.freeze({
+    resolve(overlayId: string) {
+      if (overlayId === "overlay.e2e.test_panel") {
+        return Object.freeze({
+          accessibleName: "测试面板",
+          content: <OverlayRenderer {...overlayContext} />,
+        });
+      }
+      if (overlayId === "overlay.e2e.save") {
+        return Object.freeze({
+          accessibleName: "保存",
+          content: (
+            <SaveOverlayV1
+              port={runtime.playerUi.save}
+              labels={e2eSaveOverlayLabelsV1}
+              inputRouter={runtime.input}
+            />
+          ),
+        });
+      }
+      return null;
+    },
+  });
+}
+
+function createInteractionEntryV1(
+  runtime: E2ePresentationRuntimeV1,
+  publication: E2eRuntimePresentationPublicationV1,
+): ReactElement | null {
+  const surface = publication.view.interactionSurfaces[0];
+  if (surface === undefined) return null;
+  return (
+    <Button
+      id={e2eInteractionEntryIdV1}
+      onClick={() =>
+        runtime.intents.execute(
+          Object.freeze({
+            kind: "interaction.enter_surface" as const,
+            surfaceId: surface.surfaceId,
+          }),
+          Object.freeze({ returnFocusId: e2eInteractionEntryIdV1 }),
+        )
+      }
+    >
+      {runtime.presentationRead.text(e2eApplicationTextIdsV1.interactionEntry).text}
+    </Button>
+  );
+}
+
 function createSystemLayerV1(
   runtime: E2ePresentationRuntimeV1,
   publication: E2eRuntimePresentationPublicationV1,
@@ -113,18 +268,57 @@ function createSystemLayerV1(
       presentation={runtime.presentationRead}
     />
   );
+  const applicationTextV1 = (
+    textId: (typeof e2eApplicationTextIdsV1)[keyof typeof e2eApplicationTextIdsV1],
+  ) => runtime.presentationRead.text(textId).text;
   return (
     <SystemDialogHostV1
       inputRouter={runtime.input}
       settings={Object.freeze({
-        title: "设置",
-        closeLabel: "关闭",
+        title: applicationTextV1(e2eApplicationTextIdsV1.settings),
+        closeLabel: applicationTextV1(e2eApplicationTextIdsV1.close),
         sections: Object.freeze([settingsSection]),
-        emptyText: "没有可用设置。",
+        emptyText: applicationTextV1(e2eApplicationTextIdsV1.emptySettings),
       })}
     >
       <SystemRenderer {...context} />
-      <SettingsLauncherV1 label="设置" />
+      <output
+        data-testid="semantic-publication"
+        data-semantic-publication="true"
+        data-semantic-revision={publication.semantic.revision}
+        data-semantic-status={publication.semantic.status}
+      >
+        {applicationTextV1(e2eApplicationTextIdsV1.semanticStatus)} {publication.semantic.status}，
+        {applicationTextV1(e2eApplicationTextIdsV1.semanticRevision)}{" "}
+        {publication.semantic.revision}
+      </output>
+      <Button
+        onClick={() =>
+          runtime.intents.execute(
+            Object.freeze({ kind: "overlay.open" as const, overlayId: "overlay.e2e.test_panel" }),
+          )
+        }
+      >
+        {applicationTextV1(e2eApplicationTextIdsV1.openTestPanel)}
+      </Button>
+      <Button
+        onClick={() =>
+          runtime.intents.execute(
+            Object.freeze({ kind: "overlay.open" as const, overlayId: "overlay.e2e.save" }),
+          )
+        }
+      >
+        {applicationTextV1(e2eApplicationTextIdsV1.save)}
+      </Button>
+      <SettingsLauncherV1 label={applicationTextV1(e2eApplicationTextIdsV1.settings)} />
+      <DiagnosticExportButtonV1
+        diagnostics={runtime.playerUi.diagnostics}
+        sessionStatus={publication.semantic.status}
+        label={applicationTextV1(e2eApplicationTextIdsV1.exportDebugBundle)}
+        pendingText={applicationTextV1(e2eApplicationTextIdsV1.exportingDebugBundle)}
+        completedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExported)}
+        failedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExportFailed)}
+      />
     </SystemDialogHostV1>
   );
 }
@@ -134,11 +328,6 @@ function createFixedLayersV1(
   publication: E2eRuntimePresentationPublicationV1,
 ): GameStageLayersV1 {
   const HudRenderer = requireRendererV1(runtime.contributions, "hud", e2eUiRendererIdsV1.hud);
-  const OverlayRenderer = requireRendererV1(
-    runtime.contributions,
-    "workspace_overlay",
-    e2eUiRendererIdsV1.overlay,
-  );
   const NarrativeRenderer = requireRendererV1(
     runtime.contributions,
     "narrative",
@@ -153,11 +342,6 @@ function createFixedLayersV1(
     semantic: runtime.application.semantic,
     presentation: runtime.presentationRead,
   }) satisfies E2eUiRendererContextsV1["hud"];
-  const overlayContext = Object.freeze({
-    viewSlice: publication.view,
-    semantic: runtime.application.semantic,
-    presentation: runtime.presentationRead,
-  }) satisfies E2eUiRendererContextsV1["workspace_overlay"];
 
   return Object.freeze({
     background: (
@@ -170,8 +354,20 @@ function createFixedLayersV1(
     ),
     character: createCharacterLayerV1(runtime, publication),
     sceneInteraction: createInteractionLayerV1(runtime, publication),
-    hud: <HudRenderer {...flowContext} />,
-    workspaceOverlay: <OverlayRenderer {...overlayContext} />,
+    hud: (
+      <>
+        <HudRenderer {...flowContext} />
+        {createInteractionEntryV1(runtime, publication)}
+      </>
+    ),
+    workspaceOverlay: (
+      <OverlayHostV1
+        store={runtime.overlaySession}
+        rendererResolver={createOverlayResolverV1(runtime, publication)}
+        inputRouter={runtime.input}
+        closeLabel={runtime.presentationRead.text(e2eApplicationTextIdsV1.close).text}
+      />
+    ),
     narrative: <NarrativeRenderer {...flowContext} />,
     system: createSystemLayerV1(runtime, publication),
   });

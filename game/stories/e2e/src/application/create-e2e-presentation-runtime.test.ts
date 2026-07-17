@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+import type { HostFilePortV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
 import { createWebHostV1 } from "@sillymaker/web";
@@ -10,6 +11,7 @@ import {
   e2eAlphaFlagV1,
   e2eContentMaturityPolicyV1,
 } from "../presentation/content-maturity-policy.js";
+import { e2eApplicationTextIdsV1 } from "../presentation/text-catalogs.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
 
 function createEventTargetFixtureV1() {
@@ -76,12 +78,13 @@ function createRuntimeEnvironmentFixtureV1(hash: string) {
   });
 }
 
-function createHostV1() {
+function createHostV1(files?: HostFilePortV1) {
   return createWebHostV1({
     records: createMemoryHostRecordStoreV1(),
     seeds: [0x0002_3049],
     uuids: ["00000000-0000-4000-8000-000000000401"],
     now: () => "2026-07-17T00:00:00.000Z",
+    ...(files === undefined ? {} : { files }),
   });
 }
 
@@ -120,6 +123,22 @@ describe("createE2ePresentationRuntimeV1", () => {
           "",
         );
       }
+      for (const [textId, expected] of [
+        [e2eApplicationTextIdsV1.interactionEntry, "与测试计数器互动"],
+        [e2eApplicationTextIdsV1.semanticStatus, "语义状态"],
+        [e2eApplicationTextIdsV1.semanticRevision, "修订"],
+        [e2eApplicationTextIdsV1.openTestPanel, "打开测试面板"],
+        [e2eApplicationTextIdsV1.save, "保存"],
+        [e2eApplicationTextIdsV1.settings, "设置"],
+        [e2eApplicationTextIdsV1.close, "关闭"],
+        [e2eApplicationTextIdsV1.emptySettings, "没有可用设置。"],
+        [e2eApplicationTextIdsV1.exportDebugBundle, "导出调试包"],
+        [e2eApplicationTextIdsV1.exportingDebugBundle, "正在导出调试包…"],
+        [e2eApplicationTextIdsV1.debugBundleExported, "调试包已导出"],
+        [e2eApplicationTextIdsV1.debugBundleExportFailed, "调试包导出失败"],
+      ] as const) {
+        expect(runtime.presentationRead.text(textId).text).toBe(expected);
+      }
 
       const before = runtime.presentation.getSnapshot();
       await runtime.application.semantic.dispatch({
@@ -152,6 +171,106 @@ describe("createE2ePresentationRuntimeV1", () => {
         ),
       ).resolves.toMatchObject({ kind: "intent_executed" });
       expect(runtime.uiState.getCurrent().activeCueId).toBe("cue.e2e.counter.alpha");
+    } finally {
+      runtime.dispose();
+    }
+  });
+
+  it("composes player-safe file UI ports and one OverlaySession over the published UI state", async () => {
+    const selectOne = vi.fn(async (_request: Parameters<HostFilePortV1["selectOne"]>[0]) =>
+      Object.freeze({ kind: "cancelled" as const }),
+    );
+    const download = vi.fn(
+      async (_request: Parameters<HostFilePortV1["download"]>[0]) => undefined,
+    );
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(Object.freeze({ selectOne, download })),
+      environment: createRuntimeEnvironmentFixtureV1("#/play").environment,
+    });
+
+    try {
+      expect(Object.isFrozen(runtime.playerUi)).toBe(true);
+      await expect(runtime.playerUi.save.importSave()).resolves.toEqual({ kind: "cancelled" });
+      expect(selectOne).toHaveBeenCalledOnce();
+      expect(await runtime.application.persistence.getStatus()).toEqual(
+        await runtime.playerUi.save.getStatus(),
+      );
+
+      const debugBundle = await runtime.playerUi.diagnostics.exportDebugBundle();
+      expect(download).toHaveBeenCalledExactlyOnceWith({
+        filename: debugBundle.filename,
+        mediaType: debugBundle.mediaType,
+        bytes: debugBundle.bytes,
+      });
+
+      const initialOverlay = runtime.overlaySession.getSnapshot();
+      expect(initialOverlay).toEqual({ primaryId: null, detailIds: [] });
+      expect(runtime.overlaySession.getSnapshot()).toBe(initialOverlay);
+
+      runtime.overlaySession.openPrimary("overlay.e2e.save");
+      expect(runtime.uiState.getCurrent().primaryOverlayId).toBe("overlay.e2e.save");
+      expect(runtime.presentation.getSnapshot().view.activeOverlayId).toBe("overlay.e2e.save");
+      expect(runtime.overlaySession.getSnapshot()).toEqual({
+        primaryId: "overlay.e2e.save",
+        detailIds: [],
+      });
+      expect(runtime.overlaySession.closeTop()).toBe("primary_closed");
+      expect(runtime.uiState.getCurrent().primaryOverlayId).toBeNull();
+      expect(runtime.presentation.getSnapshot().view.activeOverlayId).toBeNull();
+      expect(runtime.overlaySession.closeTop()).toBe("already_closed");
+    } finally {
+      runtime.dispose();
+    }
+  });
+
+  it("keeps Interaction active across a variant change and cleans it on StageScene replacement", async () => {
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(),
+      environment: createRuntimeEnvironmentFixtureV1("#/play").environment,
+    });
+
+    try {
+      const initialStage = runtime.presentation.getSnapshot().view.stage;
+      const surface = runtime.presentation.getSnapshot().view.interactionSurfaces[0];
+      if (surface === undefined) throw new TypeError("missing E2E interaction surface");
+      runtime.interactionSession.open(surface.surfaceId, "e2e-interaction-entry");
+
+      await runtime.application.semantic.dispatch({
+        actionId: "action.e2e.start",
+        parameters: {},
+      });
+      const activeStage = runtime.presentation.getSnapshot().view.stage;
+      expect(activeStage.stageSceneId).toBe(initialStage.stageSceneId);
+      expect(activeStage.variantId).not.toBe(initialStage.variantId);
+      expect(runtime.interactionSession.getSnapshot().activeSurfaceId).toBe(surface.surfaceId);
+
+      await runtime.application.semantic.dispatch({
+        actionId: "action.e2e.choose",
+        parameters: { choice: "right" },
+      });
+      await runtime.application.semantic.dispatch({
+        actionId: "action.e2e.continue",
+        parameters: {},
+      });
+      expect(runtime.presentation.getSnapshot().view.stage.stageSceneId).toBe(
+        initialStage.stageSceneId,
+      );
+      expect(runtime.interactionSession.getSnapshot().activeSurfaceId).toBe(surface.surfaceId);
+
+      await runtime.application.semantic.dispatch({
+        actionId: "action.e2e.complete",
+        parameters: {},
+      });
+      expect(runtime.presentation.getSnapshot().view.stage.stageSceneId).not.toBe(
+        initialStage.stageSceneId,
+      );
+      expect(runtime.interactionSession.getSnapshot()).toEqual({
+        activeSurfaceId: null,
+        choosingTargetId: null,
+        returnFocusId: null,
+      });
     } finally {
       runtime.dispose();
     }

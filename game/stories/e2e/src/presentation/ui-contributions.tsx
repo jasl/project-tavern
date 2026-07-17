@@ -16,6 +16,8 @@ import {
   SemanticActionControlV1,
   StaticCharacterRendererV1,
   TopCardHudV1,
+  VnLayerV1,
+  useInputRouterV1,
   type GameRendererContextV1,
   type InteractionBehaviorControllerV1,
   type InteractionDescriptorPresentationV1,
@@ -27,6 +29,7 @@ import {
   type RuntimeInteractionSurfaceV1,
   type RuntimeStageSceneV1,
   type UiContributionSetV1,
+  type VnChoiceV1,
 } from "@sillymaker/ui";
 import type { CSSProperties, ReactElement } from "react";
 
@@ -142,11 +145,6 @@ const hudActionIdsV1 = Object.freeze([
   "action.e2e.start",
   "action.e2e.complete",
 ] as const satisfies readonly E2eSemanticInvocationV1["actionId"][]);
-const narrativeActionIdsV1 = Object.freeze([
-  "action.e2e.choose",
-  "action.e2e.continue",
-] as const satisfies readonly E2eSemanticInvocationV1["actionId"][]);
-
 const backgroundStyleV1 = Object.freeze({
   position: "absolute",
   inset: 0,
@@ -162,6 +160,35 @@ const cueStyleV1 = Object.freeze({
   padding: "0.25rem 0.5rem",
   border: "1px solid currentcolor",
   borderRadius: "999px",
+}) satisfies CSSProperties;
+
+const interactionRootStyleV1 = Object.freeze({
+  position: "absolute",
+  inset: 0,
+  display: "grid",
+}) satisfies CSSProperties;
+
+const interactionSpatialPlaneStyleV1 = Object.freeze({
+  gridArea: "1 / 1",
+  minInlineSize: 0,
+  minBlockSize: 0,
+}) satisfies CSSProperties;
+
+const interactionSpatialWitnessStyleV1 = Object.freeze({
+  position: "absolute",
+  inset: 0,
+}) satisfies CSSProperties;
+
+const interactionSemanticPlaneStyleV1 = Object.freeze({
+  gridArea: "1 / 1",
+  alignSelf: "start",
+  justifySelf: "start",
+  zIndex: 1,
+  display: "grid",
+  gap: "0.5rem",
+  maxInlineSize: "100%",
+  maxBlockSize: "100%",
+  overflow: "auto",
 }) satisfies CSSProperties;
 
 function E2eCssBackgroundV1(props: E2eUiRendererContextsV1["background"]): ReactElement {
@@ -220,30 +247,42 @@ function E2eCounterInteractionV1(
   const view = props.viewSlice;
   const cueTextId = projectedCueTextIdV1(view);
   return (
-    <div data-e2e-counter-interaction="true">
-      <InteractionSurfaceV1
-        surface={view.surface}
-        hitMap={view.hitMap}
-        spatialState={view.spatialState}
-        inputRouter={props.inputRouter}
-        controller={props.controller}
-      >
-        <span data-testid="spatial-increment-target" aria-hidden="true" />
-      </InteractionSurfaceV1>
-      <InteractionBehaviorListV1
-        surface={view.surface}
-        session={props.session}
-        controller={props.controller}
-        presentation={props.presentation}
-        descriptorPresentation={descriptorPresentationV1}
-        leaveTextId={textIdsV1.leaveInteraction}
-        inputRouter={props.inputRouter}
-      />
-      {cueTextId === null ? null : (
-        <span role="status" data-content-cue-id={view.activeCueId ?? undefined} style={cueStyleV1}>
-          {props.presentation.text(cueTextId).text}
-        </span>
-      )}
+    <div data-e2e-counter-interaction="true" style={interactionRootStyleV1}>
+      <div data-e2e-interaction-layer="spatial" style={interactionSpatialPlaneStyleV1}>
+        <InteractionSurfaceV1
+          surface={view.surface}
+          hitMap={view.hitMap}
+          spatialState={view.spatialState}
+          inputRouter={props.inputRouter}
+          controller={props.controller}
+        >
+          <span
+            data-testid="spatial-increment-target"
+            aria-hidden="true"
+            style={interactionSpatialWitnessStyleV1}
+          />
+        </InteractionSurfaceV1>
+      </div>
+      <div data-e2e-interaction-layer="controls" style={interactionSemanticPlaneStyleV1}>
+        <InteractionBehaviorListV1
+          surface={view.surface}
+          session={props.session}
+          controller={props.controller}
+          presentation={props.presentation}
+          descriptorPresentation={descriptorPresentationV1}
+          leaveTextId={textIdsV1.leaveInteraction}
+          inputRouter={props.inputRouter}
+        />
+        {cueTextId === null ? null : (
+          <span
+            role="status"
+            data-content-cue-id={view.activeCueId ?? undefined}
+            style={cueStyleV1}
+          >
+            {props.presentation.text(cueTextId).text}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -340,27 +379,68 @@ function E2eNeutralOverlayV1(
   const accessibleName = props.presentation.text(textIdsV1.overlayName).text;
   if (props.viewSlice.activeOverlayId !== "overlay.e2e.test_panel") return null;
   return (
-    <section
-      role="dialog"
-      aria-label={accessibleName}
-      aria-modal="false"
-      data-e2e-overlay-id="overlay.e2e.test_panel"
-    >
+    <section data-e2e-overlay-id="overlay.e2e.test_panel">
       <h2>{accessibleName}</h2>
     </section>
   );
 }
 
-function E2eNarrativeHostV1(props: E2eUiRendererContextsV1["narrative"]): ReactElement {
+function projectE2eVnChoiceV1(
+  option: E2eFlowActionOptionV1,
+  presentation: E2eUiPresentationReadPortV1,
+): VnChoiceV1<E2eSemanticInvocationV1> {
+  const label = presentation.text(flowOptionTextIdV1(option.descriptor, option.invocation)).text;
+  if (!option.descriptor.enabled) {
+    return Object.freeze({
+      choiceId: `${option.descriptor.actionId}:${option.optionIndex}`,
+      label,
+      enabled: false,
+      disabledReasons: Object.freeze(
+        option.descriptor.reasons.map(() => presentation.text(textIdsV1.unavailableReason).text),
+      ),
+    });
+  }
+  return Object.freeze({
+    choiceId: `${option.descriptor.actionId}:${option.optionIndex}`,
+    label,
+    enabled: true,
+    disabledReasons: Object.freeze([] as const),
+    invocation: option.invocation,
+  });
+}
+
+function E2eNarrativeHostV1(props: E2eUiRendererContextsV1["narrative"]): ReactElement | null {
+  const inputRouter = useInputRouterV1();
   const accessibleName = props.presentation.text(textIdsV1.narrativeName).text;
+  const status = props.viewSlice.game.flow.status;
+  const active = status === "choosing" || status === "blocked";
+  const choices =
+    status === "choosing"
+      ? selectE2eFlowActionOptionsV1(props.viewSlice.actions, ["action.e2e.choose"]).map((option) =>
+          projectE2eVnChoiceV1(option, props.presentation),
+        )
+      : Object.freeze([]);
+  const advanceOption =
+    status === "blocked"
+      ? selectE2eFlowActionOptionsV1(props.viewSlice.actions, ["action.e2e.continue"])[0]
+      : undefined;
+  const advance =
+    advanceOption === undefined ? null : projectE2eVnChoiceV1(advanceOption, props.presentation);
   return (
-    <section aria-label={accessibleName} data-e2e-narrative-host="true">
-      <E2eSemanticActionGroupV1
-        context={props}
-        actionIds={narrativeActionIdsV1}
-        accessibleName={accessibleName}
-      />
-    </section>
+    <VnLayerV1
+      active={active}
+      accessibleName={accessibleName}
+      speakerLabel={null}
+      text={
+        props.presentation.text(
+          parseTextId(`text.e2e.flow.node.${props.viewSlice.game.flow.nodeId}`),
+        ).text
+      }
+      choices={choices}
+      advance={advance}
+      semantic={props.semantic}
+      inputRouter={inputRouter}
+    />
   );
 }
 

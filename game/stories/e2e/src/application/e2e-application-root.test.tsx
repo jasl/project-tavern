@@ -136,6 +136,76 @@ describe("E2eApplicationRootV1", () => {
     }
   });
 
+  it("exposes the public Semantic witness and always-reachable player controls", async () => {
+    const fixture = await createRootFixtureV1();
+    try {
+      render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+        container: fixture.container,
+      });
+
+      const semantic = fixture.runtime.application.semantic.observe();
+      expect(screen.getByTestId("semantic-publication")).toHaveAttribute(
+        "data-semantic-revision",
+        String(semantic.revision),
+      );
+      expect(screen.getByTestId("semantic-publication")).toHaveAttribute(
+        "data-semantic-status",
+        semantic.status,
+      );
+      expect(screen.getByRole("button", { name: "与测试计数器互动" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "打开测试面板" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "导出调试包" })).toBeEnabled();
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("opens the published Interaction and blocking Narrative through public controls", async () => {
+    const fixture = await createRootFixtureV1();
+    const user = userEvent.setup();
+    try {
+      render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+        container: fixture.container,
+      });
+
+      const entry = screen.getByRole("button", { name: "与测试计数器互动" });
+      await user.click(entry);
+      expect(screen.getByRole("region", { name: "测试计数器互动" })).toBeVisible();
+      await user.keyboard("{Escape}");
+      expect(entry).toHaveFocus();
+
+      await user.click(screen.getByRole("button", { name: "开始流程" }));
+      expect(screen.getByRole("dialog", { name: "流程操作" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "设置" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "导出调试包" })).toBeEnabled();
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("opens and visibly closes the neutral Overlay without changing Gameplay", async () => {
+    const fixture = await createRootFixtureV1();
+    const user = userEvent.setup();
+    const semanticBefore = fixture.runtime.application.semantic.observe();
+    try {
+      render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+        container: fixture.container,
+      });
+
+      const opener = screen.getByRole("button", { name: "打开测试面板" });
+      await user.click(opener);
+      expect(screen.getByRole("dialog", { name: "测试面板" })).toBeVisible();
+      await user.click(screen.getByRole("button", { name: "关闭" }));
+      expect(screen.queryByRole("dialog", { name: "测试面板" })).not.toBeInTheDocument();
+      expect(opener).toHaveFocus();
+      expect(fixture.runtime.application.semantic.observe()).toBe(semanticBefore);
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
   it("dispatches through the published Semantic option and keeps Settings at terminal", async () => {
     const fixture = await createRootFixtureV1();
     try {

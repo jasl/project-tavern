@@ -8,6 +8,20 @@ export const e2eContentPreferenceRejectedTextIdV1 = parseTextId(
 export const e2eContentPreferenceStorageFailedTextIdV1 = parseTextId(
   "text.e2e.settings.content_filter.storage_failed",
 );
+export const e2eApplicationTextIdsV1 = Object.freeze({
+  interactionEntry: parseTextId("text.e2e.application.interaction_entry"),
+  semanticStatus: parseTextId("text.e2e.application.semantic_status"),
+  semanticRevision: parseTextId("text.e2e.application.semantic_revision"),
+  openTestPanel: parseTextId("text.e2e.application.open_test_panel"),
+  save: parseTextId("text.e2e.application.save"),
+  settings: parseTextId("text.e2e.application.settings"),
+  close: parseTextId("text.e2e.application.close"),
+  emptySettings: parseTextId("text.e2e.application.settings.empty"),
+  exportDebugBundle: parseTextId("text.e2e.application.diagnostics.export"),
+  exportingDebugBundle: parseTextId("text.e2e.application.diagnostics.exporting"),
+  debugBundleExported: parseTextId("text.e2e.application.diagnostics.exported"),
+  debugBundleExportFailed: parseTextId("text.e2e.application.diagnostics.export_failed"),
+});
 
 export const e2eTextCatalogsV1 = parseTextCatalogSetV1({
   defaultLocale: e2eDefaultLocaleV1,
@@ -48,6 +62,18 @@ export const e2eTextCatalogsV1 = parseTextCatalogSetV1({
         { textId: "text.e2e.overlay.test_panel.name", text: "测试面板" },
         { textId: "text.e2e.narrative.name", text: "流程操作" },
         { textId: "text.e2e.system.name", text: "系统状态" },
+        { textId: e2eApplicationTextIdsV1.interactionEntry, text: "与测试计数器互动" },
+        { textId: e2eApplicationTextIdsV1.semanticStatus, text: "语义状态" },
+        { textId: e2eApplicationTextIdsV1.semanticRevision, text: "修订" },
+        { textId: e2eApplicationTextIdsV1.openTestPanel, text: "打开测试面板" },
+        { textId: e2eApplicationTextIdsV1.save, text: "保存" },
+        { textId: e2eApplicationTextIdsV1.settings, text: "设置" },
+        { textId: e2eApplicationTextIdsV1.close, text: "关闭" },
+        { textId: e2eApplicationTextIdsV1.emptySettings, text: "没有可用设置。" },
+        { textId: e2eApplicationTextIdsV1.exportDebugBundle, text: "导出调试包" },
+        { textId: e2eApplicationTextIdsV1.exportingDebugBundle, text: "正在导出调试包…" },
+        { textId: e2eApplicationTextIdsV1.debugBundleExported, text: "调试包已导出" },
+        { textId: e2eApplicationTextIdsV1.debugBundleExportFailed, text: "调试包导出失败" },
         { textId: "text.e2e.cue.counter.alpha", text: "Alpha 提示已激活" },
         { textId: "text.e2e.cue.counter.beta", text: "Beta 提示已激活" },
         { textId: "text.e2e.content_flag.alpha.name", text: "Alpha 标记" },

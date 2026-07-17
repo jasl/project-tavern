@@ -4,16 +4,23 @@ import type { ComponentType, ReactElement } from "react";
 
 import type { AssetId, DeepReadonly, HitMapDescriptorV1, TextId } from "@sillymaker/base";
 import {
+  Button,
   CharacterHostV1,
+  DiagnosticExportButtonV1,
   GameShell,
   OverlayHostV1,
+  SaveOverlayV1,
   SettingsLauncherV1,
   StageSceneHostV1,
   SystemDialogHostV1,
   usePresentationAssetV1,
   useRuntimePresentationV1,
 } from "@sillymaker/ui";
-import type { OverlayRendererResolverV1, UiRendererNamespaceV1 } from "@sillymaker/ui";
+import type {
+  OverlayRendererResolverV1,
+  SaveOverlayLabelsV1,
+  UiRendererNamespaceV1,
+} from "@sillymaker/ui";
 
 import { pocNoContentFilterOptionsTextIdV1, pocTextIdsV1 } from "../content/text-ids.js";
 import { pocStageSceneIdsV1 } from "../presentation/presentation-ids.js";
@@ -26,6 +33,7 @@ import {
   type PocInteractionRendererViewV1,
   type PocUiRendererContextsV1,
 } from "../presentation/ui-contributions.js";
+import type { PocSemanticActionDescriptorV1 } from "../presentation/semantic-actions.js";
 import type {
   PocInteractionSurfaceResolutionV1,
   PocPresentationRuntimeV1,
@@ -34,6 +42,89 @@ import type {
 export interface PocApplicationRootPropsV1 {
   readonly runtime: PocPresentationRuntimeV1;
 }
+
+const pocSaveOverlayLabelsV1 = Object.freeze({
+  accessibleName: "保存",
+  title: "保存",
+  storageLoading: "正在读取本地存档…",
+  storageReady: "本地存档可用",
+  storageBusy: "存档操作进行中",
+  storageUnavailable: "本地存储不可用",
+  slotsUnavailable: "无法读取存档槽",
+  safelySaved: (commandSequence: number) => `已安全保存至指令 ${commandSequence}`,
+  lastFailure: (code: string) => `上次存档失败：${code}`,
+  slotNames: Object.freeze({
+    "auto.current": "当前自动存档",
+    "auto.previous": "上一自动存档",
+    quick: "快速存档",
+    manual: "手动存档",
+  }),
+  slotHealth: Object.freeze({
+    empty: "空",
+    valid: "可用",
+    invalid: "已损坏",
+    recovery_candidate: "可恢复",
+    unavailable: "不可用",
+  }),
+  quickSave: "快速保存",
+  manualSave: "手动保存",
+  importSave: "导入存档",
+  exportCurrentSave: "导出当前进度",
+  loadSlot: (slotName: string) => `载入${slotName}`,
+  clearSlot: (slotName: string) => `清除${slotName}`,
+  exportSlot: (slotName: string) => `导出${slotName}`,
+  confirmation: Object.freeze({
+    loadTitle: (slotName: string) => `载入${slotName}`,
+    loadDescription: (slotName: string) => `当前进度将被${slotName}替换。`,
+    clearTitle: (slotName: string) => `清除${slotName}`,
+    clearDescription: (slotName: string) => `${slotName}将被永久清除。`,
+    importTitle: "导入存档",
+    importDescription: "当前进度将被所选存档替换。",
+    confirmLabel: "确认",
+    cancelLabel: "取消",
+    pendingText: "正在处理…",
+    completedText: "操作完成",
+    failedText: "操作失败",
+  }),
+  operation: Object.freeze({
+    saving: (slotName: string) => `正在保存到${slotName}…`,
+    loading: (slotName: string) => `正在载入${slotName}…`,
+    clearing: (slotName: string) => `正在清除${slotName}…`,
+    importing: "正在导入存档…",
+    exporting: (slotName: string) => `正在导出${slotName}…`,
+    exportingCurrent: "正在导出当前进度…",
+    saved: (slotName: string) => `已保存到${slotName}`,
+    cleared: (slotName: string) => `已清除${slotName}`,
+    loadedExact: "已载入存档",
+    loadedAdopted: "已兼容载入存档",
+    importedExact: "已导入存档",
+    importedAdopted: "已兼容导入存档",
+    importCancelled: "已取消导入存档",
+    importFileRejected: Object.freeze({
+      too_large: "所选存档文件过大",
+      unsupported_type: "所选文件类型不受支持",
+    }),
+    exported: (slotName: string) => `已导出${slotName}`,
+    exportedCurrent: "已导出当前进度",
+    rejected: Object.freeze({
+      busy: "会话正忙",
+      unavailable: "存储不可用",
+      empty_slot: "存档槽为空",
+      conflict: "存档发生冲突",
+      invalid_record: "存档无效",
+      lineage_limit: "存档兼容链过长",
+      incompatible: "存档不兼容",
+    }),
+    exportRejected: Object.freeze({
+      unavailable: "存储不可用",
+      empty_slot: "存档槽为空",
+      conflict: "存档发生冲突",
+      invalid_record: "存档无效",
+    }),
+    faulted: (code: string) => `存档故障：${code}`,
+    unexpectedFailure: "存档操作意外失败",
+  }),
+}) satisfies SaveOverlayLabelsV1;
 
 function requireRendererV1<TNamespace extends UiRendererNamespaceV1>(
   runtime: PocPresentationRuntimeV1,
@@ -47,7 +138,7 @@ function requireRendererV1<TNamespace extends UiRendererNamespaceV1>(
   return resolution.component;
 }
 
-function overlayTitleTextIdV1(overlayId: PocOverlayIdV1): TextId {
+function overlayTitleTextIdV1(overlayId: Exclude<PocOverlayIdV1, "overlay.poc.save">): TextId {
   switch (overlayId) {
     case "overlay.poc.policy":
       return pocTextIdsV1.overlayPolicyTitle;
@@ -70,6 +161,58 @@ function overlayTitleTextIdV1(overlayId: PocOverlayIdV1): TextId {
   }
   const unsupportedOverlayId: never = overlayId;
   throw new TypeError(`ui.poc.overlay_unknown:${unsupportedOverlayId}`);
+}
+
+type PocPurchaseDescriptorV1 = Extract<
+  PocSemanticActionDescriptorV1,
+  { readonly actionId: "action.purchase" }
+>;
+type PocRunStartDescriptorV1 = Extract<
+  PocSemanticActionDescriptorV1,
+  { readonly actionId: "action.run_start" }
+>;
+type PocLifePolicyDescriptorV1 = Extract<
+  PocSemanticActionDescriptorV1,
+  { readonly actionId: "action.choose_life_policy" }
+>;
+
+function uniqueEnabledPurchaseDescriptorV1(
+  actions: readonly DeepReadonly<PocSemanticActionDescriptorV1>[],
+): DeepReadonly<PocPurchaseDescriptorV1> | null {
+  const matches = actions.filter(
+    (candidate): candidate is DeepReadonly<PocPurchaseDescriptorV1> =>
+      candidate.actionId === "action.purchase" &&
+      candidate.delivery === "form" &&
+      candidate.form.kind === "purchase" &&
+      candidate.enabled,
+  );
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+function uniqueEnabledRunStartDescriptorV1(
+  actions: readonly DeepReadonly<PocSemanticActionDescriptorV1>[],
+): DeepReadonly<PocRunStartDescriptorV1> | null {
+  const matches = actions.filter(
+    (candidate): candidate is DeepReadonly<PocRunStartDescriptorV1> =>
+      candidate.actionId === "action.run_start" &&
+      candidate.delivery === "direct" &&
+      candidate.directInvocation.actionId === "action.run_start" &&
+      candidate.enabled,
+  );
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+function uniqueEnabledLifePolicyDescriptorV1(
+  actions: readonly DeepReadonly<PocSemanticActionDescriptorV1>[],
+): DeepReadonly<PocLifePolicyDescriptorV1> | null {
+  const matches = actions.filter(
+    (candidate): candidate is DeepReadonly<PocLifePolicyDescriptorV1> =>
+      candidate.actionId === "action.choose_life_policy" &&
+      candidate.delivery === "choices" &&
+      candidate.options.length > 0 &&
+      candidate.enabled,
+  );
+  return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
 function findHitMapV1(
@@ -206,6 +349,18 @@ function createOverlayResolverV1(input: {
   const semantic = input.runtime.application.semantic;
   return Object.freeze({
     resolve(overlayId: DeepReadonly<PocOverlayIdV1>) {
+      if (overlayId === "overlay.poc.save") {
+        return Object.freeze({
+          accessibleName: pocSaveOverlayLabelsV1.accessibleName,
+          content: (
+            <SaveOverlayV1
+              port={input.runtime.playerUi.save}
+              labels={pocSaveOverlayLabelsV1}
+              inputRouter={input.runtime.input}
+            />
+          ),
+        });
+      }
       return Object.freeze({
         accessibleName: presentation.text(overlayTitleTextIdV1(overlayId)).text,
         content: createElement(input.renderer, {
@@ -245,6 +400,9 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
     publication,
     runtime,
   });
+  const purchaseDescriptor = uniqueEnabledPurchaseDescriptorV1(publication.semantic.actions);
+  const runStartDescriptor = uniqueEnabledRunStartDescriptorV1(publication.semantic.actions);
+  const lifePolicyDescriptor = uniqueEnabledLifePolicyDescriptorV1(publication.semantic.actions);
 
   const layers = Object.freeze({
     background: (
@@ -276,6 +434,7 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
         store={runtime.rendering.overlaySession}
         rendererResolver={overlayResolver}
         inputRouter={runtime.input}
+        closeLabel={presentation.text(pocTextIdsV1.controlCloseLabel).text}
       />
     ),
     narrative: createElement(NarrativeRenderer, {
@@ -301,7 +460,68 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
           semantic,
           presentation,
         })}
+        <output
+          data-testid="semantic-publication"
+          data-semantic-publication="true"
+          data-semantic-revision={publication.semantic.revision}
+          data-semantic-status={publication.semantic.status}
+        >
+          语义状态 {publication.semantic.status}，修订 {publication.semantic.revision}
+        </output>
+        {runStartDescriptor === null ? null : (
+          <Button onClick={() => void semantic.dispatch(runStartDescriptor.directInvocation)}>
+            {presentation.text(runStartDescriptor.textId).text}
+          </Button>
+        )}
+        {lifePolicyDescriptor === null ? null : (
+          <Button
+            onClick={() =>
+              runtime.intents.execute(
+                Object.freeze({
+                  kind: "overlay.open" as const,
+                  overlayId: "overlay.poc.policy" as const,
+                }),
+              )
+            }
+          >
+            {presentation.text(lifePolicyDescriptor.textId).text}
+          </Button>
+        )}
+        {purchaseDescriptor === null ? null : (
+          <Button
+            onClick={() =>
+              runtime.intents.execute(
+                Object.freeze({
+                  kind: "overlay.open" as const,
+                  overlayId: "overlay.poc.purchase" as const,
+                }),
+              )
+            }
+          >
+            {presentation.text(purchaseDescriptor.textId).text}
+          </Button>
+        )}
+        <Button
+          onClick={() =>
+            runtime.intents.execute(
+              Object.freeze({
+                kind: "overlay.open" as const,
+                overlayId: "overlay.poc.save" as const,
+              }),
+            )
+          }
+        >
+          保存
+        </Button>
         <SettingsLauncherV1 label="设置" />
+        <DiagnosticExportButtonV1
+          diagnostics={runtime.playerUi.diagnostics}
+          sessionStatus={publication.semantic.status}
+          label="导出调试包"
+          pendingText="正在导出调试包…"
+          completedText="调试包已导出"
+          failedText="调试包导出失败"
+        />
       </SystemDialogHostV1>
     ),
   });

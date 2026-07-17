@@ -33,7 +33,8 @@ export type PocOverlayIdV1 =
   | "overlay.poc.world_action"
   | "overlay.poc.ledger"
   | "overlay.poc.relationship"
-  | "overlay.poc.run_summary";
+  | "overlay.poc.run_summary"
+  | "overlay.poc.save";
 
 export interface PocPresentationUiStateV1 {
   readonly route: PocPresentationRouteV1;

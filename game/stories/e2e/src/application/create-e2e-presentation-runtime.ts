@@ -29,6 +29,9 @@ import {
   type InteractionBehaviorControllerV1,
   type InteractionSessionStateV1,
   type InteractionSessionStoreV1,
+  type OverlayCloseTopResultV1,
+  type OverlayPushDetailResultV1,
+  type OverlaySessionStoreV1,
   type PresentationIntentRouterV1,
   type PresentationReadPortV1,
   type RuntimeAssetLoaderV1,
@@ -37,6 +40,7 @@ import {
 import {
   createBrowserImageLoaderV1,
   createHashRouterV1,
+  createPlayerUiPortsV1,
   createWebContentPreferencePortV1,
   installPointerAdapterV1,
   type BrowserImageLoaderEnvironmentV1,
@@ -106,6 +110,7 @@ export interface E2ePresentationRuntimeV1 {
   readonly applicationId: "e2e-web";
   readonly resolvedGame: E2eResolvedGameV1;
   readonly application: E2eGameApplicationPortV1;
+  readonly playerUi: ReturnType<typeof createPlayerUiPortsV1>;
   readonly contentPreference: ContentPreferencePortV1;
   readonly uiState: ReadonlyViewSourceV1<E2ePresentationUiStateV1>;
   readonly presentation: RuntimePresentationStoreV1<E2eRuntimePresentationPublicationV1>;
@@ -122,6 +127,7 @@ export interface E2ePresentationRuntimeV1 {
   readonly contributions: typeof e2eUiContributionRegistryV1;
   readonly interactionSession: InteractionSessionStoreV1;
   readonly interactionController: InteractionBehaviorControllerV1;
+  readonly overlaySession: OverlaySessionStoreV1<string>;
   dispose(): void;
 }
 
@@ -153,6 +159,53 @@ function sameInteractionStateV1(
     left.choosingTargetId === right.choosingTargetId &&
     left.returnFocusId === right.returnFocusId
   );
+}
+
+function createOverlaySessionV1(
+  getPrimaryId: () => string | null,
+  setPrimaryId: (overlayId: string | null) => void,
+  subscribe: (listener: () => void) => () => void,
+): OverlaySessionStoreV1<string> {
+  const noPrimaryV1 = Object.freeze({ kind: "rejected" as const, code: "no_primary" as const });
+  const duplicateV1 = Object.freeze({ kind: "rejected" as const, code: "duplicate" as const });
+  const detailLimitV1 = Object.freeze({
+    kind: "rejected" as const,
+    code: "detail_limit" as const,
+  });
+  let cachedPrimaryId: string | null | undefined;
+  let cachedSnapshot = Object.freeze({
+    primaryId: null as string | null,
+    detailIds: Object.freeze([]) as readonly string[],
+  });
+  const getSnapshot = () => {
+    const primaryId = getPrimaryId();
+    if (cachedPrimaryId === primaryId) return cachedSnapshot;
+    cachedPrimaryId = primaryId;
+    cachedSnapshot = Object.freeze({
+      primaryId,
+      detailIds: Object.freeze([]) as readonly string[],
+    });
+    return cachedSnapshot;
+  };
+  return Object.freeze({
+    getSnapshot,
+    subscribe,
+    openPrimary: setPrimaryId,
+    pushDetail(id: string): OverlayPushDetailResultV1 {
+      const primaryId = getPrimaryId();
+      if (primaryId === null) return noPrimaryV1;
+      if (primaryId === id) return duplicateV1;
+      return detailLimitV1;
+    },
+    closeTop(): OverlayCloseTopResultV1 {
+      if (getPrimaryId() === null) return "already_closed";
+      setPrimaryId(null);
+      return "primary_closed";
+    },
+    closeAll(): void {
+      if (getPrimaryId() !== null) setPrimaryId(null);
+    },
+  });
 }
 
 export async function createE2ePresentationRuntimeV1(
@@ -195,6 +248,11 @@ export async function createE2ePresentationRuntimeV1(
         input.host.log.write("warn", "presentation.content_preference_warning", Object.freeze({})),
     }),
   ]);
+  const playerUi = createPlayerUiPortsV1({
+    files: input.host.files,
+    persistence: application.persistence,
+    diagnostics: application.diagnostics,
+  });
 
   const uiStateSource = createViewSourceV1<E2ePresentationUiStateV1>(
     frozenUiStateV1({
@@ -237,20 +295,24 @@ export async function createE2ePresentationRuntimeV1(
       });
     },
   });
+  const overlaySession = createOverlaySessionV1(
+    () => uiStateSource.getCurrent().primaryOverlayId,
+    (primaryOverlayId) =>
+      updateUiState((current) =>
+        current.primaryOverlayId === primaryOverlayId
+          ? current
+          : Object.freeze({ ...current, primaryOverlayId }),
+      ),
+    uiStateSource.subscribe,
+  );
   const intents = createPresentationIntentRouterV1({
-    knownOverlayIds: Object.freeze(["overlay.e2e.test_panel"]),
+    knownOverlayIds: Object.freeze(["overlay.e2e.test_panel", "overlay.e2e.save"]),
     knownSurfaceIds: Object.freeze(
       input.resolved.sceneGraph.interactionSurfaces.map(({ surfaceId }) => surfaceId),
     ),
     knownCueIds: Object.freeze(e2eInteractionFixtureV1.cueProviders.map(({ cueId }) => cueId)),
     overlay: Object.freeze({
-      open(primaryOverlayId: string) {
-        updateUiState((current) =>
-          current.primaryOverlayId === primaryOverlayId
-            ? current
-            : Object.freeze({ ...current, primaryOverlayId }),
-        );
-      },
+      open: overlaySession.openPrimary,
     }),
     session: Object.freeze({
       open: interactionSession.open,
@@ -333,11 +395,22 @@ export async function createE2ePresentationRuntimeV1(
   const unsubscribePreload = presentation.subscribe(preloadRequiredAssets);
   preloadRequiredAssets();
 
+  let previousStageSceneId = presentation.getSnapshot().view.stage.stageSceneId;
+  const unsubscribeStageCleanup = presentation.subscribe(() => {
+    const nextStageSceneId = presentation.getSnapshot().view.stage.stageSceneId;
+    if (nextStageSceneId === previousStageSceneId) return;
+    previousStageSceneId = nextStageSceneId;
+    if (interactionSession.getSnapshot().activeSurfaceId !== null) {
+      interactionSession.cleanup("stage_scene_replaced");
+    }
+  });
+
   let disposed = false;
   const runtime = Object.freeze({
     applicationId: "e2e-web" as const,
     resolvedGame: input.resolved,
     application,
+    playerUi,
     contentPreference,
     uiState,
     presentation,
@@ -348,6 +421,7 @@ export async function createE2ePresentationRuntimeV1(
     contributions: e2eUiContributionRegistryV1,
     interactionSession,
     interactionController,
+    overlaySession,
     dispose(): void {
       if (disposed) return;
       disposed = true;
@@ -359,6 +433,7 @@ export async function createE2ePresentationRuntimeV1(
         unsubscribePreload();
         preloadController?.abort();
       }
+      unsubscribeStageCleanup();
       presentation.dispose();
       semanticBridge.dispose();
       assets.dispose();

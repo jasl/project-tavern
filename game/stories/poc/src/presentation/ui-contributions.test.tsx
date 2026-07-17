@@ -46,6 +46,7 @@ import { pocContentMaturityPolicyV1 } from "./content-maturity-policy.js";
 import type { PocPresentationUiStateV1 } from "./runtime/contracts.js";
 import { projectPocRuntimePresentationV1 } from "./runtime/project-poc-runtime-presentation.js";
 import { pocSceneGraphV1, pocStageRendererIdsV1 } from "./scene-graph.js";
+import { pocGameSymbolRegistryV1 } from "./symbols/poc-game-symbols.js";
 import {
   parsePocSemanticInvocationV1,
   type PocSemanticActionDescriptorV1,
@@ -172,6 +173,13 @@ function narrativeRendererV1() {
   const registry = createUiContributionRegistryV1<PocUiRendererContextsV1>([pocUiContributionsV1]);
   const resolution = registry.resolve("narrative", "renderer.poc.narrative.vn");
   if (resolution.kind !== "found") throw new TypeError("missing PoC Narrative renderer");
+  return resolution.component;
+}
+
+function workspaceOverlayRendererV1() {
+  const registry = createUiContributionRegistryV1<PocUiRendererContextsV1>([pocUiContributionsV1]);
+  const resolution = registry.resolve("workspace_overlay", pocFixedRendererIdsV1.workspaceOverlay);
+  if (resolution.kind !== "found") throw new TypeError("missing PoC Overlay renderer");
   return resolution.component;
 }
 
@@ -358,6 +366,26 @@ describe("pocUiContributionsV1", () => {
     expect(() =>
       createUiContributionRegistryV1<PocUiRendererContextsV1>([pocUiContributionsV1, duplicate]),
     ).toThrowError(`ui.duplicate_renderer_id:background:${firstBackground.rendererId}`);
+  });
+
+  it("reserves the Save Overlay for the application-owned player port", () => {
+    const harness = createPocStoryHarnessV1({ bootstrap: fixedPocBootstrapV1() });
+    const publication = harness.semantic.observe();
+    const OverlayRenderer = workspaceOverlayRendererV1();
+    const rendered = render(
+      <OverlayRenderer
+        viewSlice={Object.freeze({
+          overlayId: "overlay.poc.save",
+          game: publication.game,
+          actions: publication.actions,
+        })}
+        semantic={harness.semantic}
+        presentation={presentationFixtureV1()}
+        gameSymbols={pocGameSymbolRegistryV1}
+      />,
+    );
+
+    expect(rendered.container).toBeEmptyDOMElement();
   });
 
   it("dispatches only the uniquely joined enabled Narrative choice invocation", async () => {
