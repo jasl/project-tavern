@@ -184,8 +184,8 @@ describe("PocApplicationRootV1", () => {
     await runtime.application.capabilities.setEnabled("debug_tools", true);
     await waitFor(() => expect(loadToolingUi).toHaveBeenCalledOnce());
     await userEvent.setup().click(screen.getByRole("button", { name: "打开左侧开发工具" }));
-    expect(screen.getByRole("button", { name: "PoC 测试工具" })).toBeVisible();
-    expect(screen.getByText("PoC tooling loaded")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "PoC 测试工具" })).toBeVisible();
+    expect(await screen.findByText("PoC tooling loaded")).toBeVisible();
 
     await runtime.application.capabilities.setEnabled("debug_tools", false);
     await waitFor(() =>

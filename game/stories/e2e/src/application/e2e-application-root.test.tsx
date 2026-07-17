@@ -106,8 +106,8 @@ describe("E2eApplicationRootV1", () => {
       const launcher = await screen.findByRole("button", { name: "打开左侧开发工具" });
       expect(loadToolingUi).toHaveBeenCalledOnce();
       await userEvent.setup().click(launcher);
-      expect(screen.getByRole("button", { name: "运行时能力" })).toBeEnabled();
-      expect(screen.getByRole("button", { name: "诊断" })).toBeEnabled();
+      expect(await screen.findByRole("button", { name: "运行时能力" })).toBeEnabled();
+      expect(await screen.findByRole("button", { name: "诊断" })).toBeEnabled();
       expect(fixture.runtime.capabilitySession.persisted.state.getCurrent().debugTools).toBe(false);
     } finally {
       rendered.unmount();
