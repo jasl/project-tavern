@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { emptyContentMaturityFlagsV1, parseStageSceneGraphV1 } from "@sillymaker/base";
 
-import { e2eContentMaturityPolicyV1 } from "./content-maturity-policy.js";
+import {
+  e2eAlphaFlagV1,
+  e2eBetaFlagV1,
+  e2eContentMaturityPolicyV1,
+} from "./content-maturity-policy.js";
 
 export const e2eStageRendererIdV1 = "renderer.e2e.stage.css" as const;
 export const e2eCharacterRendererIdV1 = "renderer.e2e.character.layered" as const;
+export const e2eStaticCharacterRendererIdV1 = "renderer.e2e.character.static" as const;
 export const e2eRendererIdsV1 = Object.freeze([
   e2eStageRendererIdV1,
   e2eCharacterRendererIdV1,
@@ -15,7 +20,7 @@ export const e2eSceneGraphV1 = parseStageSceneGraphV1({
   stageScenes: [
     {
       stageSceneId: "stage_scene.e2e.main",
-      variantIds: ["stage_variant.e2e.main.default"],
+      variantIds: ["stage_variant.e2e.main.default", "stage_variant.e2e.main.active"],
       defaultVariantId: "stage_variant.e2e.main.default",
     },
     {
@@ -28,6 +33,37 @@ export const e2eSceneGraphV1 = parseStageSceneGraphV1({
     {
       stageSceneId: "stage_scene.e2e.main",
       variantId: "stage_variant.e2e.main.default",
+      rendererId: e2eStageRendererIdV1,
+      accessibleNameTextId: "text.e2e.stage.main.name",
+      backgroundAssetId: "asset.e2e.background.base",
+      layout: {
+        kind: "e2e_stage",
+        mode: "main",
+        slots: ["counter", "flow_visible_node", "normal_actions"],
+        narrativeOverlay: {
+          kind: "choice_rejoin",
+          blocking: true,
+          visibleNodeIds: ["choice", "rejoin"],
+        },
+      },
+      actors: [
+        {
+          characterId: "character.e2e.counter",
+          anchor: { x: 0.5, y: 0.75 },
+          scale: 1,
+        },
+      ],
+      interactionSurfaces: [
+        {
+          surfaceId: "surface.e2e.counter",
+          anchor: { x: 0.5, y: 0.5 },
+        },
+      ],
+      content: { requiredFlags: emptyContentMaturityFlagsV1 },
+    },
+    {
+      stageSceneId: "stage_scene.e2e.main",
+      variantId: "stage_variant.e2e.main.active",
       rendererId: e2eStageRendererIdV1,
       accessibleNameTextId: "text.e2e.stage.main.name",
       backgroundAssetId: "asset.e2e.background.base",
@@ -145,7 +181,11 @@ export const e2eSceneGraphV1 = parseStageSceneGraphV1({
     {
       targetId: "target.e2e.counter.figure",
       accessibleNameTextId: "text.e2e.target.counter.name",
-      behaviorIds: ["behavior.e2e.counter.increment"],
+      behaviorIds: [
+        "behavior.e2e.counter.increment",
+        "behavior.e2e.counter.alpha_cue",
+        "behavior.e2e.counter.beta_cue",
+      ],
     },
   ],
   interactionBehaviors: [
@@ -155,6 +195,20 @@ export const e2eSceneGraphV1 = parseStageSceneGraphV1({
       descriptionTextId: "text.e2e.behavior.counter.increment.description",
       providerId: "provider.e2e.semantic.increment",
       content: { requiredFlags: emptyContentMaturityFlagsV1 },
+    },
+    {
+      behaviorId: "behavior.e2e.counter.alpha_cue",
+      nameTextId: "text.e2e.behavior.counter.alpha_cue.name",
+      descriptionTextId: "text.e2e.behavior.counter.alpha_cue.description",
+      providerId: "provider.e2e.presentation.alpha_cue",
+      content: { requiredFlags: e2eAlphaFlagV1 },
+    },
+    {
+      behaviorId: "behavior.e2e.counter.beta_cue",
+      nameTextId: "text.e2e.behavior.counter.beta_cue.name",
+      descriptionTextId: "text.e2e.behavior.counter.beta_cue.description",
+      providerId: "provider.e2e.presentation.beta_cue",
+      content: { requiredFlags: e2eBetaFlagV1 },
     },
   ],
   contentMaturityPolicy: e2eContentMaturityPolicyV1,

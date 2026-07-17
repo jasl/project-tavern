@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   defineGamePackage,
   digestCanonical,
+  emptyContentMaturityFlagsV1,
+  parseStageSceneGraphV1,
   parsePositiveSafeInteger,
   parseTextCatalogSetV1,
   parseTextId,
@@ -17,6 +19,13 @@ import type {
 } from "@sillymaker/base";
 import { createFixedBootstrapEntropyV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 
+import {
+  e2eAlphaFlagV1,
+  e2eBetaFlagV1,
+  e2eBothFlagsV1,
+  e2eContentMaturityPolicyV1,
+} from "./presentation/content-maturity-policy.js";
+import { e2eInteractionFixtureV1 } from "./presentation/interaction-fixture.js";
 import {
   e2ePresentationPatchSurfaceV1,
   e2eTextCatalogSlotV1,
@@ -67,6 +76,96 @@ function sceneGraphWithDuplicateHitAreaV1(): E2eSceneGraphV1 {
       index === 0 ? { ...hitMap, targets: [...hitMap.targets, { ...hitMap.targets[0]! }] } : hitMap,
     ),
   };
+}
+
+function parseE2eSceneGraphFixtureV1(value: unknown): E2eSceneGraphV1 {
+  return parseStageSceneGraphV1(value) as E2eSceneGraphV1;
+}
+
+function asInvalidE2eSceneGraphFixtureV1(value: unknown): E2eSceneGraphV1 {
+  return value as E2eSceneGraphV1;
+}
+
+function sceneGraphWithMissingSurfaceV1(): E2eSceneGraphV1 {
+  return asInvalidE2eSceneGraphFixtureV1({
+    ...e2eSceneGraphV1,
+    interactionSurfaces: e2eSceneGraphV1.interactionSurfaces.map((surface, surfaceIndex) => ({
+      ...surface,
+      targetBindings: surface.targetBindings.map((binding, bindingIndex) =>
+        surfaceIndex === 0 && bindingIndex === 0
+          ? {
+              ...binding,
+              allowedResolutionModes: ["open_surface"],
+              openSurfaceId: "surface.e2e.missing",
+            }
+          : binding,
+      ),
+    })),
+  });
+}
+
+function sceneGraphWithSurfaceCycleV1(): E2eSceneGraphV1 {
+  return asInvalidE2eSceneGraphFixtureV1({
+    ...e2eSceneGraphV1,
+    interactionSurfaces: e2eSceneGraphV1.interactionSurfaces.map((surface, surfaceIndex) => ({
+      ...surface,
+      targetBindings: surface.targetBindings.map((binding, bindingIndex) =>
+        surfaceIndex === 0 && bindingIndex === 0
+          ? {
+              ...binding,
+              allowedResolutionModes: ["open_surface"],
+              openSurfaceId: surface.surfaceId,
+            }
+          : binding,
+      ),
+    })),
+  });
+}
+
+function sceneGraphWithPolicyRevisionV1(): E2eSceneGraphV1 {
+  return parseE2eSceneGraphFixtureV1({
+    ...e2eSceneGraphV1,
+    contentMaturityPolicy: {
+      ...e2eSceneGraphV1.contentMaturityPolicy,
+      policyRevision: 2,
+    },
+  });
+}
+
+function sceneGraphWithStreamSafeAlphaPresetV1(): E2eSceneGraphV1 {
+  return parseE2eSceneGraphFixtureV1({
+    ...e2eSceneGraphV1,
+    contentMaturityPolicy: {
+      ...e2eSceneGraphV1.contentMaturityPolicy,
+      presets: e2eSceneGraphV1.contentMaturityPolicy.presets.map((preset) =>
+        preset.presetId === "content_preset.e2e.stream_safe"
+          ? { ...preset, allowedFlags: e2eAlphaFlagV1 }
+          : preset,
+      ),
+    },
+  });
+}
+
+function sceneGraphWithVariantAlphaRequirementV1(): E2eSceneGraphV1 {
+  return parseE2eSceneGraphFixtureV1({
+    ...e2eSceneGraphV1,
+    variants: e2eSceneGraphV1.variants.map((variant) =>
+      variant.variantId === "stage_variant.e2e.main.default"
+        ? { ...variant, content: { requiredFlags: e2eAlphaFlagV1 } }
+        : variant,
+    ),
+  });
+}
+
+function sceneGraphWithIncrementAlphaRequirementV1(): E2eSceneGraphV1 {
+  return parseE2eSceneGraphFixtureV1({
+    ...e2eSceneGraphV1,
+    interactionBehaviors: e2eSceneGraphV1.interactionBehaviors.map((behavior) =>
+      behavior.behaviorId === "behavior.e2e.counter.increment"
+        ? { ...behavior, content: { requiredFlags: e2eAlphaFlagV1 } }
+        : behavior,
+    ),
+  });
 }
 
 function resolveE2eStoryWithPresentationFixtureV1(
@@ -240,6 +339,42 @@ function readResolvedE2eTextV1(resolved: E2eResolvedGameV1, textId: TextId): str
 }
 
 describe("E2e Story contract", () => {
+  it("reuses two independent neutral flags and Story presets with no PoC semantics", () => {
+    expect(e2eContentMaturityPolicyV1.flags.map(({ id, flag }) => ({ id, flag }))).toEqual([
+      { id: "content_flag.e2e.alpha", flag: e2eAlphaFlagV1 },
+      { id: "content_flag.e2e.beta", flag: e2eBetaFlagV1 },
+    ]);
+    expect(
+      e2eContentMaturityPolicyV1.presets.map(({ presetId, allowedFlags }) => ({
+        presetId,
+        allowedFlags,
+      })),
+    ).toEqual([
+      { presetId: "content_preset.e2e.base", allowedFlags: emptyContentMaturityFlagsV1 },
+      { presetId: "content_preset.e2e.stream_safe", allowedFlags: e2eBetaFlagV1 },
+      { presetId: "content_preset.e2e.all", allowedFlags: e2eBothFlagsV1 },
+    ]);
+    expect(e2eContentMaturityPolicyV1.defaultAllowedFlags).toBe(emptyContentMaturityFlagsV1);
+
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    for (const descriptor of [
+      ...e2eContentMaturityPolicyV1.flags,
+      ...e2eContentMaturityPolicyV1.presets,
+    ]) {
+      expect(readResolvedE2eTextV1(resolved, descriptor.nameTextId).trim()).not.toBe("");
+      expect(readResolvedE2eTextV1(resolved, descriptor.descriptionTextId).trim()).not.toBe("");
+    }
+
+    expect(JSON.stringify(e2eContentMaturityPolicyV1)).not.toMatch(/"name"\s*:|"description"\s*:/u);
+    expect(e2eInteractionFixtureV1.stageScenes.map((scene) => scene.stageSceneId)).toEqual([
+      "stage_scene.e2e.main",
+      "stage_scene.e2e.summary",
+    ]);
+    expect(JSON.stringify(e2eInteractionFixtureV1)).not.toMatch(
+      /poc|tavern|heroine|relationship|suggestive|sexual|explicit/iu,
+    );
+  });
+
   it("resolves one complete E2E game from the public Story entry", () => {
     const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
 
@@ -291,6 +426,22 @@ describe("E2e Story contract", () => {
       failure: {
         code: "story.presentation_invalid",
         details: { message: expect.stringContaining("presentation.catalog.duplicate_id") },
+      },
+    });
+  });
+
+  it.each([
+    ["missing surface", sceneGraphWithMissingSurfaceV1, "presentation.catalog.missing_reference"],
+    ["surface cycle", sceneGraphWithSurfaceCycleV1, "presentation.catalog.surface_cycle"],
+    ["duplicate HitArea", sceneGraphWithDuplicateHitAreaV1, "presentation.catalog.duplicate_id"],
+  ] as const)("rejects a %s before a GameSession can be created", (_case, createGraph, code) => {
+    const result = resolveE2eStoryWithPresentationFixtureV1(e2eTextCatalogsV1, createGraph());
+
+    expect(result).toMatchObject({
+      kind: "failed",
+      failure: {
+        code: "story.presentation_invalid",
+        details: { message: expect.stringContaining(code) },
       },
     });
   });
@@ -413,6 +564,28 @@ describe("E2e Story contract", () => {
       base.provenance.resolved.presentationDigest,
     );
     expect(readResolvedE2eTextV1(patched, parseTextId("text.e2e.counter"))).toBe("热修复计数");
+  });
+
+  it.each([
+    ["policy revision", sceneGraphWithPolicyRevisionV1],
+    ["preset mask", sceneGraphWithStreamSafeAlphaPresetV1],
+    ["variant requirement", sceneGraphWithVariantAlphaRequirementV1],
+    ["behavior requirement", sceneGraphWithIncrementAlphaRequirementV1],
+  ] as const)("puts a %s change only in presentation identity", (_kind, createGraph) => {
+    const base = requireResolvedV1(resolveE2eStoryWithPresentationFixtureV1(e2eTextCatalogsV1));
+    const changed = requireResolvedV1(
+      resolveE2eStoryWithPresentationFixtureV1(e2eTextCatalogsV1, createGraph()),
+    );
+
+    expect(changed.provenance.resolved.presentationDigest).not.toBe(
+      base.provenance.resolved.presentationDigest,
+    );
+    expect(changed.provenance.resolved.stateContractDigest).toBe(
+      base.provenance.resolved.stateContractDigest,
+    );
+    expect(changed.provenance.resolved.simulationDigest).toBe(
+      base.provenance.resolved.simulationDigest,
+    );
   });
 
   it.each([

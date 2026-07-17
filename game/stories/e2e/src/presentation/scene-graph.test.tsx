@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { canonicalPresentationJsonBytesV1 } from "@sillymaker/base";
 
-import { e2eContentMaturityPolicyV1 } from "./content-maturity-policy.js";
+import {
+  e2eAlphaFlagV1,
+  e2eBetaFlagV1,
+  e2eContentMaturityPolicyV1,
+} from "./content-maturity-policy.js";
 import { e2eSceneGraphV1 } from "./scene-graph.js";
 
 function containsCenterV1(area: (typeof e2eSceneGraphV1.hitMaps)[number]["targets"][number]) {
@@ -51,6 +55,7 @@ describe("E2e SceneGraph", () => {
     ]);
     expect(e2eSceneGraphV1.variants.map((variant) => variant.variantId)).toEqual([
       "stage_variant.e2e.main.default",
+      "stage_variant.e2e.main.active",
       "stage_variant.e2e.summary.default",
     ]);
     expect(e2eSceneGraphV1.characters.map((character) => character.characterId)).toEqual([
@@ -58,16 +63,14 @@ describe("E2e SceneGraph", () => {
     ]);
     expect(e2eSceneGraphV1.interactionSurfaces).toHaveLength(1);
     expect(e2eSceneGraphV1.interactionTargets).toHaveLength(1);
-    expect(e2eSceneGraphV1.interactionBehaviors).toHaveLength(1);
+    expect(e2eSceneGraphV1.interactionBehaviors).toHaveLength(3);
     expect(e2eSceneGraphV1.contentMaturityPolicy).toStrictEqual(e2eContentMaturityPolicyV1);
     expect(e2eSceneGraphV1.variants.every((variant) => variant.content.requiredFlags === 0)).toBe(
       true,
     );
     expect(
-      e2eSceneGraphV1.interactionBehaviors.every(
-        (behavior) => behavior.content.requiredFlags === 0,
-      ),
-    ).toBe(true);
+      e2eSceneGraphV1.interactionBehaviors.map((behavior) => behavior.content.requiredFlags),
+    ).toEqual([0, e2eAlphaFlagV1, e2eBetaFlagV1]);
     expect(Object.isFrozen(e2eSceneGraphV1)).toBe(true);
   });
 
@@ -108,14 +111,14 @@ describe("E2e SceneGraph", () => {
     });
   });
 
-  it("keeps the Phase 2 descriptor data-only and does not preempt Phase 5B additions", () => {
+  it("keeps the Phase 2 descriptor data-only while adding the Phase 5B fixture", () => {
     const serialized = JSON.stringify(e2eSceneGraphV1);
 
     expect(() => canonicalPresentationJsonBytesV1(e2eSceneGraphV1)).not.toThrow();
     expect(serialized).not.toMatch(/e2e\.flow\.|e2e\.run\.|"kind":"e2e\./u);
     expect(serialized).not.toMatch(/poc|tavern/iu);
-    expect(serialized).not.toContain("stage_variant.e2e.main.active");
-    expect(serialized).not.toContain("behavior.e2e.counter.alpha_cue");
-    expect(serialized).not.toContain("behavior.e2e.counter.beta_cue");
+    expect(serialized).toContain("stage_variant.e2e.main.active");
+    expect(serialized).toContain("behavior.e2e.counter.alpha_cue");
+    expect(serialized).toContain("behavior.e2e.counter.beta_cue");
   });
 });

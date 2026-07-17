@@ -27,6 +27,29 @@ export const e2eTextCatalogsV1 = parseTextCatalogSetV1({
           textId: "text.e2e.behavior.counter.increment.description",
           text: "将测试计数增加一",
         },
+        {
+          textId: "text.e2e.behavior.counter.alpha_cue.name",
+          text: "显示 Alpha 提示",
+        },
+        {
+          textId: "text.e2e.behavior.counter.alpha_cue.description",
+          text: "播放 Alpha 中性演示提示",
+        },
+        {
+          textId: "text.e2e.behavior.counter.beta_cue.name",
+          text: "显示 Beta 提示",
+        },
+        {
+          textId: "text.e2e.behavior.counter.beta_cue.description",
+          text: "播放 Beta 中性演示提示",
+        },
+        { textId: "text.e2e.interaction.leave", text: "离开互动" },
+        { textId: "text.e2e.hud.name", text: "测试操作" },
+        { textId: "text.e2e.overlay.test_panel.name", text: "测试面板" },
+        { textId: "text.e2e.narrative.name", text: "流程操作" },
+        { textId: "text.e2e.system.name", text: "系统状态" },
+        { textId: "text.e2e.cue.counter.alpha", text: "Alpha 提示已激活" },
+        { textId: "text.e2e.cue.counter.beta", text: "Beta 提示已激活" },
         { textId: "text.e2e.content_flag.alpha.name", text: "Alpha 标记" },
         {
           textId: "text.e2e.content_flag.alpha.description",
