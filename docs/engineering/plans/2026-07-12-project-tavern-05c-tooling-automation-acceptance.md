@@ -725,8 +725,6 @@ Run:
 ```bash
 pnpm --filter @project-tavern/story-poc exec vitest run src/runtime/poc-debug-bundle.test.ts src/application/create-poc-game-runtime.test.ts src/test/tooling-runtime.integration.test.ts
 pnpm typecheck
-pnpm verify:phase5b
-pnpm verify
 git diff --check
 ```
 
@@ -737,6 +735,11 @@ git add -- game/stories/poc/src/runtime/poc-debug-bundle.ts game/stories/poc/src
 git diff --cached --check
 git commit -m "fix(debug): keep capability state outside story results"
 ```
+
+The strict materialization precondition inside the phase/full gates requires a clean worktree. From
+the clean repair commit, run `pnpm verify:phase5b` and `pnpm verify`, then confirm the worktree remains
+clean. A failure receives a separate narrow owner-repair commit; do not amend or bypass the
+materialization check.
 
 ### Task 3: Compose capability-session overlays, PoC tooling UI, and same-root HMR
 
