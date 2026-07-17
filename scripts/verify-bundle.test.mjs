@@ -135,6 +135,6 @@ test("pins the closed Vite config and rejects caller build overrides", async (t)
   assert.notEqual(retainedOutput.status, 0);
   assert.match(
     `${retainedOutput.stdout}${retainedOutput.stderr}`,
-    /E2E Artifact build invariants were overridden/u,
+    /Story Artifact build invariants were overridden/u,
   );
 });

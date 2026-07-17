@@ -158,6 +158,8 @@ void test("serves the direct collector payload byte-for-byte through the closed 
     join(repositoryRoot, "vite.config.ts"),
     repositoryRoot,
     "silent",
+    undefined,
+    "native",
   );
   assert(loadedConfig);
   const plugins = loadedConfig.config.plugins.flat(Number.POSITIVE_INFINITY);

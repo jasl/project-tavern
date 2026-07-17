@@ -160,6 +160,8 @@ void test("serves the direct PoC collector payload through its closed virtual mo
     join(repositoryRoot, "vite.config.ts"),
     repositoryRoot,
     "silent",
+    undefined,
+    "native",
   );
   assert(loadedConfig);
   const vitePlugins = loadedConfig.config.plugins.flat(Number.POSITIVE_INFINITY);

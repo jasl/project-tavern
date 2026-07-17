@@ -3138,6 +3138,43 @@ git diff --cached --check
 git commit -m "feat(game): compose stage presentation roots"
 ```
 
+#### Authorized post-Task 10 owner repair before Task 11: align the closed-build diagnostic
+
+The clean post-Task 10 root gate exposed one stale Phase 2 test expectation. Task 10 correctly
+generalized the Vite override diagnostic from `E2E Artifact` to `Story Artifact` because the same
+closed config now owns exactly the E2E and PoC roots, but `scripts/verify-bundle.test.mjs` still
+expects the former E2E-only text. This is a test-owner repair only; do not revert the generalized
+diagnostic, change either build root, or weaken the caller-override rejection.
+
+**Files:**
+
+- Modify: `scripts/build-e2e-identity.test.mjs`
+- Modify: `scripts/build-poc-identity.test.mjs`
+- Modify: `scripts/verify-bundle.test.mjs`
+- Modify: this Phase 5B plan.
+
+The qualifying RED is the clean root `pnpm verify` result with `105/106` script tests passing and
+`pins the closed Vite config and rejects caller build overrides` failing only because the actual
+message is `Story Artifact build invariants were overridden`. Replace that exact stale expectation.
+The same gate also exposed Vite's default config bundler retaining native Rolldown workers after the
+identity assertions complete under the materialized Node runtime. Load the already strip-safe
+`vite.config.ts` with Vite's `native` config loader in both identity tests so the serial multi-file
+runner releases each file without `--test-force-exit`; do not change the production build loader.
+Then run the three focused Node tests, `pnpm test:scripts`, and the clean root `pnpm verify`.
+
+```bash
+git add -- \
+  docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md \
+  scripts/build-e2e-identity.test.mjs \
+  scripts/build-poc-identity.test.mjs \
+  scripts/verify-bundle.test.mjs
+git diff --cached --name-only
+git diff --cached --check
+git commit -m "test(build): stabilize story artifact verification"
+```
+
+Task 11 begins only from that clean, verified repair commit.
+
 ### Task 11: Prove Interaction Keyboard, Touch, Focus, and Accessible DOM in Real Browsers
 
 **Files:**
