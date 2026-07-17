@@ -1,0 +1,123 @@
+.dev-dock {
+  position: absolute;
+  z-index: calc(var(--silly-stage-z-system) + 10);
+  inset: 0;
+  pointer-events: none;
+}
+
+.dev-dock[data-devdock-open="true"] {
+  pointer-events: auto;
+}
+
+.dev-dock__launchers {
+  position: absolute;
+  z-index: 2;
+  inset: var(--silly-space-2);
+  pointer-events: none;
+}
+
+.dev-dock__launcher {
+  position: absolute;
+  inset-block-start: 50%;
+  min-inline-size: var(--silly-target-min-size);
+  min-block-size: var(--silly-target-min-size);
+  padding: var(--silly-space-2);
+  writing-mode: vertical-rl;
+  translate: 0 -50%;
+  pointer-events: auto;
+}
+
+.dev-dock__launcher[data-side="left"] {
+  inset-inline-start: 0;
+}
+
+.dev-dock__launcher[data-side="right"] {
+  inset-inline-end: 0;
+}
+
+.dev-dock__rail {
+  position: absolute;
+  z-index: 1;
+  inset-block: var(--silly-space-2);
+  display: grid;
+  inline-size: min(24rem, calc(100% - 4rem));
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: var(--silly-space-2);
+  padding: var(--silly-space-3);
+  overflow: auto;
+  border: 1px solid var(--silly-color-border);
+  border-radius: var(--silly-radius-card);
+  color: var(--silly-color-text);
+  background: var(--silly-color-surface-translucent);
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 45%);
+  backdrop-filter: blur(0.75rem);
+  pointer-events: auto;
+}
+
+.dev-dock__rail[data-side="left"] {
+  inset-inline-start: var(--silly-space-2);
+}
+
+.dev-dock__rail[data-side="right"] {
+  inset-inline-end: var(--silly-space-2);
+}
+
+.dev-dock__header,
+.dev-dock__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--silly-space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dev-dock__header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.dev-dock__tabs {
+  justify-content: flex-start;
+}
+
+.dev-dock__tabs button,
+.dev-dock__header button {
+  min-inline-size: var(--silly-target-min-size);
+  min-block-size: var(--silly-target-min-size);
+}
+
+.dev-dock__authority-reason {
+  margin: 0;
+  color: var(--silly-color-text-muted);
+  font-size: 0.875rem;
+}
+
+.dev-dock__panel {
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.dev-dock__empty {
+  margin: 0;
+  color: var(--silly-color-text-muted);
+}
+
+@media (aspect-ratio < 4 / 3) {
+  .dev-dock__rail {
+    position: fixed;
+    inset: max(var(--silly-space-2), var(--silly-safe-area-block-start))
+      max(var(--silly-space-2), var(--silly-safe-area-inline-end))
+      max(var(--silly-space-2), var(--silly-safe-area-block-end))
+      max(var(--silly-space-2), var(--silly-safe-area-inline-start));
+    inline-size: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev-dock,
+  .dev-dock * {
+    scroll-behavior: auto;
+    transition: none !important;
+    animation: none !important;
+  }
+}

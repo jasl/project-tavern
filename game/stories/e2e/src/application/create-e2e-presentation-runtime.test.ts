@@ -266,6 +266,7 @@ describe("createE2ePresentationRuntimeV1", () => {
       });
 
       const presentationBefore = runtime.presentation.getSnapshot();
+      const semanticBefore = runtime.application.semantic.observe();
       const uiStateBefore = runtime.uiState.getCurrent();
       const systemDialogBefore = runtime.systemDialogSession.getSnapshot();
       const presentationsDuringExport: Array<typeof presentationBefore> = [];
@@ -273,12 +274,30 @@ describe("createE2ePresentationRuntimeV1", () => {
         presentationsDuringExport.push(runtime.presentation.getSnapshot());
       });
       const uiStateListener = vi.fn();
+      const semanticListener = vi.fn();
       const systemDialogListener = vi.fn();
       unsubscribers.push(
         runtime.presentation.subscribe(presentationListener),
+        runtime.application.semantic.subscribe(semanticListener),
         runtime.uiState.subscribe(uiStateListener),
         runtime.systemDialogSession.subscribe(systemDialogListener),
       );
+      const devDockState: {
+        current: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+      } = {
+        current: Object.freeze({ leftOpen: false, rightOpen: false }),
+      };
+      const unbindDevDock = runtime.bindDevDockStateReader(() => devDockState.current);
+      expect(() =>
+        runtime.bindDevDockStateReader(() => Object.freeze({ leftOpen: false, rightOpen: false })),
+      ).toThrowError("presentation.e2e.devdock_state_reader_already_bound");
+      devDockState.current = Object.freeze({ leftOpen: false, rightOpen: true });
+      expect(runtime.presentation.getSnapshot()).toBe(presentationBefore);
+      expect(runtime.application.semantic.observe()).toBe(semanticBefore);
+      expect(runtime.uiState.getCurrent()).toBe(uiStateBefore);
+      expect(presentationListener).not.toHaveBeenCalled();
+      expect(semanticListener).not.toHaveBeenCalled();
+      expect(uiStateListener).not.toHaveBeenCalled();
       const hashListenerCountBefore = browser.hashEvents.listenerCount("hashchange");
 
       const exported = await runtime.application.diagnostics.exportDebugBundle();
@@ -310,14 +329,26 @@ describe("createE2ePresentationRuntimeV1", () => {
           detailOverlayIds: [],
           narrativeOpen: true,
           systemDialogOpen: true,
-          devDock: { leftOpen: false, rightOpen: false },
+          devDock: { leftOpen: false, rightOpen: true },
         },
       });
+      expect(runtime.application.semantic.observe().revision).toBe(semanticBefore.revision);
       expect(runtime.uiState.getCurrent()).toBe(uiStateBefore);
       expect(runtime.systemDialogSession.getSnapshot()).toBe(systemDialogBefore);
       expect(uiStateListener).not.toHaveBeenCalled();
       expect(systemDialogListener).not.toHaveBeenCalled();
       expect(browser.hashEvents.listenerCount("hashchange")).toBe(hashListenerCountBefore);
+
+      unbindDevDock();
+      const fallbackExport = await runtime.application.diagnostics.exportDebugBundle();
+      const fallbackDecoded = createE2eDebugBundleCodecV1(
+        resolved.gameSimulation.stateSchema,
+      ).bundleSchema.parse(decodeDebugBundleJsonV1(fallbackExport.bytes));
+      expect(fallbackDecoded.uiContext?.session.devDock).toEqual({
+        leftOpen: false,
+        rightOpen: false,
+      });
+      expect(uiStateListener).not.toHaveBeenCalled();
     } finally {
       for (const unsubscribe of unsubscribers) unsubscribe();
       runtime.dispose();
@@ -475,6 +506,9 @@ describe("createE2ePresentationRuntimeV1", () => {
       expect(() => runtime.presentation.subscribe(() => undefined)).toThrow(
         "ui.runtime_presentation_store_disposed",
       );
+      expect(() =>
+        runtime.bindDevDockStateReader(() => Object.freeze({ leftOpen: false, rightOpen: false })),
+      ).toThrowError("presentation.e2e.devdock_state_reader_disposed");
     } finally {
       abortPreload.mockRestore();
     }

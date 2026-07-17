@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { createElement } from "react";
+import { createElement, useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ComponentType, ReactElement } from "react";
 
 import type { AssetId, DeepReadonly, HitMapDescriptorV1, TextId } from "@sillymaker/base";
@@ -16,6 +16,8 @@ import {
   usePresentationAssetV1,
   useRuntimePresentationV1,
 } from "@sillymaker/ui";
+import { DevDockV1, createDevDockContributionSetV1 } from "@sillymaker/ui/debug";
+import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
 import type {
   OverlayRendererResolverV1,
   SaveOverlayLabelsV1,
@@ -42,6 +44,12 @@ import type {
 export interface PocApplicationRootPropsV1 {
   readonly runtime: PocPresentationRuntimeV1;
 }
+
+const closedDevDockStateV1 = Object.freeze({
+  leftOpen: false,
+  rightOpen: false,
+}) satisfies DevDockOpenStateV1;
+const emptyDevDockContributionsV1 = createDevDockContributionSetV1({ panels: [] });
 
 const pocSaveOverlayLabelsV1 = Object.freeze({
   accessibleName: "保存",
@@ -379,6 +387,23 @@ function createOverlayResolverV1(input: {
 }
 
 export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): ReactElement {
+  const [devDockOpenState, setDevDockOpenState] =
+    useState<DevDockOpenStateV1>(closedDevDockStateV1);
+  const devDockOpenStateRef = useRef<DevDockOpenStateV1>(closedDevDockStateV1);
+  const updateDevDockOpenState = useCallback((next: DevDockOpenStateV1): void => {
+    const current = devDockOpenStateRef.current;
+    if (current.leftOpen === next.leftOpen && current.rightOpen === next.rightOpen) return;
+    const frozen = Object.freeze({
+      leftOpen: next.leftOpen,
+      rightOpen: next.rightOpen,
+    }) satisfies DevDockOpenStateV1;
+    devDockOpenStateRef.current = frozen;
+    setDevDockOpenState(frozen);
+  }, []);
+  useLayoutEffect(
+    () => runtime.bindDevDockStateReader(() => devDockOpenStateRef.current),
+    [runtime],
+  );
   const publication = useRuntimePresentationV1(runtime.presentation);
   const semantic = runtime.application.semantic;
   const presentation = runtime.presentationRead;
@@ -544,6 +569,15 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
         }
         layers={layers}
         inputRouter={runtime.input}
+        devDock={
+          <DevDockV1
+            capabilities={runtime.application.capabilities}
+            contributions={emptyDevDockContributionsV1}
+            inputRouter={runtime.input}
+            openState={devDockOpenState}
+            onOpenStateChange={updateDevDockOpenState}
+          />
+        }
       />
     </div>
   );

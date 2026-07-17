@@ -16,6 +16,9 @@ import {
   type SaveOverlayLabelsV1,
   type UiContributionRegistryV1,
 } from "@sillymaker/ui";
+import { DevDockV1, createDevDockContributionSetV1 } from "@sillymaker/ui/debug";
+import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ComponentType, ReactElement } from "react";
 
 import type { E2ePresentationRuntimeV1 } from "./create-e2e-presentation-runtime.js";
@@ -31,6 +34,12 @@ import {
 export interface E2eApplicationRootPropsV1 {
   readonly runtime: E2ePresentationRuntimeV1;
 }
+
+const closedDevDockStateV1 = Object.freeze({
+  leftOpen: false,
+  rightOpen: false,
+}) satisfies DevDockOpenStateV1;
+const emptyDevDockContributionsV1 = createDevDockContributionSetV1({ panels: [] });
 
 const e2eInteractionEntryIdV1 = "e2e-interaction-entry";
 
@@ -375,6 +384,23 @@ function createFixedLayersV1(
 }
 
 export function E2eApplicationRootV1(props: E2eApplicationRootPropsV1): ReactElement {
+  const [devDockOpenState, setDevDockOpenState] =
+    useState<DevDockOpenStateV1>(closedDevDockStateV1);
+  const devDockOpenStateRef = useRef<DevDockOpenStateV1>(closedDevDockStateV1);
+  const updateDevDockOpenState = useCallback((next: DevDockOpenStateV1): void => {
+    const current = devDockOpenStateRef.current;
+    if (current.leftOpen === next.leftOpen && current.rightOpen === next.rightOpen) return;
+    const frozen = Object.freeze({
+      leftOpen: next.leftOpen,
+      rightOpen: next.rightOpen,
+    }) satisfies DevDockOpenStateV1;
+    devDockOpenStateRef.current = frozen;
+    setDevDockOpenState(frozen);
+  }, []);
+  useLayoutEffect(
+    () => props.runtime.bindDevDockStateReader(() => devDockOpenStateRef.current),
+    [props.runtime],
+  );
   const publication = useRuntimePresentationV1(props.runtime.presentation);
   const layers = createFixedLayersV1(props.runtime, publication);
   const accessibleName = props.runtime.presentationRead.text(
@@ -397,6 +423,15 @@ export function E2eApplicationRootV1(props: E2eApplicationRootPropsV1): ReactEle
         accessibleName={accessibleName}
         layers={layers}
         inputRouter={props.runtime.input}
+        devDock={
+          <DevDockV1
+            capabilities={props.runtime.application.capabilities}
+            contributions={emptyDevDockContributionsV1}
+            inputRouter={props.runtime.input}
+            openState={devDockOpenState}
+            onOpenStateChange={updateDevDockOpenState}
+          />
+        }
       />
     </div>
   );

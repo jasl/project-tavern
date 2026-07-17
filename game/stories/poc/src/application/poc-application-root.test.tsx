@@ -7,7 +7,7 @@ import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymake
 import { createWebHostV1 } from "@sillymaker/web";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPocPresentationRuntimeV1 } from "./create-poc-presentation-runtime.js";
 import { PocApplicationRootV1 } from "./poc-application-root.js";
@@ -113,6 +113,40 @@ describe("PocApplicationRootV1", () => {
     expect(screen.queryByRole("dialog", { name: "设置" })).not.toBeInTheDocument();
     expect(runtime.rendering.systemDialogSession.getSnapshot()).toEqual({ settingsOpen: false });
 
+    runtime.dispose();
+  });
+
+  it("binds the root-owned DevDock state to diagnostics without publishing gameplay state", async () => {
+    const runtime = await createRuntimeV1();
+    await runtime.application.capabilities.setEnabled("debug_tools", true);
+    const presentationBefore = runtime.presentation.getSnapshot();
+    const semanticBefore = runtime.application.semantic.observe();
+    const presentationListener = vi.fn();
+    const semanticListener = vi.fn();
+    const unsubscribePresentation = runtime.presentation.subscribe(presentationListener);
+    const unsubscribeSemantic = runtime.application.semantic.subscribe(semanticListener);
+    const rendered = render(<PocApplicationRootV1 runtime={runtime} />);
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "打开左侧开发工具" }));
+    expect(screen.getByRole("complementary", { name: "左侧开发工具" })).toBeVisible();
+    expect(runtime.presentation.getSnapshot()).toBe(presentationBefore);
+    expect(runtime.application.semantic.observe()).toBe(semanticBefore);
+    expect(presentationListener).not.toHaveBeenCalled();
+    expect(semanticListener).not.toHaveBeenCalled();
+    const bundle = JSON.parse(
+      new TextDecoder().decode((await runtime.application.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly uiContext?: {
+        readonly session: {
+          readonly devDock: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+        };
+      };
+    };
+    expect(bundle.uiContext?.session.devDock).toEqual({ leftOpen: true, rightOpen: false });
+
+    rendered.unmount();
+    unsubscribePresentation();
+    unsubscribeSemantic();
     runtime.dispose();
   });
 

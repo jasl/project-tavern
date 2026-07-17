@@ -312,6 +312,31 @@ describe("createPocPresentationRuntimeV1", () => {
     if (activeSurfaceId === undefined) throw new TypeError("missing PoC interaction surface");
     runtime.rendering.interactionSession.open(activeSurfaceId, null);
     runtime.rendering.systemDialogSession.openSettings();
+    const presentationBefore = runtime.presentation.getSnapshot();
+    const semanticBefore = runtime.application.semantic.observe();
+    const uiStateBefore = runtime.uiState.getCurrent();
+    const presentationListener = vi.fn();
+    const semanticListener = vi.fn();
+    const uiStateListener = vi.fn();
+    const unsubscribePresentation = runtime.presentation.subscribe(presentationListener);
+    const unsubscribeSemantic = runtime.application.semantic.subscribe(semanticListener);
+    const unsubscribeUiState = runtime.uiState.subscribe(uiStateListener);
+    const devDockState: {
+      current: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+    } = {
+      current: Object.freeze({ leftOpen: false, rightOpen: false }),
+    };
+    const unbindDevDock = runtime.bindDevDockStateReader(() => devDockState.current);
+    expect(() =>
+      runtime.bindDevDockStateReader(() => Object.freeze({ leftOpen: false, rightOpen: false })),
+    ).toThrowError("presentation.poc.devdock_state_reader_already_bound");
+    devDockState.current = Object.freeze({ leftOpen: true, rightOpen: false });
+    expect(runtime.presentation.getSnapshot()).toBe(presentationBefore);
+    expect(runtime.application.semantic.observe()).toBe(semanticBefore);
+    expect(runtime.uiState.getCurrent()).toBe(uiStateBefore);
+    expect(presentationListener).not.toHaveBeenCalled();
+    expect(semanticListener).not.toHaveBeenCalled();
+    expect(uiStateListener).not.toHaveBeenCalled();
 
     const bundle = JSON.parse(
       new TextDecoder().decode((await runtime.application.diagnostics.exportDebugBundle()).bytes),
@@ -337,16 +362,33 @@ describe("createPocPresentationRuntimeV1", () => {
         detailOverlayIds: [],
         narrativeOpen: true,
         systemDialogOpen: true,
-        devDock: { leftOpen: false, rightOpen: false },
+        devDock: { leftOpen: true, rightOpen: false },
       },
     });
     expect(bundle.uiContext?.session).not.toHaveProperty("activeInteractionSurfaceId");
+    expect(runtime.uiState.getCurrent()).toBe(uiStateBefore);
+    expect(uiStateListener).not.toHaveBeenCalled();
 
+    unbindDevDock();
     runtime.rendering.systemDialogSession.closeSettings();
     const closedBundle = JSON.parse(
       new TextDecoder().decode((await runtime.application.diagnostics.exportDebugBundle()).bytes),
-    ) as { readonly uiContext?: { readonly session: { readonly systemDialogOpen: boolean } } };
+    ) as {
+      readonly uiContext?: {
+        readonly session: {
+          readonly systemDialogOpen: boolean;
+          readonly devDock: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+        };
+      };
+    };
     expect(closedBundle.uiContext?.session.systemDialogOpen).toBe(false);
+    expect(closedBundle.uiContext?.session.devDock).toEqual({
+      leftOpen: false,
+      rightOpen: false,
+    });
+    unsubscribePresentation();
+    unsubscribeSemantic();
+    unsubscribeUiState();
 
     runtime.dispose();
   });
@@ -381,6 +423,11 @@ describe("createPocPresentationRuntimeV1", () => {
 
     fixture.runtime.dispose();
     fixture.runtime.dispose();
+    expect(() =>
+      fixture.runtime.bindDevDockStateReader(() =>
+        Object.freeze({ leftOpen: false, rightOpen: false }),
+      ),
+    ).toThrowError("presentation.poc.devdock_state_reader_disposed");
 
     expect(
       Object.fromEntries(

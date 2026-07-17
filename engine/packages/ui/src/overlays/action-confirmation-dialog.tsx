@@ -4,6 +4,10 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import {
+  isDevDockEscapeOwnerTargetV1,
+  useDevDockPortalTargetRegistrationV1,
+} from "../debug/DevDockPortalCoordinator.js";
+import {
   inputHandledV1,
   inputIgnoredV1,
   systemInputActionIdsV1,
@@ -52,6 +56,7 @@ export function ActionConfirmationDialogV1<TInvocation, TResult>(
   const [status, setStatus] = useState<ConfirmationStatusV1>("idle");
   const [focusScopeElement, setFocusScopeElement] = useState<HTMLDivElement | null>(null);
   useStageSystemFocusScopeRegistrationV1(focusScopeElement);
+  useDevDockPortalTargetRegistrationV1("system", focusScopeElement);
   const startedRef = useRef(false);
   const mountedRef = useRef(true);
   const onCloseRef = useRef(props.onClose);
@@ -120,6 +125,9 @@ export function ActionConfirmationDialogV1<TInvocation, TResult>(
           data-blocking-focus-scope="system"
           data-system-surface="action_confirmation"
           style={{ position }}
+          onEscapeKeyDown={(event) => {
+            if (isDevDockEscapeOwnerTargetV1(event.target)) event.preventDefault();
+          }}
           onPointerDownOutside={(event) => event.preventDefault()}
         >
           <DialogPrimitive.Title asChild>

@@ -44,6 +44,7 @@ import type {
 } from "@sillymaker/ui";
 import { createDebugUiContextV1 } from "@sillymaker/ui/diagnostics";
 import type { DebugUiSessionProjectionInputV1 } from "@sillymaker/ui/diagnostics";
+import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
 import {
   createBrowserImageLoaderV1,
   createGameBootstrapControllerV1,
@@ -115,6 +116,10 @@ const pocOverlayIdsV1 = Object.freeze([
 ] as const satisfies readonly PocOverlayIdV1[]);
 
 const noPresentationCueIdsV1 = Object.freeze([]) as readonly string[];
+const closedDevDockStateV1 = Object.freeze({
+  leftOpen: false,
+  rightOpen: false,
+}) satisfies DevDockOpenStateV1;
 
 export interface PocInteractionSurfaceResolutionV1 {
   readonly surface: DeepReadonly<PocRuntimeSurfaceV1>;
@@ -136,6 +141,7 @@ export interface PocPresentationRuntimeV1 {
   readonly presentationRead: PocPresentationReadPortV1;
   readonly contributions: UiContributionRegistryV1<PocUiRendererContextsV1>;
   readonly gameSymbols: GameSymbolRegistryV1;
+  bindDevDockStateReader(reader: () => DeepReadonly<DevDockOpenStateV1>): () => void;
   readonly rendering: Readonly<{
     readonly interactionSession: InteractionSessionStoreV1;
     readonly interactionController: ReturnType<typeof createInteractionControllerV1>;
@@ -285,6 +291,7 @@ export async function createPocPresentationRuntimeV1(
         publication: DeepReadonly<PocRuntimePresentationPublicationV1>,
       ) => DebugUiSessionProjectionInputV1)
     | undefined;
+  let readDiagnosticsDevDockState: (() => DeepReadonly<DevDockOpenStateV1>) | undefined;
   let capturedLifecycle:
     WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
   const application = await createPocGameRuntimeV1({
@@ -322,6 +329,7 @@ export async function createPocPresentationRuntimeV1(
     presentationDisposed = true;
     diagnosticsPresentation = undefined;
     readDiagnosticsUiSession = undefined;
+    readDiagnosticsDevDockState = undefined;
     for (const cleanup of presentationCleanups.toReversed()) {
       try {
         cleanup();
@@ -389,13 +397,17 @@ export async function createPocPresentationRuntimeV1(
       const currentUiState = uiStateSource.getCurrent();
       const currentOverlay = overlaySession.getSnapshot();
       const currentSystemDialog = systemDialogSession.getSnapshot();
+      const currentDevDock = readDiagnosticsDevDockState?.() ?? closedDevDockStateV1;
       return Object.freeze({
         routeId: currentUiState.route,
         primaryOverlayId: currentOverlay.primaryId,
         detailOverlayIds: Object.freeze([...currentOverlay.detailIds]),
         narrativeOpen: isPocNarrativeOpenV1(publication.view.narrative),
         systemDialogOpen: currentSystemDialog.settingsOpen,
-        devDock: Object.freeze({ leftOpen: false, rightOpen: false }),
+        devDock: Object.freeze({
+          leftOpen: currentDevDock.leftOpen,
+          rightOpen: currentDevDock.rightOpen,
+        }),
         activeInteractionSurfaceId: currentUiState.interaction.activeSurfaceId,
       });
     };
@@ -522,6 +534,26 @@ export async function createPocPresentationRuntimeV1(
     });
     presentationCleanups.push(unsubscribeStageCleanup);
 
+    const bindDevDockStateReader = (
+      reader: () => DeepReadonly<DevDockOpenStateV1>,
+    ): (() => void) => {
+      if (presentationDisposed) {
+        throw new TypeError("presentation.poc.devdock_state_reader_disposed");
+      }
+      if (readDiagnosticsDevDockState !== undefined) {
+        throw new TypeError("presentation.poc.devdock_state_reader_already_bound");
+      }
+      readDiagnosticsDevDockState = reader;
+      let active = true;
+      return (): void => {
+        if (!active) return;
+        active = false;
+        if (readDiagnosticsDevDockState === reader) {
+          readDiagnosticsDevDockState = undefined;
+        }
+      };
+    };
+
     const runtime = Object.freeze({
       applicationId: pocApplicationIdV1,
       resolvedGame,
@@ -536,6 +568,7 @@ export async function createPocPresentationRuntimeV1(
       presentationRead,
       contributions,
       gameSymbols: pocGameSymbolRegistryV1,
+      bindDevDockStateReader,
       rendering: Object.freeze({
         interactionSession,
         interactionController,

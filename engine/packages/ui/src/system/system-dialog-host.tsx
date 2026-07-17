@@ -12,6 +12,10 @@ import {
 } from "react";
 import type { ReactElement, ReactNode } from "react";
 import {
+  isDevDockEscapeOwnerTargetV1,
+  useDevDockPortalTargetRegistrationV1,
+} from "../debug/DevDockPortalCoordinator.js";
+import {
   inputHandledV1,
   inputIgnoredV1,
   systemInputActionIdsV1,
@@ -49,10 +53,22 @@ export function useSystemDialogControllerV1(): SystemDialogControllerV1 {
   return controller;
 }
 
-function focusConnectedElementV1(element: HTMLElement | null): void {
+function focusConnectedElementV1(
+  element: HTMLElement | null,
+  ownedScope: HTMLElement | null,
+): void {
   if (element === null) return;
   queueMicrotask(() => {
-    if (element.isConnected) element.focus();
+    if (!element.isConnected) return;
+    const activeElement = document.activeElement;
+    if (
+      activeElement !== null &&
+      activeElement !== document.body &&
+      (ownedScope === null || !ownedScope.contains(activeElement))
+    ) {
+      return;
+    }
+    element.focus();
   });
 }
 
@@ -65,16 +81,23 @@ export function SystemDialogHostV1(props: SystemDialogHostPropsV1): ReactElement
     store.getSnapshot,
   );
   const [focusScopeElement, setFocusScopeElement] = useState<HTMLDivElement | null>(null);
+  const focusScopeRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const portalContainer = useStageSystemPortalContainerV1();
   useStageInputIsolationV1("system", settingsOpen);
   useStageSystemFocusScopeRegistrationV1(focusScopeElement);
+  useDevDockPortalTargetRegistrationV1("system", settingsOpen ? focusScopeElement : null);
+
+  const setFocusScope = useCallback((element: HTMLDivElement | null): void => {
+    focusScopeRef.current = element;
+    setFocusScopeElement(element);
+  }, []);
 
   const closeSettings = useCallback((): void => {
     store.closeSettings();
     const opener = openerRef.current;
     openerRef.current = null;
-    focusConnectedElementV1(opener);
+    focusConnectedElementV1(opener, focusScopeRef.current);
   }, [store]);
 
   const openSettings = useCallback(
@@ -88,7 +111,7 @@ export function SystemDialogHostV1(props: SystemDialogHostPropsV1): ReactElement
   useLayoutEffect(
     () => () => {
       store.closeSettings();
-      focusConnectedElementV1(openerRef.current);
+      focusConnectedElementV1(openerRef.current, focusScopeRef.current);
       openerRef.current = null;
     },
     [store],
@@ -130,12 +153,15 @@ export function SystemDialogHostV1(props: SystemDialogHostPropsV1): ReactElement
               style={{ position }}
             />
             <DialogPrimitive.Content
-              ref={setFocusScopeElement}
+              ref={setFocusScope}
               className={styles["blocking-dialog__content"]}
               data-blocking-focus-scope="system"
               data-system-surface="settings"
               aria-describedby={undefined}
               style={{ position }}
+              onEscapeKeyDown={(event) => {
+                if (isDevDockEscapeOwnerTargetV1(event.target)) event.preventDefault();
+              }}
               onPointerDownOutside={(event) => event.preventDefault()}
             >
               <SettingsDialogContentV1 {...props.settings} />

@@ -5,6 +5,10 @@ import { parseNonNegativeSafeInteger } from "@sillymaker/base";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  DevDockPortalCoordinatorV1,
+  useDevDockPortalTargetV1,
+} from "../debug/DevDockPortalCoordinator.js";
 import { inputHandledV1, systemInputActionIdsV1, type InputEventV1 } from "../input/contracts.js";
 import { createInputRouterV1 } from "../input/input-router.js";
 import { GameStageV1 } from "../shell/game-stage.js";
@@ -55,7 +59,50 @@ function StageSystemHarnessV1(props: {
   );
 }
 
+function DevDockPortalSelectionProbeV1() {
+  const { surface, target } = useDevDockPortalTargetV1();
+  return (
+    <output
+      data-testid="devdock-portal-selection"
+      data-surface={surface}
+      data-target-scope={target?.dataset.blockingFocusScope ?? "none"}
+    />
+  );
+}
+
 describe("SystemDialogHostV1", () => {
+  it("registers the actual settings Dialog.Content as the DevDock system target", async () => {
+    const inputRouter = createInputRouterV1();
+    render(
+      <DevDockPortalCoordinatorV1>
+        <DevDockPortalSelectionProbeV1 />
+        <SystemDialogHostV1 inputRouter={inputRouter} settings={settingsV1}>
+          <SettingsLauncherV1 label="设置" />
+        </SystemDialogHostV1>
+      </DevDockPortalCoordinatorV1>,
+    );
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "设置" }));
+    expect(screen.getByRole("dialog", { name: "设置" })).toHaveAttribute(
+      "data-blocking-focus-scope",
+      "system",
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-target-scope",
+        "system",
+      ),
+    );
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "关闭设置" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-surface",
+        "base",
+      ),
+    );
+  });
+
   it("uses one supplied session store for rendering, diagnostics, and unmount cleanup", async () => {
     const store = createSystemDialogSessionStoreV1();
     const readSystemDialogOpenForDiagnosticsV1 = (): boolean => store.getSnapshot().settingsOpen;
@@ -139,6 +186,32 @@ describe("SystemDialogHostV1", () => {
 
     await waitFor(() => expect(bottom).toHaveFocus());
     expect(top).not.toHaveFocus();
+  });
+
+  it("does not restore its opener over a concurrently focused higher blocking surface", async () => {
+    const inputRouter = createInputRouterV1();
+    render(
+      <>
+        <button type="button">更高层恢复操作</button>
+        <SystemDialogHostV1 inputRouter={inputRouter} settings={settingsV1}>
+          <SettingsLauncherV1 label="设置" />
+        </SystemDialogHostV1>
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "设置" });
+    const higherControl = screen.getByRole("button", { name: "更高层恢复操作", hidden: true });
+    await userEvent.setup().click(opener);
+    higherControl.focus();
+
+    act(() => {
+      expect(
+        inputRouter.route({ kind: "action", actionId: systemInputActionIdsV1.cancel }),
+      ).toEqual({ kind: "handled", context: "system" });
+    });
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "设置" })).toBeNull());
+    expect(higherControl).toHaveFocus();
+    expect(opener).not.toHaveFocus();
   });
 
   it("traps keyboard focus inside the reserved System dialog", async () => {

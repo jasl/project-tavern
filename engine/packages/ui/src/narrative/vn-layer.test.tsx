@@ -5,9 +5,13 @@ import { parseNonNegativeSafeInteger } from "@sillymaker/base";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { useLayoutEffect } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  DevDockPortalCoordinatorV1,
+  useDevDockPortalTargetV1,
+} from "../debug/DevDockPortalCoordinator.js";
 import {
   inputHandledV1,
   systemInputActionIdsV1,
@@ -96,7 +100,50 @@ function VnLayoutRouteProbeV1(props: VnLayoutRouteProbePropsV1) {
   return <VnLayerV1 {...props.vnProps} />;
 }
 
+function DevDockPortalSelectionProbeV1() {
+  const { surface, target } = useDevDockPortalTargetV1();
+  return (
+    <output
+      data-testid="devdock-portal-selection"
+      data-surface={surface}
+      data-target-scope={target?.dataset.blockingFocusScope ?? "none"}
+    />
+  );
+}
+
 describe("VnLayerV1 semantic controls", () => {
+  it("registers the actual narrative dialog as the DevDock focus target only while active", async () => {
+    const props = createVnPropsV1();
+    const rendered = render(
+      <DevDockPortalCoordinatorV1>
+        <DevDockPortalSelectionProbeV1 />
+        <VnLayerV1 {...props} />
+      </DevDockPortalCoordinatorV1>,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "测试叙事" });
+    expect(dialog).toHaveAttribute("data-blocking-focus-scope", "narrative");
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-target-scope",
+        "narrative",
+      ),
+    );
+
+    rendered.rerender(
+      <DevDockPortalCoordinatorV1>
+        <DevDockPortalSelectionProbeV1 />
+        <VnLayerV1 {...props} active={false} />
+      </DevDockPortalCoordinatorV1>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-surface",
+        "base",
+      ),
+    );
+  });
+
   it("renders a named blocking dialog and dispatches only the exact native choice invocation", async () => {
     const props = createVnPropsV1();
     render(<VnLayerV1 {...props} />);

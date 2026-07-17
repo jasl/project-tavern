@@ -42,6 +42,7 @@ import {
 } from "@sillymaker/ui";
 import { createDebugUiContextV1 } from "@sillymaker/ui/diagnostics";
 import type { DebugUiSessionProjectionInputV1 } from "@sillymaker/ui/diagnostics";
+import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
 import {
   createBrowserImageLoaderV1,
   createHashRouterV1,
@@ -136,8 +137,14 @@ export interface E2ePresentationRuntimeV1 {
   readonly interactionController: InteractionBehaviorControllerV1;
   readonly overlaySession: OverlaySessionStoreV1<string>;
   readonly systemDialogSession: SystemDialogSessionStoreV1;
+  bindDevDockStateReader(reader: () => DeepReadonly<DevDockOpenStateV1>): () => void;
   dispose(): void;
 }
+
+const closedDevDockStateV1 = Object.freeze({
+  leftOpen: false,
+  rightOpen: false,
+}) satisfies DevDockOpenStateV1;
 
 type E2eUiStateReducerV1 = (
   current: DeepReadonly<E2ePresentationUiStateV1>,
@@ -244,6 +251,7 @@ export async function createE2ePresentationRuntimeV1(
         publication: DeepReadonly<E2eRuntimePresentationPublicationV1>,
       ) => DebugUiSessionProjectionInputV1)
     | undefined;
+  let readDiagnosticsDevDockState: (() => DeepReadonly<DevDockOpenStateV1>) | undefined;
   let hydratedContentPreference: ContentPreferencePortV1 | undefined;
   let capturedLifecycle:
     WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
@@ -262,6 +270,7 @@ export async function createE2ePresentationRuntimeV1(
     presentationResourcesDisposed = true;
     diagnosticsPresentation = undefined;
     readDiagnosticsUiSession = undefined;
+    readDiagnosticsDevDockState = undefined;
     systemDialogSession.closeSettings();
     pointerForCleanup?.dispose();
     unsubscribeRoute?.();
@@ -380,13 +389,17 @@ export async function createE2ePresentationRuntimeV1(
       const currentUiState = uiStateSource.getCurrent();
       const currentOverlay = overlaySession.getSnapshot();
       const currentSystemDialog = systemDialogSession.getSnapshot();
+      const currentDevDock = readDiagnosticsDevDockState?.() ?? closedDevDockStateV1;
       return Object.freeze({
         routeId: currentUiState.route,
         primaryOverlayId: currentOverlay.primaryId,
         detailOverlayIds: Object.freeze([...currentOverlay.detailIds]),
         narrativeOpen: isE2eNarrativeOpenV1(publication.view.game.flow.status),
         systemDialogOpen: currentSystemDialog.settingsOpen,
-        devDock: Object.freeze({ leftOpen: false, rightOpen: false }),
+        devDock: Object.freeze({
+          leftOpen: currentDevDock.leftOpen,
+          rightOpen: currentDevDock.rightOpen,
+        }),
         activeInteractionSurfaceId: interactionSession.getSnapshot().activeSurfaceId,
       });
     };
@@ -492,6 +505,26 @@ export async function createE2ePresentationRuntimeV1(
       }
     });
 
+    const bindDevDockStateReader = (
+      reader: () => DeepReadonly<DevDockOpenStateV1>,
+    ): (() => void) => {
+      if (presentationResourcesDisposed) {
+        throw new TypeError("presentation.e2e.devdock_state_reader_disposed");
+      }
+      if (readDiagnosticsDevDockState !== undefined) {
+        throw new TypeError("presentation.e2e.devdock_state_reader_already_bound");
+      }
+      readDiagnosticsDevDockState = reader;
+      let active = true;
+      return (): void => {
+        if (!active) return;
+        active = false;
+        if (readDiagnosticsDevDockState === reader) {
+          readDiagnosticsDevDockState = undefined;
+        }
+      };
+    };
+
     const runtime = Object.freeze({
       applicationId: "e2e-web" as const,
       resolvedGame: input.resolved,
@@ -509,6 +542,7 @@ export async function createE2ePresentationRuntimeV1(
       interactionController,
       overlaySession,
       systemDialogSession,
+      bindDevDockStateReader,
       dispose: disposePresentationResources,
     }) satisfies E2ePresentationRuntimeV1;
     const lifecycle = capturedLifecycle;

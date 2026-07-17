@@ -5,6 +5,10 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  DevDockPortalCoordinatorV1,
+  useDevDockPortalTargetV1,
+} from "../debug/DevDockPortalCoordinator.js";
 import { inputHandledV1, systemInputActionIdsV1 } from "../input/contracts.js";
 import { createInputRouterV1 } from "../input/input-router.js";
 import { GameStageV1, useStageSystemFocusScopeTargetV1 } from "../shell/game-stage.js";
@@ -28,6 +32,17 @@ function SystemFocusScopeTargetProbeV1() {
     <output data-testid="system-focus-scope-target">
       {target?.dataset.blockingFocusScope ?? "none"}
     </output>
+  );
+}
+
+function DevDockPortalSelectionProbeV1() {
+  const { surface, target } = useDevDockPortalTargetV1();
+  return (
+    <output
+      data-testid="devdock-portal-selection"
+      data-surface={surface}
+      data-target-scope={target?.dataset.blockingFocusScope ?? "none"}
+    />
   );
 }
 
@@ -117,6 +132,36 @@ beforeEach(() => {
 });
 
 describe("RuntimeFailureDialogV1", () => {
+  it("registers the actual failure Dialog.Content as the highest DevDock target", async () => {
+    const inputRouter = createInputRouterV1();
+    render(
+      <DevDockPortalCoordinatorV1>
+        <DevDockPortalSelectionProbeV1 />
+        <RuntimeFailureDialogV1
+          {...labelsV1}
+          inputRouter={inputRouter}
+          actions={{ retry: null, reloadApplication: () => undefined, requestExit: null }}
+          diagnosticExport={<button type="button">导出诊断包</button>}
+        />
+      </DevDockPortalCoordinatorV1>,
+    );
+
+    expect(screen.getByRole("dialog", { name: labelsV1.title })).toHaveAttribute(
+      "data-blocking-focus-scope",
+      "fault_pause",
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-target-scope",
+        "fault_pause",
+      ),
+    );
+    expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+      "data-surface",
+      "fault_pause",
+    );
+  });
+
   it("registers the highest System input and isolates every lower Stage layer", () => {
     const inputRouter = createInputRouterV1();
     const gameplay = vi.fn(() => inputHandledV1);

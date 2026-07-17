@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: MIT
 import "@testing-library/jest-dom/vitest";
 import { parseNonNegativeSafeInteger } from "@sillymaker/base";
+import type { RuntimeCapabilityPortV1 } from "@sillymaker/base";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   inputHandledV1,
@@ -15,7 +16,10 @@ import {
 } from "../input/contracts.js";
 import { createInputRouterV1 } from "../input/input-router.js";
 import { Button } from "../primitives/Button.js";
+import { DevDockV1, createDevDockContributionSetV1 } from "../debug/DevDock.js";
+import type { DevDockOpenStateV1 } from "../debug/DevDock.js";
 import { GameStageV1, useStageSystemFocusScopeTargetV1 } from "../shell/game-stage.js";
+import { GameShell } from "../shell/game-shell.js";
 import { SettingsLauncherV1 } from "../system/settings-launcher.js";
 import { SystemDialogHostV1 } from "../system/system-dialog-host.js";
 import { ActionConfirmationDialogV1 } from "./action-confirmation-dialog.js";
@@ -51,6 +55,90 @@ function ConfirmationHarnessV1(props: {
           onClose={() => setOpener(null)}
         />
       )}
+    </>
+  );
+}
+
+const closedDevDockStateV1 = Object.freeze({
+  leftOpen: false,
+  rightOpen: false,
+}) satisfies DevDockOpenStateV1;
+
+function createDebugCapabilitiesV1(): RuntimeCapabilityPortV1 {
+  const state = Object.freeze({
+    debugTools: true,
+    cheats: false,
+    automationBridge: false,
+  });
+  return Object.freeze({
+    state: Object.freeze({
+      getCurrent: () => state,
+      subscribe: () => () => undefined,
+    }),
+    setEnabled: async () => Object.freeze({ kind: "unchanged" as const, state }),
+  });
+}
+
+function RealActionConfirmationDevDockHarnessV1(props: {
+  readonly inputRouter: ReturnType<typeof createInputRouterV1>;
+  readonly dispatch: (invocation: typeof invocationV1) => Promise<unknown>;
+}) {
+  const [opener, setOpener] = useState<HTMLButtonElement | null>(null);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [dockState, setDockState] = useState<DevDockOpenStateV1>(closedDevDockStateV1);
+  const capabilitiesRef = useRef(createDebugCapabilitiesV1());
+  const contributionsRef = useRef(
+    createDevDockContributionSetV1(Object.freeze({ panels: Object.freeze([]) })),
+  );
+
+  return (
+    <>
+      <Button
+        onClick={(event) => {
+          setOpener(event.currentTarget);
+          setConfirmationOpen(true);
+        }}
+      >
+        打开真实确认
+      </Button>
+      <GameShell
+        accessibleName="真实确认测试舞台"
+        inputRouter={props.inputRouter}
+        layers={Object.freeze({
+          background: null,
+          character: null,
+          sceneInteraction: null,
+          hud: null,
+          workspaceOverlay: null,
+          narrative: null,
+          system:
+            confirmationOpen && opener !== null ? (
+              <ActionConfirmationDialogV1
+                title="真实动作确认"
+                description="验证嵌套开发工具的 Escape 所有权"
+                confirmLabel="确认真实操作"
+                cancelLabel="取消真实操作"
+                pendingText="正在提交"
+                completedText="操作已返回结果"
+                failedText="操作未能提交"
+                invocation={invocationV1}
+                semantic={Object.freeze({ dispatch: props.dispatch })}
+                inputRouter={props.inputRouter}
+                opener={opener}
+                onClose={() => setConfirmationOpen(false)}
+              />
+            ) : null,
+        })}
+        devDock={
+          <DevDockV1
+            capabilities={capabilitiesRef.current}
+            contributions={contributionsRef.current}
+            inputRouter={props.inputRouter}
+            openState={dockState}
+            onOpenStateChange={setDockState}
+          />
+        }
+      />
     </>
   );
 }
@@ -208,6 +296,36 @@ function ConfirmationLayoutRouteProbeV1(props: {
 }
 
 describe("ActionConfirmationDialogV1", () => {
+  it("lets the nested DevDock own the first Escape inside the real Radix confirmation", async () => {
+    const inputRouter = createInputRouterV1();
+    const dispatch = vi.fn(async (_invocation: typeof invocationV1) =>
+      Object.freeze({ kind: "committed" as const }),
+    );
+    const user = userEvent.setup();
+    render(
+      <RealActionConfirmationDevDockHarnessV1 inputRouter={inputRouter} dispatch={dispatch} />,
+    );
+
+    const opener = screen.getByRole("button", { name: "打开真实确认" });
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", { name: "真实动作确认" });
+    const launcher = await screen.findByRole("button", { name: "打开左侧开发工具" });
+    expect(dialog).toContainElement(launcher);
+
+    await user.click(launcher);
+    expect(screen.getByRole("complementary", { name: "左侧开发工具" })).toBeVisible();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "真实动作确认" })).toBeVisible();
+    expect(screen.queryByRole("complementary", { name: "左侧开发工具" })).not.toBeInTheDocument();
+    expect(launcher).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "真实动作确认" })).not.toBeInTheDocument();
+    await waitFor(() => expect(opener).toHaveFocus());
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
   it("claims System input during the layout commit", () => {
     const inputRouter = createInputRouterV1();
     const dispatch = vi.fn(async (_invocation: typeof invocationV1) =>

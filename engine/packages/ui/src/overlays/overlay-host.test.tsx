@@ -4,9 +4,13 @@ import "@testing-library/jest-dom/vitest";
 import { parseNonNegativeSafeInteger } from "@sillymaker/base";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  DevDockPortalCoordinatorV1,
+  useDevDockPortalTargetV1,
+} from "../debug/DevDockPortalCoordinator.js";
 import {
   inputHandledV1,
   parseInputActionIdV1,
@@ -76,7 +80,71 @@ function OverlayHarnessV1() {
   );
 }
 
+function DevDockPortalSelectionProbeV1() {
+  const { surface, target } = useDevDockPortalTargetV1();
+  return (
+    <output
+      data-testid="devdock-portal-selection"
+      data-surface={surface}
+      data-target-scope={target?.dataset.blockingFocusScope ?? "none"}
+      data-target-overlay-depth={target?.dataset.overlayDepth ?? "none"}
+    />
+  );
+}
+
 describe("OverlayHostV1", () => {
+  it("registers only the actual top overlay Dialog.Content as the DevDock focus target", async () => {
+    const store = createOverlaySessionStoreV1<OverlayIdV1>();
+    store.openPrimary("inventory");
+    store.pushDetail("ingredient");
+    render(
+      <DevDockPortalCoordinatorV1>
+        <DevDockPortalSelectionProbeV1 />
+        <OverlayHostV1
+          store={store}
+          rendererResolver={createResolverV1(store)}
+          inputRouter={createInputRouterV1()}
+          closeLabel="关闭"
+        />
+      </DevDockPortalCoordinatorV1>,
+    );
+
+    const primary = await screen.findByRole("dialog", { name: "背包" });
+    const detail = screen.getByRole("dialog", { name: "食材详情" });
+    expect(primary).not.toHaveAttribute("data-blocking-focus-scope");
+    expect(detail).toHaveAttribute("data-blocking-focus-scope", "overlay");
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-target-overlay-depth",
+        "1",
+      ),
+    );
+
+    act(() => {
+      store.closeTop();
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-target-overlay-depth",
+        "0",
+      ),
+    );
+    expect(screen.getByRole("dialog", { name: "背包" })).toHaveAttribute(
+      "data-blocking-focus-scope",
+      "overlay",
+    );
+
+    act(() => {
+      store.closeTop();
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("devdock-portal-selection")).toHaveAttribute(
+        "data-surface",
+        "base",
+      ),
+    );
+  });
+
   it("renders the primary and ordered details inside its Stage-layer host", async () => {
     const store = createOverlaySessionStoreV1<OverlayIdV1>();
     store.openPrimary("inventory");

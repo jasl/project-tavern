@@ -10,6 +10,10 @@ import {
 } from "react";
 import type { ReactElement, ReactNode } from "react";
 import type { DeepReadonly } from "@sillymaker/base";
+import {
+  isDevDockEscapeOwnerTargetV1,
+  useDevDockPortalTargetRegistrationV1,
+} from "../debug/DevDockPortalCoordinator.js";
 import { inputHandledV1, inputIgnoredV1, systemInputActionIdsV1 } from "../input/contracts.js";
 import type { InputEventV1, InputRouterV1 } from "../input/contracts.js";
 import { Button } from "../primitives/Button.js";
@@ -108,6 +112,8 @@ function OverlayDialogEntryV1(props: {
   readonly closeLabel: string;
 }): ReactElement {
   const isTop = props.entry.depth === props.topDepth;
+  const [contentElement, setContentElement] = useState<HTMLDivElement | null>(null);
+  useDevDockPortalTargetRegistrationV1("overlay", isTop ? contentElement : null);
   const requestTopCloseV1 = (): void => {
     if (isTop) props.closeTop();
   };
@@ -129,13 +135,15 @@ function OverlayDialogEntryV1(props: {
         >
           <div className={styles["overlay-host__backdrop"]} aria-hidden="true" />
           <Dialog.Content
+            ref={setContentElement}
             className={styles["overlay-host__content"]}
             aria-describedby={undefined}
+            data-blocking-focus-scope={isTop ? "overlay" : undefined}
             data-overlay-kind={props.entry.kind}
             data-overlay-depth={props.entry.depth}
             onEscapeKeyDown={(event) => {
               event.preventDefault();
-              requestTopCloseV1();
+              if (!isDevDockEscapeOwnerTargetV1(event.target)) requestTopCloseV1();
             }}
             onInteractOutside={(event) => event.preventDefault()}
             onCloseAutoFocus={(event) => event.preventDefault()}

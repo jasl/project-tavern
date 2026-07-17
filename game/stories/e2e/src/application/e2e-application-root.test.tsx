@@ -6,7 +6,7 @@ import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymake
 import { createWebHostV1 } from "@sillymaker/web";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createE2ePresentationRuntimeV1 } from "./create-e2e-presentation-runtime.js";
 import { E2eApplicationRootV1 } from "./e2e-application-root.js";
@@ -166,6 +166,42 @@ describe("E2eApplicationRootV1", () => {
       });
     } finally {
       rendered.unmount();
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("binds the root-owned DevDock state to diagnostics without publication notifications", async () => {
+    const fixture = await createRootFixtureV1();
+    await fixture.runtime.application.capabilities.setEnabled("debug_tools", true);
+    const presentationBefore = fixture.runtime.presentation.getSnapshot();
+    const semanticBefore = fixture.runtime.application.semantic.observe();
+    const presentationListener = vi.fn();
+    const semanticListener = vi.fn();
+    const unsubscribePresentation = fixture.runtime.presentation.subscribe(presentationListener);
+    const unsubscribeSemantic = fixture.runtime.application.semantic.subscribe(semanticListener);
+    const rendered = render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+      container: fixture.container,
+    });
+    try {
+      await userEvent.setup().click(screen.getByRole("button", { name: "打开右侧开发工具" }));
+      expect(screen.getByRole("complementary", { name: "右侧开发工具" })).toBeVisible();
+      expect(fixture.runtime.presentation.getSnapshot()).toBe(presentationBefore);
+      expect(fixture.runtime.application.semantic.observe()).toBe(semanticBefore);
+      expect(presentationListener).not.toHaveBeenCalled();
+      expect(semanticListener).not.toHaveBeenCalled();
+      const exported = await fixture.runtime.application.diagnostics.exportDebugBundle();
+      const decoded = JSON.parse(new TextDecoder().decode(exported.bytes)) as {
+        readonly uiContext?: {
+          readonly session: {
+            readonly devDock: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+          };
+        };
+      };
+      expect(decoded.uiContext?.session.devDock).toEqual({ leftOpen: false, rightOpen: true });
+    } finally {
+      rendered.unmount();
+      unsubscribePresentation();
+      unsubscribeSemantic();
       fixture.runtime.dispose();
     }
   });

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { DeepReadonly, SemanticGamePortV1 } from "@sillymaker/base";
-import { useId, useLayoutEffect, useRef } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
+import { useDevDockPortalTargetRegistrationV1 } from "../debug/DevDockPortalCoordinator.js";
 import { inputHandledV1, inputIgnoredV1, systemInputActionIdsV1 } from "../input/contracts.js";
 import type { InputRouterV1 } from "../input/contracts.js";
 import { Button } from "../primitives/Button.js";
@@ -84,6 +85,12 @@ export function VnLayerV1<TInvocation, TResult>(
   props: VnLayerPropsV1<TInvocation, TResult>,
 ): ReactElement | null {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [dialogElement, setDialogElement] = useState<HTMLDivElement | null>(null);
+  const setDialog = useCallback((element: HTMLDivElement | null): void => {
+    dialogRef.current = element;
+    setDialogElement(element);
+  }, []);
+  useDevDockPortalTargetRegistrationV1("narrative", props.active ? dialogElement : null);
   useStageInputIsolationV1("narrative", props.active);
 
   useLayoutEffect(() => {
@@ -137,10 +144,11 @@ export function VnLayerV1<TInvocation, TResult>(
 
   return (
     <div
-      ref={dialogRef}
+      ref={setDialog}
       className={styles["vn-layer"]}
       role="dialog"
       aria-label={props.accessibleName}
+      data-blocking-focus-scope="narrative"
       tabIndex={-1}
     >
       <section className={styles["vn-layer__panel"]}>

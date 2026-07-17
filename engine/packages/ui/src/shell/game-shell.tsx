@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { ReactElement, ReactNode } from "react";
+import { DevDockPortalCoordinatorV1 } from "../debug/DevDockPortalCoordinator.js";
 import { RootErrorBoundaryV1 } from "../errors/root-error-boundary.js";
 import type { RootErrorBoundaryPropsV1 } from "../errors/root-error-boundary.js";
 import type { InputRouterV1 } from "../input/contracts.js";
@@ -13,6 +14,7 @@ export interface GameShellPropsV1 {
   readonly layers: GameStageLayersV1;
   readonly inputRouter: InputRouterV1;
   readonly backdrop?: ReactNode;
+  readonly devDock?: ReactNode;
   readonly errorBoundary?: Omit<
     RootErrorBoundaryPropsV1,
     "children" | "inputRouter" | "renderFailure"
@@ -58,7 +60,12 @@ export function GameShell(props: GameShellPropsV1): ReactElement {
       >
         {props.backdrop ?? null}
       </div>
-      <InputContextProviderV1 router={props.inputRouter}>{protectedStage}</InputContextProviderV1>
+      <InputContextProviderV1 router={props.inputRouter}>
+        <DevDockPortalCoordinatorV1 baseTargetClassName={styles["game-shell__dev-dock-target"]!}>
+          {protectedStage}
+          {props.devDock ?? null}
+        </DevDockPortalCoordinatorV1>
+      </InputContextProviderV1>
     </div>
   );
 }

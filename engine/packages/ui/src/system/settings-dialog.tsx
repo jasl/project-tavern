@@ -3,6 +3,10 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import {
+  isDevDockEscapeOwnerTargetV1,
+  useDevDockPortalTargetRegistrationV1,
+} from "../debug/DevDockPortalCoordinator.js";
+import {
   useStageSystemFocusScopeRegistrationV1,
   useStageSystemPortalContainerV1,
 } from "../shell/game-stage.js";
@@ -47,6 +51,7 @@ export function SettingsDialogV1(props: SettingsDialogPropsV1): ReactElement {
   const portalContainer = useStageSystemPortalContainerV1();
   const [focusScopeElement, setFocusScopeElement] = useState<HTMLDivElement | null>(null);
   useStageSystemFocusScopeRegistrationV1(focusScopeElement);
+  useDevDockPortalTargetRegistrationV1("system", focusScopeElement);
   const position = portalContainer === null ? "fixed" : "absolute";
 
   return (
@@ -64,6 +69,9 @@ export function SettingsDialogV1(props: SettingsDialogPropsV1): ReactElement {
           data-system-surface="settings"
           aria-describedby={undefined}
           style={{ position }}
+          onEscapeKeyDown={(event) => {
+            if (isDevDockEscapeOwnerTargetV1(event.target)) event.preventDefault();
+          }}
           onPointerDownOutside={(event) => event.preventDefault()}
         >
           <SettingsDialogContentV1 {...props} />

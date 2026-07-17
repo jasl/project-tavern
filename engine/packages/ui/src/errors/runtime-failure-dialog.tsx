@@ -2,6 +2,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
+import { useDevDockPortalTargetRegistrationV1 } from "../debug/DevDockPortalCoordinator.js";
 import { inputHandledV1, inputIgnoredV1, type InputRouterV1 } from "../input/contracts.js";
 import styles from "../overlays/overlay-host.module.css";
 import { Button } from "../primitives/Button.js";
@@ -65,6 +66,7 @@ export function RuntimeFailureDialogV1(props: RuntimeFailureDialogPropsV1): Reac
 
   useStageInputIsolationV1("system", true);
   useStageSystemFocusScopeRegistrationV1(focusScopeElement);
+  useDevDockPortalTargetRegistrationV1("fault_pause", focusScopeElement);
 
   useLayoutEffect(
     () =>
