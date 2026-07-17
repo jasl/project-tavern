@@ -1867,6 +1867,7 @@ export type E2eSemanticPublicationV1 = ReturnType<E2eSemanticGamePortV1["observe
 export type E2eSemanticActionDescriptorV1 = E2eSemanticPublicationV1["actions"][number];
 
 export interface E2eRuntimePresentationViewV1 {
+  readonly route: E2ePresentationRouteV1;
   readonly game: DeepReadonly<E2eGameViewV1>;
   readonly narrative: null;
   readonly stage: RuntimeStageSceneV1;
@@ -2768,6 +2769,11 @@ clean, verified follow-up commit.
 - Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
 - Modify: `game/stories/e2e/src/application/entry.tsx`
+- Modify: `game/stories/e2e/src/runtime/hmr-integration.test.ts`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.test.tsx`
+- Modify: `game/stories/e2e/src/presentation/runtime-presentation.ts`
+- Modify: `game/stories/e2e/src/presentation/runtime-presentation.test.ts`
 - Modify: `game/stories/e2e/index.html`
 - Modify: `game/stories/e2e/tsconfig.application.json`
 - Create: `game/stories/poc/src/application/create-poc-presentation-runtime.ts`
@@ -2775,11 +2781,85 @@ clean, verified follow-up commit.
 - Create: `game/stories/poc/src/application/poc-application-root.tsx`
 - Create: `game/stories/poc/src/application/poc-application-root.test.tsx`
 - Create: `game/stories/poc/src/application/entry.tsx`
+- Modify: `game/stories/poc/src/presentation/hud/PocHud.tsx`
+- Modify: `game/stories/poc/src/presentation/hud/PocHud.test.tsx`
+- Modify: `game/stories/poc/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/poc/src/presentation/ui-contributions.test.tsx`
 - Create: `game/stories/poc/index.html`
 - Modify: `game/stories/poc/tsconfig.application.json`
 - Modify: `vite.config.ts`
 - Modify: root `package.json`
+- Modify: `engine/packages/web/e2e/walking-skeleton.spec.ts`
 - Test: affected Story application and Web routing suites.
+
+Live Task 10 preflight found one additional ownership requirement: Phase 2's Vite root still owns
+only the E2E BuildIdentity virtual module, while the new PoC root must resolve from its own actual
+Simulation, Presentation and complete application import closures. Task 10 therefore also owns
+the following identity/facet-isolation Files; a PoC root may not reuse E2E identity, derive
+`appBuildId` from a presentation digest, or filter an actual mixed closure after collection:
+
+- Create: `scripts/build-story-identity.mjs`
+- Modify: `scripts/build-e2e-identity.mjs`
+- Modify: `scripts/build-e2e-identity.test.mjs`
+- Create: `scripts/build-poc-identity.mjs`
+- Create: `scripts/build-poc-identity.test.mjs`
+- Modify: `scripts/collect-import-closure.mjs`
+- Modify: `scripts/collect-import-closure.test.mjs`
+- Create: `game/stories/poc/src/application/poc-build-identity.d.ts`
+- Create: `game/stories/poc/src/content/asset-ids.ts`
+- Create: `game/stories/poc/src/content/simulation-ids.ts`
+- Create: `game/stories/poc/src/content/simulation-text-ids.ts`
+- Create: `game/stories/poc/src/content/text-ids.ts`
+- Create: `game/stories/poc/src/content/simulation-core-definitions.ts`
+- Create: `game/stories/poc/src/content/simulation-data.ts`
+- Modify: `game/stories/poc/src/content/ids.ts`
+- Modify: `game/stories/poc/src/content/core-definitions.ts`
+- Modify: `game/stories/poc/src/content/story-data.ts`
+- Modify: `game/stories/poc/src/content/actions.ts`
+- Modify: `game/stories/poc/src/content/balance.ts`
+- Modify: `game/stories/poc/src/content/checks-endings.ts`
+- Modify: `game/stories/poc/src/content/events.ts`
+- Modify: `game/stories/poc/src/content/facilities-auras.ts`
+- Modify: `game/stories/poc/src/content/ingredients-recipes.ts`
+- Modify: `game/stories/poc/src/content/narrative/d1-d4.ts`
+- Modify: `game/stories/poc/src/content/narrative/investigation.ts`
+- Modify: `game/stories/poc/src/content/narrative/relationship.ts`
+- Modify: `game/stories/poc/src/content/state-definitions.ts`
+- Create: `game/stories/poc/src/presentation/presentation-ids.ts`
+- Create: `game/stories/poc/src/presentation/presentation-text-ids.ts`
+- Create: `game/stories/poc/src/presentation/rejection-reason-text-ids.ts`
+- Create: `game/stories/poc/src/presentation/semantic-workflow-action-ids.ts`
+- Create: `game/stories/poc/src/presentation/symbols/poc-game-symbol-ids.ts`
+- Modify: `game/stories/poc/src/presentation/assets.ts`
+- Modify: `game/stories/poc/src/presentation/interaction-catalog.ts`
+- Modify: `game/stories/poc/src/presentation/runtime/project-poc-runtime-presentation.test.ts`
+- Modify: `game/stories/poc/src/presentation/scene-graph.ts`
+- Modify: `game/stories/poc/src/presentation/text-catalogs/zh-CN.ts`
+- Modify: `game/stories/poc/src/presentation/semantic-actions.ts`
+- Modify: `game/stories/poc/src/presentation/symbols/poc-game-symbols.tsx`
+- Create: `game/stories/poc/src/simulation/patch-surface.ts`
+- Create: `game/stories/poc/src/simulation/story-simulation-facet.ts`
+- Create: `game/stories/poc/src/presentation/patch-surface.ts`
+- Create: `game/stories/poc/src/presentation/story-presentation-facet.ts`
+- Modify: `game/stories/poc/src/patch-surfaces.ts`
+- Modify: `game/stories/poc/src/story-definition.ts`
+
+`build-story-identity.mjs` is the Story-neutral owner used by two thin wrappers; the existing E2E
+named exports remain byte-compatible. `build-poc-identity.mjs` owns the corresponding PoC virtual
+specifier/plugin and includes the fixed-specifier tooling dynamic import in the application
+closure. Split the currently mixed PoC Story definition, Patch Surfaces, stable IDs, Text IDs and
+simulation-data construction so the collector follows honest physical facet roots: a pure
+Gameplay/executor byte changes only Story Simulation plus application, a pure Scene/asset/text
+byte changes only Story Presentation plus application, renderer TSX changes application only,
+and intentionally shared Asset or logical Simulation Text IDs may enter both. The compatibility
+barrels preserve the existing public Story ABI but neither facet root imports a mixed barrel.
+
+Write the collector/wrapper mutation tests before these owners. Their qualifying RED is the
+missing `build-poc-identity.mjs`/PoC facet roots and missing Story package mappings. Run the three
+Node tests serially with `--test-concurrency=1`, because their source-mutation fixtures must never
+race. The PoC entry computes `appBuildId` only as
+`digestCanonical("sillymaker:application:v1", pocBuildIdentityV1.application)` and passes the same
+unmodified `pocBuildIdentityV1` to bootstrap.
 
 **Interfaces:**
 
@@ -2950,6 +3030,11 @@ The PoC composition passes `project-tavern.runtime` to `createWebHostV1`; the E2
 
 Each root calls `useRuntimePresentationV1` once and derives the seven `GameStageLayersV1` React nodes from that one publication. Renderer contributions receive narrow view slices, the same `runtime.application.semantic`, `PresentationReadPortV1`, and—only for interaction contributions—the narrow controller. The PoC factory also exposes its one immutable Story-owned `GameSymbolRegistryV1` to PoC HUD/Overlay renderers; it is neither inserted into `UiContributionRegistryV1` nor added to the runtime publication. The roots do not define inline component types, do not project in render/effects, and do not pass the full application port into a Story renderer. Independent preload/preference initialization begins in parallel before the first non-loading application render; no serial asset waterfall is introduced.
 
+The E2E projector passes `uiState.route` through as `view.route` without branching Stage selection;
+the E2E root reads that route only from the same cached publication and never reads the mutable
+source alongside it. Both Story runtimes expose only the frozen `ReadonlyViewSourceV1` facade to
+callers while retaining the writable source inside their narrow controllers.
+
 Both roots mount the Phase 5A `SettingsLauncherV1` in the always-reachable System layer and route it to exactly one `SettingsDialogV1`; this is production composition, not a browser-test fixture. The E2E dialog renders `E2eSettingsSectionV1`, two neutral independent flag checkboxes and Story preset controls backed by `ContentPreferencePortV1` for mechanism testing. It follows Task 7's exact `data-content-flag-id`/`data-content-preset-id`, native checkbox/button, pending/result and subscription contract. Visible names and descriptions come only from `presentationRead.text(descriptor.nameTextId/descriptionTextId)`. A checkbox update uses Base `setContentMaturityFlagV1`, while preset selection looks up the frozen branded Story descriptor and sets its `allowedFlags`; neither path casts arbitrary DOM text/number into a branded mask. The PoC dialog supplies no content filter controls because its flag/preset catalogs are empty; it resolves Phase 4B's frozen `pocNoContentFilterOptionsTextIdV1` through `PresentationReadPortV1` and renders that truthful Story-localized empty-settings text. Opening/closing either Settings dialog changes only System UI session state, leaves a blocking Narrative mounted underneath, and never changes Semantic revision or Gameplay. Neither root imports Story tooling, DevDock, capability session overrides, Automation Bridge, HMR adapter, or Phase 5C browser globals.
 
 - [ ] **Step 6: Implement the closed hash router and exactly two Vite roots**
@@ -2984,7 +3069,71 @@ Expected: PASS; exactly two roots build, both reuse one Session/publication pipe
 - [ ] **Step 8: Commit the two Story application roots**
 
 ```bash
-git add -- engine/packages/web/src/routing engine/packages/web/src/index.ts game/stories/e2e/src/application game/stories/e2e/index.html game/stories/e2e/tsconfig.application.json game/stories/poc/src/application game/stories/poc/index.html game/stories/poc/tsconfig.application.json vite.config.ts package.json
+git add -- \
+  docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md \
+  engine/packages/web/src/routing \
+  engine/packages/web/src/index.ts \
+  engine/packages/web/e2e/walking-skeleton.spec.ts \
+  scripts/build-story-identity.mjs \
+  scripts/build-e2e-identity.mjs \
+  scripts/build-e2e-identity.test.mjs \
+  scripts/build-poc-identity.mjs \
+  scripts/build-poc-identity.test.mjs \
+  scripts/collect-import-closure.mjs \
+  scripts/collect-import-closure.test.mjs \
+  game/stories/e2e/src/application \
+  game/stories/e2e/src/runtime/hmr-integration.test.ts \
+  game/stories/e2e/src/presentation/ui-contributions.tsx \
+  game/stories/e2e/src/presentation/ui-contributions.test.tsx \
+  game/stories/e2e/src/presentation/runtime-presentation.ts \
+  game/stories/e2e/src/presentation/runtime-presentation.test.ts \
+  game/stories/e2e/index.html \
+  game/stories/e2e/tsconfig.application.json \
+  game/stories/poc/src/application \
+  game/stories/poc/src/content/asset-ids.ts \
+  game/stories/poc/src/content/simulation-ids.ts \
+  game/stories/poc/src/content/simulation-text-ids.ts \
+  game/stories/poc/src/content/text-ids.ts \
+  game/stories/poc/src/content/simulation-core-definitions.ts \
+  game/stories/poc/src/content/simulation-data.ts \
+  game/stories/poc/src/content/ids.ts \
+  game/stories/poc/src/content/core-definitions.ts \
+  game/stories/poc/src/content/story-data.ts \
+  game/stories/poc/src/content/actions.ts \
+  game/stories/poc/src/content/balance.ts \
+  game/stories/poc/src/content/checks-endings.ts \
+  game/stories/poc/src/content/events.ts \
+  game/stories/poc/src/content/facilities-auras.ts \
+  game/stories/poc/src/content/ingredients-recipes.ts \
+  game/stories/poc/src/content/narrative/d1-d4.ts \
+  game/stories/poc/src/content/narrative/investigation.ts \
+  game/stories/poc/src/content/narrative/relationship.ts \
+  game/stories/poc/src/content/state-definitions.ts \
+  game/stories/poc/src/presentation/presentation-ids.ts \
+  game/stories/poc/src/presentation/presentation-text-ids.ts \
+  game/stories/poc/src/presentation/rejection-reason-text-ids.ts \
+  game/stories/poc/src/presentation/semantic-workflow-action-ids.ts \
+  game/stories/poc/src/presentation/symbols/poc-game-symbol-ids.ts \
+  game/stories/poc/src/presentation/assets.ts \
+  game/stories/poc/src/presentation/hud/PocHud.tsx \
+  game/stories/poc/src/presentation/hud/PocHud.test.tsx \
+  game/stories/poc/src/presentation/interaction-catalog.ts \
+  game/stories/poc/src/presentation/runtime/project-poc-runtime-presentation.test.ts \
+  game/stories/poc/src/presentation/scene-graph.ts \
+  game/stories/poc/src/presentation/text-catalogs/zh-CN.ts \
+  game/stories/poc/src/presentation/semantic-actions.ts \
+  game/stories/poc/src/presentation/symbols/poc-game-symbols.tsx \
+  game/stories/poc/src/presentation/ui-contributions.tsx \
+  game/stories/poc/src/presentation/ui-contributions.test.tsx \
+  game/stories/poc/src/simulation \
+  game/stories/poc/src/presentation/patch-surface.ts \
+  game/stories/poc/src/presentation/story-presentation-facet.ts \
+  game/stories/poc/src/patch-surfaces.ts \
+  game/stories/poc/src/story-definition.ts \
+  game/stories/poc/index.html \
+  game/stories/poc/tsconfig.application.json \
+  vite.config.ts \
+  package.json
 git diff --cached --check
 git commit -m "feat(game): compose stage presentation roots"
 ```

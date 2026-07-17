@@ -36,7 +36,12 @@ import type {
 } from "./runtime-presentation.js";
 import { projectE2eRuntimePresentationV1 } from "./runtime-presentation.js";
 import { e2eSceneGraphV1 } from "./scene-graph.js";
-import { e2eUiContributionsV1, selectE2eFlowActionOptionsV1 } from "./ui-contributions.js";
+import {
+  e2eUiContributionRegistryV1,
+  e2eUiContributionsV1,
+  e2eUiRendererIdsV1,
+  selectE2eFlowActionOptionsV1,
+} from "./ui-contributions.js";
 
 afterEach(cleanup);
 
@@ -348,6 +353,8 @@ function E2eUiHarnessV1(props: {
 
 describe("e2eUiContributionsV1", () => {
   it("registers one neutral Web contribution closure across all seven namespaces", () => {
+    expect(Object.isFrozen(e2eUiRendererIdsV1)).toBe(true);
+    expect(Object.isFrozen(e2eUiContributionRegistryV1)).toBe(true);
     expect(Object.keys(e2eUiContributionsV1.renderers).sort()).toEqual(
       [...rendererNamespacesV1].sort(),
     );
@@ -363,6 +370,20 @@ describe("e2eUiContributionsV1", () => {
     expect(rendererContributionsV1("workspace_overlay")).toHaveLength(1);
     expect(rendererContributionsV1("narrative")).toHaveLength(1);
     expect(rendererContributionsV1("system")).toHaveLength(1);
+    for (const [namespace, rendererId] of [
+      ["background", e2eUiRendererIdsV1.background],
+      ["scene_interaction", e2eUiRendererIdsV1.interaction],
+      ["hud", e2eUiRendererIdsV1.hud],
+      ["workspace_overlay", e2eUiRendererIdsV1.overlay],
+      ["narrative", e2eUiRendererIdsV1.narrative],
+      ["system", e2eUiRendererIdsV1.system],
+    ] as const) {
+      const resolved = e2eUiContributionRegistryV1.resolve(namespace, rendererId);
+      expect(resolved.kind).toBe("found");
+      if (resolved.kind === "found") {
+        expect(resolved.component).toBe(requireRendererV1(namespace, rendererId));
+      }
+    }
 
     const componentSources = rendererNamespacesV1.flatMap((namespace) =>
       rendererContributionsV1(namespace).map(({ component }) => component.toString()),

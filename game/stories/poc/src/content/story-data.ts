@@ -42,11 +42,12 @@ import {
   pocFacilityDefinitionsV1,
   pocFacilityOpportunityDefinitionsV1,
 } from "./facilities-auras.js";
-import { textIdsV1 } from "./ids.js";
 import { pocIngredientDefinitionsV1, pocRecipeDefinitionsV1 } from "./ingredients-recipes.js";
 import { pocNarrativeScenesV1 } from "./narrative/index.js";
 import { pocRelationshipStoryActionDefinitionsV1 } from "./narrative/relationship.js";
+import { pocSimulationDataV1 } from "./simulation-data.js";
 import { pocInitialStateV1, pocStateDefinitionsV1 } from "./state-definitions.js";
+import { textIdsV1 } from "./text-ids.js";
 
 function parseExactRecordV1(
   value: unknown,
@@ -223,35 +224,42 @@ export const pocStoryDataSchemaV1: RuntimeSchemaV1<PocStoryDataV1> = Object.free
   },
 });
 
-export const pocStoryDataV1: DeepReadonly<PocStoryDataV1> = deepFreezePocValueV1(
-  pocStoryDataSchemaV1.parse({
-    dataRevision: 1,
-    manifest: pocStoryManifestV1,
-    stateDefinitions: pocStateDefinitionsV1,
-    initialState: pocInitialStateV1,
-    balance: pocBalanceV1,
-    content: {
-      texts: pocTextEntriesV1,
-      characters: pocCharacterDefinitionsV1,
-      reasons: pocReasonDefinitionsV1,
-      actions: pocActionDefinitionsV1,
-      storyActions: pocRelationshipStoryActionDefinitionsV1,
-      customerSegments: pocCustomerSegmentDefinitionsV1,
-      modifierSources: pocModifierSourceDefinitionsV1,
-      ingredients: pocIngredientDefinitionsV1,
-      items: pocItemDefinitionsV1,
-      recipes: pocRecipeDefinitionsV1,
-      facilities: pocFacilityDefinitionsV1,
-      facilityOpportunities: pocFacilityOpportunityDefinitionsV1,
-      auras: pocAuraDefinitionsV1,
-      worldActions: pocWorldActionDefinitionsV1,
-      events: pocEventDefinitionsV1,
-      checks: pocCheckDefinitionsV1,
-      endings: pocEndingDefinitionsV1,
-      scenes: pocNarrativeScenesV1,
-    },
-  }),
-);
+const validatedPocStoryDataV1 = pocStoryDataSchemaV1.parse({
+  dataRevision: 1,
+  manifest: pocStoryManifestV1,
+  stateDefinitions: pocStateDefinitionsV1,
+  initialState: pocInitialStateV1,
+  balance: pocBalanceV1,
+  content: {
+    texts: pocTextEntriesV1,
+    characters: pocCharacterDefinitionsV1,
+    reasons: pocReasonDefinitionsV1,
+    actions: pocActionDefinitionsV1,
+    storyActions: pocRelationshipStoryActionDefinitionsV1,
+    customerSegments: pocCustomerSegmentDefinitionsV1,
+    modifierSources: pocModifierSourceDefinitionsV1,
+    ingredients: pocIngredientDefinitionsV1,
+    items: pocItemDefinitionsV1,
+    recipes: pocRecipeDefinitionsV1,
+    facilities: pocFacilityDefinitionsV1,
+    facilityOpportunities: pocFacilityOpportunityDefinitionsV1,
+    auras: pocAuraDefinitionsV1,
+    worldActions: pocWorldActionDefinitionsV1,
+    events: pocEventDefinitionsV1,
+    checks: pocCheckDefinitionsV1,
+    endings: pocEndingDefinitionsV1,
+    scenes: pocNarrativeScenesV1,
+  },
+});
+
+export const pocStoryDataV1: DeepReadonly<PocStoryDataV1> = deepFreezePocValueV1({
+  dataRevision: validatedPocStoryDataV1.dataRevision,
+  manifest: validatedPocStoryDataV1.manifest,
+  stateDefinitions: validatedPocStoryDataV1.stateDefinitions,
+  initialState: validatedPocStoryDataV1.initialState,
+  balance: pocBalanceV1,
+  content: validatedPocStoryDataV1.content,
+});
 
 export function projectPocSimulationDataV1(
   source: DeepReadonly<PocStoryDataV1>,
@@ -291,7 +299,4 @@ export function projectPocSimulationDataV1(
   );
 }
 
-export const pocSimulationDataV1: DeepReadonly<PocSimulationDataV1> = projectPocSimulationDataV1(
-  pocStoryDataV1,
-  pocStoryDataV1.balance,
-);
+export { pocSimulationDataV1 };

@@ -15,10 +15,10 @@ import {
   auraIdsV1,
   investigationOutcomeTokensV1,
   outcomeIdsV1,
-  pocTextIdsV1,
   reasonIdsV1,
   relationshipOutcomeTokensV1,
-} from "./ids.js";
+} from "./simulation-ids.js";
+import { pocSimulationTextIdsV1 as pocTextIdsV1 } from "./simulation-text-ids.js";
 
 const pocActionReasonIdsV1 = Object.freeze({
   unavailableStoryWindowClosed: reasonIdsV1[47],

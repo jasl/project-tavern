@@ -25,12 +25,12 @@ import {
   ingredientIdsV1,
   investigationOutcomeTokensV1,
   outcomeIdsV1,
-  pocTextIdsV1,
   reasonIdsV1,
   relationshipOutcomeTokensV1,
   sceneIdsV1,
   worldStepIdsV1,
-} from "./ids.js";
+} from "./simulation-ids.js";
+import { pocSimulationTextIdsV1 as pocTextIdsV1 } from "./simulation-text-ids.js";
 
 function requireReasonIdV1(expected: string): ReasonId {
   const reasonId = reasonIdsV1.find((candidate) => candidate === expected);

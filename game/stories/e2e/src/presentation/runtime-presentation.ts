@@ -48,6 +48,7 @@ export interface E2ePresentationUiStateV1 {
 }
 
 export interface E2eRuntimePresentationViewV1 {
+  readonly route: E2ePresentationRouteV1;
   readonly game: DeepReadonly<E2eGameViewV1>;
   readonly narrative: null;
   readonly stage: RuntimeStageSceneV1;
@@ -444,6 +445,7 @@ export function projectE2eRuntimePresentationV1(
     : null;
   return Object.freeze({
     view: Object.freeze({
+      route: input.uiState.route,
       game: input.semantic.game,
       narrative: input.semantic.narrative,
       stage,

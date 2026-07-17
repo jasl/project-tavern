@@ -10,7 +10,6 @@
   "include": [
     "src/application/**/*.ts",
     "src/application/**/*.tsx",
-    "src/presentation/e2e-renderers.tsx",
     "src/presentation/e2e-settings-section.tsx",
     "src/presentation/runtime-presentation.ts",
     "src/presentation/ui-contributions.tsx"

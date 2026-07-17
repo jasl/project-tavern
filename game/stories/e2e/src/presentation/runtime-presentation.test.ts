@@ -109,6 +109,7 @@ function e2eSemanticPublicationV1(
 function e2eProjectionInputV1(input: {
   readonly semantic: DeepReadonly<E2eSemanticPublicationV1>;
   readonly allowedFlags: ContentMaturityFlagsV1;
+  readonly route?: E2ePresentationRouteV1;
 }): RuntimePresentationProjectionInputV1<
   E2eSemanticPublicationV1,
   E2eSceneGraphV1,
@@ -119,7 +120,10 @@ function e2eProjectionInputV1(input: {
     semantic: input.semantic,
     resolvedCatalog: e2eSceneGraphV1,
     contentPreference: Object.freeze({ allowedFlags }),
-    uiState: defaultE2ePresentationUiStateV1,
+    uiState:
+      input.route === undefined
+        ? defaultE2ePresentationUiStateV1
+        : Object.freeze({ ...defaultE2ePresentationUiStateV1, route: input.route }),
   });
 }
 
@@ -208,6 +212,28 @@ describe("projectE2eRuntimePresentationV1", () => {
     expect(calm.view.stage.variantId).toBe("stage_variant.e2e.main.default");
     expect(active.view.stage.variantId).toBe("stage_variant.e2e.main.active");
     expect(projectE2eRuntimePresentationV1.toString()).not.toMatch(/calendar|morning|evening/iu);
+  });
+
+  it("projects route without branching the selected Stage", () => {
+    const semantic = e2eSemanticPublicationV1();
+    const mainMenu = projectE2eRuntimePresentationV1(
+      e2eProjectionInputV1({
+        semantic,
+        allowedFlags: emptyContentMaturityFlagsV1,
+        route: "main_menu",
+      }),
+    );
+    const play = projectE2eRuntimePresentationV1(
+      e2eProjectionInputV1({
+        semantic,
+        allowedFlags: emptyContentMaturityFlagsV1,
+        route: "play",
+      }),
+    );
+
+    expect(mainMenu.view.route).toBe("main_menu");
+    expect(play.view.route).toBe("play");
+    expect(mainMenu.view.stage).toEqual(play.view.stage);
   });
 
   it("reuses the exact increment descriptor and its published invocation", () => {

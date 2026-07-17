@@ -17,10 +17,10 @@ import {
   auraIdsV1,
   facilityIdsV1,
   ingredientIdsV1,
-  pocTextIdsV1,
   reasonIdsV1,
   serviceModeIdsV1,
-} from "./ids.js";
+} from "./simulation-ids.js";
+import { pocSimulationTextIdsV1 as pocTextIdsV1 } from "./simulation-text-ids.js";
 
 const pocFacilityAuraReasonIdsV1 = Object.freeze({
   actionFacilitySkip: reasonIdsV1[4],

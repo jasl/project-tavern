@@ -16,6 +16,7 @@ import {
   createUiContributionRegistryV1,
   useInputRouterV1,
   type GameRendererContextV1,
+  type GameSymbolRegistryV1,
   type InteractionBehaviorControllerV1,
   type InteractionDescriptorPresentationV1,
   type InteractionSessionStoreV1,
@@ -32,18 +33,16 @@ import {
 import type { ReactElement } from "react";
 
 import type { PocSemanticGamePortV1 } from "../application/create-poc-semantic-port.js";
-import {
-  characterIdsV1,
-  pocHeroinePresentationIdsV1,
-  pocRejectionReasonTextIdsByCodeV1,
-  pocTextIdsV1,
-} from "../content/ids.js";
+import { characterIdsV1 } from "../content/simulation-ids.js";
+import { pocTextIdsV1 } from "../content/text-ids.js";
 import type {
   NarrativeProjectionV1,
   PocGameViewV1,
   PocHudProjectionV1,
   PocRejectionReasonV1,
 } from "../gameplay/contracts/types.js";
+import { pocHeroinePresentationIdsV1 } from "./presentation-ids.js";
+import { pocRejectionReasonTextIdsByCodeV1 } from "./rejection-reason-text-ids.js";
 import { PocHudV1 } from "./hud/PocHud.js";
 import { FacilityOverlayV1 } from "./overlays/FacilityOverlay.js";
 import { InventoryOverlayV1 } from "./overlays/InventoryOverlay.js";
@@ -119,12 +118,12 @@ export type PocUiRendererContextsV1 = Readonly<{
     PocHudProjectionV1,
     PocSemanticGamePortV1,
     PocUiPresentationReadPortV1
-  >;
+  > & { readonly gameSymbols: GameSymbolRegistryV1 };
   workspace_overlay: GameRendererContextV1<
     PocWorkspaceOverlayRendererViewV1,
     PocSemanticGamePortV1,
     PocUiPresentationReadPortV1
-  >;
+  > & { readonly gameSymbols: GameSymbolRegistryV1 };
   narrative: GameRendererContextV1<
     PocNarrativeRendererViewV1,
     PocSemanticGamePortV1,
@@ -485,6 +484,14 @@ const pocCharacterContributionsV1 = Object.freeze([
   }),
 ]);
 
+export const pocFixedRendererIdsV1 = Object.freeze({
+  sceneInteraction: "renderer.poc.interaction.stage",
+  hud: "renderer.poc.hud.compact",
+  workspaceOverlay: "renderer.poc.overlay.host",
+  narrative: "renderer.poc.narrative.vn",
+  system: "renderer.poc.system.host",
+} as const);
+
 export const pocUiContributionsV1 = Object.freeze({
   contributionId: "ui.poc.presentation.v1",
   renderers: Object.freeze({
@@ -492,27 +499,27 @@ export const pocUiContributionsV1 = Object.freeze({
     character: pocCharacterContributionsV1,
     scene_interaction: Object.freeze([
       Object.freeze({
-        rendererId: "renderer.poc.interaction.stage",
+        rendererId: pocFixedRendererIdsV1.sceneInteraction,
         component: PocInteractionRendererV1,
       }),
     ]),
     hud: Object.freeze([
-      Object.freeze({ rendererId: "renderer.poc.hud.compact", component: PocHudV1 }),
+      Object.freeze({ rendererId: pocFixedRendererIdsV1.hud, component: PocHudV1 }),
     ]),
     workspace_overlay: Object.freeze([
       Object.freeze({
-        rendererId: "renderer.poc.overlay.host",
+        rendererId: pocFixedRendererIdsV1.workspaceOverlay,
         component: PocWorkspaceOverlayRendererV1,
       }),
     ]),
     narrative: Object.freeze([
       Object.freeze({
-        rendererId: "renderer.poc.narrative.vn",
+        rendererId: pocFixedRendererIdsV1.narrative,
         component: PocNarrativeRendererV1,
       }),
     ]),
     system: Object.freeze([
-      Object.freeze({ rendererId: "renderer.poc.system.host", component: PocSystemRendererV1 }),
+      Object.freeze({ rendererId: pocFixedRendererIdsV1.system, component: PocSystemRendererV1 }),
     ]),
   }),
 }) satisfies UiContributionSetV1<PocUiRendererContextsV1>;

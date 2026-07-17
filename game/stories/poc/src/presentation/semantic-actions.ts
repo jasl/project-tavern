@@ -3,7 +3,8 @@
 import type { DeepReadonly, RuntimeSchemaV1, TextId } from "@sillymaker/base";
 import type { GameSessionV1 } from "@sillymaker/base/runtime";
 
-import { actionIdsV1, pocSemanticWorkflowActionIdsV1, pocTextIdsV1 } from "../content/ids.js";
+import { actionIdsV1 } from "../content/simulation-ids.js";
+import { pocTextIdsV1 } from "../content/text-ids.js";
 import {
   pocGameCommandSchemaV1,
   pocRejectionReasonSchemaV1,
@@ -17,6 +18,7 @@ import type {
   PocGameSimulationTypesV1,
   PocRejectionReasonV1,
 } from "../gameplay/contracts/types.js";
+import { pocSemanticWorkflowActionIdsV1 } from "./semantic-workflow-action-ids.js";
 
 type PocCommandOptionsV1<TKind extends PocGameCommandV1["kind"]> = Omit<
   Extract<PocGameCommandV1, { readonly kind: TKind }>,

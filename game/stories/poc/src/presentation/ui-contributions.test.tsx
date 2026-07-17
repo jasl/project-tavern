@@ -53,6 +53,7 @@ import {
 } from "./semantic-actions.js";
 import { pocZhCnTextCatalogV1 } from "./text-catalogs/zh-CN.js";
 import {
+  pocFixedRendererIdsV1,
   pocUiContributionsV1,
   type PocUiPresentationReadPortV1,
   type PocUiRendererContextsV1,
@@ -224,11 +225,12 @@ describe("pocUiContributionsV1", () => {
     );
     expect(rendererIdsV1("background")).toEqual(Object.values(pocStageRendererIdsV1));
     expect(rendererIdsV1("character")).toEqual([pocHeroinePresentationIdsV1.rendererId]);
-    expect(rendererIdsV1("scene_interaction")).toHaveLength(1);
-    expect(rendererIdsV1("hud")).toHaveLength(1);
-    expect(rendererIdsV1("workspace_overlay")).toHaveLength(1);
-    expect(rendererIdsV1("narrative")).toHaveLength(1);
-    expect(rendererIdsV1("system")).toHaveLength(1);
+    expect(rendererIdsV1("scene_interaction")).toEqual([pocFixedRendererIdsV1.sceneInteraction]);
+    expect(rendererIdsV1("hud")).toEqual([pocFixedRendererIdsV1.hud]);
+    expect(rendererIdsV1("workspace_overlay")).toEqual([pocFixedRendererIdsV1.workspaceOverlay]);
+    expect(rendererIdsV1("narrative")).toEqual([pocFixedRendererIdsV1.narrative]);
+    expect(rendererIdsV1("system")).toEqual([pocFixedRendererIdsV1.system]);
+    expect(Object.isFrozen(pocFixedRendererIdsV1)).toBe(true);
     expect(Object.keys(pocUiContributionsV1.renderers)).not.toContain("gameSymbols");
   });
 

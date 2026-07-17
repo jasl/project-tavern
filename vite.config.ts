@@ -6,42 +6,48 @@ import type { Plugin, UserConfig } from "vite";
 
 const repositoryRoot = import.meta.dirname;
 
-interface E2eBuildIdentityModuleV1 {
-  readonly e2eBuildIdentityVirtualSpecifierV1: string;
-  collectE2eBuildIdentityV1(root: string): Promise<unknown>;
-  createE2eBuildIdentityVirtualPluginV1(input: {
-    readonly root: string;
-    readonly initialIdentity: unknown;
-  }): Plugin;
-}
-
-function assertE2eBuildIdentityModuleV1(value: unknown): asserts value is E2eBuildIdentityModuleV1 {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    typeof Reflect.get(value, "e2eBuildIdentityVirtualSpecifierV1") !== "string" ||
-    typeof Reflect.get(value, "collectE2eBuildIdentityV1") !== "function" ||
-    typeof Reflect.get(value, "createE2eBuildIdentityVirtualPluginV1") !== "function"
-  ) {
-    throw new TypeError("E2E BuildIdentity collector module is invalid");
-  }
-}
-
 const requireFromConfigV1 = createRequire(import.meta.url);
-const e2eBuildIdentityModuleV1: unknown = requireFromConfigV1(
-  resolve(repositoryRoot, "scripts/build-e2e-identity.mjs"),
-);
-assertE2eBuildIdentityModuleV1(e2eBuildIdentityModuleV1);
-
-const { collectE2eBuildIdentityV1, createE2eBuildIdentityVirtualPluginV1 } =
-  e2eBuildIdentityModuleV1;
 
 const applicationRoots = Object.freeze({
   "e2e-web": Object.freeze({
     html: resolve(repositoryRoot, "game/stories/e2e/index.html"),
     outDir: resolve(repositoryRoot, "dist/e2e"),
+    identityModule: "scripts/build-e2e-identity.mjs",
+    collectIdentityExport: "collectE2eBuildIdentityV1",
+    createIdentityPluginExport: "createE2eBuildIdentityVirtualPluginV1",
+  }),
+  "poc-web": Object.freeze({
+    html: resolve(repositoryRoot, "game/stories/poc/index.html"),
+    outDir: resolve(repositoryRoot, "dist/poc"),
+    identityModule: "scripts/build-poc-identity.mjs",
+    collectIdentityExport: "collectPocBuildIdentityV1",
+    createIdentityPluginExport: "createPocBuildIdentityVirtualPluginV1",
   }),
 });
+
+interface SelectedBuildIdentityModuleV1 {
+  collect(root: string): Promise<unknown>;
+  createPlugin(input: { readonly root: string; readonly initialIdentity: unknown }): Plugin;
+}
+
+function loadSelectedBuildIdentityModuleV1(
+  application: (typeof applicationRoots)[keyof typeof applicationRoots],
+): SelectedBuildIdentityModuleV1 {
+  const loaded: unknown = requireFromConfigV1(resolve(repositoryRoot, application.identityModule));
+  if (typeof loaded !== "object" || loaded === null) {
+    throw new TypeError("Story BuildIdentity collector module is invalid");
+  }
+  const collect = Reflect.get(loaded, application.collectIdentityExport);
+  const createPlugin = Reflect.get(loaded, application.createIdentityPluginExport);
+  if (typeof collect !== "function" || typeof createPlugin !== "function") {
+    throw new TypeError("Story BuildIdentity collector module is invalid");
+  }
+  return Object.freeze({
+    collect: (root: string) => collect(root) as Promise<unknown>,
+    createPlugin: (input: { readonly root: string; readonly initialIdentity: unknown }) =>
+      createPlugin(input) as Plugin,
+  });
+}
 
 function rejectCallerBuildRootV1(argv: readonly string[]) {
   const buildIndex = argv.indexOf("build");
@@ -78,13 +84,14 @@ export default defineConfig(async ({ mode }) => {
   }
   const storyRoot = dirname(application.html);
   const htmlName = basename(application.html);
-  const initialBuildIdentity = await collectE2eBuildIdentityV1(repositoryRoot);
+  const identity = loadSelectedBuildIdentityModuleV1(application);
+  const initialBuildIdentity = await identity.collect(repositoryRoot);
   return {
     root: storyRoot,
     base: "./",
     publicDir: false,
     plugins: [
-      createE2eBuildIdentityVirtualPluginV1({
+      identity.createPlugin({
         root: repositoryRoot,
         initialIdentity: initialBuildIdentity,
       }),
@@ -100,7 +107,7 @@ export default defineConfig(async ({ mode }) => {
             throw new TypeError(`caller-supplied output directory is forbidden: ${actualOutDir}`);
           }
           if (config.publicDir !== "") {
-            throw new TypeError("E2E Artifact public directory must remain disabled");
+            throw new TypeError("Story Artifact public directory must remain disabled");
           }
           if (
             config.command === "build" &&
@@ -108,7 +115,7 @@ export default defineConfig(async ({ mode }) => {
               config.build.emptyOutDir !== true ||
               config.build.sourcemap !== false)
           ) {
-            throw new TypeError("E2E Artifact build invariants were overridden");
+            throw new TypeError("Story Artifact build invariants were overridden");
           }
         },
       },

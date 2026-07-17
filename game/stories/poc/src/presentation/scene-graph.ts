@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { parseStageSceneGraphV1 } from "@sillymaker/base";
 
+import { assetIdsV1 } from "../content/asset-ids.js";
+import { pocTextIdsV1 } from "../content/text-ids.js";
 import {
-  assetIdsV1,
   pocHeroineAppearanceLayerOrderV1,
   pocHeroineCharacterActivityIdsV1,
   pocHeroineCharacterExpressionIdsV1,
@@ -13,8 +14,7 @@ import {
   pocInteractionTargetIdsV1,
   pocStageSceneIdsV1,
   pocStageSceneVariantIdsV1,
-  pocTextIdsV1,
-} from "../content/ids.js";
+} from "./presentation-ids.js";
 import {
   pocContentMaturityPolicyV1,
   pocStandardContentRequirementV1,

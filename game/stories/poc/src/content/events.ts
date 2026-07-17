@@ -9,7 +9,13 @@ import {
   type ReasonId,
   type StoryEventDefinitionV1,
 } from "../gameplay/index.js";
-import { checkpointIdsV1, eventIdsV1, factIdsV1, reasonIdsV1, sceneIdsV1 } from "./ids.js";
+import {
+  checkpointIdsV1,
+  eventIdsV1,
+  factIdsV1,
+  reasonIdsV1,
+  sceneIdsV1,
+} from "./simulation-ids.js";
 import { pocFacilityOpportunityUndecidedGateV1 } from "./facilities-auras.js";
 
 function requireReasonIdV1(expected: string): ReasonId {

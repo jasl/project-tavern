@@ -27,3 +27,13 @@ export type { GameBootstrapResolutionResultV1 } from "./loader/loader.js";
 export { createBrowserImageLoaderV1 } from "./assets/index.js";
 export type { BrowserImageLoaderEnvironmentV1 } from "./assets/index.js";
 export { createWebContentPreferencePortV1 } from "./preferences/index.js";
+export { createHashRouterV1 } from "./routing/index.js";
+export type {
+  CanonicalHashV1,
+  CreateHashRouterOptionsV1,
+  HashRouteV1,
+  HashRouterEventTargetV1,
+  HashRouterLocationV1,
+  HashRouterPublicationV1,
+  HashRouterV1,
+} from "./routing/index.js";

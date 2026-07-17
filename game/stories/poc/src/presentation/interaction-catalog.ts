@@ -10,8 +10,8 @@ import {
   pocInteractionSurfaceIdsV1,
   pocInteractionTargetIdsV1,
   pocPresentationProviderIdsV1,
-  pocTextIdsV1,
-} from "../content/ids.js";
+} from "./presentation-ids.js";
+import { pocPresentationTextIdsV1 as pocTextIdsV1 } from "./presentation-text-ids.js";
 import { pocStandardContentRequirementV1 } from "./content-maturity-policy.js";
 
 function deepFreezePresentationDataV1<TValue>(value: TValue): TValue {

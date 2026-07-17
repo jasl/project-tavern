@@ -5,6 +5,7 @@ import {
   ProgressMeter,
   TopCardHudV1,
   type GameSymbolIdV1,
+  type GameSymbolRegistryV1,
   type GameRendererContextV1,
   type PresentationReadPortV1,
 } from "@sillymaker/ui";
@@ -13,7 +14,7 @@ import type { ReactElement } from "react";
 import type { PocSemanticGamePortV1 } from "../../application/create-poc-semantic-port.js";
 import { pocTextIdsV1 } from "../../content/ids.js";
 import type { PocHudProjectionV1 } from "../../gameplay/contracts/types.js";
-import { pocGameSymbolIdsByRoleV1, pocGameSymbolRegistryV1 } from "../symbols/poc-game-symbols.js";
+import { pocGameSymbolIdsByRoleV1 } from "../symbols/poc-game-symbols.js";
 import styles from "./PocHud.module.css";
 
 type PocAssetUsageV1 = ResolvedAssetManifestV1["assets"][number]["usage"];
@@ -29,7 +30,7 @@ export type PocHudRendererPropsV1 = GameRendererContextV1<
   PocHudProjectionV1,
   PocSemanticGamePortV1,
   PocPresentationReadPortV1
->;
+> & { readonly gameSymbols: GameSymbolRegistryV1 };
 
 function dayLabelTextIdV1(day: PocHudProjectionV1["day"]): TextId {
   switch (day) {
@@ -69,15 +70,11 @@ function metricV1(input: {
   readonly label: string;
   readonly value: number;
   readonly symbolId: GameSymbolIdV1;
+  readonly gameSymbols: GameSymbolRegistryV1;
 }): ReactElement {
   return (
     <span className={styles["poc-hud__metric"]}>
-      <GameSymbolV1
-        registry={pocGameSymbolRegistryV1}
-        symbolId={input.symbolId}
-        size={16}
-        decorative
-      />
+      <GameSymbolV1 registry={input.gameSymbols} symbolId={input.symbolId} size={16} decorative />
       <span>{`${input.label} ${input.value}`}</span>
     </span>
   );
@@ -87,13 +84,14 @@ function staminaMeterV1(input: {
   readonly label: string;
   readonly current: number;
   readonly maximum: number;
+  readonly gameSymbols: GameSymbolRegistryV1;
 }): ReactElement {
   const valueText = `${input.current}/${input.maximum}`;
   return (
     <span className={styles["poc-hud__meter"]}>
       <span className={styles["poc-hud__meter-label"]}>
         <GameSymbolV1
-          registry={pocGameSymbolRegistryV1}
+          registry={input.gameSymbols}
           symbolId={pocGameSymbolIdsByRoleV1.stamina}
           size={16}
           decorative
@@ -115,7 +113,7 @@ function staminaMeterV1(input: {
 }
 
 export function PocHudV1(props: PocHudRendererPropsV1): ReactElement {
-  const { presentation, viewSlice } = props;
+  const { gameSymbols, presentation, viewSlice } = props;
   const readTextV1 = (textId: TextId): string => presentation.text(textId).text;
   const dayLabel = readTextV1(dayLabelTextIdV1(viewSlice.day));
   const phaseLabel = readTextV1(phaseLabelTextIdV1(viewSlice.phase));
@@ -141,11 +139,13 @@ export function PocHudV1(props: PocHudRendererPropsV1): ReactElement {
                 label: playerStaminaLabel,
                 current: viewSlice.playerStamina.current,
                 maximum: viewSlice.playerStamina.maximum,
+                gameSymbols,
               })}
               {staminaMeterV1({
                 label: heroineStaminaLabel,
                 current: viewSlice.heroineStamina.current,
                 maximum: viewSlice.heroineStamina.maximum,
+                gameSymbols,
               })}
             </span>
           </div>
@@ -156,16 +156,19 @@ export function PocHudV1(props: PocHudRendererPropsV1): ReactElement {
               label: cashLabel,
               value: viewSlice.cash,
               symbolId: pocGameSymbolIdsByRoleV1.cash,
+              gameSymbols,
             })}
             {metricV1({
               label: reputationLabel,
               value: viewSlice.reputation,
               symbolId: pocGameSymbolIdsByRoleV1.reputation,
+              gameSymbols,
             })}
             {metricV1({
               label: levyLabel,
               value: viewSlice.levyAmount,
               symbolId: pocGameSymbolIdsByRoleV1.levy,
+              gameSymbols,
             })}
           </div>
         ),

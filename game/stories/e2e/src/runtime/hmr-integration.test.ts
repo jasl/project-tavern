@@ -15,6 +15,7 @@ import type {
 import { describe, expect, it, vi } from "vitest";
 
 import { createE2eGameRuntimeV1 } from "../application/create-e2e-game-runtime.js";
+import type { E2ePresentationRuntimeV1 } from "../application/create-e2e-presentation-runtime.js";
 import type { E2eApplicationCompositionV1, E2eEntryHmrModuleV1 } from "../application/entry.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
 import type { E2eResolvedGameV1 } from "../story-entry.js";
@@ -70,7 +71,16 @@ async function createE2eHmrCompositionV1(input: {
     },
   });
   if (lifecycle === undefined) throw new TypeError("missing E2E HMR lifecycle");
-  return Object.freeze({ resolvedGame: input.resolved, application, lifecycle });
+  const presentationRuntime = Object.freeze({
+    application,
+    dispose: vi.fn(),
+  }) as unknown as E2ePresentationRuntimeV1;
+  return Object.freeze({
+    resolvedGame: input.resolved,
+    application,
+    presentationRuntime,
+    lifecycle,
+  });
 }
 
 function createAcceptedE2eHmrModuleV1(input: {
@@ -650,6 +660,11 @@ describe("E2E unified-root HMR integration", () => {
       "mountComposition(input.state.root, input.state.host, composition)",
     );
     expect(entrySource).toContain("module.installE2eApplicationHmrV1({ state: input.state })");
+    expect(entrySource).toContain("presentationRuntime: E2ePresentationRuntimeV1");
+    expect(entrySource).toContain("composition.presentationRuntime.dispose()");
+    expect(entrySource).not.toContain("此入口不可用");
+    expect(entrySource).not.toContain('addEventListener("hashchange"');
+    expect(entrySource).toContain('databaseName: "project-tavern.e2e.runtime"');
     expect(entrySource).toContain(
       "nativeEntryHotV1.data[acceptedE2eEntryModuleHandlerKeyV1] = handler",
     );

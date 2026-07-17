@@ -15,7 +15,7 @@ import {
   questIdsV1,
   recipeIdsV1,
   relationshipOutcomeTokensV1,
-} from "./ids.js";
+} from "./simulation-ids.js";
 
 const [playerActorIdV1, heroineActorIdV1] = actorIdsV1;
 if (playerActorIdV1 !== "actor.player" || heroineActorIdV1 !== "actor.heroine") {

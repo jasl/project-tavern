@@ -5,7 +5,8 @@ import {
   type DeepReadonly,
   type NarrativeSceneV1,
 } from "../../gameplay/index.js";
-import { nodeIdsV1, pocTextIdsV1, sceneIdsV1 } from "../ids.js";
+import { nodeIdsV1, sceneIdsV1 } from "../simulation-ids.js";
+import { pocSimulationTextIdsV1 as pocTextIdsV1 } from "../simulation-text-ids.js";
 
 export const pocInvestigationNarrativeV1: DeepReadonly<readonly NarrativeSceneV1[]> =
   deepFreezePocValueV1([

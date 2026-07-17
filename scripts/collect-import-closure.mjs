@@ -13,6 +13,8 @@ const packageTargets = Object.freeze({
   "@project-tavern/assets": "game/packages/assets/src/index.ts",
   "@project-tavern/story-e2e": "game/stories/e2e/src/index.ts",
   "@project-tavern/story-e2e/tooling": "game/stories/e2e/src/tooling.ts",
+  "@project-tavern/story-poc": "game/stories/poc/src/index.ts",
+  "@project-tavern/story-poc/tooling": "game/stories/poc/src/tooling/index.ts",
 });
 
 const posix = (root, path) => relative(root, path).split(sep).join("/");

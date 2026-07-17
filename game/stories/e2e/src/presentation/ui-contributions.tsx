@@ -9,6 +9,7 @@ import {
   type TextId,
 } from "@sillymaker/base";
 import {
+  createUiContributionRegistryV1,
   InteractionBehaviorListV1,
   InteractionSurfaceV1,
   PaperDollCharacterRendererV1,
@@ -114,7 +115,7 @@ export type E2eUiRendererContextsV1 = Readonly<{
   >;
 }>;
 
-const rendererIdsV1 = Object.freeze({
+export const e2eUiRendererIdsV1 = Object.freeze({
   background: e2eStageRendererIdV1,
   characterLayered: e2eCharacterRendererIdV1,
   characterStatic: e2eStaticCharacterRendererIdV1,
@@ -134,6 +135,7 @@ const textIdsV1 = Object.freeze({
   alphaCue: parseTextId("text.e2e.cue.counter.alpha"),
   betaCue: parseTextId("text.e2e.cue.counter.beta"),
   unavailableReason: parseTextId("text.e2e.reason.flow_unavailable"),
+  summaryName: parseTextId("text.e2e.stage.summary.name"),
 });
 
 const hudActionIdsV1 = Object.freeze([
@@ -169,7 +171,7 @@ function E2eCssBackgroundV1(props: E2eUiRendererContextsV1["background"]): React
     <div
       role="img"
       aria-label={accessibleName}
-      data-renderer-id={rendererIdsV1.background}
+      data-renderer-id={e2eUiRendererIdsV1.background}
       data-stage-scene-id={stage.stageSceneId}
       data-stage-variant-id={stage.variantId}
       style={backgroundStyleV1}
@@ -317,7 +319,9 @@ function E2eCompactHudV1(props: E2eUiRendererContextsV1["hud"]): ReactElement {
       accessibleName={accessibleName}
       slots={Object.freeze({
         start: <span>{props.viewSlice.game.counterLabel}</span>,
-        center: (
+        center: props.viewSlice.game.terminal ? (
+          <h1>{props.presentation.text(textIdsV1.summaryName).text}</h1>
+        ) : (
           <E2eSemanticActionGroupV1
             context={props}
             actionIds={hudActionIdsV1}
@@ -373,35 +377,48 @@ export const e2eUiContributionsV1 = Object.freeze({
   contributionId: "ui.e2e.presentation.v1",
   renderers: Object.freeze({
     background: Object.freeze([
-      Object.freeze({ rendererId: rendererIdsV1.background, component: E2eCssBackgroundV1 }),
+      Object.freeze({
+        rendererId: e2eUiRendererIdsV1.background,
+        component: E2eCssBackgroundV1,
+      }),
     ]),
     character: Object.freeze([
       Object.freeze({
-        rendererId: rendererIdsV1.characterLayered,
+        rendererId: e2eUiRendererIdsV1.characterLayered,
         component: E2eLayeredCounterV1,
       }),
       Object.freeze({
-        rendererId: rendererIdsV1.characterStatic,
+        rendererId: e2eUiRendererIdsV1.characterStatic,
         component: E2eStaticCounterV1,
       }),
     ]),
     scene_interaction: Object.freeze([
       Object.freeze({
-        rendererId: rendererIdsV1.interaction,
+        rendererId: e2eUiRendererIdsV1.interaction,
         component: E2eCounterInteractionV1,
       }),
     ]),
     hud: Object.freeze([
-      Object.freeze({ rendererId: rendererIdsV1.hud, component: E2eCompactHudV1 }),
+      Object.freeze({ rendererId: e2eUiRendererIdsV1.hud, component: E2eCompactHudV1 }),
     ]),
     workspace_overlay: Object.freeze([
-      Object.freeze({ rendererId: rendererIdsV1.overlay, component: E2eNeutralOverlayV1 }),
+      Object.freeze({
+        rendererId: e2eUiRendererIdsV1.overlay,
+        component: E2eNeutralOverlayV1,
+      }),
     ]),
     narrative: Object.freeze([
-      Object.freeze({ rendererId: rendererIdsV1.narrative, component: E2eNarrativeHostV1 }),
+      Object.freeze({
+        rendererId: e2eUiRendererIdsV1.narrative,
+        component: E2eNarrativeHostV1,
+      }),
     ]),
     system: Object.freeze([
-      Object.freeze({ rendererId: rendererIdsV1.system, component: E2eSystemHostV1 }),
+      Object.freeze({ rendererId: e2eUiRendererIdsV1.system, component: E2eSystemHostV1 }),
     ]),
   }),
 }) satisfies UiContributionSetV1<E2eUiRendererContextsV1>;
+
+export const e2eUiContributionRegistryV1 = createUiContributionRegistryV1<E2eUiRendererContextsV1>([
+  e2eUiContributionsV1,
+]);

@@ -3,11 +3,11 @@
 import {
   actionIdsV1,
   customerSegmentIdsV1,
-  pocTextIdsV1,
   policyIdsV1,
   reasonIdsV1,
   serviceModeIdsV1,
-} from "./ids.js";
+} from "./simulation-ids.js";
+import { pocSimulationTextIdsV1 as pocTextIdsV1 } from "./simulation-text-ids.js";
 import { deepFreezePocValueV1, parseDayIndex, pocStoryBalanceSchemaV1 } from "../gameplay/index.js";
 import type { DeepReadonly, StoryBalanceV1 } from "../gameplay/index.js";
 

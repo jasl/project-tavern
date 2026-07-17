@@ -10,7 +10,8 @@ import {
   type RecipeDefinitionV1,
 } from "../gameplay/index.js";
 
-import { customerSegmentIdsV1, ingredientIdsV1, pocTextIdsV1, recipeIdsV1 } from "./ids.js";
+import { customerSegmentIdsV1, ingredientIdsV1, recipeIdsV1 } from "./simulation-ids.js";
+import { pocSimulationTextIdsV1 as pocTextIdsV1 } from "./simulation-text-ids.js";
 
 const [coarseGrainId, rootVegetableId, aleId, freshMeatId, herbId] = ingredientIdsV1;
 const [localsId, travelersId] = customerSegmentIdsV1;

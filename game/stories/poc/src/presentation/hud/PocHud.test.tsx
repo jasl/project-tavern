@@ -9,13 +9,14 @@ import {
   type ResolvedAssetManifestV1,
   type TextId,
 } from "@sillymaker/base";
-import type { PresentationReadPortV1 } from "@sillymaker/ui";
+import type { GameSymbolRegistryV1, PresentationReadPortV1 } from "@sillymaker/ui";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { pocTextIdsV1, policyIdsV1 } from "../../content/ids.js";
 import { createPocStoryHarnessV1, fixedPocBootstrapV1 } from "../../testing/poc-story-harness.js";
 import { pocZhCnTextCatalogV1 } from "../text-catalogs/index.js";
+import { pocGameSymbolRegistryV1 } from "../symbols/poc-game-symbols.js";
 import { PocHudV1 } from "./PocHud.js";
 
 type PocAssetUsageV1 = ResolvedAssetManifestV1["assets"][number]["usage"];
@@ -71,6 +72,8 @@ describe("PocHudV1", () => {
     const harness = createPocStoryHarnessV1({ bootstrap: fixedPocBootstrapV1() });
     await enterActiveRunV1(harness.semantic);
     const presentation = presentationFixtureV1();
+    const resolveSymbol = vi.fn(pocGameSymbolRegistryV1.resolve);
+    const gameSymbols = Object.freeze({ resolve: resolveSymbol }) satisfies GameSymbolRegistryV1;
     const attemptsBeforeRender = harness.executedAttempts().length;
 
     render(
@@ -78,6 +81,7 @@ describe("PocHudV1", () => {
         viewSlice={harness.semantic.observe().game.hud}
         semantic={harness.semantic}
         presentation={presentation}
+        gameSymbols={gameSymbols}
       />,
     );
 
@@ -89,6 +93,7 @@ describe("PocHudV1", () => {
     expect(within(screen.getByTestId("top-card-end")).getByText("重建税 140")).toBeVisible();
     expect(screen.queryByRole("table", { name: "完整库存" })).not.toBeInTheDocument();
     expect(harness.executedAttempts()).toHaveLength(attemptsBeforeRender);
+    expect(resolveSymbol).toHaveBeenCalled();
 
     for (const textId of [
       pocTextIdsV1.storyTitle,
@@ -110,6 +115,7 @@ describe("PocHudV1", () => {
         viewSlice={harness.semantic.observe().game.hud}
         semantic={harness.semantic}
         presentation={presentationFixtureV1()}
+        gameSymbols={pocGameSymbolRegistryV1}
       />,
     );
 

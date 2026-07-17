@@ -432,8 +432,8 @@ describe("projectPocRuntimePresentationV1", () => {
       new URL("./project-poc-runtime-presentation.ts", import.meta.url),
       "utf8",
     );
-    const idRegistrySource = await readFile(
-      new URL("../../content/ids.ts", import.meta.url),
+    const simulationIdRegistrySource = await readFile(
+      new URL("../../content/simulation-ids.ts", import.meta.url),
       "utf8",
     );
     expect(source).not.toMatch(
@@ -443,7 +443,9 @@ describe("projectPocRuntimePresentationV1", () => {
       /from\s+["'][^"']*gameplay\/(?:game-queries|modules|command-executor|rules|resolvers)/u,
     );
     expect(source).toMatch(/from\s+["'][^"']*content\/ids/u);
-    expect(idRegistrySource).toMatch(/from\s+["']\.\.\/gameplay\/contracts\/ids\.js["']/u);
-    expect(idRegistrySource).not.toMatch(/from\s+["']\.\.\/gameplay\/index\.js["']/u);
+    expect(simulationIdRegistrySource).toMatch(
+      /from\s+["']\.\.\/gameplay\/contracts\/ids\.js["']/u,
+    );
+    expect(simulationIdRegistrySource).not.toMatch(/from\s+["']\.\.\/gameplay\/index\.js["']/u);
   });
 });

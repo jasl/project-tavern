@@ -2,11 +2,8 @@
 import { approvedPocAssetPacksV1 } from "@project-tavern/assets";
 import type { AssetPackV1, StageSceneVariantId } from "@sillymaker/base";
 
-import {
-  assetIdsV1,
-  pocHeroineAppearanceLayerOrderV1,
-  pocStageSceneVariantIdsV1,
-} from "../content/ids.js";
+import { assetIdsV1 } from "../content/asset-ids.js";
+import { pocHeroineAppearanceLayerOrderV1, pocStageSceneVariantIdsV1 } from "./presentation-ids.js";
 import { pocSceneGraphV1 } from "./scene-graph.js";
 
 function deepFreezePresentationDataV1<TValue>(value: TValue): TValue {

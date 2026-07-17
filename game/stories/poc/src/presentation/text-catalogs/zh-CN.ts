@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 import { parseTextCatalogSetV1 } from "@sillymaker/base";
 
-import { pocTextIdsV1 } from "../../content/ids.js";
+import { pocTextIdsV1 } from "../../content/text-ids.js";
 
 type PocTextNameV1 = keyof typeof pocTextIdsV1;
 

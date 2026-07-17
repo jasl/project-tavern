@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, rm, writeFile } from "node:fs/promises";
@@ -129,6 +129,7 @@ void test("collects four non-empty production identity facets from live sources"
   );
 
   for (const explicitSource of [
+    "scripts/build-story-identity.mjs",
     "scripts/collect-import-closure.mjs",
     "scripts/build-e2e-identity.mjs",
     "vite.config.ts",
@@ -160,6 +161,16 @@ void test("serves the direct collector payload byte-for-byte through the closed 
   );
   assert(loadedConfig);
   const plugins = loadedConfig.config.plugins.flat(Number.POSITIVE_INFINITY);
+  assert.deepEqual(
+    plugins
+      .filter(
+        (candidate) =>
+          candidate?.name?.startsWith("project-tavern-") &&
+          candidate.name.endsWith("-build-identity"),
+      )
+      .map(({ name }) => name),
+    ["project-tavern-e2e-build-identity"],
+  );
   const plugin = plugins.find(
     (candidate) => candidate?.name === "project-tavern-e2e-build-identity",
   );
@@ -313,7 +324,7 @@ void test("partitions live source mutations into only their owning facets", asyn
       expected: ["storyPresentation", "application"],
     },
     {
-      path: "game/stories/e2e/src/presentation/e2e-renderers.tsx",
+      path: "game/stories/e2e/src/application/e2e-application-root.tsx",
       expected: ["application"],
     },
   ];

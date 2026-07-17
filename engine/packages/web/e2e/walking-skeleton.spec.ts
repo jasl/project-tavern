@@ -19,7 +19,9 @@ test("native keyboard activation, reload, and route isolation", async ({ page, b
   await page.reload();
   await expect(page.getByText("计数 0")).toBeVisible();
   await page.goto("/#/playground");
-  await expect(page.getByText("此入口不可用")).toBeVisible();
+  await expect(page).toHaveURL(/\/#\/$/u);
+  await expect(page.getByRole("navigation", { name: "引擎测试主菜单" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "进入测试" })).toHaveAttribute("href", "#/play");
   await expect(page.getByRole("complementary", { name: "开发工具" })).toHaveCount(0);
   expect(["chromium", "webkit"]).toContain(browserName);
 });
@@ -47,7 +49,8 @@ test("resolved semantic controls expose reasons and complete both branches", asy
     await completeButton.click();
     await expect(page.getByRole("main", { name: "E2E 流程总结" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "E2E 流程总结" })).toBeVisible();
-    await expect(page.getByRole("button")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
+    await expect(page.getByRole("button").filter({ hasNotText: "设置" })).toHaveCount(0);
   }
 });
 

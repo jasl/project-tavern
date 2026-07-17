@@ -1,180 +1,172 @@
 // @vitest-environment jsdom
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import "@testing-library/jest-dom/vitest";
+import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
+import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
+import { createWebHostV1 } from "@sillymaker/web";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
-import { createWebHostV1 } from "@sillymaker/web";
-
-import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
+import { createE2ePresentationRuntimeV1 } from "./create-e2e-presentation-runtime.js";
 import { E2eApplicationRootV1 } from "./e2e-application-root.js";
-import type { E2eGameApplicationPortV1 } from "./create-e2e-game-runtime.js";
-import type { E2eSemanticInvocationV1 } from "../runtime/e2e-semantic-game-port.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
 
 afterEach(cleanup);
 
-function createHostV1() {
-  return createWebHostV1({
-    records: createMemoryHostRecordStoreV1(),
-    seeds: [0x0002_3049],
-    uuids: ["00000000-0000-4000-8000-000000000001"],
-    now: () => "2026-07-12T00:00:00.000Z",
+function eventTargetV1() {
+  const listeners = new Map<string, Set<() => void>>();
+  return Object.freeze({
+    addEventListener(type: string, listener: () => void) {
+      const current = listeners.get(type) ?? new Set<() => void>();
+      current.add(listener);
+      listeners.set(type, current);
+    },
+    removeEventListener(type: string, listener: () => void) {
+      listeners.get(type)?.delete(listener);
+    },
   });
 }
 
-async function createResolvedOnlyFixtureV1() {
-  const sourceDefinition = e2eStoryEntryV1.define();
-  let storyDefineCalls = 0;
-  let sceneGraphFactoryCalls = 0;
-  const createSceneGraph = () => {
-    sceneGraphFactoryCalls += 1;
-    return sourceDefinition.presentation.uiSceneGraph;
+async function createRootFixtureV1(hash = "#/play") {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const location = {
+    hash,
+    replace(nextHash: string) {
+      location.hash = nextHash;
+    },
   };
-  const definition = Object.freeze({
-    simulation: sourceDefinition.simulation,
-    presentation: Object.freeze({
-      ...sourceDefinition.presentation,
-      uiSceneGraph: createSceneGraph(),
+  const assetLoader = Object.freeze({
+    cacheKey: ({ runtimePath, sha256 }: RuntimeAssetLoadRequestV1) => `${runtimePath}#${sha256}`,
+    load: async () => Object.freeze({ kind: "failed" as const, code: "fetch_failed" as const }),
+    dispose() {},
+  }) satisfies RuntimeAssetLoaderV1;
+  const runtime = await createE2ePresentationRuntimeV1({
+    resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+    host: createWebHostV1({
+      records: createMemoryHostRecordStoreV1(),
+      seeds: [0x0002_3049],
+      uuids: ["00000000-0000-4000-8000-000000000402"],
+      now: () => "2026-07-17T00:00:00.000Z",
+    }),
+    environment: Object.freeze({
+      pointerTarget: container,
+      pointerWindow: eventTargetV1(),
+      pointerDocument: Object.freeze({ ...eventTargetV1(), visibilityState: "visible" as const }),
+      location,
+      hashEventTarget: eventTargetV1(),
+      assetLoader,
     }),
   });
-  const entry = Object.freeze({
-    ...e2eStoryEntryV1,
-    define() {
-      storyDefineCalls += 1;
-      return definition;
-    },
-  });
-  const resolvedGame = resolveStoryForTestV1(entry);
-  const host = createHostV1();
-  const application = await createE2eGameRuntimeV1({ resolved: resolvedGame, host });
-  return Object.freeze({
-    element: (
-      <E2eApplicationRootV1 resolvedGame={resolvedGame} application={application} host={host} />
-    ),
-    storyDefineCalls: () => storyDefineCalls,
-    sceneGraphFactoryCalls: () => sceneGraphFactoryCalls,
-  });
-}
-
-function wrapSemanticDispatchV1(application: E2eGameApplicationPortV1) {
-  const invocations: E2eSemanticInvocationV1[] = [];
-  let subscriptions = 0;
-  let unsubscriptions = 0;
-  let availableActionCalls = 0;
-  const semantic = Object.freeze({
-    ...application.semantic,
-    subscribe(listener: () => void) {
-      subscriptions += 1;
-      const unsubscribe = application.semantic.subscribe(listener);
-      let active = true;
-      return () => {
-        if (!active) return;
-        active = false;
-        unsubscriptions += 1;
-        unsubscribe();
-      };
-    },
-    availableActions() {
-      availableActionCalls += 1;
-      return application.semantic.availableActions();
-    },
-    async dispatch(invocation: E2eSemanticInvocationV1) {
-      invocations.push(invocation);
-      return application.semantic.dispatch(invocation);
-    },
-  });
-  return Object.freeze({
-    application: Object.freeze({ ...application, semantic }),
-    invocations: () => Object.freeze([...invocations]),
-    subscriptions: () => subscriptions,
-    unsubscriptions: () => unsubscriptions,
-    availableActionCalls: () => availableActionCalls,
-  });
+  return Object.freeze({ container, runtime });
 }
 
 describe("E2eApplicationRootV1", () => {
-  it("renders only the SceneGraph held by ResolvedGame", async () => {
-    const fixture = await createResolvedOnlyFixtureV1();
+  it("renders one named application and all seven fixed Stage layers", async () => {
+    const fixture = await createRootFixtureV1();
+    try {
+      render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+        container: fixture.container,
+      });
 
-    render(fixture.element);
-
-    expect(screen.getByRole("main", { name: "E2E 游戏舞台" })).toBeVisible();
-    expect(screen.getByText("计数 0")).toBeVisible();
-    expect(screen.getAllByTestId(/^stage-/u)).toHaveLength(7);
-    expect(screen.getByTestId("stage-character")).toBeEmptyDOMElement();
-    expect(screen.getByTestId("stage-scene-interaction")).toBeEmptyDOMElement();
-    expect(screen.getByTestId("stage-workspace-overlay")).toBeEmptyDOMElement();
-    expect(screen.getByTestId("stage-system")).toBeEmptyDOMElement();
-    expect(
-      screen
-        .getAllByTestId(/^stage-/u)
-        .filter((node) => node.hasAttribute("data-stage-pointer-surface")),
-    ).toEqual([screen.getByTestId("stage-scene-interaction")]);
-    expect(fixture.storyDefineCalls()).toBe(2);
-    expect(fixture.sceneGraphFactoryCalls()).toBe(1);
+      expect(screen.getByRole("application", { name: "SillyMaker 引擎测试" })).toHaveAttribute(
+        "data-application-id",
+        "e2e-web",
+      );
+      expect(screen.getAllByRole("application")).toHaveLength(1);
+      expect(screen.getByRole("main", { name: "E2E 游戏舞台" })).toBeVisible();
+      expect(screen.getAllByTestId(/^stage-/u)).toHaveLength(9);
+      expect(screen.getByRole("img", { name: "测试计数器" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "增加计数" })).toBeEnabled();
+      for (const testId of [
+        "stage-background",
+        "stage-character",
+        "stage-scene-interaction",
+        "stage-hud",
+        "stage-workspace-overlay",
+        "stage-narrative",
+        "stage-system",
+      ]) {
+        expect(screen.getByTestId(testId)).toBeInTheDocument();
+      }
+    } finally {
+      fixture.runtime.dispose();
+    }
   });
 
-  it("uses semantic action availability and options for DOM controls", async () => {
-    const resolvedGame = resolveStoryForTestV1(e2eStoryEntryV1);
-    const host = createHostV1();
-    const runtime = await createE2eGameRuntimeV1({ resolved: resolvedGame, host });
-    await runtime.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
-    const fixture = wrapSemanticDispatchV1(runtime);
-
-    const rendered = render(
-      <E2eApplicationRootV1
-        resolvedGame={resolvedGame}
-        application={fixture.application}
-        host={host}
-      />,
-    );
-
-    const chooseLeft = screen.getByRole("button", { name: "选择左侧" });
-    expect(chooseLeft).toBeEnabled();
-    expect(screen.getByRole("button", { name: "选择右侧" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "继续" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "继续" })).toHaveAccessibleDescription(
-      "当前流程不可用",
-    );
-    expect(screen.getByRole("group", { name: "经营操作" })).not.toContainElement(chooseLeft);
-    expect(screen.getByRole("group", { name: "叙事操作" })).toContainElement(chooseLeft);
-    expect(fixture.subscriptions()).toBe(1);
-    expect(fixture.availableActionCalls()).toBe(0);
-
-    await userEvent.setup().click(chooseLeft);
-
-    expect(fixture.invocations()).toEqual([
-      {
-        actionId: "action.e2e.choose",
-        parameters: { choice: "left" },
-      },
-    ]);
-    rendered.unmount();
-    expect(fixture.unsubscriptions()).toBe(1);
-  });
-
-  it("renders the resolved terminal summary layout without normal action controls", async () => {
-    const resolvedGame = resolveStoryForTestV1(e2eStoryEntryV1);
-    const host = createHostV1();
-    const application = await createE2eGameRuntimeV1({ resolved: resolvedGame, host });
-    await application.semantic.dispatch({ actionId: "action.e2e.start", parameters: {} });
-    await application.semantic.dispatch({
-      actionId: "action.e2e.choose",
-      parameters: { choice: "right" },
+  it("renders the main menu from the cached publication only", async () => {
+    const fixture = await createRootFixtureV1("#/");
+    const runtime = Object.freeze({
+      ...fixture.runtime,
+      uiState: Object.freeze({
+        getCurrent(): never {
+          throw new TypeError("application root read raw UI state");
+        },
+        subscribe: fixture.runtime.uiState.subscribe,
+      }),
     });
-    await application.semantic.dispatch({ actionId: "action.e2e.continue", parameters: {} });
-    await application.semantic.dispatch({ actionId: "action.e2e.complete", parameters: {} });
+    try {
+      render(<E2eApplicationRootV1 runtime={runtime} />, {
+        container: fixture.container,
+      });
 
-    render(
-      <E2eApplicationRootV1 resolvedGame={resolvedGame} application={application} host={host} />,
-    );
+      expect(screen.getByRole("navigation", { name: "引擎测试主菜单" })).toBeVisible();
+      expect(screen.getByRole("link", { name: "进入测试" })).toHaveAttribute("href", "#/play");
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
 
-    expect(screen.getByRole("main", { name: "E2E 流程总结" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "E2E 流程总结" })).toBeVisible();
-    expect(screen.getByText("计数 2")).toBeVisible();
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  it("keeps Settings reachable without changing Semantic state", async () => {
+    const fixture = await createRootFixtureV1();
+    const semanticBefore = fixture.runtime.application.semantic.observe();
+    try {
+      render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+        container: fixture.container,
+      });
+      await userEvent.setup().click(screen.getByRole("button", { name: "设置" }));
+
+      expect(screen.getByRole("dialog", { name: "设置" })).toBeVisible();
+      expect(screen.getAllByTestId("settings-section")).toHaveLength(1);
+      expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+      expect(fixture.runtime.application.semantic.observe()).toBe(semanticBefore);
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("dispatches through the published Semantic option and keeps Settings at terminal", async () => {
+    const fixture = await createRootFixtureV1();
+    try {
+      render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+        container: fixture.container,
+      });
+      await userEvent.setup().click(screen.getByRole("button", { name: "增加计数" }));
+      expect(screen.getByText("计数 1")).toBeVisible();
+
+      await fixture.runtime.application.semantic.dispatch({
+        actionId: "action.e2e.start",
+        parameters: {},
+      });
+      await fixture.runtime.application.semantic.dispatch({
+        actionId: "action.e2e.choose",
+        parameters: { choice: "right" },
+      });
+      await fixture.runtime.application.semantic.dispatch({
+        actionId: "action.e2e.continue",
+        parameters: {},
+      });
+      await fixture.runtime.application.semantic.dispatch({
+        actionId: "action.e2e.complete",
+        parameters: {},
+      });
+
+      expect(screen.getByRole("main", { name: "E2E 流程总结" })).toBeVisible();
+      expect(screen.getByRole("heading", { name: "E2E 流程总结" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "设置" })).toBeVisible();
+    } finally {
+      fixture.runtime.dispose();
+    }
   });
 });

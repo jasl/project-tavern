@@ -16,8 +16,12 @@ import type {
 } from "@sillymaker/web";
 
 import { e2eBuildIdentityV1 } from "virtual:project-tavern/e2e-build-identity";
-import { createE2eGameRuntimeV1 } from "./create-e2e-game-runtime.js";
 import type { E2eGameApplicationPortV1 } from "./create-e2e-game-runtime.js";
+import {
+  createE2ePresentationRuntimeV1,
+  type E2ePresentationBrowserEnvironmentV1,
+  type E2ePresentationRuntimeV1,
+} from "./create-e2e-presentation-runtime.js";
 import { E2eApplicationRootV1 } from "./e2e-application-root.js";
 import { e2eStoryEntryV1 } from "../index.js";
 import type { E2eResolvedGameV1 } from "../story-entry.js";
@@ -25,6 +29,7 @@ import type { E2eResolvedGameV1 } from "../story-entry.js";
 export interface E2eApplicationCompositionV1 {
   readonly resolvedGame: E2eResolvedGameV1;
   readonly application: E2eGameApplicationPortV1;
+  readonly presentationRuntime: E2ePresentationRuntimeV1;
   readonly lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>;
 }
 
@@ -77,8 +82,32 @@ if (import.meta.hot !== undefined) {
 
 const hmrInitializationKeyV1 = "projectTavernE2eApplicationInitializedV1";
 
+function createE2ePresentationBrowserEnvironmentV1(
+  root: Element,
+): E2ePresentationBrowserEnvironmentV1 {
+  if (!(root instanceof HTMLElement)) throw new TypeError("invalid E2e application root");
+  return Object.freeze({
+    pointerTarget: root,
+    pointerWindow: window,
+    pointerDocument: document,
+    location: globalThis.location,
+    hashEventTarget: globalThis,
+    imageLoader: Object.freeze({
+      resolveRuntimeUrl: (runtimePath: string) => new URL(runtimePath, document.baseURI).href,
+      createImage: () => new Image(),
+    }),
+  });
+}
+
+function resolveDefaultE2ePresentationEnvironmentV1(): E2ePresentationBrowserEnvironmentV1 {
+  const root = document.querySelector("#root");
+  if (root === null) throw new TypeError("missing application root");
+  return createE2ePresentationBrowserEnvironmentV1(root);
+}
+
 export async function createE2eApplicationCompositionV1(input: {
   readonly host: GameHostV1;
+  readonly environment?: E2ePresentationBrowserEnvironmentV1;
   readonly rebootstrapDisposition?: PersistenceRebootstrapDisposalV1;
 }): Promise<E2eApplicationCompositionV1> {
   const bootstrap = createGameBootstrapControllerV1({
@@ -90,9 +119,10 @@ export async function createE2eApplicationCompositionV1(input: {
     throw new TypeError(`E2e bootstrap failed: ${bootstrapped.code}`);
   }
   let lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
-  const application = await createE2eGameRuntimeV1({
+  const presentationRuntime = await createE2ePresentationRuntimeV1({
     resolved: bootstrapped.resolved,
     host: input.host,
+    environment: input.environment ?? resolveDefaultE2ePresentationEnvironmentV1(),
     ...(input.rebootstrapDisposition === undefined
       ? {}
       : { rebootstrapDisposition: input.rebootstrapDisposition }),
@@ -101,11 +131,13 @@ export async function createE2eApplicationCompositionV1(input: {
     },
   });
   if (lifecycle === undefined) {
+    presentationRuntime.dispose();
     throw new TypeError("E2e runtime did not register its HMR lifecycle");
   }
   return Object.freeze({
     resolvedGame: bootstrapped.resolved,
-    application,
+    application: presentationRuntime.application,
+    presentationRuntime,
     lifecycle,
   });
 }
@@ -123,15 +155,26 @@ function mountE2eCompositionV1(
   host: GameHostV1,
   composition: E2eApplicationCompositionV1,
 ): E2eMountedApplicationV1 {
-  const mounted = mountGameApplicationV1(
-    root,
-    <E2eApplicationRootV1
-      resolvedGame={composition.resolvedGame}
-      application={composition.application}
-      host={host}
-    />,
-  );
-  return Object.freeze({ root, host, composition, mounted });
+  let mounted: MountedGameApplicationV1;
+  try {
+    mounted = mountGameApplicationV1(
+      root,
+      <E2eApplicationRootV1 runtime={composition.presentationRuntime} />,
+    );
+  } catch (error) {
+    composition.presentationRuntime.dispose();
+    throw error;
+  }
+  const ownedMounted = Object.freeze({
+    unmount(): void {
+      try {
+        mounted.unmount();
+      } finally {
+        composition.presentationRuntime.dispose();
+      }
+    },
+  }) satisfies MountedGameApplicationV1;
+  return Object.freeze({ root, host, composition, mounted: ownedMounted });
 }
 
 export function installE2eApplicationHmrV1(input: {
@@ -219,14 +262,11 @@ async function startE2eApplicationV1(): Promise<void> {
   const root = document.querySelector("#root");
   if (root === null) throw new TypeError("missing application root");
 
-  globalThis.addEventListener("hashchange", () => globalThis.location.reload());
-
-  if (globalThis.location.hash !== "" && globalThis.location.hash !== "#/play") {
-    mountGameApplicationV1(root, <main>此入口不可用</main>);
-    return;
-  }
   const host = createWebHostV1({ databaseName: "project-tavern.e2e.runtime" });
-  const composition = await createE2eApplicationCompositionV1({ host });
+  const composition = await createE2eApplicationCompositionV1({
+    host,
+    environment: createE2ePresentationBrowserEnvironmentV1(root),
+  });
   const state = mountE2eCompositionV1(root, host, composition);
   installE2eApplicationHmrV1({ state });
 }

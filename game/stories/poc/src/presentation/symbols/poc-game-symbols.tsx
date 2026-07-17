@@ -9,7 +9,7 @@ import {
 } from "@sillymaker/ui";
 import type { CSSProperties, ReactElement } from "react";
 
-import { pocGameSymbolIdsV1 } from "../../content/ids.js";
+import { pocGameSymbolIdsV1 } from "./poc-game-symbol-ids.js";
 import styles from "./poc-game-symbols.module.css";
 
 const parsedPocGameSymbolIdsV1 = Object.freeze(
