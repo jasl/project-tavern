@@ -18,6 +18,15 @@ export type PresentationIntentV1 =
   | { readonly kind: "interaction.enter_surface"; readonly surfaceId: InteractionSurfaceId }
   | { readonly kind: "interaction.leave_surface" };
 
+export type InteractionSpatialStateV1 = "enabled" | "disabled";
+
+export interface InteractionDescriptorPresentationV1<TDescriptor, TReason> {
+  actionId(descriptor: DeepReadonly<TDescriptor>): string;
+  enabled(descriptor: DeepReadonly<TDescriptor>): boolean;
+  reasons(descriptor: DeepReadonly<TDescriptor>): readonly DeepReadonly<TReason>[];
+  reasonTextId(reason: DeepReadonly<TReason>): TextId;
+}
+
 export type RuntimeInteractionBehaviorRouteV1<TDescriptor, TInvocation> =
   | {
       readonly kind: "semantic_invocation";

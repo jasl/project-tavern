@@ -1,0 +1,82 @@
+/* SPDX-License-Identifier: MIT */
+
+.interaction-surface {
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.interaction-behavior-list,
+.interaction-behavior-list__entry {
+  display: grid;
+  gap: 0.75rem;
+  inline-size: min(100%, 32rem);
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, currentcolor 30%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, Canvas 92%, transparent);
+  color: CanvasText;
+}
+
+.interaction-behavior-list__header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.interaction-behavior-list__targets,
+.interaction-behavior-list__behaviors,
+.interaction-behavior-list__reasons {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.interaction-behavior-list__target,
+.interaction-behavior-list__behavior {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.interaction-behavior-list__target-control,
+.interaction-behavior-list__control,
+.interaction-behavior-list__leave {
+  min-inline-size: 44px;
+  min-block-size: 44px;
+}
+
+.interaction-behavior-list__target-control,
+.interaction-behavior-list__control {
+  inline-size: 100%;
+  text-align: start;
+}
+
+.interaction-behavior-list__detail,
+.interaction-behavior-list__reasons {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.interaction-behavior-list__detail {
+  color: color-mix(in srgb, currentcolor 78%, transparent);
+}
+
+.interaction-behavior-list__reasons {
+  padding-inline-start: 1.25rem;
+  color: color-mix(in srgb, currentColor 88%, #a11 12%);
+  list-style: disc;
+}
+
+.interaction-behavior-list__target-control:focus-visible,
+.interaction-behavior-list__control:focus-visible,
+.interaction-behavior-list__leave:focus-visible {
+  outline: 3px solid currentcolor;
+  outline-offset: 2px;
+}
+
+.interaction-behavior-list__control:disabled {
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
