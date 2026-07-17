@@ -286,6 +286,24 @@ function createSceneGraphWithDuplicateIdV1() {
   };
 }
 
+function createSceneGraphWithDuplicateHitMapIdV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    hitMaps: [...graph.hitMaps, { ...graph.hitMaps[0]! }],
+  };
+}
+
+function createSceneGraphWithDuplicateHitAreaIdV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    hitMaps: graph.hitMaps.map((hitMap, index) =>
+      index === 0 ? { ...hitMap, targets: [...hitMap.targets, { ...hitMap.targets[0]! }] } : hitMap,
+    ),
+  };
+}
+
 function createSceneGraphWithInvalidShapeV1() {
   const graph = createSyntheticStageSceneGraphV1();
   return {
@@ -383,6 +401,31 @@ function createSceneGraphWithOutOfBoundsCircleV1() {
   };
 }
 
+function createSceneGraphWithOutOfBoundsPolygonV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    hitMaps: graph.hitMaps.map((hitMap) => ({
+      ...hitMap,
+      targets: hitMap.targets.map((target) =>
+        target.areaId === "hit_area.synthetic.badge"
+          ? {
+              ...target,
+              shape: {
+                kind: "polygon",
+                points: [
+                  { x: 0.4, y: 0.2 },
+                  { x: 1.1, y: 0.2 },
+                  { x: 0.5, y: 0.4 },
+                ],
+              },
+            }
+          : target,
+      ),
+    })),
+  };
+}
+
 function createSceneGraphWithMissingStaticReferenceV1() {
   const graph = createSyntheticStageSceneGraphV1();
   return {
@@ -391,6 +434,60 @@ function createSceneGraphWithMissingStaticReferenceV1() {
       ...stageScene,
       defaultVariantId: "stage_scene_variant.synthetic.missing",
     })),
+  };
+}
+
+function createSceneGraphWithMissingRigV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    characters: graph.characters.map((character, index) =>
+      index === 0 ? { ...character, defaultRigId: "character_rig.synthetic.missing" } : character,
+    ),
+  };
+}
+
+function createSceneGraphWithMissingPoseV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    hitMaps: graph.hitMaps.map((hitMap, index) =>
+      index === 0 ? { ...hitMap, poseId: "character_pose.synthetic.missing" } : hitMap,
+    ),
+  };
+}
+
+function createSceneGraphWithMissingTargetV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    hitMaps: graph.hitMaps.map((hitMap, hitMapIndex) => ({
+      ...hitMap,
+      targets: hitMap.targets.map((target, targetIndex) =>
+        hitMapIndex === 0 && targetIndex === 0
+          ? { ...target, targetId: "target.synthetic.missing" }
+          : target,
+      ),
+    })),
+  };
+}
+
+function createSceneGraphWithMissingSurfaceV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    interactionSurfaces: graph.interactionSurfaces.map((surface) =>
+      surface.surfaceId === "surface.synthetic.stage"
+        ? {
+            ...surface,
+            targetBindings: surface.targetBindings.map((binding) =>
+              binding.targetId === "target.synthetic.figure"
+                ? { ...binding, openSurfaceId: "surface.synthetic.missing" }
+                : binding,
+            ),
+          }
+        : surface,
+    ),
   };
 }
 
@@ -430,6 +527,25 @@ function createSceneGraphWithCyclicSurfaceGraphV1() {
                     allowedResolutionModes: ["open_surface"],
                     openSurfaceId: "surface.synthetic.stage",
                   }
+                : binding,
+            ),
+          }
+        : surface,
+    ),
+  };
+}
+
+function createSceneGraphWithSelfLoopV1() {
+  const graph = createSyntheticStageSceneGraphV1();
+  return {
+    ...graph,
+    interactionSurfaces: graph.interactionSurfaces.map((surface) =>
+      surface.surfaceId === "surface.synthetic.stage"
+        ? {
+            ...surface,
+            targetBindings: surface.targetBindings.map((binding) =>
+              binding.targetId === "target.synthetic.figure"
+                ? { ...binding, openSurfaceId: "surface.synthetic.stage" }
                 : binding,
             ),
           }
@@ -699,6 +815,28 @@ describe("neutral presentation contracts", () => {
     ]);
   });
 
+  it("returns deeply frozen nested HitMap and interaction data", () => {
+    const parsed = parseStageSceneGraphV1(createSyntheticStageSceneGraphV1());
+    const hitMap = parsed.hitMaps[0]!;
+    const polygonArea = hitMap.targets.find((target) => target.shape.kind === "polygon")!;
+    const surface = parsed.interactionSurfaces[0]!;
+
+    expect(Object.isFrozen(parsed)).toBe(true);
+    expect(Object.isFrozen(parsed.hitMaps)).toBe(true);
+    expect(Object.isFrozen(hitMap)).toBe(true);
+    expect(Object.isFrozen(hitMap.targets)).toBe(true);
+    expect(Object.isFrozen(polygonArea)).toBe(true);
+    expect(Object.isFrozen(polygonArea.shape)).toBe(true);
+    if (polygonArea.shape.kind === "polygon") {
+      expect(Object.isFrozen(polygonArea.shape.points)).toBe(true);
+      expect(Object.isFrozen(polygonArea.shape.points[0])).toBe(true);
+    }
+    expect(Object.isFrozen(parsed.interactionSurfaces)).toBe(true);
+    expect(Object.isFrozen(surface)).toBe(true);
+    expect(Object.isFrozen(surface.targetBindings)).toBe(true);
+    expect(Object.isFrozen(surface.targetBindings[0])).toBe(true);
+  });
+
   it("allows one semantic target to have context-specific bindings in two surfaces", () => {
     const parsed = parseStageSceneGraphV1(createCatalogWithContextualTargetReuseV1());
 
@@ -713,6 +851,7 @@ describe("neutral presentation contracts", () => {
         targetBindings: [
           expect.objectContaining({
             targetId: "target.synthetic.figure",
+            allowedResolutionModes: ["open_surface"],
             openSurfaceId: "surface.synthetic.character",
           }),
           expect.any(Object),
@@ -724,6 +863,7 @@ describe("neutral presentation contracts", () => {
         targetBindings: [
           expect.objectContaining({
             targetId: "target.synthetic.figure",
+            allowedResolutionModes: ["direct", "choose"],
             openSurfaceId: null,
           }),
           expect.any(Object),
@@ -735,15 +875,23 @@ describe("neutral presentation contracts", () => {
 
   it.each([
     [createSceneGraphWithDuplicateIdV1(), "presentation.catalog.duplicate_id"],
+    [createSceneGraphWithDuplicateHitMapIdV1(), "presentation.catalog.duplicate_id"],
+    [createSceneGraphWithDuplicateHitAreaIdV1(), "presentation.catalog.duplicate_id"],
     [createSceneGraphWithDuplicateContentFlagIdV1(), "presentation.catalog.duplicate_id"],
     [createSceneGraphWithDuplicateContentPresetIdV1(), "presentation.catalog.duplicate_id"],
     [createSceneGraphWithInvalidShapeV1(), "presentation.catalog.invalid_shape"],
     [createSceneGraphWithCollinearPolygonSpikeV1(), "presentation.catalog.invalid_shape"],
     [createSceneGraphWithOutOfBoundsRectV1(), "presentation.catalog.invalid_shape"],
     [createSceneGraphWithOutOfBoundsCircleV1(), "presentation.catalog.invalid_shape"],
+    [createSceneGraphWithOutOfBoundsPolygonV1(), "presentation.catalog.invalid_shape"],
     [createSceneGraphWithMissingStaticReferenceV1(), "presentation.catalog.missing_reference"],
+    [createSceneGraphWithMissingRigV1(), "presentation.catalog.missing_reference"],
+    [createSceneGraphWithMissingPoseV1(), "presentation.catalog.missing_reference"],
+    [createSceneGraphWithMissingTargetV1(), "presentation.catalog.missing_reference"],
+    [createSceneGraphWithMissingSurfaceV1(), "presentation.catalog.missing_reference"],
     [createSceneGraphWithUnknownVariantRequiredFlagsV1(), "content_maturity.unknown_flags"],
     [createSceneGraphWithUnknownBehaviorRequiredFlagsV1(), "content_maturity.unknown_flags"],
+    [createSceneGraphWithSelfLoopV1(), "presentation.catalog.surface_cycle"],
     [createSceneGraphWithCyclicSurfaceGraphV1(), "presentation.catalog.surface_cycle"],
   ] as const)("rejects an invalid static presentation catalog with %#", (input, code) => {
     expect(() => parseStageSceneGraphV1(input)).toThrowError(expect.objectContaining({ code }));

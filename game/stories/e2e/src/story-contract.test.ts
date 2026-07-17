@@ -27,6 +27,7 @@ import {
   e2eTextCatalogsV1,
 } from "./presentation/text-catalogs.js";
 import { e2eSceneGraphV1 } from "./presentation/scene-graph.js";
+import type { E2eSceneGraphV1 } from "./presentation/scene-graph.js";
 import { createE2eSessionV1 } from "./session.js";
 import { choiceDeltaHotfixV1, e2eSimulationPatchSurfaceV1 } from "./simulation/patch-surfaces.js";
 import { e2eStateContractManifestV1 } from "./story-definition.js";
@@ -59,7 +60,19 @@ function catalogWithoutTextIdV1(textId: TextId): TextCatalogSetV1 {
   });
 }
 
-function resolveE2eStoryWithPresentationFixtureV1(textCatalogs: TextCatalogSetV1) {
+function sceneGraphWithDuplicateHitAreaV1(): E2eSceneGraphV1 {
+  return {
+    ...e2eSceneGraphV1,
+    hitMaps: e2eSceneGraphV1.hitMaps.map((hitMap, index) =>
+      index === 0 ? { ...hitMap, targets: [...hitMap.targets, { ...hitMap.targets[0]! }] } : hitMap,
+    ),
+  };
+}
+
+function resolveE2eStoryWithPresentationFixtureV1(
+  textCatalogs: TextCatalogSetV1,
+  uiSceneGraph: E2eSceneGraphV1 = e2eSceneGraphV1,
+) {
   const sourceDefinition = e2eStoryEntryV1.define();
   const materializedPresentation = Object.freeze({ textCatalogs });
   const materializePresentation = () => materializedPresentation;
@@ -67,6 +80,7 @@ function resolveE2eStoryWithPresentationFixtureV1(textCatalogs: TextCatalogSetV1
     ...sourceDefinition,
     presentation: Object.freeze({
       ...sourceDefinition.presentation,
+      uiSceneGraph,
       materializePresentation,
     }),
   });
@@ -254,6 +268,31 @@ describe("E2e Story contract", () => {
     ).toMatchObject({ delivery: "code_fallback" });
     expect(resolved.presentation).toHaveProperty("textCatalogs");
     expect(Object.isFrozen(resolved)).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph)).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph.hitMaps)).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph.hitMaps[0])).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph.hitMaps[0]?.targets)).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph.hitMaps[0]?.targets[0])).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph.hitMaps[0]?.targets[0]?.shape)).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph.interactionSurfaces[0]?.targetBindings)).toBe(true);
+    expect(Object.isFrozen(resolved.sceneGraph.interactionSurfaces[0]?.targetBindings[0])).toBe(
+      true,
+    );
+  });
+
+  it("rejects a duplicate HitArea at the Story resolver boundary", () => {
+    expect(
+      resolveE2eStoryWithPresentationFixtureV1(
+        e2eTextCatalogsV1,
+        sceneGraphWithDuplicateHitAreaV1(),
+      ),
+    ).toMatchObject({
+      kind: "failed",
+      failure: {
+        code: "story.presentation_invalid",
+        details: { message: expect.stringContaining("presentation.catalog.duplicate_id") },
+      },
+    });
   });
 
   it.each([

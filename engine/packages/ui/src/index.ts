@@ -69,6 +69,22 @@ export type {
   InputRouterV1,
   ViewportPointV1,
 } from "./input/index.js";
+export {
+  hitTestHitMapV1,
+  normalizeViewportPointV1,
+  validateRuntimeInteractionSurfaceV1,
+} from "./interaction/index.js";
+export type {
+  InteractionActivationV1,
+  InteractionEntryModeV1,
+  InteractionResolutionModeV1,
+  PresentationFaultV1,
+  PresentationIntentV1,
+  RuntimeInteractionBehaviorRouteV1,
+  RuntimeInteractionBehaviorV1,
+  RuntimeInteractionSurfaceV1,
+  RuntimeInteractionTargetV1,
+} from "./interaction/index.js";
 export { VnLayerV1 } from "./narrative/index.js";
 export type { VnChoiceV1, VnLayerPropsV1 } from "./narrative/index.js";
 export {
