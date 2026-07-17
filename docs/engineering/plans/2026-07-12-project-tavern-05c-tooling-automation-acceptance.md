@@ -525,8 +525,14 @@ git commit -m "feat(diagnostics): capture bounded presentation context"
 - Modify: `engine/packages/ui/src/errors/runtime-failure-dialog.tsx`
 - Modify: `engine/packages/ui/src/errors/errors.test.tsx`
 - Modify: `engine/packages/ui/package.json`
+- Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.ts`
+- Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.test.ts`
 - Modify: `game/stories/poc/src/application/poc-application-root.tsx`
+- Modify: `game/stories/poc/src/application/poc-application-root.test.tsx`
+- Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.ts`
+- Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
 
 **Interfaces:**
 
@@ -557,7 +563,7 @@ it.each(["overlay", "narrative", "system", "fault_pause"] as const)(
     await user.keyboard("{Escape}");
     expect(launcher).toHaveFocus();
     expect(activeBlockingSurfaceV1(surface)).toBeVisible();
-    await user.keyboard("{Escape}");
+    await exitBlockingSurfaceThroughItsAuthoritativeControlV1(surface, user);
     expect(originalBlockingSurfaceOpenerV1(surface)).toHaveFocus();
   },
 );
@@ -637,7 +643,7 @@ Reject duplicate panel IDs, unknown sides/authority, more than 16 panels per sid
 
 The rails are GameShell-owned chrome outside the authored seven Stage layers; opening one registers the existing `debug` InputContext above Stage interactions without creating an eighth Stage layer. Only one rail receives focus at a time, Escape closes the top rail, focus returns to its launcher, and 768×1024 reflows each rail as a modal sheet without covering both launchers.
 
-`DevDockPortalCoordinatorV1` owns one base chrome target plus focus-scope targets registered by `OverlayHostV1`, `VnLayerV1`, `SystemDialogHostV1`, and `RuntimeFailureDialogV1`. Selection uses the fixed semantic priority `fault_pause > system > overlay > narrative > base`, never mount/registration order. Exactly one pair of launchers and the active rail are portaled into the highest active target, inside that surface's Radix/native focus scope; no inert sibling, duplicate launcher, or z-index-only escape is allowed. The rail is a nested focus scope: its Escape closes only DevDock and returns to its in-scope launcher, then the blocking surface's next Escape closes that surface and returns to its original opener. Unmounting/replacing a surface unregisters its target and moves closed launchers to the next target without opening a rail or stealing focus; disabling `debug_tools` closes the rail before removing launchers.
+`DevDockPortalCoordinatorV1` owns one base chrome target plus focus-scope targets registered by `OverlayHostV1`, `VnLayerV1`, `SystemDialogHostV1`, and `RuntimeFailureDialogV1`. Selection uses the fixed semantic priority `fault_pause > system > overlay > narrative > base`, never mount/registration order. Exactly one pair of launchers and the active rail are portaled into the highest active target, inside that surface's Radix/native focus scope; no inert sibling, duplicate launcher, or z-index-only escape is allowed. The rail is a nested focus scope: its Escape closes only DevDock and returns to its in-scope launcher, then the blocking surface exits only through its already-authoritative control and returns to its original opener. Overlay and System may use their existing Escape close path; Narrative uses its typed choice/advance path; fault-pause remains terminal until an explicit recovery action. Unmounting/replacing a surface unregisters its target and moves closed launchers to the next target without opening a rail or stealing focus; disabling `debug_tools` closes the rail before removing launchers.
 
 Each existing Story root owns one dock-open state source and passes it both to `DevDockV1` and Task 1's application-local `readCurrentDebugUiSessionV1`. Reading that source for DebugBundle export is non-mutating and does not publish Semantic or RuntimePresentation revisions.
 
@@ -656,6 +662,8 @@ Run:
 
 ```bash
 pnpm --filter @sillymaker/ui exec vitest run src/debug src/shell src/overlays src/narrative src/system src/errors
+pnpm --filter @project-tavern/story-poc exec vitest run src/application/create-poc-presentation-runtime.test.ts src/application/poc-application-root.test.tsx
+pnpm --filter @project-tavern/story-e2e exec vitest run src/application/create-e2e-presentation-runtime.test.ts src/application/e2e-application-root.test.tsx
 pnpm verify:boundaries
 pnpm verify:cycles
 pnpm verify:phase5b
@@ -668,7 +676,7 @@ Expected: all commands exit 0; default UI has no debug chrome, read-only/mutatin
 - [ ] **Step 6: Commit the DevDock framework**
 
 ```bash
-git add -- engine/packages/ui/src/debug engine/packages/ui/type-tests/debug-public.test-d.ts engine/packages/ui/src/shell/game-shell.tsx engine/packages/ui/src/shell/game-shell.module.css engine/packages/ui/src/overlays/overlay-host.tsx engine/packages/ui/src/overlays/overlay-host.test.tsx engine/packages/ui/src/narrative/vn-layer.tsx engine/packages/ui/src/narrative/vn-layer.test.tsx engine/packages/ui/src/system/system-dialog-host.tsx engine/packages/ui/src/system/system-dialog-host.test.tsx engine/packages/ui/src/errors/runtime-failure-dialog.tsx engine/packages/ui/src/errors/errors.test.tsx engine/packages/ui/package.json game/stories/poc/src/application/poc-application-root.tsx game/stories/e2e/src/application/e2e-application-root.tsx
+git add -- engine/packages/ui/src/debug engine/packages/ui/type-tests/debug-public.test-d.ts engine/packages/ui/src/shell/game-shell.tsx engine/packages/ui/src/shell/game-shell.module.css engine/packages/ui/src/overlays/overlay-host.tsx engine/packages/ui/src/overlays/overlay-host.test.tsx engine/packages/ui/src/narrative/vn-layer.tsx engine/packages/ui/src/narrative/vn-layer.test.tsx engine/packages/ui/src/system/system-dialog-host.tsx engine/packages/ui/src/system/system-dialog-host.test.tsx engine/packages/ui/src/errors/runtime-failure-dialog.tsx engine/packages/ui/src/errors/errors.test.tsx engine/packages/ui/package.json game/stories/poc/src/application/create-poc-presentation-runtime.ts game/stories/poc/src/application/create-poc-presentation-runtime.test.ts game/stories/poc/src/application/poc-application-root.tsx game/stories/poc/src/application/poc-application-root.test.tsx game/stories/e2e/src/application/create-e2e-presentation-runtime.ts game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts game/stories/e2e/src/application/e2e-application-root.tsx game/stories/e2e/src/application/e2e-application-root.test.tsx
 git diff --cached --check
 git commit -m "feat(ui): add runtime gated dev dock"
 ```
