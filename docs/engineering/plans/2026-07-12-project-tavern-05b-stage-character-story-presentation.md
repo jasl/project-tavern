@@ -3175,6 +3175,133 @@ git commit -m "test(build): stabilize story artifact verification"
 
 Task 11 begins only from that clean, verified repair commit.
 
+#### Authorized post-Task 10 owner repair before Task 11: expose the real public acceptance paths
+
+The clean Task 10 Artifact and the first Task 11 production-DOM audit exposed an earlier-owner
+composition gap rather than a browser-test gap. The generic Phase 5A Save and player-safe
+diagnostic controls exist, but neither Story root composes them. `OverlayHostV1` supports Escape
+only and therefore has no touch-accessible close control. An active Interaction owns the Input
+Router context but does not isolate ordinary HUD/Stage DOM. The E2E root has no public entry for its
+`surface_activation` fixture, no visible Semantic revision/status witness, no real blocking
+Narrative host, no Overlay launcher, and omits StageScene-replacement cleanup. The PoC projector
+already maps the Purchase Overlay to the market Stage, but the initial tavern has no public path
+that can open that Overlay, making the browser path circular. Task 11 is not allowed to repair any
+of these production owners, and browser globals or direct internal calls would violate the
+application boundary.
+
+The design and already accepted contracts have one answer: complete the missing production
+composition before Task 11 without changing Gameplay, the frozen Phase 4B SceneGraph, a Save
+fixture, or a simulation/state-contract digest. Keep all controls on the one cached Runtime
+Presentation/Semantic publication, use the existing typed Presentation intents and low-authority
+application ports, and keep Host file I/O behind the generic Web adapter. This repair is split into
+three independently verified owner commits.
+
+**UI owner files:**
+
+- Modify: `engine/packages/ui/src/overlays/overlay-host.tsx`
+- Modify: `engine/packages/ui/src/overlays/overlay-host.test.tsx`
+- Modify: `engine/packages/ui/src/shell/game-stage.tsx`
+- Modify: `engine/packages/ui/src/shell/game-stage.test.tsx`
+- Modify: `engine/packages/ui/src/shell/game-stage.module.css`
+- Modify: `engine/packages/ui/src/interaction/InteractionBehaviorList.tsx`
+- Modify: `engine/packages/ui/src/interaction/InteractionBehaviorList.test.tsx`
+- Modify: `engine/packages/ui/src/persistence/save-overlay.tsx`
+- Modify: `engine/packages/ui/src/persistence/save-overlay.test.tsx`
+- Modify: `engine/packages/ui/src/persistence/index.ts`
+- Modify: `engine/packages/ui/src/index.ts`
+- Modify: this Phase 5B plan.
+
+The UI RED adds a touch-visible Overlay close assertion, an active-Interaction ordinary-HUD
+isolation assertion, and exact file-selection cancel/rejection projections for Save import. Make
+`OverlayHostV1` require an application-supplied close label and render one native top-entry close
+button that calls only `closeTop()`. Extend Stage isolation with the existing `interaction`
+precedence: background, character and HUD become inert while the active Interaction region remains
+operable; viewport/action input cannot fall through, and cancel/focus-loss/Escape retain their
+specified cleanup/focus behavior. Extend only the UI-facing Save import result with truthful
+`cancelled`, `too_large`, and `unsupported_type` outcomes; do not add them to Base persistence or
+translate them into a false persistence rejection.
+
+The first real-browser pointer probes also prove that full-size HUD and centered System chrome
+currently intercept otherwise visible Scene Interaction controls. Keep ordinary HUD/System layout
+containers transparent to pointer input, place the always-reachable System chrome at the Stage
+edge, and restore pointer ownership only for real interactive descendants and an open blocking
+System dialog; ordinary chrome must not cover the Scene Interaction plane.
+
+Run the focused UI suites, `pnpm --filter @sillymaker/ui test`, `pnpm lint:styles`, `pnpm
+typecheck`, and `pnpm verify:boundaries`. Then stage exactly the eleven UI files plus this plan and
+commit `fix(ui): close and isolate presentation surfaces`.
+
+**Web owner files:**
+
+- Create: `engine/packages/web/src/host/browser-file-port.ts`
+- Create: `engine/packages/web/src/host/browser-file-port.test.ts`
+- Modify: `engine/packages/web/src/host/create-web-host.ts`
+- Modify: `engine/packages/web/src/host/create-web-host.test.ts`
+- Create: `engine/packages/web/src/application/create-player-ui-ports.ts`
+- Create: `engine/packages/web/src/application/create-player-ui-ports.test.ts`
+- Modify: `engine/packages/web/src/index.ts`
+
+The Web RED proves the current fixed-cancel picker cannot select a bounded JSON file and that raw
+application exports are not downloaded. Implement the real browser `HostFilePortV1` boundary with
+selected/cancelled/too-large/unsupported-type results and an injectable test environment, while
+keeping the default browser path free of test globals. Add one generic adapter from Host files plus
+the existing player persistence/diagnostics subports to `SaveOverlayPortV1` and
+`DiagnosticExportPortV1`: successful Save/Debug exports download their exact returned bytes;
+selected import bytes alone enter persistence; cancelled/rejected selection never dispatches.
+The adapter caches no bytes or status, receives no DebugTools, and preserves every persistence
+result code.
+
+Run the focused Web suites, `pnpm --filter @sillymaker/web test`, `pnpm typecheck`, and `pnpm
+verify:boundaries`. Then stage exactly the seven Web files above and commit `feat(web): bridge
+player file operations`.
+
+**Story application owner files:**
+
+- Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.ts`
+- Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.test.tsx`
+- Modify: `game/stories/e2e/src/presentation/text-catalogs.ts`
+- Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.ts`
+- Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.test.ts`
+- Modify: `game/stories/poc/src/application/poc-application-root.tsx`
+- Modify: `game/stories/poc/src/application/poc-application-root.test.tsx`
+- Modify: `game/stories/poc/src/presentation/runtime/contracts.ts`
+- Modify: `game/stories/poc/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/poc/src/presentation/ui-contributions.test.tsx`
+
+The Story RED proves both roots lack the same visible `[data-semantic-publication]` revision/status
+witness and Save/diagnostic controls; E2E lacks a public Interaction entry, Overlay path and real
+blocking Narrative; PoC cannot reach Purchase from tavern. Each runtime creates the Web player-UI
+adapter once and exposes only its two narrow ports. Each System layer renders `保存`, `设置`, and
+`导出调试包` from the cached publication status. Save opens through the existing primary-Overlay
+UI-state lens, never a React-local authority. E2E adds its public `surface_activation` entry and
+test-panel launcher, uses `VnLayerV1` for the already published `choice`/`rejoin` flow, and installs
+the same StageScene cleanup subscription already proven by PoC. PoC adds Story-owned
+`开始这一周` and `选择生活策略` controls for the unique enabled `action.run_start` and
+`action.choose_life_policy` descriptors, plus a Story-owned `采购原料` launcher that resolves the
+unique current `action.purchase` descriptor, fails closed
+when absent/duplicate/disabled, and sends only the existing typed
+`overlay.open("overlay.poc.purchase")` intent. The Purchase launcher does not preview, dispatch,
+synthesize a command, or add an ID to the frozen SceneGraph. The existing projector selects market while open and tavern
+after the visible Overlay close control; the Semantic revision stays unchanged.
+
+The same real-browser audit proves that the E2E spatial hit plane and semantic behavior list cannot
+remain consecutive children in normal flow: that stacks the behavior list below a full-height hit
+plane, lets focus scrolling move the hit geometry, and hides the initial accessible control. Compose
+them as same-cell local layers instead. The spatial layer fills the Stage cell; the semantic layer
+uses intrinsic, start-aligned, bounded overflow above it so only the actual control panel owns
+pointer input and the remaining Stage continues to hit the spatial plane. Keep both layers inside
+the Story contribution; do not change the generic HitMap, Pointer Adapter, or seven-layer Stage ABI.
+
+Run both focused application/presentation suites, `pnpm build:e2e`, `pnpm build:poc`, `pnpm
+verify:semantic`, `pnpm verify:fixtures`, and the clean root `pnpm verify`. Stage exactly the Story
+files and commit `fix(game): expose public presentation controls`. Task 11 begins
+only from that clean verified third repair commit; no Task 11 server/config/spec file enters any
+repair commit.
+
 ### Task 11: Prove Interaction Keyboard, Touch, Focus, and Accessible DOM in Real Browsers
 
 **Files:**

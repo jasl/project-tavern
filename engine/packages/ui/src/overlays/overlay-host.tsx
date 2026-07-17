@@ -12,6 +12,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { DeepReadonly } from "@sillymaker/base";
 import { inputHandledV1, inputIgnoredV1, systemInputActionIdsV1 } from "../input/contracts.js";
 import type { InputEventV1, InputRouterV1 } from "../input/contracts.js";
+import { Button } from "../primitives/Button.js";
 import { useStageInputIsolationV1 } from "../shell/game-stage.js";
 import type { OverlaySessionStoreV1 } from "./overlay-session-store.js";
 import styles from "./overlay-host.module.css";
@@ -29,6 +30,7 @@ export interface OverlayHostPropsV1<TOverlayId> {
   readonly store: OverlaySessionStoreV1<TOverlayId>;
   readonly rendererResolver: OverlayRendererResolverV1<TOverlayId>;
   readonly inputRouter: InputRouterV1;
+  readonly closeLabel: string;
 }
 
 interface ResolvedOverlayEntryV1 {
@@ -103,6 +105,7 @@ function OverlayDialogEntryV1(props: {
   readonly topDepth: number;
   readonly portalContainer: HTMLDivElement;
   readonly closeTop: () => void;
+  readonly closeLabel: string;
 }): ReactElement {
   const isTop = props.entry.depth === props.topDepth;
   const requestTopCloseV1 = (): void => {
@@ -141,6 +144,7 @@ function OverlayDialogEntryV1(props: {
               {props.entry.resolution.accessibleName}
             </Dialog.Title>
             {props.entry.resolution.content}
+            {isTop ? <Button onClick={requestTopCloseV1}>{props.closeLabel}</Button> : null}
           </Dialog.Content>
         </div>
       </Dialog.Portal>
@@ -268,6 +272,7 @@ export function OverlayHostV1<TOverlayId>(props: OverlayHostPropsV1<TOverlayId>)
               topDepth={entries.length - 1}
               portalContainer={portalContainer}
               closeTop={() => props.store.closeTop()}
+              closeLabel={props.closeLabel}
             />
           ))}
     </div>

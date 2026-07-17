@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { parseNonNegativeSafeInteger } from "@sillymaker/base";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -66,7 +66,12 @@ function OverlayHarnessV1() {
       <button type="button" onClick={() => store.openPrimary("inventory")}>
         打开背包
       </button>
-      <OverlayHostV1 store={store} rendererResolver={rendererResolver} inputRouter={inputRouter} />
+      <OverlayHostV1
+        store={store}
+        rendererResolver={rendererResolver}
+        inputRouter={inputRouter}
+        closeLabel="关闭"
+      />
     </div>
   );
 }
@@ -83,6 +88,7 @@ describe("OverlayHostV1", () => {
         store={store}
         rendererResolver={createResolverV1(store)}
         inputRouter={createInputRouterV1()}
+        closeLabel="关闭"
       />,
     );
 
@@ -153,6 +159,34 @@ describe("OverlayHostV1", () => {
     expect(primaryOpener).toHaveFocus();
   });
 
+  it("exposes a visible native close control for the top entry on pointer and touch paths", async () => {
+    render(<OverlayHarnessV1 />);
+    const user = userEvent.setup();
+    const primaryOpener = screen.getByRole("button", { name: "打开背包" });
+
+    await user.click(primaryOpener);
+    const detailOpener = await screen.findByRole("button", { name: "食材详情" });
+    await user.click(detailOpener);
+
+    const detail = screen.getByRole("dialog", { name: "食材详情" });
+    const closeDetail = within(detail).getByRole("button", { name: "关闭" });
+    expect(closeDetail).toBeInstanceOf(HTMLButtonElement);
+    expect(closeDetail).toBeVisible();
+    await user.pointer({ target: closeDetail, keys: "[TouchA]" });
+
+    expect(screen.queryByRole("dialog", { name: "食材详情" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "背包" })).toBeVisible();
+    expect(detailOpener).toHaveFocus();
+
+    await user.click(
+      within(screen.getByRole("dialog", { name: "背包" })).getByRole("button", {
+        name: "关闭",
+      }),
+    );
+    expect(screen.queryByRole("dialog", { name: "背包" })).not.toBeInTheDocument();
+    expect(primaryOpener).toHaveFocus();
+  });
+
   it("returns focus to the external opener when an active host unmounts", async () => {
     const store = createOverlaySessionStoreV1<OverlayIdV1>();
     const inputRouter = createInputRouterV1();
@@ -169,6 +203,7 @@ describe("OverlayHostV1", () => {
           store={store}
           rendererResolver={rendererResolver}
           inputRouter={inputRouter}
+          closeLabel="关闭"
         />
       </>,
     );
@@ -195,6 +230,7 @@ describe("OverlayHostV1", () => {
         store={store}
         rendererResolver={createResolverV1(store)}
         inputRouter={inputRouter}
+        closeLabel="关闭"
       />,
     );
     const unrelatedAction = Object.freeze({
@@ -231,6 +267,7 @@ describe("OverlayHostV1", () => {
         store={store}
         rendererResolver={createResolverV1(store)}
         inputRouter={createInputRouterV1()}
+        closeLabel="关闭"
       />
     );
     render(
@@ -284,6 +321,7 @@ describe("OverlayHostV1", () => {
         store={store}
         rendererResolver={createResolverV1(store)}
         inputRouter={inputRouter}
+        closeLabel="关闭"
       />,
     );
     act(() => {
@@ -337,6 +375,7 @@ describe("OverlayHostV1", () => {
         store={store}
         rendererResolver={rendererResolver}
         inputRouter={createInputRouterV1()}
+        closeLabel="关闭"
       />,
     );
 
@@ -356,6 +395,7 @@ describe("OverlayHostV1", () => {
           store={store}
           rendererResolver={createResolverV1(store)}
           inputRouter={createInputRouterV1()}
+          closeLabel="关闭"
         />,
       ),
     ).toThrowError("ui.overlay_renderer_missing");
@@ -369,6 +409,7 @@ describe("OverlayHostV1", () => {
         store={store}
         rendererResolver={createResolverV1(store)}
         inputRouter={inputRouter}
+        closeLabel="关闭"
       />,
     );
 

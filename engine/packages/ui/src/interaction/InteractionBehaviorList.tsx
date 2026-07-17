@@ -14,6 +14,7 @@ import type { PresentationReadPortV1 } from "../assets/presentation-read-port.js
 import { inputHandledV1, inputIgnoredV1, systemInputActionIdsV1 } from "../input/contracts.js";
 import type { InputRouterV1 } from "../input/contracts.js";
 import { Button } from "../primitives/Button.js";
+import { useStageInputIsolationV1 } from "../shell/game-stage.js";
 import type {
   InteractionDescriptorPresentationV1,
   RuntimeInteractionBehaviorV1,
@@ -277,6 +278,8 @@ export function InteractionBehaviorListV1<
   );
   const isActive = sessionState.activeSurfaceId === props.surface.surfaceId;
 
+  useStageInputIsolationV1("interaction", isActive);
+
   useLayoutEffect(() => {
     if (!isActive) return undefined;
     return props.inputRouter.register({
@@ -293,6 +296,9 @@ export function InteractionBehaviorListV1<
         if (event.kind === "focus_loss") {
           props.session.cleanup("focus_loss");
           return inputIgnoredV1;
+        }
+        if (event.kind === "action" || event.kind === "viewport_point") {
+          return inputHandledV1;
         }
         return inputIgnoredV1;
       },

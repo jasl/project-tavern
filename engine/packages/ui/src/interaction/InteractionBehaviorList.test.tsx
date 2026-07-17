@@ -23,8 +23,13 @@ import { useSyncExternalStore } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPresentationReadPortV1 } from "../assets/presentation-read-port.js";
-import { inputHandledV1, systemInputActionIdsV1 } from "../input/contracts.js";
+import {
+  inputHandledV1,
+  parseInputActionIdV1,
+  systemInputActionIdsV1,
+} from "../input/contracts.js";
 import { createInputRouterV1 } from "../input/input-router.js";
+import { GameStageV1 } from "../shell/game-stage.js";
 import type { RuntimeInteractionSurfaceV1 } from "./contracts.js";
 import { InteractionBehaviorListV1 } from "./InteractionBehaviorList.js";
 
@@ -246,6 +251,12 @@ function createInteractionSessionFixtureV1() {
     for (const listener of listeners) listener();
   };
 
+  const sessionCleanup = vi.fn(
+    (_reason: "pointer_cancel" | "focus_loss" | "stage_scene_replaced") => {
+      publish(initialState);
+    },
+  );
+
   return Object.freeze({
     getSnapshot: () => state,
     subscribe(listener: () => void) {
@@ -273,9 +284,7 @@ function createInteractionSessionFixtureV1() {
       publish(initialState);
       return returnFocusId;
     },
-    cleanup(_reason: "pointer_cancel" | "focus_loss" | "stage_scene_replaced") {
-      publish(initialState);
-    },
+    cleanup: sessionCleanup,
   });
 }
 
@@ -402,6 +411,89 @@ describe("InteractionBehaviorListV1", () => {
     );
     expect(screen.getByRole("button", { name: "一起修理招牌" })).toBeDisabled();
     expect(screen.getByText("当前不在可用时段")).toBeVisible();
+  });
+
+  it("registers active Interaction isolation while preserving its native region controls", () => {
+    const inputRouter = createInputRouterV1();
+    const session = createInteractionSessionFixtureV1();
+    session.openChoice(heroineSurfaceIdV1, heroineTargetIdV1, null);
+    const controller = Object.freeze({
+      activate: vi.fn(async () => Object.freeze({ kind: "choice_opened" as const })),
+      activateBehavior: vi.fn(async () => Object.freeze({ kind: "dispatched" as const })),
+    });
+
+    render(
+      <GameStageV1
+        accessibleName="互动隔离舞台"
+        layers={Object.freeze({
+          background: <button type="button">背景操作</button>,
+          character: <button type="button">角色操作</button>,
+          sceneInteraction: (
+            <InteractionBehaviorListV1
+              surface={heroineSurfaceV1}
+              session={session}
+              controller={controller}
+              presentation={presentationV1}
+              descriptorPresentation={descriptorPresentationV1}
+              leaveTextId={textIdsV1.leave}
+              inputRouter={inputRouter}
+            />
+          ),
+          hud: <button type="button">经营操作</button>,
+          workspaceOverlay: null,
+          narrative: null,
+          system: <button type="button">系统操作</button>,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId("stage-background")).toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-character")).toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-hud")).toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-scene-interaction")).not.toHaveAttribute("inert");
+    expect(screen.getByRole("button", { name: "返回" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "查看人物资料" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "系统操作" })).toBeEnabled();
+  });
+
+  it("consumes ordinary action and viewport input while Interaction is active", () => {
+    const fixture = createBehaviorListFixtureV1({ choosing: true });
+    const gameplay = vi.fn(() => inputHandledV1);
+    fixture.inputRouter.register({ context: "gameplay", handle: gameplay });
+    const ordinaryAction = Object.freeze({
+      kind: "action" as const,
+      actionId: parseInputActionIdV1("ui.synthetic_gameplay_action"),
+    });
+    const viewportPoint = Object.freeze({
+      kind: "viewport_point" as const,
+      phase: "activate" as const,
+      point: Object.freeze({ x: 12, y: 24 }),
+      pointerId: parseNonNegativeSafeInteger(1),
+      pointerType: "touch" as const,
+    });
+
+    expect(fixture.inputRouter.route(ordinaryAction)).toEqual({
+      kind: "handled",
+      context: "interaction",
+    });
+    expect(fixture.inputRouter.route(viewportPoint)).toEqual({
+      kind: "handled",
+      context: "interaction",
+    });
+    expect(gameplay).not.toHaveBeenCalled();
+  });
+
+  it.each(["pointer_cancel", "focus_loss"] as const)("cleans the active session on %s", (kind) => {
+    const fixture = createBehaviorListFixtureV1({ choosing: true });
+
+    if (kind === "pointer_cancel") {
+      fixture.inputRouter.route(Object.freeze({ kind, pointerId: parseNonNegativeSafeInteger(3) }));
+    } else {
+      fixture.inputRouter.route(Object.freeze({ kind }));
+    }
+
+    expect(fixture.session.cleanup).toHaveBeenCalledExactlyOnceWith(kind);
+    expect(fixture.session.getSnapshot().activeSurfaceId).toBeNull();
   });
 
   it("uses native Enter activation and restores focus after routed Escape", async () => {

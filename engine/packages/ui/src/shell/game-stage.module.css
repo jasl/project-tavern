@@ -54,7 +54,7 @@
 .game-stage__layer[data-stage-layer="system"] {
   z-index: var(--silly-stage-z-system);
   display: grid;
-  place-items: center;
+  place-items: start end;
 }
 
 .game-stage__layer:is(
@@ -68,13 +68,29 @@
   padding-inline: var(--silly-safe-area-inline-start) var(--silly-safe-area-inline-end);
 }
 
-.game-stage__layer:is(
-    [data-stage-layer="hud"],
-    [data-stage-layer="workspace_overlay"],
-    [data-stage-layer="narrative"],
-    [data-stage-layer="system"]
-  )
-  > * {
+.game-stage__layer:is([data-stage-layer="workspace_overlay"], [data-stage-layer="narrative"]) > * {
+  pointer-events: auto;
+}
+
+.game-stage__layer:is([data-stage-layer="hud"], [data-stage-layer="system"]) > * {
+  pointer-events: none;
+}
+
+.game-stage__layer:is([data-stage-layer="hud"], [data-stage-layer="system"])
+  :where(
+    button,
+    a[href],
+    input,
+    select,
+    textarea,
+    summary,
+    [contenteditable="true"],
+    [role="button"],
+    [role="link"],
+    [tabindex]:not([tabindex="-1"]),
+    [data-system-dialog-backdrop],
+    [data-blocking-focus-scope]
+  ) {
   pointer-events: auto;
 }
 

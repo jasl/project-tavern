@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { GameStageLayersV1, StageLayerIdV1 } from "./game-stage.js";
-import { GameStageV1, stageLayerIdsV1 } from "./game-stage.js";
+import { GameStageV1, stageLayerIdsV1, useStageInputIsolationV1 } from "./game-stage.js";
 
 afterEach(cleanup);
 
@@ -20,6 +20,11 @@ function completeSevenLayerFixtureV1(): GameStageLayersV1 {
     narrative: <section aria-label="叙事">叙事内容</section>,
     system: <div role="status">系统状态</div>,
   });
+}
+
+function ActiveInteractionRegionV1() {
+  useStageInputIsolationV1("interaction", true);
+  return <button type="button">互动区域操作</button>;
 }
 
 describe("GameStageV1", () => {
@@ -87,6 +92,27 @@ describe("GameStageV1", () => {
     expect(screen.getByRole("status")).toHaveTextContent("系统状态");
   });
 
+  it("isolates ordinary Stage layers while keeping the active Interaction region available", () => {
+    render(
+      <GameStageV1
+        accessibleName="互动隔离舞台"
+        layers={Object.freeze({
+          ...completeSevenLayerFixtureV1(),
+          sceneInteraction: <ActiveInteractionRegionV1 />,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId("stage-background")).toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-character")).toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-hud")).toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-scene-interaction")).not.toHaveAttribute("inert");
+    expect(screen.getByRole("button", { name: "互动区域操作" })).toBeEnabled();
+    expect(screen.getByTestId("stage-workspace-overlay")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-narrative")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("stage-system")).not.toHaveAttribute("inert");
+  });
+
   it("exports the exact frozen layer ID sequence", () => {
     expect(Object.isFrozen(stageLayerIdsV1)).toBe(true);
     expect(stageLayerIdsV1).toEqual([
@@ -119,6 +145,15 @@ describe("GameStageV1", () => {
     expect(css).toMatch(
       /\[data-stage-layer="narrative"\]\s*\{[^}]*display:\s*grid;[^}]*align-items:\s*end;/su,
     );
+    expect(css).toMatch(
+      /:is\(\[data-stage-layer="hud"\],\s*\[data-stage-layer="system"\]\)\s*>\s*\*\s*\{[^}]*pointer-events:\s*none;/su,
+    );
+    expect(css).toMatch(
+      /:is\(\[data-stage-layer="hud"\],\s*\[data-stage-layer="system"\]\)[^{]*:where\([\s\S]*?button[\s\S]*?\)\s*\{[^}]*pointer-events:\s*auto;/u,
+    );
+    expect(css).toMatch(/\[data-stage-layer="system"\]\s*\{[^}]*place-items:\s*start end;/su);
+    expect(css).toContain("[data-system-dialog-backdrop]");
+    expect(css).toContain("[data-blocking-focus-scope]");
 
     for (const layerId of stageLayerIdsV1) {
       expect(css).toContain(`var(--silly-stage-z-${layerId.replaceAll("_", "-")})`);

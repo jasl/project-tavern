@@ -20,6 +20,11 @@ import styles from "./save-overlay.module.css";
 
 export type SaveUiWritableSlotIdV1 = "quick" | "manual";
 export type SaveUiReadableSlotIdV1 = "auto.current" | "auto.previous" | SaveUiWritableSlotIdV1;
+export type SaveUiImportFileRejectionCodeV1 = "too_large" | "unsupported_type";
+export type SaveUiImportResultV1 =
+  | PersistenceOperationResultV1
+  | { readonly kind: "cancelled" }
+  | { readonly kind: "rejected"; readonly code: SaveUiImportFileRejectionCodeV1 };
 
 /**
  * The UI consumes the existing player-safe persistence port. The sync-or-Promise status return
@@ -32,7 +37,7 @@ export interface SaveOverlayPortV1 {
   save(slotId: SaveUiWritableSlotIdV1): Promise<PersistenceOperationResultV1>;
   load(slotId: SaveUiReadableSlotIdV1): Promise<PersistenceOperationResultV1>;
   clear(slotId: SaveUiReadableSlotIdV1): Promise<PersistenceOperationResultV1>;
-  importSave(): Promise<PersistenceOperationResultV1>;
+  importSave(): Promise<SaveUiImportResultV1>;
   exportSave(slotId: SaveUiReadableSlotIdV1): Promise<SaveExportOperationResultV1>;
   exportCurrentSave(): Promise<ExportedSaveV1>;
 }
@@ -91,6 +96,8 @@ export interface SaveOverlayLabelsV1 {
     readonly loadedAdopted: string;
     readonly importedExact: string;
     readonly importedAdopted: string;
+    readonly importCancelled: string;
+    readonly importFileRejected: Readonly<Record<SaveUiImportFileRejectionCodeV1, string>>;
     readonly exported: (slotName: string) => string;
     readonly exportedCurrent: string;
     readonly rejected: Readonly<Record<PersistenceRejectedCodeV1, string>>;
@@ -140,6 +147,10 @@ type SaveExportOperationViewResultV1 =
   | { readonly kind: "rejected"; readonly code: ExportRejectedCodeV1 }
   | { readonly kind: "faulted"; readonly code: string };
 
+type SaveImportFileSelectionViewResultV1 =
+  | { readonly kind: "cancelled" }
+  | { readonly kind: "rejected"; readonly code: SaveUiImportFileRejectionCodeV1 };
+
 type SaveOperationViewV1 =
   | { readonly kind: "idle" }
   | { readonly kind: "pending"; readonly context: SaveOperationContextV1 }
@@ -155,6 +166,10 @@ type SaveOperationViewV1 =
       readonly kind: "export_result";
       readonly context: Extract<SaveOperationContextV1, { readonly kind: "export" }>;
       readonly result: SaveExportOperationViewResultV1;
+    }
+  | {
+      readonly kind: "import_file_selection_result";
+      readonly result: SaveImportFileSelectionViewResultV1;
     }
   | { readonly kind: "current_exported" }
   | { readonly kind: "unexpected_failure" };
@@ -314,6 +329,41 @@ function projectExportResultV1(
   }
 }
 
+function projectImportResultV1(
+  result: SaveUiImportResultV1,
+):
+  | Extract<SaveOperationViewV1, { readonly kind: "persistence_result" }>
+  | Extract<SaveOperationViewV1, { readonly kind: "import_file_selection_result" }> {
+  const context = Object.freeze({ kind: "import" as const });
+  if (result.kind === "cancelled") {
+    return Object.freeze({
+      kind: "import_file_selection_result",
+      result: Object.freeze({ kind: "cancelled" }),
+    });
+  }
+  if (result.kind === "rejected") {
+    switch (result.code) {
+      case "too_large":
+      case "unsupported_type":
+        return Object.freeze({
+          kind: "import_file_selection_result",
+          result: Object.freeze({ kind: "rejected", code: result.code }),
+        });
+      default:
+        return Object.freeze({
+          kind: "persistence_result",
+          context,
+          result: Object.freeze({ kind: "rejected", code: result.code }),
+        });
+    }
+  }
+  return Object.freeze({
+    kind: "persistence_result",
+    context,
+    result: projectPersistenceResultV1(result),
+  });
+}
+
 function pendingTextV1(context: SaveOperationContextV1, labels: SaveOverlayLabelsV1): string {
   switch (context.kind) {
     case "save":
@@ -343,6 +393,10 @@ function operationTextV1(state: SaveOperationViewV1, labels: SaveOverlayLabelsV1
       return persistenceResultTextV1(state.result, labels);
     case "export_result":
       return exportResultTextV1(state.result, labels);
+    case "import_file_selection_result":
+      return state.result.kind === "cancelled"
+        ? labels.operation.importCancelled
+        : labels.operation.importFileRejected[state.result.code];
     case "current_exported":
       return labels.operation.exportedCurrent;
     case "unexpected_failure":
@@ -365,6 +419,8 @@ function operationNeedsResultFocusV1(state: SaveOperationViewV1): boolean {
       return state.result.kind === "rejected" || state.result.kind === "faulted";
     case "export_result":
       return state.result.kind === "rejected" || state.result.kind === "faulted";
+    case "import_file_selection_result":
+      return true;
     case "unexpected_failure":
       return true;
     case "idle":
@@ -514,6 +570,23 @@ export function SaveOverlayV1(props: SaveOverlayPropsV1): ReactElement {
     [finishOperationV1, props.port],
   );
 
+  const runImportOperationV1 = useCallback(async (): Promise<SaveUiImportResultV1 | null> => {
+    if (operationActiveRef.current) return null;
+    operationActiveRef.current = true;
+    const context = Object.freeze({ kind: "import" as const });
+    if (mountedRef.current) setOperationState(Object.freeze({ kind: "pending", context }));
+    try {
+      const result = await props.port.importSave();
+      if (mountedRef.current) setOperationState(projectImportResultV1(result));
+      return result;
+    } catch {
+      if (mountedRef.current) setOperationState(Object.freeze({ kind: "unexpected_failure" }));
+      throw new Error("ui.persistence_operation_threw");
+    } finally {
+      finishOperationV1();
+    }
+  }, [finishOperationV1, props.port]);
+
   const runCurrentExportV1 = useCallback(async (): Promise<void> => {
     if (operationActiveRef.current) return;
     operationActiveRef.current = true;
@@ -542,7 +615,7 @@ export function SaveOverlayV1(props: SaveOverlayPropsV1): ReactElement {
               props.port.clear(invocation.slotId),
             );
           case "import":
-            return await runPersistenceOperationV1(invocation, () => props.port.importSave());
+            return await runImportOperationV1();
           default:
             return unreachableV1(invocation);
         }
@@ -550,7 +623,7 @@ export function SaveOverlayV1(props: SaveOverlayPropsV1): ReactElement {
         if (mountedRef.current) setConfirmation(null);
       }
     },
-    [props.port, runPersistenceOperationV1],
+    [props.port, runImportOperationV1, runPersistenceOperationV1],
   );
 
   const confirmationSemantic = useMemo(

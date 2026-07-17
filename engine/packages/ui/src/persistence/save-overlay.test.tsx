@@ -17,7 +17,12 @@ import { userEvent } from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInputRouterV1 } from "../input/input-router.js";
-import { SaveOverlayV1, type SaveOverlayLabelsV1, type SaveOverlayPortV1 } from "./save-overlay.js";
+import {
+  SaveOverlayV1,
+  type SaveOverlayLabelsV1,
+  type SaveOverlayPortV1,
+  type SaveUiImportResultV1,
+} from "./save-overlay.js";
 
 afterEach(cleanup);
 
@@ -91,6 +96,11 @@ const labelsV1 = Object.freeze({
     loadedAdopted: "已读取并采用兼容补丁的存档",
     importedExact: "已导入完全兼容的存档",
     importedAdopted: "已导入并采用兼容补丁的存档",
+    importCancelled: "已取消导入存档",
+    importFileRejected: Object.freeze({
+      too_large: "所选存档文件过大",
+      unsupported_type: "所选文件类型不受支持",
+    }),
     exported: (slotName: string) => `${slotName}已导出`,
     exportedCurrent: "当前进度已导出",
     rejected: Object.freeze({
@@ -140,7 +150,7 @@ interface FixtureOptionsV1 {
   readonly saveResult?: PersistenceOperationResultV1 | Promise<PersistenceOperationResultV1>;
   readonly loadResult?: PersistenceOperationResultV1 | Promise<PersistenceOperationResultV1>;
   readonly clearResult?: PersistenceOperationResultV1 | Promise<PersistenceOperationResultV1>;
-  readonly importResult?: PersistenceOperationResultV1 | Promise<PersistenceOperationResultV1>;
+  readonly importResult?: SaveUiImportResultV1 | Promise<SaveUiImportResultV1>;
   readonly exportResult?: SaveExportOperationResultV1 | Promise<SaveExportOperationResultV1>;
 }
 
@@ -331,6 +341,36 @@ describe("SaveOverlayV1", () => {
     expect(screen.getByRole("dialog", { name: "确认导入存档" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "确认操作" }));
     await waitFor(() => expect(fixture.importSave).toHaveBeenCalledOnce());
+  });
+
+  it("projects a cancelled Host file selection without inventing a persistence result", async () => {
+    const fixture = fixtureV1({ importResult: Object.freeze({ kind: "cancelled" }) });
+    renderFixtureV1(fixture);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "导入存档" }));
+    await user.click(screen.getByRole("button", { name: "确认操作" }));
+
+    expect(await screen.findByText("已取消导入存档")).toBeVisible();
+    expect(screen.queryByText("存档操作发生未预期错误")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["too_large", "所选存档文件过大"],
+    ["unsupported_type", "所选文件类型不受支持"],
+  ] as const)("projects Host file rejection %s independently", async (code, expectedText) => {
+    const fixture = fixtureV1({
+      importResult: Object.freeze({ kind: "rejected", code }),
+    });
+    renderFixtureV1(fixture);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "导入存档" }));
+    await user.click(screen.getByRole("button", { name: "确认操作" }));
+
+    const result = await screen.findByTestId("save-operation-result");
+    await waitFor(() => expect(result).toHaveTextContent(expectedText));
+    await waitFor(() => expect(result).toHaveFocus());
   });
 
   it("reports conflict and fault results truthfully and focuses the result summary", async () => {

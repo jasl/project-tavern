@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useSt
 import type { ReactElement, ReactNode } from "react";
 import styles from "./game-stage.module.css";
 
-type StageInputIsolationContextIdV1 = "narrative" | "overlay" | "system";
+type StageInputIsolationContextIdV1 = "interaction" | "narrative" | "overlay" | "system";
 
 interface StageInputIsolationPortV1 {
   register(context: StageInputIsolationContextIdV1): () => void;
@@ -87,6 +87,7 @@ interface StageSystemFocusScopeRegistrationV1 {
 }
 
 const noStageInputIsolationV1 = Object.freeze({
+  interaction: 0,
   narrative: 0,
   overlay: 0,
   system: 0,
@@ -137,7 +138,9 @@ export function GameStageV1(props: GameStagePropsV1): ReactElement {
   const systemActive = isolationCounts.system > 0;
   const overlayActive = isolationCounts.overlay > 0;
   const narrativeActive = isolationCounts.narrative > 0;
+  const interactionActive = isolationCounts.interaction > 0;
   const gameplayInert = systemActive || overlayActive || narrativeActive;
+  const ordinaryGameplayInert = gameplayInert || interactionActive;
   const narrativeInert = systemActive || overlayActive;
 
   return (
@@ -147,7 +150,7 @@ export function GameStageV1(props: GameStagePropsV1): ReactElement {
           className={styles["game-stage__layer"]}
           data-stage-layer="background"
           data-testid="stage-background"
-          inert={gameplayInert}
+          inert={ordinaryGameplayInert}
         >
           {props.layers.background}
         </div>
@@ -155,7 +158,7 @@ export function GameStageV1(props: GameStagePropsV1): ReactElement {
           className={styles["game-stage__layer"]}
           data-stage-layer="character"
           data-testid="stage-character"
-          inert={gameplayInert}
+          inert={ordinaryGameplayInert}
         >
           {props.layers.character}
         </div>
@@ -172,7 +175,7 @@ export function GameStageV1(props: GameStagePropsV1): ReactElement {
           className={styles["game-stage__layer"]}
           data-stage-layer="hud"
           data-testid="stage-hud"
-          inert={gameplayInert}
+          inert={ordinaryGameplayInert}
         >
           {props.layers.hud}
         </div>
