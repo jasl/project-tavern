@@ -697,6 +697,47 @@ git diff --cached --check
 git commit -m "feat(ui): add runtime gated dev dock"
 ```
 
+#### Authorized owner repair before Task 3: keep capability state outside Story results
+
+The Task 3 input audit found that the accepted PoC DebugTools result aliases repeat
+`{ kind: "capability_disabled" }` inside their Story-owned allowed-result unions. The Contract
+Catalog defines that branch once at the generic Application boundary through
+`DebugToolsOperationResultV1<TAllowedResult>`; keeping it in the PoC aliases creates a second
+permission state and prevents the Story tooling UI from exhaustively normalizing an allowed result.
+E2E already follows the catalog. This is a unique-answer Phase 5B owner repair and must be committed
+independently before Task 3 RED.
+
+**Repair files:**
+
+- Modify: `game/stories/poc/src/runtime/poc-debug-bundle.ts`
+- Modify: `game/stories/poc/src/runtime/poc-debug-bundle.test.ts`
+- Modify: `game/stories/poc/src/testing/poc-runtime-test-fixture.ts`
+
+First add compile-time assertions that extracting `capability_disabled` from
+`PocDebugCommandResultV1` and `PocDebugAnchorResultV1` produces `never`; the expected RED is the
+formal typecheck rejecting the existing duplicate branches. Remove only those two inner branches
+and type any test-fixture callback at the generic outer `DebugToolsOperationResultV1<...>` boundary.
+Do not change DebugTools call-time checks, Story commands, fixtures, GameSimulation, persistence,
+digests, or the six-port GameApplication ABI.
+
+Run:
+
+```bash
+pnpm --filter @project-tavern/story-poc exec vitest run src/runtime/poc-debug-bundle.test.ts src/application/create-poc-game-runtime.test.ts src/test/tooling-runtime.integration.test.ts
+pnpm typecheck
+pnpm verify:phase5b
+pnpm verify
+git diff --check
+```
+
+Then stage and commit exactly the repair files:
+
+```bash
+git add -- game/stories/poc/src/runtime/poc-debug-bundle.ts game/stories/poc/src/runtime/poc-debug-bundle.test.ts game/stories/poc/src/testing/poc-runtime-test-fixture.ts
+git diff --cached --check
+git commit -m "fix(debug): keep capability state outside story results"
+```
+
 ### Task 3: Compose capability-session overlays, PoC tooling UI, and same-root HMR
 
 **Files:**
@@ -706,7 +747,14 @@ git commit -m "feat(ui): add runtime gated dev dock"
 - Create: `engine/packages/web/src/capabilities/runtime-capability-session-overlay.ts`
 - Create: `engine/packages/web/src/capabilities/runtime-capability-session-overlay.test.ts`
 - Create: `engine/packages/web/src/capabilities/index.ts`
+- Modify: `engine/packages/web/src/application/create-game-runtime.ts`
+- Modify: `engine/packages/web/src/application/create-game-runtime.test.ts`
 - Modify: `engine/packages/web/src/index.ts`
+- Modify: `engine/packages/web/type-tests/application-exports.test-d.ts`
+- Modify: `scripts/collect-import-closure.mjs`
+- Modify: `scripts/collect-import-closure.test.mjs`
+- Modify: `scripts/build-poc-identity.test.mjs`
+- Modify: `scripts/build-e2e-identity.test.mjs`
 - Create: `game/stories/poc/src/tooling/debug-command-form-adapter.ts`
 - Create: `game/stories/poc/src/tooling/debug-command-form-adapter.test.ts`
 - Modify: `game/stories/poc/src/tooling/index.ts`
@@ -714,24 +762,37 @@ git commit -m "feat(ui): add runtime gated dev dock"
 - Create: `game/stories/poc/src/tooling-ui/ui-contributions.tsx`
 - Create: `game/stories/poc/src/tooling-ui/ui-contributions.test.tsx`
 - Modify: `game/stories/poc/package.json`
+- Modify: `game/stories/poc/src/application/create-poc-game-runtime.ts`
+- Modify: `game/stories/poc/src/application/create-poc-game-runtime.test.ts`
 - Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.ts`
 - Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.test.ts`
 - Create: `game/stories/poc/src/application/install-poc-hmr.ts`
 - Create: `game/stories/poc/src/application/install-poc-hmr.integration.test.ts`
 - Modify: `game/stories/poc/src/application/poc-application-root.tsx`
+- Modify: `game/stories/poc/src/application/poc-application-root.test.tsx`
 - Modify: `game/stories/poc/src/application/entry.tsx`
+- Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.ts`
+- Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.test.ts`
 - Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.ts`
+- Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts`
 - Create: `game/stories/e2e/src/tooling-ui/index.ts`
 - Create: `game/stories/e2e/src/tooling-ui/ui-contributions.tsx`
 - Create: `game/stories/e2e/src/tooling-ui/ui-contributions.test.tsx`
 - Modify: `game/stories/e2e/package.json`
+- Modify: `game/stories/e2e/tsconfig.json`
+- Modify: `game/stories/e2e/tsconfig.application.json`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
 - Modify: `game/stories/e2e/src/application/entry.tsx`
 
 **Interfaces:**
 
 - Consumes: Phase 3 runtime capability/DebugTools ports and existing Node-safe fixed `./tooling` loaders; Phase 4B `pocStoryToolingEntryV1` and complete ten-kind `PocDebugCommandV1`; Phase 5B two application roots.
-- Produces: `parseCapabilityRequestV1`, `createRuntimeCapabilitySessionOverlayV1`, Node-safe `pocDebugCommandFormAdapterV1`, browser-only `pocToolingUiContributionsV1`/`e2eToolingUiContributionsV1`, one additional memoized fixed `./tooling-ui` loader per Story application, and `installPocHmrV1`.
+- Produces: `parseCapabilityRequestV1`, the effective/persisted/session-requested
+  `RuntimeCapabilitySessionOverlayV1`, Node-safe `pocDebugCommandFormAdapterV1`, browser-only
+  `pocToolingUiContributionsV1`/`e2eToolingUiContributionsV1`, one additional memoized fixed
+  `./tooling-ui` loader per Story application, complete Application BuildIdentity closure over both
+  tooling entries, and `installPocHmrV1`.
 
 - [ ] **Step 1: Write failing URL overlay and non-persistence tests**
 
@@ -753,6 +814,10 @@ it("parses only unique members of the closed capability set", () => {
     kind: "rejected",
     code: "capability.unknown_request",
   });
+  expect(parseCapabilityRequestV1("?capability=&capability=debug_tools")).toEqual({
+    kind: "rejected",
+    code: "capability.malformed_request",
+  });
 });
 
 it("applies persisted OR requested without writing the persisted port", async () => {
@@ -760,9 +825,19 @@ it("applies persisted OR requested without writing the persisted port", async ()
   const overlay = createRuntimeCapabilitySessionOverlayV1(persisted.port, ["debug_tools"]);
   expect(overlay.state.getCurrent().debugTools).toBe(true);
   expect(persisted.writes()).toEqual([]);
+  await expect(overlay.setEnabled("debug_tools", false)).resolves.toMatchObject({
+    state: { debugTools: true },
+  });
   overlay.dispose();
 });
 ```
+
+Also prove URL absence preserves persisted true values; request order is preserved; unknown keys,
+unknown values, duplicates, empty values, malformed encoding, and a valid value mixed with any
+malformed member reject the whole request and produce an empty overlay. The overlay test covers all
+three fields, masked persisted updates without false effective notifications, effective result-state
+mapping, listener isolation, and idempotent disposal of the persisted subscription and overlay
+listeners.
 
 - [ ] **Step 2: Write failing lazy tooling, exhaustive form, and HMR tests**
 
@@ -800,27 +875,61 @@ it("retains the one application root for equal identity and fully reboots after 
   await fixture.apply({ kind: "css_only", identities: fixture.currentIdentities });
   expect(fixture.session()).toBe(fixture.originalSession());
   await fixture.apply({ kind: "resolved_change", identities: fixture.changedIdentities });
-  expect(fixture.exportCalls()).toBe(1);
   expect(fixture.invalidatedSessions()).toEqual([fixture.originalSession()]);
   expect(fixture.applicationRootCount()).toBe(1);
+  expect(fixture.applicationRoot()).toBe(fixture.originalApplicationRoot());
 });
 ```
+
+Add Web/Story wiring tests rather than stopping at the isolated overlay: with a fresh persisted store
+and a session request, `createGameRuntimeV1` supplies effective true plus persisted false without a
+record write; PoC/E2E DebugTools pass their real call-time/FIFO checks for requested DebugTools and
+Cheats; DebugBundle records the effective capability state; construction failure, normal runtime
+dispose and HMR drift each dispose the old overlay exactly once. The CapabilityPanel receives the
+three distinct views and renders a session request read-only. Both Story UI adapters normalize raw
+committed/anchor success, validation failure, fault and outer `capability_disabled` without treating
+a rejection as success, and require an operation-local confirmation before command or anchor work.
+
+Application-closure tests prove the default Story and Node-safe `./tooling` entries remain free of
+TSX/React/DOM while the fixed `./tooling-ui`, `@sillymaker/ui/debug`, diagnostics and asset subpaths
+are resolved into Application BuildIdentity. A real Vite transform proves the PoC entry is
+self-accepting and both Story artifacts still contain exactly one application root.
 
 - [ ] **Step 3: Run the focused suites and confirm capability/tooling composition is absent**
 
 Run:
 
 ```bash
-pnpm --filter @sillymaker/web exec vitest run src/capabilities
-pnpm --filter @project-tavern/story-poc exec vitest run src/tooling src/tooling-ui src/application/install-poc-hmr.integration.test.ts src/application/create-poc-presentation-runtime.test.ts
+pnpm --filter @sillymaker/web exec vitest run src/capabilities src/application/create-game-runtime.test.ts
+pnpm --filter @project-tavern/story-poc exec vitest run src/tooling src/tooling-ui src/application/create-poc-game-runtime.test.ts src/application/create-poc-presentation-runtime.test.ts src/application/poc-application-root.test.tsx src/application/install-poc-hmr.integration.test.ts
 pnpm --filter @project-tavern/story-e2e exec vitest run src/tooling src/tooling-ui src/application
+node --test scripts/collect-import-closure.test.mjs scripts/build-poc-identity.test.mjs scripts/build-e2e-identity.test.mjs
+pnpm typecheck
 ```
 
-Expected: FAIL because the Web session overlay, Story UI adapter, and unified-root HMR installation do not exist.
+Expected: FAIL because the Web session overlay and real execution-point wiring, Story UI adapters,
+complete Application identity closure, and unified-root PoC HMR installation do not exist.
 
 - [ ] **Step 4: Implement the exact session-overlay lifecycle**
 
-Parse only repeated `capability` parameters with values `debug_tools | cheats | automation_bridge`, preserving that declared order. Unknown, duplicate, empty, or mixed malformed requests return a typed rejection and request no capability. URL absence supplies an empty requested set and preserves persisted values. `setEnabled` on the overlay delegates only to the persisted port; session-requested true values remain effective and are shown read-only until reload without that URL parameter. Disposing the application unsubscribes both sources and installs no default record.
+Parse only repeated `capability` parameters with values `debug_tools | cheats | automation_bridge`,
+preserving declared order. Unknown keys or values, duplicates, empty values, malformed encoding, or a
+valid request mixed with any malformed member return a typed rejection and request no capability.
+URL absence supplies an empty requested set and preserves persisted values.
+
+`createGameRuntimeV1` hydrates the one persisted port first, creates the session overlay before Story
+application construction, and supplies the effective port to GameApplication and DebugTools. The
+same composition exposes its persisted port and frozen session-requested IDs only to the browser UI
+owner; it does not expand the Base six-port Application ABI. `setEnabled` delegates only to the
+persisted port but maps every returned state through the effective OR view, so a session-requested
+true value cannot appear false. Session-requested fields are read-only in CapabilityPanel until a
+reload without that URL parameter.
+
+Construction failure disposes the overlay. The registered HMR lifecycle disposes it in a `finally`
+path on identity drift, and each Story PresentationRuntime disposes it during normal teardown. Equal
+identity HMR retains the original Session and overlay. Disposal is idempotent, unsubscribes the
+persisted source, clears overlay listeners, suppresses later publication, and installs no default
+record.
 
 - [ ] **Step 5: Implement the exhaustive PoC form adapter and fixed tooling loader**
 
@@ -855,22 +964,47 @@ const { pocStoryToolingEntryV1 } = await import("@project-tavern/story-poc/tooli
 const { pocToolingUiContributionsV1 } = await import("@project-tavern/story-poc/tooling-ui");
 ```
 
-Both loaders perform zero loads while disabled, retry their own rejected load, and memoize their own first success. E2E uses the corresponding fixed `@project-tavern/story-e2e/tooling` and `@project-tavern/story-e2e/tooling-ui` exports and never imports PoC. No loader accepts a URL, path, package name, Story ID, or alternate specifier. Node `--experimental-strip-types` and headless Story imports resolve `./tooling` without parsing TSX or loading React.
+Both loaders perform zero loads while disabled, retry their own rejected load, and memoize their own
+first success. Repair E2E's existing rejected Node tooling promise so it is not cached forever. E2E
+uses the corresponding fixed `@project-tavern/story-e2e/tooling` and
+`@project-tavern/story-e2e/tooling-ui` exports and never imports PoC. No production loader accepts a
+URL, path, package name, Story ID, or alternate specifier. Node `--experimental-strip-types` and
+headless Story imports resolve `./tooling` without parsing TSX or loading React.
+
+The import-closure collector resolves both fixed Story `./tooling-ui` exports plus the declared
+`@sillymaker/ui` public subpaths; an unknown internal workspace subpath is a stable error rather than
+an external dependency. Keep E2E `tooling-ui` out of the headless TypeScript project and include it
+in the application project. Both BuildIdentity tests prove the lazy UI bytes enter only the
+Application facet.
 
 E2E's tooling UI reuses the Phase 3 typed E2E form adapter and exposes exactly its four declared variants: `debug.e2e.counter.add`, `debug.e2e.flow.set_blocked`, `debug.e2e.test.validation_failed`, and `debug.e2e.test.fault`. The last variant exists only to verify fault-pause recovery/accessibility; it does not add a new Gameplay or debug contract in Phase 5C.
 
 - [ ] **Step 6: Mount Story panels and preserve same-root HMR behavior**
 
-Inject `pocToolingUiContributionsV1` into Task 2's neutral registry after `debug_tools` becomes effective. Read-only notes/diagnostics require only DebugTools; command submits and anchors require Cheats and an explicit confirmation. `installPocHmrV1` delegates identity comparison, invalidation, diagnostic export, and rebootstrap to the Phase 3 runtime control. CSS and tooling-note changes with equal resolved identity retain the current Session; resolved identity drift invalidates, exports, disposes, and recreates the runtime inside the same `poc-web` root. No second React root or HTML file is permitted.
+Inject each Story's tooling UI contributions into Task 2's neutral registry only after `debug_tools`
+becomes effective. Read-only notes/diagnostics require only DebugTools; command submits and anchors
+require Cheats and a separate explicit confirmation even when Cheats was session-requested.
+
+`installPocHmrV1` delegates identity comparison, invalidation, owner fencing/disposal and
+rebootstrap to the Phase 3 runtime control. CSS and tooling-note changes with equal resolved identity
+retain the current Session and install the next accept boundary; resolved identity drift invalidates,
+disposes and recreates the runtime inside the exact same `poc-web` DOM root. A stable page-lifetime
+owner follows the replacement so `pagehide` disposes the current runtime rather than the original.
+Successor construction/mount failure invalidates and releases that successor, clears the same root
+best effort, and retries from its returned disposition. DebugBundle export remains an explicit user
+save operation as required by the runtime design; HMR never silently exports or discards one. No
+second React root or HTML file is permitted.
 
 - [ ] **Step 7: Run tooling, capability, build, and full verification**
 
 Run:
 
 ```bash
-pnpm --filter @sillymaker/web exec vitest run src/capabilities
+pnpm --filter @sillymaker/web exec vitest run src/capabilities src/application/create-game-runtime.test.ts
 pnpm --filter @project-tavern/story-poc exec vitest run src/tooling src/tooling-ui src/application
 pnpm --filter @project-tavern/story-e2e exec vitest run src/tooling src/tooling-ui src/application
+node --test scripts/collect-import-closure.test.mjs scripts/build-poc-identity.test.mjs scripts/build-e2e-identity.test.mjs
+pnpm typecheck
 pnpm verify:boundaries
 pnpm verify:phase5b
 pnpm verify
@@ -882,7 +1016,7 @@ Expected: all commands exit 0; fresh/default/session/persisted capability behavi
 - [ ] **Step 8: Commit capability and Story tooling composition**
 
 ```bash
-git add -- engine/packages/web/src/capabilities engine/packages/web/src/index.ts game/stories/poc/src/tooling game/stories/poc/src/tooling-ui game/stories/poc/src/application game/stories/poc/package.json game/stories/e2e/src/tooling-ui game/stories/e2e/src/application game/stories/e2e/package.json
+git add -- engine/packages/web/src/capabilities/parse-capability-request.ts engine/packages/web/src/capabilities/parse-capability-request.test.ts engine/packages/web/src/capabilities/runtime-capability-session-overlay.ts engine/packages/web/src/capabilities/runtime-capability-session-overlay.test.ts engine/packages/web/src/capabilities/index.ts engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts engine/packages/web/src/index.ts engine/packages/web/type-tests/application-exports.test-d.ts scripts/collect-import-closure.mjs scripts/collect-import-closure.test.mjs scripts/build-poc-identity.test.mjs scripts/build-e2e-identity.test.mjs game/stories/poc/src/tooling/debug-command-form-adapter.ts game/stories/poc/src/tooling/debug-command-form-adapter.test.ts game/stories/poc/src/tooling/index.ts game/stories/poc/src/tooling-ui/index.ts game/stories/poc/src/tooling-ui/ui-contributions.tsx game/stories/poc/src/tooling-ui/ui-contributions.test.tsx game/stories/poc/package.json game/stories/poc/src/application/create-poc-game-runtime.ts game/stories/poc/src/application/create-poc-game-runtime.test.ts game/stories/poc/src/application/create-poc-presentation-runtime.ts game/stories/poc/src/application/create-poc-presentation-runtime.test.ts game/stories/poc/src/application/install-poc-hmr.ts game/stories/poc/src/application/install-poc-hmr.integration.test.ts game/stories/poc/src/application/poc-application-root.tsx game/stories/poc/src/application/poc-application-root.test.tsx game/stories/poc/src/application/entry.tsx game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-presentation-runtime.ts game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts game/stories/e2e/src/tooling-ui/index.ts game/stories/e2e/src/tooling-ui/ui-contributions.tsx game/stories/e2e/src/tooling-ui/ui-contributions.test.tsx game/stories/e2e/package.json game/stories/e2e/tsconfig.json game/stories/e2e/tsconfig.application.json game/stories/e2e/src/application/e2e-application-root.tsx game/stories/e2e/src/application/e2e-application-root.test.tsx game/stories/e2e/src/application/entry.tsx
 git diff --cached --check
 git commit -m "feat(tooling): compose same artifact story tools"
 ```
