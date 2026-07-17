@@ -2282,12 +2282,14 @@ git commit -m "feat(story-poc): project stage interactions"
 
 #### Authorized owner repair before Task 9
 
-The live Task 9 input audit found two presentation-contract gaps:
+The live Task 9 input audit found three presentation-contract gaps:
 
 1. the Phase 4B TextCatalog lacks the code-native HUD, Overlay, form and compact Stage labels that
-   Task 9 explicitly requires, while React is forbidden to embed a second dictionary; and
+   Task 9 explicitly requires, while React is forbidden to embed a second dictionary;
 2. the Task 9 AP example called for a meter even though `PocHudProjectionV1` intentionally exposes
-   only `apRemaining`, with no authoritative maximum that a renderer may infer.
+   only `apRemaining`, with no authoritative maximum that a renderer may infer; and
+3. the Phase 5A `VnChoiceV1` shape required disabled Narrative choices to retain an invocation,
+   even though Task 9 requires those choices to remain display-only and never become invokable.
 
 Correct the first gap additively in the existing `pocTextIdsV1`/`zh-CN` authority, including an
 exhaustive Story-owned rejection-code-to-TextId map for Semantic preview and disabled reasons. This
@@ -2305,6 +2307,11 @@ GameView field and prevents the renderer from hard-coding or recomputing an AP m
 The exact repair files, TDD sequence, verification commands and independent repair commit are
 recorded under Phase 4B Task 12. Complete that repair from a clean checkpoint before Task 9's own
 expected-red.
+
+Correct the third gap through the authorized post-Task 5 owner repair recorded in the Phase 5A
+plan. Disabled choices then carry only their authored labels/reasons, while only the enabled union
+member carries the exact Semantic invocation. Complete its independent clean-checkpoint commit and
+post-commit gates before beginning Task 9's expected-red.
 
 ### Task 9: Build the PoC HUD, Tavern Idle, Market, World Map, and Story Overlays
 

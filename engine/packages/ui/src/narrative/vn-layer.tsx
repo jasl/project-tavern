@@ -8,13 +8,21 @@ import { Button } from "../primitives/Button.js";
 import { useStageInputIsolationV1 } from "../shell/game-stage.js";
 import styles from "./vn-layer.module.css";
 
-export interface VnChoiceV1<TInvocation> {
-  readonly choiceId: string;
-  readonly label: string;
-  readonly enabled: boolean;
-  readonly disabledReasons: readonly string[];
-  readonly invocation: DeepReadonly<TInvocation>;
-}
+export type VnChoiceV1<TInvocation> =
+  | {
+      readonly choiceId: string;
+      readonly label: string;
+      readonly enabled: true;
+      readonly disabledReasons: readonly [];
+      readonly invocation: DeepReadonly<TInvocation>;
+    }
+  | {
+      readonly choiceId: string;
+      readonly label: string;
+      readonly enabled: false;
+      readonly disabledReasons: readonly string[];
+      readonly invocation?: never;
+    };
 
 export interface VnLayerPropsV1<TInvocation, TResult> {
   readonly active: boolean;
@@ -38,24 +46,30 @@ interface VnChoiceControlPropsV1<TInvocation, TResult> {
 function VnChoiceControlV1<TInvocation, TResult>(
   props: VnChoiceControlPropsV1<TInvocation, TResult>,
 ): ReactElement {
+  const choice = props.choice;
   const descriptionPrefix = useId();
-  const descriptionIds = props.choice.disabledReasons.map(
+  const descriptionIds = choice.disabledReasons.map(
     (_reason, index) => `${descriptionPrefix}-reason-${index}`,
   );
+  const dispatch = choice.enabled
+    ? () => {
+        void props.semantic.dispatch(choice.invocation);
+      }
+    : undefined;
 
   return (
-    <div className={styles["vn-layer__choice"]} data-vn-choice-id={props.choice.choiceId}>
+    <div className={styles["vn-layer__choice"]} data-vn-choice-id={choice.choiceId}>
       <Button
         className={styles["vn-layer__choice-control"]}
-        disabled={!props.choice.enabled}
+        disabled={!choice.enabled}
         aria-describedby={descriptionIds.length === 0 ? undefined : descriptionIds.join(" ")}
-        onClick={() => void props.semantic.dispatch(props.choice.invocation)}
+        onClick={dispatch}
       >
-        {props.choice.label}
+        {choice.label}
       </Button>
-      {props.choice.disabledReasons.length === 0 ? null : (
+      {choice.disabledReasons.length === 0 ? null : (
         <ul className={styles["vn-layer__disabled-reasons"]}>
-          {props.choice.disabledReasons.map((reason, index) => (
+          {choice.disabledReasons.map((reason, index) => (
             <li key={descriptionIds[index]} id={descriptionIds[index]}>
               {reason}
             </li>

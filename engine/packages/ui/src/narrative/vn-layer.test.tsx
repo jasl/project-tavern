@@ -16,7 +16,7 @@ import {
 } from "../input/contracts.js";
 import { createInputRouterV1 } from "../input/input-router.js";
 import { GameStageV1 } from "../shell/game-stage.js";
-import { VnLayerV1 } from "./vn-layer.js";
+import { VnLayerV1, type VnChoiceV1 } from "./vn-layer.js";
 
 afterEach(() => {
   cleanup();
@@ -32,10 +32,6 @@ interface TestInvocationV1 {
 const cautiousChoiceInvocationV1: TestInvocationV1 = Object.freeze({
   actionId: "action.test.cautious",
   parameters: Object.freeze({ tone: "cautious" }),
-});
-const forcefulChoiceInvocationV1: TestInvocationV1 = Object.freeze({
-  actionId: "action.test.forceful",
-  parameters: Object.freeze({ tone: "forceful" }),
 });
 const advanceInvocationV1: TestInvocationV1 = Object.freeze({
   actionId: "action.test.advance",
@@ -60,7 +56,7 @@ function createVnPropsV1() {
         choiceId: "choice.cautious",
         label: "谨慎询问",
         enabled: true,
-        disabledReasons: Object.freeze([]),
+        disabledReasons: Object.freeze([] as const),
         invocation: cautiousChoiceInvocationV1,
       }),
       Object.freeze({
@@ -68,14 +64,13 @@ function createVnPropsV1() {
         label: "强行追问",
         enabled: false,
         disabledReasons: Object.freeze(["尚未满足条件", "她现在不愿回答"]),
-        invocation: forcefulChoiceInvocationV1,
       }),
     ]),
     advance: Object.freeze({
       choiceId: "advance",
       label: "继续",
       enabled: true,
-      disabledReasons: Object.freeze([]),
+      disabledReasons: Object.freeze([] as const),
       invocation: advanceInvocationV1,
     }),
     semantic: createSemanticFixtureV1(),
@@ -117,7 +112,7 @@ describe("VnLayerV1 semantic controls", () => {
     expect(screen.getByText(props.text)).toBeVisible();
   });
 
-  it("keeps disabled direct choices visible with authored reasons in accessible order", () => {
+  it("keeps disabled direct choices display-only with authored reasons in accessible order", () => {
     const props = createVnPropsV1();
     render(<VnLayerV1 {...props} />);
 
@@ -127,6 +122,45 @@ describe("VnLayerV1 semantic controls", () => {
     expect(disabledChoice).toHaveAccessibleDescription("尚未满足条件 她现在不愿回答");
     expect(screen.getByText("尚未满足条件")).toBeVisible();
     expect(screen.getByText("她现在不愿回答")).toBeVisible();
+    disabledChoice.click();
+    expect(props.semantic.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("requires invocations only for enabled choices at compile time", () => {
+    const displayOnlyChoice = Object.freeze({
+      choiceId: "choice.display-only",
+      label: "暂不可选",
+      enabled: false,
+      disabledReasons: Object.freeze(["尚未满足条件"]),
+    }) satisfies VnChoiceV1<TestInvocationV1>;
+    const enabledChoice = Object.freeze({
+      choiceId: "choice.enabled",
+      label: "可选",
+      enabled: true,
+      disabledReasons: Object.freeze([] as const),
+      invocation: cautiousChoiceInvocationV1,
+    }) satisfies VnChoiceV1<TestInvocationV1>;
+
+    // @ts-expect-error An enabled choice must carry its exact invocation.
+    const enabledWithoutInvocation: VnChoiceV1<TestInvocationV1> = Object.freeze({
+      choiceId: "choice.invalid-enabled",
+      label: "缺少命令",
+      enabled: true,
+      disabledReasons: Object.freeze([] as const),
+    });
+    // @ts-expect-error A disabled choice is display-only and cannot retain an invocation.
+    const disabledWithInvocation: VnChoiceV1<TestInvocationV1> = Object.freeze({
+      choiceId: "choice.invalid-disabled",
+      label: "错误禁用选项",
+      enabled: false,
+      disabledReasons: Object.freeze(["不可用"]),
+      invocation: cautiousChoiceInvocationV1,
+    });
+
+    expect(Object.hasOwn(displayOnlyChoice, "invocation")).toBe(false);
+    expect(enabledChoice.invocation).toBe(cautiousChoiceInvocationV1);
+    expect(enabledWithoutInvocation.enabled).toBe(true);
+    expect(disabledWithInvocation.enabled).toBe(false);
   });
 
   it("renders nothing and registers no input handler while inactive", () => {
@@ -237,7 +271,8 @@ describe("VnLayerV1 narrative InputContext", () => {
   it("consumes confirm and advance without dispatch when no enabled advance is supplied", () => {
     const props = createVnPropsV1();
     const disabledAdvance = Object.freeze({
-      ...props.advance,
+      choiceId: "advance",
+      label: "继续",
       enabled: false,
       disabledReasons: Object.freeze(["必须先作出选择"]),
     });

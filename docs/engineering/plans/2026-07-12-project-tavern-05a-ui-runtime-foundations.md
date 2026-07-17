@@ -1275,13 +1275,21 @@ Opening a new primary replaces the previous primary and clears its details in on
 - [ ] **Step 5: Implement exact-invocation VN and System controls**
 
 ```ts
-export interface VnChoiceV1<TInvocation> {
-  readonly choiceId: string;
-  readonly label: string;
-  readonly enabled: boolean;
-  readonly disabledReasons: readonly string[];
-  readonly invocation: DeepReadonly<TInvocation>;
-}
+export type VnChoiceV1<TInvocation> =
+  | {
+      readonly choiceId: string;
+      readonly label: string;
+      readonly enabled: true;
+      readonly disabledReasons: readonly [];
+      readonly invocation: DeepReadonly<TInvocation>;
+    }
+  | {
+      readonly choiceId: string;
+      readonly label: string;
+      readonly enabled: false;
+      readonly disabledReasons: readonly string[];
+      readonly invocation?: never;
+    };
 
 export interface VnLayerPropsV1<TInvocation, TResult> {
   readonly active: boolean;
@@ -1298,7 +1306,7 @@ export interface VnLayerPropsV1<TInvocation, TResult> {
 }
 ```
 
-When active, `VnLayerV1` registers `narrative`, makes the Gameplay/Interaction layers inert through routing, and dispatches only a supplied choice/advance invocation. It does not infer Narrative state, advance a cursor locally, or optimistically display the next line. Save, Settings, diagnostics, and System controls remain reachable because they live above Narrative or outside its Stage Pointer target.
+When active, `VnLayerV1` registers `narrative`, makes the Gameplay/Interaction layers inert through routing, and dispatches only a supplied enabled choice/advance invocation. A disabled choice is display-only, carries authored reasons but no invocation, and receives no dispatch handler. The component does not infer Narrative state, advance a cursor locally, or optimistically display the next line. Save, Settings, diagnostics, and System controls remain reachable because they live above Narrative or outside its Stage Pointer target.
 
 `ActionConfirmationDialogV1` and `SystemDialogHostV1` register `system`, require native confirm/cancel buttons, return focus to the exact opener, expose a live result region, and dispatch only the explicit invocation supplied to the confirmation. No generic component accepts a raw Story Command, State path, callback script, or arbitrary renderer import.
 
@@ -1330,6 +1338,60 @@ git commit -m "feat(ui): add overlay vn and system hosts"
 ```
 
 Expected staged paths are only the listed Overlay/Narrative/System files, `game-stage.tsx`, and UI exports; the R1-owned dependency manifest entries and lockfile remain byte-identical.
+
+### Authorized post-Task 5 owner repair before Phase 5B Task 9: make disabled VN choices display-only
+
+The Phase 5B Task 9 input audit found that the original Task 5 ABI required every
+`VnChoiceV1` to carry an invocation even when `enabled` was false. That would force the Story
+renderer to retain an invokable command behind a control whose projection explicitly says the
+action is unavailable, contradicting the closed Semantic read direction and Task 9's requirement
+that disabled Narrative choices never become invokable options.
+
+Repair the earlier owner contract as the discriminated union shown in Step 5. An enabled choice
+has `enabled: true`, no disabled reasons, and the exact immutable invocation. A disabled choice has
+`enabled: false`, authored reasons, and no invocation property; `exactOptionalPropertyTypes` makes
+even an explicit `undefined` invocation invalid. `VnChoiceControlV1` binds `dispatch` only in the
+enabled branch, while Narrative input consumes confirm/advance without dispatch when its advance
+descriptor is absent or disabled. This is a neutral UI ABI repair only: it changes no Story
+projection value, Gameplay State, command, tracked fixture, dependency, or materialization input.
+Because `vn-layer.tsx` belongs to the E2E application BuildIdentity closure, its application source
+identity and diagnostic `appBuildId` are expected to move. The engine, Story, Presentation,
+PatchSet, state-contract and simulation identities plus tracked fixture bytes remain unchanged;
+the clean post-commit gates validate those persistence boundaries.
+
+**Exact repair files:**
+
+- Modify: `docs/engineering/plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md`
+- Modify: `docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md`
+- Modify: `engine/packages/ui/src/narrative/vn-layer.tsx`
+- Modify: `engine/packages/ui/src/narrative/vn-layer.test.tsx`
+
+First remove invocations from the disabled choice and disabled advance fixtures, add compile-time
+negative assertions for an enabled choice without an invocation and a disabled choice with one,
+and assert that native activation of the disabled control cannot dispatch. Run the focused
+Narrative suite and `pnpm typecheck`; expected RED is the old interface rejecting the display-only
+fixtures and accepting the prohibited disabled invocation. Implement the union and bind the click
+handler only after narrowing to `enabled: true`. Then run:
+
+```bash
+pnpm --filter @sillymaker/ui exec vitest run src/narrative
+pnpm typecheck
+pnpm verify:boundaries
+pnpm verify:ui
+git diff --check
+```
+
+Exact-stage only the four repair files and commit independently:
+
+```bash
+git add -- docs/engineering/plans/2026-07-12-project-tavern-05a-ui-runtime-foundations.md docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md engine/packages/ui/src/narrative/vn-layer.tsx engine/packages/ui/src/narrative/vn-layer.test.tsx
+git diff --cached --name-status
+git diff --cached --check
+git commit -m "fix(ui): make disabled vn choices display-only"
+```
+
+From the resulting clean commit run `pnpm verify:materialization` and `pnpm verify`; accept the
+repair and begin Task 9 only when both pass and the worktree remains clean.
 
 ## Task 6: Add persistence, diagnostics, and recovery surfaces
 
