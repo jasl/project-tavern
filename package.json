@@ -38,6 +38,7 @@
     "test": "pnpm test:unit && pnpm test:contract && pnpm test:property",
     "test:e2e:smoke": "playwright test --project=chromium --grep @smoke",
     "test:e2e:full": "playwright test --project=chromium --project=webkit",
+    "test:e2e:interaction": "playwright test --config engine/packages/web/playwright.interaction.config.ts",
     "build:e2e": "vite build --config ./vite.config.ts --mode e2e-web",
     "build:poc": "vite build --config ./vite.config.ts --mode poc-web",
     "update:screenshots": "playwright test --project=chromium --grep @visual --update-snapshots",
