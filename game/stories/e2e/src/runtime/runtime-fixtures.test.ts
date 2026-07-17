@@ -21,6 +21,7 @@ import { canonicalJsonBytes, digestBytes } from "@sillymaker/base";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
+  buildReviewedRecordProvenanceV1,
   buildRuntimeFixtureSetV1,
   classifyRuntimeFixtureV1,
   createRuntimeFixtureVerificationContextV1,
@@ -301,6 +302,76 @@ describe("runtime fixture provenance modes", () => {
         "fixture_generation",
       ),
     ).toBe(false);
+  });
+
+  it("rebuilds read-only payloads from the reviewed diagnostic evidence", async () => {
+    const syntheticFrozen = parseRuntimeFixtureProvenanceV1({
+      ...runtimeFixtureProvenanceV1,
+      blocking: {
+        ...runtimeFixtureProvenanceV1.blocking,
+        engineDigest: digestBytes(Uint8Array.of(3)),
+      },
+      diagnosticAtGeneration: {
+        ...runtimeFixtureProvenanceV1.diagnosticAtGeneration,
+        storyDigest: digestBytes(Uint8Array.of(4)),
+        presentationDigest: digestBytes(Uint8Array.of(5)),
+        patchSet: {
+          digest: digestBytes(Uint8Array.of(6)),
+          simulationDigest: digestBytes(Uint8Array.of(7)),
+          presentationDigest: digestBytes(Uint8Array.of(8)),
+          appliedHotfixes: [],
+        },
+        engineVersion: "reviewed-engine-version",
+      },
+    });
+    expect(buildReviewedRecordProvenanceV1(syntheticFrozen)).toEqual({
+      story: {
+        id: syntheticFrozen.blocking.storyId,
+        revision: syntheticFrozen.blocking.storyRevision,
+        digest: syntheticFrozen.diagnosticAtGeneration.storyDigest,
+      },
+      engine: {
+        version: syntheticFrozen.diagnosticAtGeneration.engineVersion,
+        digest: syntheticFrozen.blocking.engineDigest,
+      },
+      resolved: {
+        stateContractRevision: syntheticFrozen.blocking.stateContractRevision,
+        stateContractDigest: syntheticFrozen.blocking.stateContractDigest,
+        simulationDigest: syntheticFrozen.blocking.simulationDigest,
+        presentationDigest: syntheticFrozen.diagnosticAtGeneration.presentationDigest,
+        patchSet: syntheticFrozen.diagnosticAtGeneration.patchSet,
+      },
+    });
+
+    const fixtureSet = await buildRuntimeFixtureSetV1({
+      provenanceMode: "read_only_verification",
+    });
+    const bytes = fixtureSet.files.get("manual-terminal.v1.json");
+    if (bytes === undefined) throw new TypeError("missing rebuilt manual runtime fixture");
+    const decoded = JSON.parse(Buffer.from(bytes).toString("utf8")) as {
+      readonly provenance: unknown;
+    };
+    const frozen = runtimeFixtureProvenanceV1;
+
+    expect(fixtureSet.verificationContext.recordProvenance).toEqual({
+      story: {
+        id: frozen.blocking.storyId,
+        revision: frozen.blocking.storyRevision,
+        digest: frozen.diagnosticAtGeneration.storyDigest,
+      },
+      engine: {
+        version: frozen.diagnosticAtGeneration.engineVersion,
+        digest: frozen.blocking.engineDigest,
+      },
+      resolved: {
+        stateContractRevision: frozen.blocking.stateContractRevision,
+        stateContractDigest: frozen.blocking.stateContractDigest,
+        simulationDigest: frozen.blocking.simulationDigest,
+        presentationDigest: frozen.diagnosticAtGeneration.presentationDigest,
+        patchSet: frozen.diagnosticAtGeneration.patchSet,
+      },
+    });
+    expect(decoded.provenance).toEqual(fixtureSet.verificationContext.recordProvenance);
   });
 });
 

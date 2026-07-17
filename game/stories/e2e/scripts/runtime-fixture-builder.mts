@@ -115,12 +115,36 @@ export interface RuntimeFixtureVerificationContextV1 {
   readonly resolved: E2eResolvedGameV1;
   readonly appBuildId: Digest;
   readonly frozenProvenance: RuntimeFixtureProvenanceV1;
+  readonly recordProvenance: DeepReadonly<BuildProvenanceV1>;
   readonly codec: SaveCodecContextV1<E2eGameSnapshotV1, RuntimeFixtureSaveRecordV1>;
   readonly snapshotSchema: RuntimeSchemaV1<E2eGameSnapshotV1>;
   readonly debugCodec: ReturnType<
     typeof import("../src/runtime/e2e-debug-bundle.js").createE2eDebugBundleCodecV1
   >;
   readonly adoptionDeclaration: PatchSetAdoptionDeclarationV1;
+}
+
+export function buildReviewedRecordProvenanceV1(
+  frozen: DeepReadonly<RuntimeFixtureProvenanceV1>,
+): DeepReadonly<BuildProvenanceV1> {
+  return Object.freeze({
+    story: Object.freeze({
+      id: frozen.blocking.storyId,
+      revision: frozen.blocking.storyRevision,
+      digest: frozen.diagnosticAtGeneration.storyDigest,
+    }),
+    engine: Object.freeze({
+      version: frozen.diagnosticAtGeneration.engineVersion,
+      digest: frozen.blocking.engineDigest,
+    }),
+    resolved: Object.freeze({
+      stateContractRevision: frozen.blocking.stateContractRevision,
+      stateContractDigest: frozen.blocking.stateContractDigest,
+      simulationDigest: frozen.blocking.simulationDigest,
+      presentationDigest: frozen.diagnosticAtGeneration.presentationDigest,
+      patchSet: frozen.diagnosticAtGeneration.patchSet,
+    }),
+  });
 }
 
 export interface RuntimeFixtureManifestEntryV1 {
@@ -564,6 +588,7 @@ export async function createRuntimeFixtureVerificationContextV1(
     resolved,
     appBuildId: fixtureAppBuildId,
     frozenProvenance,
+    recordProvenance: buildReviewedRecordProvenanceV1(frozenProvenance),
     codec: codec.codec,
     snapshotSchema: codec.snapshotSchema,
     debugCodec,
@@ -781,7 +806,7 @@ function createSaveRecordV1(
   savedAt: IsoUtcInstant,
   context: RuntimeFixtureVerificationContextV1,
   modules: Awaited<ReturnType<typeof loadModulesV1>>,
-  provenance: DeepReadonly<BuildProvenanceV1> = context.resolved.provenance,
+  provenance: DeepReadonly<BuildProvenanceV1> = context.recordProvenance,
   simulationLineage: readonly SimulationAdoptionV1[] = Object.freeze([]),
 ): RuntimeFixtureSaveRecordV1 {
   const writeReason = slotId === "quick" ? "quick" : slotId === "manual" ? "manual" : "auto";
@@ -933,7 +958,7 @@ async function buildPayloadsV1(
   );
   const debugBundle = Object.freeze({
     formatRevision: 1 as const,
-    provenance: context.resolved.provenance,
+    provenance: context.recordProvenance,
     appBuildId: context.appBuildId,
     capabilities: Object.freeze({
       debugTools: true,
