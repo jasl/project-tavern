@@ -43,7 +43,7 @@ import {
   parseServiceMode,
   parseStoryToken,
   parseWorldStepId,
-} from "../gameplay/index.js";
+} from "../gameplay/contracts/ids.js";
 
 export const policyIdsV1 = Object.freeze([
   parsePolicyId("policy.balanced"),
