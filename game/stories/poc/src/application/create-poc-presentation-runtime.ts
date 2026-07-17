@@ -52,6 +52,7 @@ import {
   createHashRouterV1,
   createPlayerUiPortsV1,
   createWebContentPreferencePortV1,
+  installBrowserAutomationBridgeV1,
   installPointerAdapterV1,
   parseCapabilityRequestV1,
 } from "@sillymaker/web";
@@ -360,12 +361,14 @@ export async function createPocPresentationRuntimeV1(
     throw new TypeError("PoC presentation runtime did not capture a capability session");
   }
   let completedRuntime: PocPresentationRuntimeV1 | undefined;
+  let automationBridgeForCleanup: ReturnType<typeof installBrowserAutomationBridgeV1> | undefined;
   const presentationCleanups: (() => void)[] = [];
   presentationCleanups.push(() => capabilitySession.dispose());
   let presentationDisposed = false;
   const disposePresentationConstructionV1 = (): void => {
     if (presentationDisposed) return;
     presentationDisposed = true;
+    automationBridgeForCleanup?.dispose();
     diagnosticsPresentation = undefined;
     readDiagnosticsUiSession = undefined;
     readDiagnosticsDevDockState = undefined;
@@ -662,7 +665,19 @@ export async function createPocPresentationRuntimeV1(
     if (lifecycle === undefined) {
       throw new TypeError("PoC presentation runtime did not capture an HMR lifecycle");
     }
-    await input.onRebootstrapLifecycle?.(lifecycle);
+    const automationBridge = installBrowserAutomationBridgeV1({
+      semantic: application.semantic,
+      capabilities: capabilitySession,
+    });
+    automationBridgeForCleanup = automationBridge;
+    const presentationLifecycle = Object.freeze({
+      invalidationController: lifecycle.invalidationController,
+      async disposeForRebootstrap() {
+        automationBridge.dispose();
+        return await lifecycle.disposeForRebootstrap();
+      },
+    }) satisfies WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>;
+    await input.onRebootstrapLifecycle?.(presentationLifecycle);
     return runtime;
   } catch (error) {
     completedRuntime?.dispose();

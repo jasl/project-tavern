@@ -17,6 +17,12 @@ import {
 import { e2eApplicationTextIdsV1 } from "../presentation/text-catalogs.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
 
+const automationGlobalKeyV1 = "__SILLYMAKER_AUTOMATION_V1__" as const;
+
+function readAutomationGlobalV1() {
+  return globalThis[automationGlobalKeyV1];
+}
+
 function createEventTargetFixtureV1() {
   const listeners = new Map<string, Set<() => void>>();
   return Object.freeze({
@@ -51,7 +57,12 @@ function createRuntimeEnvironmentFixtureV1(hash: string, capabilitySearch = "") 
       location.hash = nextHash;
     }),
   };
-  const disposeLoader = vi.fn();
+  const globalPresenceDuringLoaderDispose: boolean[] = [];
+  const disposeLoader = vi.fn(() => {
+    globalPresenceDuringLoaderDispose.push(
+      Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__"),
+    );
+  });
   const assetLoader = Object.freeze({
     cacheKey: ({ runtimePath, sha256 }: RuntimeAssetLoadRequestV1) => `${runtimePath}#${sha256}`,
     load: vi.fn(async () =>
@@ -79,6 +90,7 @@ function createRuntimeEnvironmentFixtureV1(hash: string, capabilitySearch = "") 
     pointerDocument,
     removePointerListener,
     disposeLoader,
+    globalPresenceDuringLoaderDispose,
   });
 }
 
@@ -152,6 +164,38 @@ function createDelayedSettingsFailureV1(): Readonly<{
       }
       rejectSettingsRead(error);
     },
+  });
+}
+
+function createLifecycleObservationRecordsV1() {
+  const memory = createMemoryHostRecordStoreV1();
+  const globalPresenceDuringObservedCommits: boolean[] = [];
+  let observing = false;
+  const records = Object.freeze({
+    async read(
+      namespace: Parameters<HostAtomicRecordStoreV1["read"]>[0],
+      key: Parameters<HostAtomicRecordStoreV1["read"]>[1],
+    ) {
+      return await memory.read(namespace, key);
+    },
+    async list(namespace: Parameters<HostAtomicRecordStoreV1["list"]>[0]) {
+      return await memory.list(namespace);
+    },
+    async commit(mutations: Parameters<HostAtomicRecordStoreV1["commit"]>[0]) {
+      if (observing) {
+        globalPresenceDuringObservedCommits.push(
+          Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__"),
+        );
+      }
+      return await memory.commit(mutations);
+    },
+  }) satisfies HostAtomicRecordStoreV1;
+  return Object.freeze({
+    records,
+    beginObservation(): void {
+      observing = true;
+    },
+    globalPresenceDuringObservedCommits,
   });
 }
 
@@ -246,6 +290,156 @@ describe("createE2ePresentationRuntimeV1", () => {
       expect(loadToolingUi).not.toHaveBeenCalled();
     } finally {
       runtime.dispose();
+    }
+  });
+
+  it("keeps the Automation global absent for a default URL", async () => {
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(),
+      environment: createRuntimeEnvironmentFixtureV1("#/play").environment,
+    });
+
+    try {
+      expect(runtime.capabilitySession.sessionRequested).toEqual([]);
+      expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+    } finally {
+      runtime.dispose();
+    }
+  });
+
+  it("installs one session-only Automation facade for the explicit URL capability", async () => {
+    const records = createMemoryHostRecordStoreV1();
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(undefined, records),
+      environment: createRuntimeEnvironmentFixtureV1("#/play", "?capability=automation_bridge")
+        .environment,
+    });
+
+    try {
+      const bridge = readAutomationGlobalV1();
+      expect(runtime.capabilitySession.sessionRequested).toEqual(["automation_bridge"]);
+      expect(bridge?.contractRevision).toBe(1);
+      const observed = bridge?.observe();
+      expect(observed?.kind).toBe("ok");
+      if (observed?.kind === "ok") {
+        expect(observed.value).toBe(runtime.application.semantic.observe());
+      }
+      expect(await records.list("settings")).toEqual([]);
+    } finally {
+      runtime.dispose();
+    }
+  });
+
+  it("revokes a captured Automation facade before normal runtime disposal continues", async () => {
+    let lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
+    const browser = createRuntimeEnvironmentFixtureV1("#/play", "?capability=automation_bridge");
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(),
+      environment: browser.environment,
+      onRebootstrapLifecycle(value) {
+        lifecycle = value;
+      },
+    });
+    const captured = readAutomationGlobalV1();
+    if (captured === undefined) throw new TypeError("missing E2E Automation facade");
+
+    runtime.dispose();
+    expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+    expect(captured.observe()).toEqual({ kind: "capability_disabled" });
+    expect(browser.globalPresenceDuringLoaderDispose).toEqual([false]);
+    await lifecycle?.disposeForRebootstrap();
+  });
+
+  it("revokes Automation before the wrapped HMR lifecycle releases persistence", async () => {
+    const observed = createLifecycleObservationRecordsV1();
+    let lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(undefined, observed.records, "00000000-0000-4000-8000-000000000405"),
+      environment: createRuntimeEnvironmentFixtureV1("#/play", "?capability=automation_bridge")
+        .environment,
+      onRebootstrapLifecycle(value) {
+        lifecycle = value;
+      },
+    });
+
+    try {
+      expect(readAutomationGlobalV1()).toBeDefined();
+      observed.beginObservation();
+      await lifecycle?.disposeForRebootstrap();
+      expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+      expect(observed.globalPresenceDuringObservedCommits.length).toBeGreaterThan(0);
+      expect(observed.globalPresenceDuringObservedCommits.every((present) => !present)).toBe(true);
+    } finally {
+      runtime.dispose();
+    }
+  });
+
+  it("keeps RunIntegrity normal after an ordinary Automation dispatch", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved,
+      host: createHostV1(),
+      environment: createRuntimeEnvironmentFixtureV1("#/play", "?capability=automation_bridge")
+        .environment,
+    });
+
+    try {
+      const bridge = readAutomationGlobalV1();
+      if (bridge === undefined) throw new TypeError("missing E2E Automation facade");
+      const codec = createE2eDebugBundleCodecV1(resolved.gameSimulation.stateSchema);
+      const before = codec.bundleSchema.parse(
+        decodeDebugBundleJsonV1((await runtime.application.diagnostics.exportDebugBundle()).bytes),
+      );
+      const dispatched = await bridge.dispatch({
+        actionId: "action.e2e.increment",
+        parameters: {},
+      });
+      expect(dispatched.kind).toBe("ok");
+      const after = codec.bundleSchema.parse(
+        decodeDebugBundleJsonV1((await runtime.application.diagnostics.exportDebugBundle()).bytes),
+      );
+      expect(before.currentSnapshot.integrity).toEqual({
+        mode: "normal",
+        reasons: [],
+        firstMutationSequence: null,
+        mutationCount: 0,
+      });
+      expect(after.currentSnapshot.integrity).toEqual(before.currentSnapshot.integrity);
+    } finally {
+      runtime.dispose();
+    }
+  });
+
+  it("refuses a second live Story root without replacing the first Automation owner", async () => {
+    const first = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(),
+      environment: createRuntimeEnvironmentFixtureV1("#/play", "?capability=automation_bridge")
+        .environment,
+    });
+    const owned = readAutomationGlobalV1();
+    if (owned === undefined) throw new TypeError("missing first E2E Automation facade");
+
+    try {
+      await expect(
+        createE2ePresentationRuntimeV1({
+          resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+          host: createHostV1(
+            undefined,
+            createMemoryHostRecordStoreV1(),
+            "00000000-0000-4000-8000-000000000406",
+          ),
+          environment: createRuntimeEnvironmentFixtureV1("#/play").environment,
+        }),
+      ).rejects.toThrowError("automation.bridge_already_installed");
+      expect(readAutomationGlobalV1()).toBe(owned);
+      expect(owned.observe().kind).toBe("ok");
+    } finally {
+      first.dispose();
     }
   });
 

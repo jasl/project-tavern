@@ -15,6 +15,12 @@ export type {
   CapabilityRequestRejectionCodeV1,
   RuntimeCapabilitySessionOverlayV1,
 } from "./capabilities/index.js";
+export { installBrowserAutomationBridgeV1 } from "./automation/index.js";
+export type {
+  BrowserAutomationBridgeV1,
+  BrowserAutomationOperationResultV1,
+  InstalledBrowserAutomationBridgeV1,
+} from "./automation/index.js";
 export { createPlayerUiPortsV1 } from "./application/create-player-ui-ports.js";
 export type {
   PlayerUiDiagnosticsSourceV1,

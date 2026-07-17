@@ -205,7 +205,7 @@ function createAssetLoaderV1() {
 async function createFixtureV1(
   options: Pick<
     Parameters<typeof createPocPresentationRuntimeV1>[0],
-    "capabilitySearch" | "loadToolingUi"
+    "capabilitySearch" | "loadToolingUi" | "onRebootstrapLifecycle"
   > = {},
 ) {
   const hash = createHashFixtureV1();
@@ -232,6 +232,35 @@ async function createFixtureV1(
     ...options,
   });
   return Object.freeze({ runtime, defineCalls: () => defineCalls, hash, assets });
+}
+
+type PocAutomationBridgeFixtureV1 = Readonly<{
+  observe(): Readonly<
+    { readonly kind: "ok"; readonly value: unknown } | { readonly kind: "capability_disabled" }
+  >;
+  dispatch(
+    invocation: unknown,
+  ): Promise<
+    Readonly<
+      { readonly kind: "ok"; readonly value: unknown } | { readonly kind: "capability_disabled" }
+    >
+  >;
+}>;
+
+function currentAutomationBridgeV1(): PocAutomationBridgeFixtureV1 | undefined {
+  return Reflect.get(globalThis, "__SILLYMAKER_AUTOMATION_V1__") as
+    PocAutomationBridgeFixtureV1 | undefined;
+}
+
+async function exportIntegrityV1(runtime: Awaited<ReturnType<typeof createFixtureV1>>["runtime"]) {
+  const bundle = JSON.parse(
+    new TextDecoder().decode((await runtime.application.diagnostics.exportDebugBundle()).bytes),
+  ) as {
+    readonly currentSnapshot: {
+      readonly integrity: unknown;
+    };
+  };
+  return bundle.currentSnapshot.integrity;
 }
 
 describe("createPocPresentationRuntimeV1", () => {
@@ -290,6 +319,89 @@ describe("createPocPresentationRuntimeV1", () => {
     });
 
     fixture.runtime.dispose();
+  });
+
+  it("keeps the Automation global absent for a normal URL", async () => {
+    const fixture = await createFixtureV1();
+    try {
+      expect(currentAutomationBridgeV1()).toBeUndefined();
+      expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("installs one session-requested Automation bridge without changing RunIntegrity", async () => {
+    const fixture = await createFixtureV1({ capabilitySearch: "?capability=automation_bridge" });
+    try {
+      expect(fixture.runtime.capabilitySession.persisted.state.getCurrent().automationBridge).toBe(
+        false,
+      );
+      expect(fixture.runtime.capabilitySession.state.getCurrent().automationBridge).toBe(true);
+      const bridge = currentAutomationBridgeV1();
+      expect(bridge).toBeDefined();
+      if (bridge === undefined) throw new TypeError("missing PoC Automation bridge");
+
+      const integrityBefore = await exportIntegrityV1(fixture.runtime);
+      await expect(
+        bridge.dispatch({ kind: "invoke", actionId: "action.run_start", options: {} }),
+      ).resolves.toMatchObject({ kind: "ok" });
+      expect(await exportIntegrityV1(fixture.runtime)).toEqual(integrityBefore);
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("revokes a captured Automation facade before normal runtime disposal completes", async () => {
+    const fixture = await createFixtureV1({ capabilitySearch: "?capability=automation_bridge" });
+    const captured = currentAutomationBridgeV1();
+    expect(captured).toBeDefined();
+    if (captured === undefined) throw new TypeError("missing PoC Automation bridge");
+    ownerDisposalsV1.presentationStore.mockImplementationOnce(() => {
+      expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+      expect(captured.observe()).toEqual({ kind: "capability_disabled" });
+    });
+
+    try {
+      fixture.runtime.dispose();
+
+      expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+      expect(captured.observe()).toEqual({ kind: "capability_disabled" });
+      expect(ownerDisposalsV1.presentationStore).toHaveBeenCalledOnce();
+    } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("revokes Automation before delegating HMR game-owner disposal", async () => {
+    let lifecycle:
+      | Parameters<
+          NonNullable<
+            Parameters<typeof createPocPresentationRuntimeV1>[0]["onRebootstrapLifecycle"]
+          >
+        >[0]
+      | undefined;
+    const fixture = await createFixtureV1({
+      capabilitySearch: "?capability=automation_bridge",
+      onRebootstrapLifecycle(value) {
+        lifecycle = value;
+      },
+    });
+    const captured = currentAutomationBridgeV1();
+    expect(captured).toBeDefined();
+    if (captured === undefined) throw new TypeError("missing PoC Automation bridge");
+    if (lifecycle === undefined) throw new TypeError("missing PoC HMR lifecycle");
+    ownerDisposalsV1.gameOwner.mockImplementationOnce(() => {
+      expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+      expect(captured.observe()).toEqual({ kind: "capability_disabled" });
+    });
+
+    try {
+      await lifecycle.disposeForRebootstrap();
+      expect(ownerDisposalsV1.gameOwner).toHaveBeenCalledOnce();
+    } finally {
+      fixture.runtime.dispose();
+    }
   });
 
   it("keeps browser tooling unloaded while disabled and retries only its rejected load", async () => {
@@ -489,6 +601,42 @@ describe("createPocPresentationRuntimeV1", () => {
       expect.objectContaining({ ownership: "released" }),
     );
     expect(ownerDisposalsV1.gameOwner).toHaveBeenCalledOnce();
+  });
+
+  it("revokes Automation when lifecycle handoff fails after bridge installation", async () => {
+    const hash = createHashFixtureV1();
+    const assets = createAssetLoaderV1();
+    const onConstructionFailureDisposition = vi.fn();
+    let captured: PocAutomationBridgeFixtureV1 | undefined;
+
+    await expect(
+      createPocPresentationRuntimeV1({
+        host: createHostV1(),
+        buildIdentity: emptyBuildIdentityV1,
+        appBuildId: digestCanonical("sillymaker:application:v1", emptyBuildIdentityV1.application),
+        pointerTarget: document.createElement("div"),
+        location: hash.location,
+        hashEvents: hash.events,
+        pointerWindow: window,
+        pointerDocument: document,
+        assetLoader: assets.loader,
+        capabilitySearch: "?capability=automation_bridge",
+        onConstructionFailureDisposition,
+        onRebootstrapLifecycle() {
+          captured = currentAutomationBridgeV1();
+          expect(captured).toBeDefined();
+          throw new TypeError("poc.test.lifecycle_handoff_failed");
+        },
+      }),
+    ).rejects.toThrow("poc.test.lifecycle_handoff_failed");
+
+    expect(Object.hasOwn(globalThis, "__SILLYMAKER_AUTOMATION_V1__")).toBe(false);
+    expect(captured?.observe()).toEqual({ kind: "capability_disabled" });
+    expect(onConstructionFailureDisposition).toHaveBeenCalledWith(
+      expect.objectContaining({ ownership: "released" }),
+    );
+    expect(ownerDisposalsV1.gameOwner).toHaveBeenCalledOnce();
+    expect(assets.dispose).toHaveBeenCalledOnce();
   });
 
   it("disposes browser and presentation resources exactly once", async () => {

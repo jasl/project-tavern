@@ -46,6 +46,7 @@ import type { DevDockContributionSetV1, DevDockOpenStateV1 } from "@sillymaker/u
 import {
   createBrowserImageLoaderV1,
   createHashRouterV1,
+  installBrowserAutomationBridgeV1,
   parseCapabilityRequestV1,
   createPlayerUiPortsV1,
   createWebContentPreferencePortV1,
@@ -53,6 +54,7 @@ import {
   type BrowserImageLoaderEnvironmentV1,
   type HashRouterEventTargetV1,
   type HashRouterLocationV1,
+  type InstalledBrowserAutomationBridgeV1,
   type PointerAdapterInputV1,
   type RuntimeCapabilitySessionOverlayV1,
   type WebRuntimeRebootstrapLifecycleV1,
@@ -280,6 +282,7 @@ export async function createE2ePresentationRuntimeV1(
   let presentationForCleanup:
     RuntimePresentationStoreV1<E2eRuntimePresentationPublicationV1> | undefined;
   let semanticBridgeForCleanup: { dispose(): void } | undefined;
+  let automationBridgeForCleanup: InstalledBrowserAutomationBridgeV1 | undefined;
   let presentationResourcesDisposed = false;
   let toolingUiDisposed = false;
   const disposePresentationResources = (): void => {
@@ -290,18 +293,22 @@ export async function createE2ePresentationRuntimeV1(
     readDiagnosticsUiSession = undefined;
     readDiagnosticsDevDockState = undefined;
     try {
-      systemDialogSession.closeSettings();
-      pointerForCleanup?.dispose();
-      unsubscribeRoute?.();
-      router.dispose();
-      unsubscribePreload?.();
-      preloadController?.abort();
-      unsubscribeStageCleanup?.();
-      presentationForCleanup?.dispose();
-      semanticBridgeForCleanup?.dispose();
-      assets.dispose();
+      automationBridgeForCleanup?.dispose();
     } finally {
-      capturedCapabilitySession?.dispose();
+      try {
+        systemDialogSession.closeSettings();
+        pointerForCleanup?.dispose();
+        unsubscribeRoute?.();
+        router.dispose();
+        unsubscribePreload?.();
+        preloadController?.abort();
+        unsubscribeStageCleanup?.();
+        presentationForCleanup?.dispose();
+        semanticBridgeForCleanup?.dispose();
+        assets.dispose();
+      } finally {
+        capturedCapabilitySession?.dispose();
+      }
     }
   };
 
@@ -363,6 +370,10 @@ export async function createE2ePresentationRuntimeV1(
     if (capabilitySession === undefined) {
       throw new TypeError("E2E presentation runtime did not capture a capability session");
     }
+    automationBridgeForCleanup = installBrowserAutomationBridgeV1({
+      semantic: application.semantic,
+      capabilities: capabilitySession,
+    });
     hydratedContentPreference = contentPreference;
     const playerUi = createPlayerUiPortsV1({
       files: input.host.files,
@@ -619,7 +630,14 @@ export async function createE2ePresentationRuntimeV1(
     if (lifecycle === undefined) {
       throw new TypeError("E2E presentation runtime did not capture an HMR lifecycle");
     }
-    await input.onRebootstrapLifecycle?.(lifecycle);
+    const presentationLifecycle = Object.freeze({
+      invalidationController: lifecycle.invalidationController,
+      async disposeForRebootstrap(): Promise<PersistenceRebootstrapDisposalV1> {
+        automationBridgeForCleanup?.dispose();
+        return await lifecycle.disposeForRebootstrap();
+      },
+    }) satisfies WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>;
+    await input.onRebootstrapLifecycle?.(presentationLifecycle);
     return runtime;
   } catch (error) {
     try {
