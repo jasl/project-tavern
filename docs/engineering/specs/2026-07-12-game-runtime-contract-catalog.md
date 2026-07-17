@@ -4594,7 +4594,7 @@ Story、Engine 与 ResolvedGame provenance 永远分开；不得合并为一个 
 
 `stateContractRevision` 是该 Story 代际内具体 Snapshot 与可持久 IR Schema 的正整数 revision，用于在解析前选择精确 decoder；`stateContractDigest` 则对 Story-owned `StateContractManifestV1` 做机器校验。首版不实现 migrator，因此两者都必须与当前 ResolvedGame 精确相等。任何 State/持久 IR Schema 语义变化都必须同时提升对应 schema descriptor revision 与外层 `stateContractRevision`；任何可持久稳定引用集合变化都必须更新 reference set 并提升外层 revision；不再接受旧存档时还要递增 `story.revision`。即使作者错误遗漏外层 revision，正确更新的内层 descriptor/reference set 仍会令 digest 漂移并阻止普通读档；Rule provider、公式、平衡数值、文本、素材和纯表现变化不得改变 manifest 或 `stateContractDigest`。
 
-authoritative simulation replay 要求 `engine.digest + resolved.stateContractRevision/digest + resolved.simulationDigest` 精确匹配，并且 Story ID/revision 相同。精确视觉复现另外要求 `presentationDigest` 与 `appBuildId` 匹配。
+authoritative simulation replay 要求 `engine.digest + resolved.stateContractRevision/digest + resolved.simulationDigest` 精确匹配，并且 Story ID/revision 相同。精确视觉复现另外要求两侧都存在且精确匹配的 `appBuildId`，并要求 `presentationDigest` 匹配；两侧都缺少 `appBuildId` 不是精确视觉匹配。
 
 普通继续游戏默认要求阻断键完全相等。唯一例外是当前 Loader 取得一份 `PatchSetAdoptionDeclarationV1`，其 Story、stateContractRevision/digest、from/to simulation digests 和 `simulationPatchSetDigest` 与当前 ResolvedGame/旧 Save 逐字段精确匹配，同时 engineDigest 相等且 Snapshot 重新通过 Schema/references/invariants。adoption 建立新 replay anchor，不能用新规则 authoritative replay 旧 CommandLog。
 
