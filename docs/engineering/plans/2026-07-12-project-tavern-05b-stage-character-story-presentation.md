@@ -2564,6 +2564,46 @@ git diff --cached --check
 git commit -m "feat(story-poc): add tavern stage presentation"
 ```
 
+#### Authorized post-Task 9 owner repair before Task 10: keep CSS Module types project-local
+
+The clean Task 9 commit exposed a mechanical Files/configuration gap in Phase 0's disposable
+offline `tsc -b` build. Task 9 added the first PoC production CSS Module imports, but the root
+composite graph still compiles the complete Story through `game/stories/poc/tsconfig.json`; the
+new application-only child project cannot provide ambient CSS Module types to that separate
+project. The initial workaround also made `tsconfig.application.json` include
+`@sillymaker/ui/src/shell/styles.d.ts`, which violates the cross-package public-surface rule.
+
+Repair the unique project configuration without adding a dependency or a declaration file:
+
+- Modify this Phase 5B plan.
+- Modify `game/stories/poc/tsconfig.json`.
+- Modify `game/stories/poc/tsconfig.application.json` only if it still contains the cross-package
+  `styles.d.ts` include.
+
+The accepted Task 9 application config removes that include and selects child-project-local
+`"types": ["vite/client"]`. Apply the same project-local type selection to the primary PoC
+`tsconfig.json`. Do not add a production triple-slash reference, import another package's
+`src/**`, create a Story-local duplicate CSS declaration, or change package/lock metadata. The
+root `tsconfig.check.json` remains unchanged, so E2E's deliberately narrow `ImportMeta.hot` ABI is
+not merged with Vite's ambient type in the root diagnostic program.
+
+The qualifying RED is the clean post-Task 9 `pnpm verify:materialization` failure
+`external_precondition.offline_build_failed`, reproduced directly as CSS Module `TS2307`
+diagnostics from `pnpm exec tsc -b --pretty false`. After the repair, run both the composite build
+and root diagnostics, stage only the plan plus the primary PoC config, and create the narrow
+repair commit:
+
+```bash
+pnpm exec tsc -b --pretty false
+pnpm typecheck
+git add -- docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md game/stories/poc/tsconfig.json
+git diff --cached --check
+git commit -m "fix(story-poc): type CSS modules in composite build"
+```
+
+From the clean repair commit rerun `pnpm verify:materialization`, the complete Task 9 gate, and
+root `pnpm verify`. Task 10 may begin only when all pass and package/lock bytes remain unchanged.
+
 ### Task 10: Compose Exactly Two Story-Owned Web Application Roots
 
 **Files:**
