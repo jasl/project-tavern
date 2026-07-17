@@ -165,7 +165,6 @@ export type PocDebugBundleV1 = DebugBundleEnvelopeV1<
 >;
 
 export type PocDebugCommandResultV1 =
-  | { readonly kind: "capability_disabled" }
   | {
       readonly kind: "validation_failed";
       readonly error:
@@ -176,7 +175,6 @@ export type PocDebugCommandResultV1 =
   | { readonly kind: "faulted"; readonly fault: PocEngineFaultV1 };
 
 export type PocDebugAnchorResultV1 =
-  | { readonly kind: "capability_disabled" }
   | {
       readonly kind: "validation_failed";
       readonly error: {

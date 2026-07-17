@@ -10,6 +10,7 @@ import {
   rngStateV1Schema,
 } from "@sillymaker/base";
 import type {
+  DebugToolsOperationResultV1,
   DeepReadonly,
   IsoUtcInstant,
   LeaseHandoffRequestId,
@@ -574,7 +575,10 @@ export function createPocRuntimeTestFixtureV1(input: {
       const support = await toolingSupport();
       return Object.freeze(support.fixtures.map(({ fixtureId }) => fixtureId));
     },
-    async executeDebugCommand(command, isStillEnabled): Promise<PocDebugCommandResultV1> {
+    async executeDebugCommand(
+      command,
+      isStillEnabled,
+    ): Promise<DebugToolsOperationResultV1<PocDebugCommandResultV1>> {
       const result = await created.debugControl.execute(command, isStillEnabled);
       if (result.kind === "capability_disabled") return result;
       if (result.kind === "not_executed") {
@@ -599,7 +603,10 @@ export function createPocRuntimeTestFixtureV1(input: {
           })
         : Object.freeze({ kind: "faulted" as const, fault: publicFault });
     },
-    async anchorFixture(fixtureId: string, isStillEnabled): Promise<PocDebugAnchorResultV1> {
+    async anchorFixture(
+      fixtureId: string,
+      isStillEnabled,
+    ): Promise<DebugToolsOperationResultV1<PocDebugAnchorResultV1>> {
       const persistenceService = await persistenceServicePromise;
       const anchored = await created.debugControl.anchorReplacement<PocDebugAnchorResultV1>(
         Object.freeze({ kind: "fixture" as const, fixtureId }),
@@ -643,7 +650,10 @@ export function createPocRuntimeTestFixtureV1(input: {
     inspectDebugBundle(bytes) {
       return decodeDebugBundleV1(bytes, debugBundleCodec);
     },
-    async anchorDebugBundle(bytes, isStillEnabled): Promise<PocDebugAnchorResultV1> {
+    async anchorDebugBundle(
+      bytes,
+      isStillEnabled,
+    ): Promise<DebugToolsOperationResultV1<PocDebugAnchorResultV1>> {
       const persistenceService = await persistenceServicePromise;
       const decoded = decodeDebugBundleV1(bytes, debugBundleCodec);
       if (decoded.kind === "rejected") {

@@ -10,7 +10,7 @@ import {
 } from "@sillymaker/base/runtime";
 import type { GameSessionDebugInputV1 } from "@sillymaker/base/runtime";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { pocStoryEntryV1 } from "../story-definition.js";
 import {
@@ -27,7 +27,9 @@ import {
   createPocReplayInputV1,
   createPocUnexpectedFaultAttemptV1,
   createPocUnexpectedFaultV1,
+  type PocDebugAnchorResultV1,
   type PocDebugBundleV1,
+  type PocDebugCommandResultV1,
 } from "./poc-debug-bundle.js";
 
 const appBuildIdV1 = digestCanonical("sillymaker:application:v1", ["poc-debug-bundle-test"]);
@@ -93,6 +95,15 @@ async function productionBundleFixtureV1(): Promise<PocDebugBundleV1> {
 }
 
 describe("PoC production DebugBundle helpers", () => {
+  it("keeps generic capability state outside Story-owned allowed results", () => {
+    expectTypeOf<
+      Extract<PocDebugCommandResultV1, { readonly kind: "capability_disabled" }>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Extract<PocDebugAnchorResultV1, { readonly kind: "capability_disabled" }>
+    >().toEqualTypeOf<never>();
+  });
+
   it("round-trips the concrete bounded UI context while preserving legacy omission", async () => {
     const codec = createPocDebugBundleCodecV1();
     const legacyBundle = await productionBundleFixtureV1();
