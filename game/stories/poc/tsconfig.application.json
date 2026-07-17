@@ -9,7 +9,11 @@
     "types": ["vite/client"]
   },
   "include": [
+    "src/application/create-poc-game-application.ts",
+    "src/application/create-poc-game-runtime.ts",
     "src/application/create-poc-semantic-port.ts",
+    "src/runtime/poc-debug-bundle.ts",
+    "src/runtime/poc-state-validation.ts",
     "src/presentation/hud/**/*.tsx",
     "src/presentation/overlays/**/*.tsx",
     "src/presentation/runtime/**/*.ts",
@@ -21,6 +25,7 @@
   "references": [
     { "path": "." },
     { "path": "../../../engine/packages/base" },
-    { "path": "../../../engine/packages/ui" }
+    { "path": "../../../engine/packages/ui" },
+    { "path": "../../../engine/packages/web" }
   ]
 }

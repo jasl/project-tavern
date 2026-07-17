@@ -2604,6 +2604,64 @@ git commit -m "fix(story-poc): type CSS modules in composite build"
 From the clean repair commit rerun `pnpm verify:materialization`, the complete Task 9 gate, and
 root `pnpm verify`. Task 10 may begin only when all pass and package/lock bytes remain unchanged.
 
+#### Authorized pre-Task 10 owner repair: promote the PoC production game runtime
+
+Phase 4B intentionally produced only the test-only `createPocRuntimeTestFixtureV1`; the live
+repository therefore has no production PoC GameSession/persistence/diagnostics/DebugTools
+composition even though Task 10 consumes an existing unified PoC game runtime. The runtime design
+and Contract Catalog already determine the unique answer. Promote the shared Story-local State
+validation, DebugBundle/replay and six-port application composition into production owners, then
+make the Phase 4B fixture consume those production primitives while retaining only test injection
+and probes. No public ABI, gameplay behavior, fixture bytes, balance, dependency or authority
+change is permitted.
+
+**Files:**
+
+- Create: `game/stories/poc/src/runtime/poc-state-validation.ts`
+- Create: `game/stories/poc/src/runtime/poc-state-validation.test.ts`
+- Create: `game/stories/poc/src/runtime/poc-debug-bundle.ts`
+- Create: `game/stories/poc/src/runtime/poc-debug-bundle.test.ts`
+- Create: `game/stories/poc/src/application/create-poc-game-application.ts`
+- Create: `game/stories/poc/src/application/create-poc-game-application.test.ts`
+- Create: `game/stories/poc/src/application/create-poc-game-runtime.ts`
+- Create: `game/stories/poc/src/application/create-poc-game-runtime.test.ts`
+- Modify: `game/stories/poc/src/testing/poc-runtime-test-fixture.ts`
+- Modify: `game/stories/poc/src/testing/save-fixture-builder.ts`
+- Modify: `game/stories/poc/tsconfig.application.json`
+- Modify: this Phase 5B plan.
+
+`createPocGameRuntimeV1` uses Host bootstrap entropy to create the real initial Snapshot and
+composes exactly one Session, complete persistence/lifecycle, the Catalog `DiagnosticSummaryV1`,
+bounded runtime failures, optional failure evidence, DebugBundle/replay and the fixed-specifier
+tooling loader. It requires an explicit `appBuildId`. `createPocGameApplicationV1` is only the
+synchronous concrete six-port specialization, and
+`PocGameApplicationPortV1 = ReturnType<typeof createPocGameApplicationV1>`. Move the accepted
+fixture-ID-to-RunId mapping and replay helper into the production runtime owner without changing
+the frozen `PocStoryToolingFixtureV1` ABI. Production import closure must contain neither
+`testing/**` nor `@sillymaker/base/testkit`.
+
+Write the four focused production tests first, then run:
+
+```bash
+pnpm --filter @project-tavern/story-poc exec vitest run \
+  src/runtime/poc-state-validation.test.ts \
+  src/runtime/poc-debug-bundle.test.ts \
+  src/application/create-poc-game-application.test.ts \
+  src/application/create-poc-game-runtime.test.ts \
+  src/test/tooling-runtime.integration.test.ts \
+  src/test/save-fixtures.test.ts
+```
+
+The qualifying RED is only the missing production symbols/files. After GREEN, run
+`pnpm --filter @project-tavern/story-poc verify:fixtures`, `pnpm verify:fixtures`,
+`pnpm verify:semantic`, `pnpm verify:boundaries`, `pnpm typecheck`, and
+`git diff --exit-code -- game/stories/poc/src/test/fixtures`. Stage exactly the Files above and
+commit `fix(story-poc): promote production game runtime`. The retained Phase 0 guard deliberately
+rejects root `pnpm verify` while these intended bytes are still dirty, so run
+`pnpm verify:materialization` and root `pnpm verify` only from the clean repair commit. Any defect
+found there receives a separate narrow repair commit rather than an amend. Task 10 begins only from
+that clean, fully verified commit.
+
 ### Task 10: Compose Exactly Two Story-Owned Web Application Roots
 
 **Files:**
