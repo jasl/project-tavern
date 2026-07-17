@@ -22,6 +22,7 @@ import {
 } from "@sillymaker/ui";
 import { createWebHostV1 } from "@sillymaker/web";
 import { cleanup, render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 import type { ComponentType, ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -131,6 +132,8 @@ async function createContributionFixtureV1() {
       ) => Object.freeze({ kind: "dispatched" as const }),
     ),
   });
+  const dispatch = vi.fn(application.semantic.dispatch);
+  const semantic = Object.freeze({ ...application.semantic, dispatch });
 
   function project(
     allowedFlags: ContentMaturityFlagsV1,
@@ -154,6 +157,8 @@ async function createContributionFixtureV1() {
 
   return Object.freeze({
     application,
+    semantic,
+    dispatch,
     resolvedGame,
     presentation,
     text,
@@ -196,33 +201,35 @@ function requireCounterHitMapV1() {
 function viewSliceForNamespaceV1(
   namespace: UiRendererNamespaceV1,
   view: E2eRuntimePresentationViewV1,
+  actions: ReturnType<E2eSemanticGamePortV1["observe"]>["actions"],
   rendererId?: string,
 ): Readonly<Record<string, unknown>> {
-  const character = requireCounterCharacterV1(view);
-  const surface = requireCounterSurfaceV1(view);
-  const hitMap = requireCounterHitMapV1();
   switch (namespace) {
     case "background":
       return Object.freeze({ ...view, ...view.stage, stage: view.stage });
-    case "character":
+    case "character": {
+      const character = requireCounterCharacterV1(view);
       return Object.freeze({
         ...view,
         ...character,
         rendererId: rendererId ?? character.rendererId,
         character,
       });
-    case "scene_interaction":
+    }
+    case "scene_interaction": {
+      const surface = requireCounterSurfaceV1(view);
       return Object.freeze({
         ...view,
         ...surface,
         surface,
-        hitMap,
+        hitMap: requireCounterHitMapV1(),
         spatialState: "enabled" as const,
       });
+    }
     case "hud":
-      return Object.freeze({ ...view, ...view.game, game: view.game });
-    case "workspace_overlay":
     case "narrative":
+      return Object.freeze({ game: view.game, actions });
+    case "workspace_overlay":
     case "system":
       return view as unknown as Readonly<Record<string, unknown>>;
   }
@@ -237,8 +244,13 @@ function contextForNamespaceV1(
   rendererId?: string,
 ): Readonly<Record<string, unknown>> {
   return Object.freeze({
-    viewSlice: viewSliceForNamespaceV1(namespace, view, rendererId),
-    semantic: fixture.application.semantic as E2eSemanticGamePortV1,
+    viewSlice: viewSliceForNamespaceV1(
+      namespace,
+      view,
+      fixture.application.semantic.observe().actions,
+      rendererId,
+    ),
+    semantic: fixture.semantic,
     presentation: fixture.presentation,
     controller: fixture.controller,
     interactionController: fixture.controller,
@@ -381,6 +393,94 @@ describe("e2eUiContributionsV1", () => {
         expect(document.querySelector(`[data-tested-ui-namespace="${namespace}"]`)).not.toBeNull();
         rendered.unmount();
       }
+    } finally {
+      fixture.dispose();
+    }
+  });
+
+  it("keeps the complete published Semantic flow reachable through native contribution controls", async () => {
+    const fixture = await createContributionFixtureV1();
+    const user = userEvent.setup();
+    try {
+      let publication = fixture.application.semantic.observe();
+      let rendered = render(
+        <E2eUiHarnessV1 fixture={fixture} view={fixture.project(emptyContentMaturityFlagsV1)} />,
+      );
+
+      const start = publication.actions.find(({ actionId }) => actionId === "action.e2e.start");
+      if (start === undefined) throw new TypeError("missing published E2E start action");
+      const startInvocation = start.options[0];
+      if (startInvocation === undefined) throw new TypeError("missing published E2E start option");
+      expect(screen.getByRole("button", { name: "开始流程" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "完成流程" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "选择左侧" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "选择左侧" })).toHaveAccessibleDescription(
+        "当前流程不可用",
+      );
+      expect(screen.getByRole("button", { name: "选择右侧" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "继续" })).toBeDisabled();
+      expect(screen.getAllByRole("button", { name: "增加计数" })).toHaveLength(1);
+
+      await user.click(screen.getByRole("button", { name: "开始流程" }));
+      expect(fixture.dispatch).toHaveBeenLastCalledWith(startInvocation);
+      rendered.unmount();
+
+      publication = fixture.application.semantic.observe();
+      rendered = render(
+        <E2eUiHarnessV1 fixture={fixture} view={fixture.project(emptyContentMaturityFlagsV1)} />,
+      );
+      const choose = publication.actions.find(({ actionId }) => actionId === "action.e2e.choose");
+      const rightInvocation = choose?.options.find(
+        (candidate) =>
+          candidate.actionId === "action.e2e.choose" && candidate.parameters.choice === "right",
+      );
+      if (rightInvocation === undefined) throw new TypeError("missing published E2E right option");
+      await user.click(screen.getByRole("button", { name: "选择右侧" }));
+      expect(fixture.dispatch).toHaveBeenLastCalledWith(rightInvocation);
+      rendered.unmount();
+
+      publication = fixture.application.semantic.observe();
+      rendered = render(
+        <E2eUiHarnessV1 fixture={fixture} view={fixture.project(emptyContentMaturityFlagsV1)} />,
+      );
+      const continueAction = publication.actions.find(
+        ({ actionId }) => actionId === "action.e2e.continue",
+      );
+      const continueInvocation = continueAction?.options[0];
+      if (continueInvocation === undefined) {
+        throw new TypeError("missing published E2E continue option");
+      }
+      await user.click(screen.getByRole("button", { name: "继续" }));
+      expect(fixture.dispatch).toHaveBeenLastCalledWith(continueInvocation);
+      rendered.unmount();
+
+      publication = fixture.application.semantic.observe();
+      rendered = render(
+        <E2eUiHarnessV1 fixture={fixture} view={fixture.project(emptyContentMaturityFlagsV1)} />,
+      );
+      const complete = publication.actions.find(
+        ({ actionId }) => actionId === "action.e2e.complete",
+      );
+      const completeInvocation = complete?.options[0];
+      if (completeInvocation === undefined) {
+        throw new TypeError("missing published E2E complete option");
+      }
+      await user.click(screen.getByRole("button", { name: "完成流程" }));
+      expect(fixture.dispatch).toHaveBeenLastCalledWith(completeInvocation);
+      rendered.unmount();
+
+      const terminalView = fixture.project(emptyContentMaturityFlagsV1);
+      render(
+        <>
+          <RenderContributionV1 fixture={fixture} namespace="hud" view={terminalView} />
+          <RenderContributionV1 fixture={fixture} namespace="narrative" view={terminalView} />
+        </>,
+      );
+      expect(fixture.application.semantic.observe().game.terminal).toBe(true);
+      expect(screen.queryByRole("button", { name: "开始流程" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "选择左侧" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "继续" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "完成流程" })).not.toBeInTheDocument();
     } finally {
       fixture.dispose();
     }

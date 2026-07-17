@@ -12,6 +12,7 @@ import {
   InteractionBehaviorListV1,
   InteractionSurfaceV1,
   PaperDollCharacterRendererV1,
+  SemanticActionControlV1,
   StaticCharacterRendererV1,
   TopCardHudV1,
   type GameRendererContextV1,
@@ -70,6 +71,17 @@ export interface E2eInteractionRendererContextV1 extends GameRendererContextV1<
   readonly inputRouter: InputRouterV1;
 }
 
+export interface E2eFlowRendererViewV1 {
+  readonly game: DeepReadonly<E2eGameViewV1>;
+  readonly actions: readonly DeepReadonly<E2eSemanticActionDescriptorV1>[];
+}
+
+type E2eFlowRendererContextV1 = GameRendererContextV1<
+  E2eFlowRendererViewV1,
+  E2eSemanticGamePortV1,
+  E2eUiPresentationReadPortV1
+>;
+
 export type E2eUiRendererContextsV1 = Readonly<{
   background: GameRendererContextV1<
     RuntimeStageSceneV1,
@@ -82,21 +94,13 @@ export type E2eUiRendererContextsV1 = Readonly<{
     E2eUiPresentationReadPortV1
   >;
   scene_interaction: E2eInteractionRendererContextV1;
-  hud: GameRendererContextV1<
-    Readonly<{ readonly game: DeepReadonly<E2eGameViewV1> }>,
-    E2eSemanticGamePortV1,
-    E2eUiPresentationReadPortV1
-  >;
+  hud: E2eFlowRendererContextV1;
   workspace_overlay: GameRendererContextV1<
     E2eRuntimePresentationViewV1,
     E2eSemanticGamePortV1,
     E2eUiPresentationReadPortV1
   >;
-  narrative: GameRendererContextV1<
-    E2eRuntimePresentationViewV1,
-    E2eSemanticGamePortV1,
-    E2eUiPresentationReadPortV1
-  >;
+  narrative: E2eFlowRendererContextV1;
   system: GameRendererContextV1<
     E2eRuntimePresentationViewV1,
     E2eSemanticGamePortV1,
@@ -125,6 +129,15 @@ const textIdsV1 = Object.freeze({
   betaCue: parseTextId("text.e2e.cue.counter.beta"),
   unavailableReason: parseTextId("text.e2e.reason.flow_unavailable"),
 });
+
+const hudActionIdsV1 = Object.freeze([
+  "action.e2e.start",
+  "action.e2e.complete",
+] as const satisfies readonly E2eSemanticInvocationV1["actionId"][]);
+const narrativeActionIdsV1 = Object.freeze([
+  "action.e2e.choose",
+  "action.e2e.continue",
+] as const satisfies readonly E2eSemanticInvocationV1["actionId"][]);
 
 const backgroundStyleV1 = Object.freeze({
   position: "absolute",
@@ -227,6 +240,52 @@ function E2eCounterInteractionV1(
   );
 }
 
+function flowOptionTextIdV1(
+  descriptor: DeepReadonly<E2eSemanticActionDescriptorV1>,
+  invocation: DeepReadonly<E2eSemanticInvocationV1>,
+): TextId {
+  if (descriptor.actionId === "action.e2e.choose") {
+    if (invocation.actionId !== descriptor.actionId) {
+      throw new TypeError(`invalid E2E flow option for ${descriptor.actionId}`);
+    }
+    return parseTextId(`${descriptor.textId}.${invocation.parameters.choice}`);
+  }
+  if (descriptor.options.length !== 1 || invocation.actionId !== descriptor.actionId) {
+    throw new TypeError(`invalid E2E flow option for ${descriptor.actionId}`);
+  }
+  return descriptor.textId;
+}
+
+function E2eSemanticActionGroupV1(props: {
+  readonly context: E2eFlowRendererContextV1;
+  readonly actionIds: readonly E2eSemanticInvocationV1["actionId"][];
+  readonly accessibleName: string;
+}): ReactElement | null {
+  if (props.context.viewSlice.game.terminal) return null;
+  return (
+    <div role="group" aria-label={props.accessibleName}>
+      {props.context.viewSlice.actions.flatMap((descriptor) => {
+        if (!props.actionIds.includes(descriptor.actionId)) return [];
+        const disabledReasonLabels = Object.freeze(
+          descriptor.reasons.map(
+            () => props.context.presentation.text(textIdsV1.unavailableReason).text,
+          ),
+        );
+        return descriptor.options.map((invocation, optionIndex) => (
+          <SemanticActionControlV1
+            key={`${descriptor.actionId}:${optionIndex}`}
+            descriptor={descriptor}
+            invocation={invocation}
+            semantic={props.context.semantic}
+            label={props.context.presentation.text(flowOptionTextIdV1(descriptor, invocation)).text}
+            disabledReasonLabels={disabledReasonLabels}
+          />
+        ));
+      })}
+    </div>
+  );
+}
+
 function E2eCompactHudV1(props: E2eUiRendererContextsV1["hud"]): ReactElement {
   const accessibleName = props.presentation.text(textIdsV1.hudName).text;
   return (
@@ -234,7 +293,13 @@ function E2eCompactHudV1(props: E2eUiRendererContextsV1["hud"]): ReactElement {
       accessibleName={accessibleName}
       slots={Object.freeze({
         start: <span>{props.viewSlice.game.counterLabel}</span>,
-        center: null,
+        center: (
+          <E2eSemanticActionGroupV1
+            context={props}
+            actionIds={hudActionIdsV1}
+            accessibleName={accessibleName}
+          />
+        ),
         end: null,
       })}
     />
@@ -262,7 +327,11 @@ function E2eNarrativeHostV1(props: E2eUiRendererContextsV1["narrative"]): ReactE
   const accessibleName = props.presentation.text(textIdsV1.narrativeName).text;
   return (
     <section aria-label={accessibleName} data-e2e-narrative-host="true">
-      <span>{accessibleName}</span>
+      <E2eSemanticActionGroupV1
+        context={props}
+        actionIds={narrativeActionIdsV1}
+        accessibleName={accessibleName}
+      />
     </section>
   );
 }

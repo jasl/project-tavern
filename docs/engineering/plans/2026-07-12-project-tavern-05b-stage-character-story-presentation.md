@@ -2695,6 +2695,39 @@ E2E presentation suite, root typecheck and the boundary/cycle gates. Stage exact
 and commit `fix(story-e2e): include route in presentation ui state`. Task 10 begins only from that
 clean repair commit.
 
+#### Authorized pre-Task 10 owner repair: retain the complete E2E Semantic flow
+
+Task 10 replaces the Phase 2 renderer registry with Task 7's seven-namespace contribution
+registry. The accepted Task 7 contribution accidentally reduced the existing E2E application to
+the Interaction-only increment action: its HUD and Narrative contributions render labels but omit
+the already accepted `start → choose → continue → complete` controls. That would make a root
+composition mechanically pass while regressing the production Semantic flow and the Phase 2
+browser contract. Restore those existing actions before composing the new root; this adds no
+Gameplay, command mapping, optimistic state or second Semantic cache.
+
+**Files:**
+
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.test.tsx`
+- Modify: this Phase 5B plan.
+
+The HUD contribution receives the narrow current `{ game, actions }` slice and renders only
+`action.e2e.start` and `action.e2e.complete`. The Narrative contribution receives the same narrow
+shape and renders only `action.e2e.choose` and `action.e2e.continue`. The Interaction contribution
+remains the sole increment control, so one accessible name never dispatches through two controls.
+Every control is `SemanticActionControlV1` over the exact descriptor option already present in the
+current atomic publication. Labels, group names and disabled reasons resolve through the existing
+E2E TextCatalog; no renderer constructs a Gameplay command or raw fallback label. Terminal state
+renders no flow controls.
+
+The qualifying RED is the focused contribution test failing to find the native `开始流程` control.
+After GREEN, prove all five flow controls, exact published invocation identity, disabled accessible
+reasons, one increment instance and terminal cleanup. Run the focused contribution test, complete
+E2E presentation and current application-root suites, root typecheck and boundary/cycle gates.
+Stage exactly the Files above and commit
+`fix(story-e2e): retain complete semantic controls`. Task 10 begins only from that clean repair
+commit.
+
 ### Task 10: Compose Exactly Two Story-Owned Web Application Roots
 
 **Files:**
