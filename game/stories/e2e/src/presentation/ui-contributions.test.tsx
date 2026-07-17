@@ -137,8 +137,9 @@ async function createContributionFixtureV1() {
     activeCueId: string | null = null,
   ): E2eRuntimePresentationViewV1 {
     const uiState = Object.freeze({
-      interaction: initialInteractionSessionStateV1,
+      route: "play",
       primaryOverlayId: "overlay.e2e.test_panel",
+      interaction: initialInteractionSessionStateV1,
       activeCueId,
     }) satisfies E2ePresentationUiStateV1;
     return projectE2eRuntimePresentationV1(

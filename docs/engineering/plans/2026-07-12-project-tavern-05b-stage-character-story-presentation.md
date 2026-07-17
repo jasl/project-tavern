@@ -1853,9 +1853,12 @@ Expected: FAIL because the neutral interaction fixture, runtime projector, and W
 - [ ] **Step 4: Encode the data-only fixture and SemanticPublication-only projector**
 
 ```ts
+export type E2ePresentationRouteV1 = "main_menu" | "play";
+
 export interface E2ePresentationUiStateV1 {
-  readonly interaction: InteractionSessionStateV1;
+  readonly route: E2ePresentationRouteV1;
   readonly primaryOverlayId: string | null;
+  readonly interaction: InteractionSessionStateV1;
   readonly activeCueId: string | null;
 }
 
@@ -2661,6 +2664,36 @@ rejects root `pnpm verify` while these intended bytes are still dirty, so run
 `pnpm verify:materialization` and root `pnpm verify` only from the clean repair commit. Any defect
 found there receives a separate narrow repair commit rather than an amend. Task 10 begins only from
 that clean, fully verified commit.
+
+#### Authorized pre-Task 10 owner repair: restore the E2E Presentation route lens
+
+Task 10 preflight exposed a mechanical omission in Task 7's
+`E2ePresentationUiStateV1`. Task 6 already requires each Story application's one immutable
+Presentation UI state to contain route, primary Overlay, Interaction session and active cue
+together, and Task 10 consumes narrow lenses over that complete source. The Task 7 E2E type
+accidentally omitted only the route even though the corresponding PoC type includes it. Restore
+the owner contract before Task 10; this is not a second router state source or a projector behavior
+change.
+
+**Files:**
+
+- Modify: `game/stories/e2e/src/presentation/runtime-presentation.ts`
+- Modify: `game/stories/e2e/src/presentation/runtime-presentation.test.ts`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.test.tsx`
+- Modify: this Phase 5B plan.
+
+Export `E2ePresentationRouteV1 = "main_menu" | "play"`, add the required `route` field to
+`E2ePresentationUiStateV1`, and use `"play"` in the existing projector and contribution test
+fixtures. Do not make `projectE2eRuntimePresentationV1` branch on route, create a main-menu
+`StageScene`, or introduce another authoritative UI-state object. Task 10's hash adapter and Story
+root own route transitions; the Runtime Presentation store continues to observe the one complete
+UI-state source.
+
+The qualifying RED is the focused root TypeScript diagnostic `TS2724` when the test imports the
+missing `E2ePresentationRouteV1`. After GREEN, run the E2E focused presentation tests, the complete
+E2E presentation suite, root typecheck and the boundary/cycle gates. Stage exactly the Files above
+and commit `fix(story-e2e): include route in presentation ui state`. Task 10 begins only from that
+clean repair commit.
 
 ### Task 10: Compose Exactly Two Story-Owned Web Application Roots
 

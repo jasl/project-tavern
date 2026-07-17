@@ -42,6 +42,7 @@ import type {
 } from "../runtime/e2e-semantic-game-port.js";
 import {
   projectE2eRuntimePresentationV1,
+  type E2ePresentationRouteV1,
   type E2ePresentationUiStateV1,
   type E2eRuntimePresentationViewV1,
 } from "./runtime-presentation.js";
@@ -68,9 +69,12 @@ const incrementDescriptorV1 = Object.freeze({
   options: Object.freeze([incrementInvocationV1]),
 }) satisfies DeepReadonly<E2eIncrementDescriptorV1>;
 
+const defaultE2ePresentationRouteV1: E2ePresentationRouteV1 = "play";
+
 const defaultE2ePresentationUiStateV1 = Object.freeze({
-  interaction: initialInteractionSessionStateV1,
+  route: defaultE2ePresentationRouteV1,
   primaryOverlayId: null,
+  interaction: initialInteractionSessionStateV1,
   activeCueId: null,
 }) satisfies DeepReadonly<E2ePresentationUiStateV1>;
 
@@ -275,8 +279,9 @@ describe("projectE2eRuntimePresentationV1", () => {
 
     expect(input.uiState).toBe(defaultE2ePresentationUiStateV1);
     expect(input.uiState).toEqual({
-      interaction: initialInteractionSessionStateV1,
+      route: "play",
       primaryOverlayId: null,
+      interaction: initialInteractionSessionStateV1,
       activeCueId: null,
     });
     expect(Object.isFrozen(input.uiState)).toBe(true);

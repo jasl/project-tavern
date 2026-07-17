@@ -38,9 +38,12 @@ export type {
   E2eSemanticPublicationV1,
 } from "../runtime/e2e-semantic-game-port.js";
 
+export type E2ePresentationRouteV1 = "main_menu" | "play";
+
 export interface E2ePresentationUiStateV1 {
-  readonly interaction: InteractionSessionStateV1;
+  readonly route: E2ePresentationRouteV1;
   readonly primaryOverlayId: string | null;
+  readonly interaction: InteractionSessionStateV1;
   readonly activeCueId: string | null;
 }
 
