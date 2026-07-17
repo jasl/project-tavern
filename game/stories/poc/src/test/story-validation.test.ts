@@ -30,6 +30,7 @@ import type {
   AppearanceLayerId,
   AssetId,
   CharacterRigId,
+  ContentRequirementV1,
   HitMapId,
   InteractionBehaviorId,
   InteractionSurfaceId,
@@ -220,6 +221,13 @@ function sortedUniqueStringsV1(values: readonly string[]): readonly string[] {
   return [...new Set(values)].sort(compareCodePointsV1);
 }
 
+function allPocContentRequirementsV1(): readonly ContentRequirementV1[] {
+  return Object.freeze([
+    ...pocSceneGraphV1.variants.map((variant) => variant.content),
+    ...pocSceneGraphV1.interactionBehaviors.map((behavior) => behavior.content),
+  ]);
+}
+
 function expectStrictJsonDataOnlyV1(value: unknown, path = "$", seen = new Set<object>()): void {
   if (
     value === null ||
@@ -251,12 +259,14 @@ function expectStrictJsonDataOnlyV1(value: unknown, path = "$", seen = new Set<o
 function resolvePocStoryWithAssetFixtureV1(input: {
   readonly assetSlots?: readonly unknown[];
   readonly assetPacks?: readonly unknown[];
+  readonly uiSceneGraph?: typeof pocSceneGraphV1;
 }) {
   const source = pocStoryEntryV1.define();
   const definition = Object.freeze({
     simulation: source.simulation,
     presentation: Object.freeze({
       ...source.presentation,
+      uiSceneGraph: input.uiSceneGraph ?? source.presentation.uiSceneGraph,
       assetSlots: input.assetSlots ?? source.presentation.assetSlots,
       assetPacks: input.assetPacks ?? source.presentation.assetPacks,
     }),
@@ -598,12 +608,9 @@ describe("complete Story composition", () => {
       defaultAllowedFlags: 0,
     });
     expect(pocStandardContentRequirementV1).toEqual({ requiredFlags: 0 });
-    for (const variant of pocSceneGraphV1.variants) {
-      expect(variant.content.requiredFlags, variant.variantId).toBe(0);
-    }
-    for (const behavior of pocInteractionBehaviorsV1) {
-      expect(behavior.content.requiredFlags, behavior.behaviorId).toBe(0);
-    }
+    expect(allPocContentRequirementsV1().every(({ requiredFlags }) => requiredFlags === 0)).toBe(
+      true,
+    );
   });
 
   it("publishes one complete nonblank zh-CN TextCatalog including the truthful empty setting", () => {
@@ -678,6 +685,34 @@ describe("PoC resolved Asset provider contract", () => {
     );
     expect(resolved.provenance.resolved.presentationDigest).not.toBe(
       base.provenance.resolved.presentationDigest,
+    );
+  });
+
+  it("partitions a catalog layout edit to presentation identity", () => {
+    const base = resolvePocStoryWithAssetFixtureV1({});
+    const layoutEditedGraph = Object.freeze({
+      ...pocSceneGraphV1,
+      variants: Object.freeze(
+        pocSceneGraphV1.variants.map((variant, index) =>
+          index === 0
+            ? Object.freeze({
+                ...variant,
+                layout: Object.freeze({ ...variant.layout, logicalWidth: 1599 }),
+              })
+            : variant,
+        ),
+      ),
+    }) as typeof pocSceneGraphV1;
+    const changed = resolvePocStoryWithAssetFixtureV1({ uiSceneGraph: layoutEditedGraph });
+
+    expect(changed.provenance.resolved.presentationDigest).not.toBe(
+      base.provenance.resolved.presentationDigest,
+    );
+    expect(changed.provenance.resolved.stateContractDigest).toBe(
+      base.provenance.resolved.stateContractDigest,
+    );
+    expect(changed.provenance.resolved.simulationDigest).toBe(
+      base.provenance.resolved.simulationDigest,
     );
   });
 
