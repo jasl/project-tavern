@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildE2eSessionZeroFixtureBytesV1,
+  e2eVectorSeedV1,
+  resolveE2eReviewedVectorProvenanceV1,
   resolveE2eVectorGameV1,
 } from "./verify-determinism.mts";
 
@@ -16,7 +18,12 @@ const {
 const { e2eGameStateSchemaV1 } = await import("../src/gameplay/contracts/index.ts");
 
 const resolvedGame = await resolveE2eVectorGameV1();
-const expectedBytes = buildE2eSessionZeroFixtureBytesV1(resolvedGame);
+const reviewedProvenance = resolveE2eReviewedVectorProvenanceV1(resolvedGame);
+const expectedBytes = buildE2eSessionZeroFixtureBytesV1(
+  resolvedGame,
+  e2eVectorSeedV1,
+  reviewedProvenance,
+);
 const path = fileURLToPath(new URL("../fixtures/session-zero.json", import.meta.url));
 const bytes = await readFile(path);
 if (!bytes.equals(Buffer.from(expectedBytes))) {
@@ -32,9 +39,9 @@ parseNonZeroUint32(decoded.rngSeed);
 createGameSnapshotEnvelopeSchemaV1(e2eGameStateSchemaV1, rngStateV1Schema).parse(decoded.snapshot);
 if (
   !Buffer.from(canonicalJsonBytes(decoded.provenance)).equals(
-    Buffer.from(canonicalJsonBytes(resolvedGame.provenance)),
+    Buffer.from(canonicalJsonBytes(reviewedProvenance)),
   )
 ) {
-  throw new TypeError("E2E fixture provenance differs from its resolved Story");
+  throw new TypeError("E2E fixture provenance differs from its reviewed provenance");
 }
 console.log("e2e fixture verification passed");

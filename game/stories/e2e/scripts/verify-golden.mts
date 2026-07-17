@@ -2,10 +2,20 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { buildE2eSemanticGoldenBytesV1, resolveE2eVectorGameV1 } from "./verify-determinism.mts";
+import {
+  buildE2eSemanticGoldenBytesV1,
+  e2eVectorSeedV1,
+  resolveE2eReviewedVectorProvenanceV1,
+  resolveE2eVectorGameV1,
+} from "./verify-determinism.mts";
 
 const resolvedGame = await resolveE2eVectorGameV1();
-const expectedBytes = await buildE2eSemanticGoldenBytesV1(resolvedGame);
+const reviewedProvenance = resolveE2eReviewedVectorProvenanceV1(resolvedGame);
+const expectedBytes = await buildE2eSemanticGoldenBytesV1(
+  resolvedGame,
+  e2eVectorSeedV1,
+  reviewedProvenance,
+);
 const path = fileURLToPath(new URL("../golden/semantic-flow.json", import.meta.url));
 let bytes: Buffer;
 try {

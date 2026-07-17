@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type {
+  BuildProvenanceV1,
   CommandExecutionAttemptEnvelopeV1,
   DeepReadonly,
   NonZeroUint32,
@@ -33,6 +34,11 @@ const {
   resolveGamePackageV1,
 } = await import("@sillymaker/base");
 const { createGameSessionV1 } = await import("@sillymaker/base/runtime");
+const {
+  isRuntimeFixtureProvenanceCurrentV1,
+  projectRuntimeFixtureProvenanceV1,
+  runtimeFixtureProvenanceV1,
+} = await import("../src/runtime/runtime-fixture-provenance.ts");
 const { createE2eSemanticGamePortV1 } = await import("../src/runtime/e2e-semantic-game-port.ts");
 const { runE2eHeadlessSequenceV1 } = await import("../src/runtime/headless-runner.ts");
 const { createE2eInitialSnapshotV1 } = await import("../src/session.ts");
@@ -94,12 +100,44 @@ export async function resolveE2eVectorGameV1(
   return result.resolved;
 }
 
+export function resolveE2eReviewedVectorProvenanceV1(
+  resolvedGame: E2eResolvedGameV1,
+): DeepReadonly<BuildProvenanceV1> {
+  const frozen = runtimeFixtureProvenanceV1;
+  const projected = projectRuntimeFixtureProvenanceV1(
+    resolvedGame.provenance,
+    frozen.diagnosticAtGeneration.appBuildId,
+  );
+  if (!isRuntimeFixtureProvenanceCurrentV1(projected, frozen, "read_only_verification")) {
+    throw new TypeError("E2E reviewed vector blocking provenance drifted");
+  }
+  return Object.freeze({
+    story: Object.freeze({
+      id: frozen.blocking.storyId,
+      revision: frozen.blocking.storyRevision,
+      digest: frozen.diagnosticAtGeneration.storyDigest,
+    }),
+    engine: Object.freeze({
+      version: frozen.diagnosticAtGeneration.engineVersion,
+      digest: frozen.blocking.engineDigest,
+    }),
+    resolved: Object.freeze({
+      stateContractRevision: frozen.blocking.stateContractRevision,
+      stateContractDigest: frozen.blocking.stateContractDigest,
+      simulationDigest: frozen.blocking.simulationDigest,
+      presentationDigest: frozen.diagnosticAtGeneration.presentationDigest,
+      patchSet: frozen.diagnosticAtGeneration.patchSet,
+    }),
+  });
+}
+
 export function createE2eSessionZeroFixtureV1(
   resolvedGame: E2eResolvedGameV1,
   seed: NonZeroUint32 = e2eVectorSeedV1,
+  provenance: DeepReadonly<BuildProvenanceV1> = resolvedGame.provenance,
 ) {
   return Object.freeze({
-    provenance: resolvedGame.provenance,
+    provenance,
     rngSeed: seed,
     snapshot: createE2eInitialSnapshotV1(resolvedGame.gameSimulation, { rngSeed: seed }),
   });
@@ -108,8 +146,9 @@ export function createE2eSessionZeroFixtureV1(
 export function buildE2eSessionZeroFixtureBytesV1(
   resolvedGame: E2eResolvedGameV1,
   seed: NonZeroUint32 = e2eVectorSeedV1,
+  provenance: DeepReadonly<BuildProvenanceV1> = resolvedGame.provenance,
 ): Uint8Array {
-  return canonicalLineBytesV1(createE2eSessionZeroFixtureV1(resolvedGame, seed));
+  return canonicalLineBytesV1(createE2eSessionZeroFixtureV1(resolvedGame, seed, provenance));
 }
 
 export async function createE2eSemanticVectorV1(
@@ -189,9 +228,10 @@ export async function createE2eSemanticVectorV1(
 export async function createE2eSemanticGoldenV1(
   resolvedGame: E2eResolvedGameV1,
   seed: NonZeroUint32 = e2eVectorSeedV1,
+  provenance: DeepReadonly<BuildProvenanceV1> = resolvedGame.provenance,
 ) {
   return Object.freeze({
-    provenance: resolvedGame.provenance,
+    provenance,
     ...(await createE2eSemanticVectorV1(resolvedGame, seed)),
   });
 }
@@ -199,8 +239,9 @@ export async function createE2eSemanticGoldenV1(
 export async function buildE2eSemanticGoldenBytesV1(
   resolvedGame: E2eResolvedGameV1,
   seed: NonZeroUint32 = e2eVectorSeedV1,
+  provenance: DeepReadonly<BuildProvenanceV1> = resolvedGame.provenance,
 ): Promise<Uint8Array> {
-  return canonicalLineBytesV1(await createE2eSemanticGoldenV1(resolvedGame, seed));
+  return canonicalLineBytesV1(await createE2eSemanticGoldenV1(resolvedGame, seed, provenance));
 }
 
 async function verifyDeterminismV1(): Promise<void> {
