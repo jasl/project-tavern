@@ -1,0 +1,26 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "./tsconfig.application.tsbuildinfo",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/application/create-poc-semantic-port.ts",
+    "src/presentation/hud/**/*.tsx",
+    "src/presentation/overlays/**/*.tsx",
+    "src/presentation/runtime/**/*.ts",
+    "src/presentation/scenes/**/*.tsx",
+    "src/presentation/symbols/**/*.tsx",
+    "src/presentation/ui-contributions.tsx"
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+  "references": [
+    { "path": "." },
+    { "path": "../../../engine/packages/base" },
+    { "path": "../../../engine/packages/ui" }
+  ]
+}

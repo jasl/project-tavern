@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 */
+
+.poc-scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  overflow: hidden;
+  inline-size: 100%;
+  block-size: 100%;
+  place-items: stretch;
+  pointer-events: none;
+  user-select: none;
+}
+
+.poc-scene > * {
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.poc-scene__image {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: center;
+}

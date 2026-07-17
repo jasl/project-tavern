@@ -1,0 +1,79 @@
+/* SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 */
+
+.poc-hud__date {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.poc-hud__status,
+.poc-hud__meters,
+.poc-hud__economy {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--silly-space-2);
+  align-items: center;
+}
+
+.poc-hud__status {
+  justify-content: center;
+}
+
+.poc-hud__action-points,
+.poc-hud__metric,
+.poc-hud__meter-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.poc-hud__action-points {
+  font-weight: 700;
+}
+
+.poc-hud__meter {
+  display: grid;
+  min-inline-size: 9rem;
+  grid-template-columns: auto minmax(3.5rem, 1fr) auto;
+  gap: var(--silly-space-1);
+  align-items: center;
+}
+
+.poc-hud__meter-label,
+.poc-hud__metric {
+  display: inline-flex;
+  gap: var(--silly-space-1);
+  align-items: center;
+}
+
+.poc-hud__meter-progress {
+  inline-size: 100%;
+}
+
+.poc-hud__meter-value {
+  color: var(--silly-color-text-muted);
+  font-size: 0.875em;
+}
+
+.poc-hud__economy {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@container game-stage (max-width: 58rem) {
+  .poc-hud__status,
+  .poc-hud__meters {
+    flex-wrap: wrap;
+  }
+
+  .poc-hud__meter {
+    min-inline-size: min(100%, 11rem);
+  }
+}
+
+@media (aspect-ratio < 4 / 3) {
+  .poc-hud__status,
+  .poc-hud__meters,
+  .poc-hud__economy {
+    justify-content: flex-start;
+  }
+}

@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 */
+
+.poc-game-symbol {
+  display: inline-block;
+  flex: 0 0 auto;
+  overflow: visible;
+  color: currentcolor;
+  pointer-events: none;
+  user-select: none;
+}
