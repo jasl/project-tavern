@@ -5,7 +5,7 @@ import { parseInputActionIdV1 } from "../input/contracts.js";
 import { createInputRouterV1 } from "../input/input-router.js";
 import { GameShell } from "../shell/game-shell.js";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { resolve, sep } from "node:path";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -633,7 +633,16 @@ describe("DevDockV1", () => {
     expect(stageActivation).not.toHaveBeenCalled();
     expect(semanticDispatch).not.toHaveBeenCalled();
 
-    const css = await readFile(resolve(process.cwd(), "src/debug/DevDock.module.css"), "utf8");
+    const packageRelativePath = process.cwd().endsWith(`${sep}engine${sep}packages${sep}ui`);
+    const css = await readFile(
+      resolve(
+        process.cwd(),
+        packageRelativePath
+          ? "src/debug/DevDock.module.css"
+          : "engine/packages/ui/src/debug/DevDock.module.css",
+      ),
+      "utf8",
+    );
     expect(css).toMatch(/\.dev-dock\[data-devdock-open="true"\]\s*\{[^}]*pointer-events:\s*auto/gu);
   });
 
