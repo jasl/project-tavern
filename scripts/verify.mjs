@@ -18,7 +18,7 @@ export const coreVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["verify:fixtures"]],
   ["pnpm", ["verify:golden"]],
   ["pnpm", ["verify:determinism"]],
-  ["pnpm", ["verify:phase5a"]],
+  ["pnpm", ["verify:phase5b"]],
   ["pnpm", ["verify:semantic"]],
   ["pnpm", ["test:scripts"]],
   ["pnpm", ["typecheck"]],

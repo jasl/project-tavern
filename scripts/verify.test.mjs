@@ -16,7 +16,7 @@ test("keeps the ordered core gate read-only", () => {
   assert.equal(coreVerificationCommandsV1[0]?.[1]?.[0], "format:check");
   assert.equal(coreVerificationCommandsV1[1]?.[1]?.[0], "verify:docs");
   assert.deepEqual(coreVerificationCommandsV1[9], ["pnpm", ["verify:determinism"]]);
-  assert.deepEqual(coreVerificationCommandsV1[10], ["pnpm", ["verify:phase5a"]]);
+  assert.deepEqual(coreVerificationCommandsV1[10], ["pnpm", ["verify:phase5b"]]);
   assert.deepEqual(coreVerificationCommandsV1[11], ["pnpm", ["verify:semantic"]]);
   assert.equal(coreVerificationCommandsV1.at(-5)?.[1]?.[0], "build");
   assert(!coreVerificationCommandsV1.flat(2).some((value) => /update|regenerate/u.test(value)));
@@ -24,7 +24,8 @@ test("keeps the ordered core gate read-only", () => {
   assert(!coreVerificationCommandsV1.flat(2).includes("verify:toolchain"));
   assert(!coreVerificationCommandsV1.flat(2).includes("verify:licensing"));
   const childNames = coreVerificationCommandsV1.map(([, args]) => args[0]);
-  assert.equal(childNames.filter((name) => name === "verify:phase5a").length, 1);
+  assert.equal(childNames.filter((name) => name === "verify:phase5b").length, 1);
+  assert.equal(childNames.includes("verify:phase5a"), false);
   assert.equal(childNames.includes("verify:phase4"), false);
   assert.equal(childNames.includes("verify:assets"), false);
   assert.equal(childNames.includes("verify:ui"), false);
@@ -36,7 +37,7 @@ test("keeps the ordered core gate read-only", () => {
   assert.equal(new Set(commandLines).size, commandLines.length);
 });
 
-test("maps one cumulative Phase 5A root child", async () => {
+test("maps one cumulative Phase 5B root child", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
@@ -45,13 +46,23 @@ test("maps one cumulative Phase 5A root child", async () => {
     "node --experimental-strip-types scripts/ui/verify-ui.mts",
   );
   assert.equal(packageJson.scripts["verify:phase5a"], "pnpm verify:phase4 && pnpm verify:ui");
+  assert.equal(
+    packageJson.scripts["verify:story-presentation"],
+    "node --experimental-strip-types scripts/ui/verify-stage-presentation.mts",
+  );
+  assert.equal(
+    packageJson.scripts["verify:phase5b"],
+    "pnpm verify:phase5a && pnpm verify:story-presentation",
+  );
 
   const childNames = coreVerificationCommandsV1.map(([, args]) => args[0]);
-  assert.equal(childNames.filter((name) => name === "verify:phase5a").length, 1);
+  assert.equal(childNames.filter((name) => name === "verify:phase5b").length, 1);
   assert.equal(childNames.filter((name) => name === "verify:semantic").length, 1);
+  assert.equal(childNames.includes("verify:phase5a"), false);
   assert.equal(childNames.includes("verify:phase4"), false);
   assert.equal(childNames.includes("verify:assets"), false);
   assert.equal(childNames.includes("verify:ui"), false);
+  assert.equal(childNames.includes("verify:story-presentation"), false);
 });
 
 test("appends the four final browser owners in order", () => {

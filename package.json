@@ -53,6 +53,8 @@
     "verify:poc-story": "node --experimental-strip-types scripts/verify-poc-story.mts",
     "verify:phase4": "pnpm verify:poc-gameplay && pnpm verify:poc-story",
     "verify:phase5a": "pnpm verify:phase4 && pnpm verify:ui",
+    "verify:story-presentation": "node --experimental-strip-types scripts/ui/verify-stage-presentation.mts",
+    "verify:phase5b": "pnpm verify:phase5a && pnpm verify:story-presentation",
     "release:prepare": "pnpm build:e2e && node scripts/prepare-artifact.mjs dist/e2e",
     "regenerate:fixtures": "pnpm --filter @project-tavern/story-e2e regenerate:fixtures",
     "update:golden": "pnpm --filter @project-tavern/story-e2e update:golden",
