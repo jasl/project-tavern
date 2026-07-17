@@ -24,6 +24,7 @@ import type {
   PocResolvedPresentationCatalogV1,
   PocSemanticPublicationV1,
 } from "./contracts.js";
+import { isPocNarrativeOpenV1 } from "./contracts.js";
 import { projectPocRuntimePresentationV1 } from "./project-poc-runtime-presentation.js";
 
 const baselineSemanticV1 = createPocStoryHarnessV1({
@@ -67,6 +68,12 @@ const narrativeFixtureV1 = Object.freeze({
   choices: Object.freeze([]),
   latestResolvedCheck: null,
 }) satisfies DeepReadonly<NarrativeProjectionV1>;
+
+function narrativeWithStatusV1(
+  status: NarrativeProjectionV1["status"],
+): DeepReadonly<NarrativeProjectionV1> {
+  return Object.freeze({ ...narrativeFixtureV1, status });
+}
 
 async function enterActiveRunV1(
   semantic: ReturnType<typeof createPocStoryHarnessV1>["semantic"],
@@ -154,6 +161,18 @@ function projectFixtureV1(input: {
 }
 
 describe("projectPocRuntimePresentationV1", () => {
+  it.each([
+    ["missing", null, false],
+    ["idle", narrativeWithStatusV1("idle"), false],
+    ["active", narrativeWithStatusV1("active"), true],
+    ["completed", narrativeWithStatusV1("completed"), false],
+  ] as const)(
+    "classifies %s Narrative with the exact shared open predicate",
+    (_name, narrative, open) => {
+      expect(isPocNarrativeOpenV1(narrative)).toBe(open);
+    },
+  );
+
   it.each([
     [
       "main_menu",

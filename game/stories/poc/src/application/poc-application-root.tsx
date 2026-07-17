@@ -448,6 +448,7 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
     system: (
       <SystemDialogHostV1
         inputRouter={runtime.input}
+        store={runtime.rendering.systemDialogSession}
         settings={Object.freeze({
           title: "设置",
           closeLabel: presentation.text(pocTextIdsV1.controlCloseLabel).text,

@@ -52,6 +52,7 @@ import type {
 import { createE2eInitialSnapshotV1 } from "../session.js";
 import { e2eStoryEntryV1 } from "../story-entry.js";
 import type { E2eResolvedGameV1 } from "../story-entry.js";
+import { createE2eDebugBundleCodecV1, createE2eReplayInputV1 } from "./e2e-debug-bundle.js";
 
 type E2eFinalizedAttemptV1 = FinalizedCommandAttemptV1<
   E2eGameSnapshotV1,
@@ -232,7 +233,83 @@ function mutateRetainedCounterFactV1(entries: readonly DeepReadonly<E2eReplayEnt
   });
 }
 
+function createIdentityReplayBundleV1(
+  resolved: E2eResolvedGameV1,
+  recordedAppBuildId?: ReturnType<typeof digestCanonical>,
+) {
+  const gameSimulation = resolved.gameSimulation;
+  const bootstrap = gameSimulation.createBootstrapInput(
+    createFixedBootstrapEntropyV1({ uuids: [], seeds: [0x0002_3049] }),
+  );
+  const snapshot = createE2eInitialSnapshotV1(gameSimulation, bootstrap);
+  const stateDigest = digestCanonical("sillymaker:state:v1", snapshot);
+  return createE2eDebugBundleCodecV1(gameSimulation.stateSchema).bundleSchema.parse({
+    formatRevision: 1,
+    provenance: resolved.provenance,
+    ...(recordedAppBuildId === undefined ? {} : { appBuildId: recordedAppBuildId }),
+    capabilities: { debugTools: false, cheats: false, automationBridge: false },
+    simulationLineage: [],
+    generatedAt: "2026-07-14T00:00:00.000Z",
+    replayBase: snapshot,
+    replayBaseStateDigest: stateDigest,
+    commandLog: [],
+    currentSnapshot: snapshot,
+    currentStateDigest: stateDigest,
+    diagnostics: { invariantCodes: [], recentErrorCodes: [], hmrInvalidated: false },
+    runtimeFailures: [],
+  });
+}
+
 describe("E2E authoritative replay", () => {
+  it("keeps the recorded and current application identities independent", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const recordedAppBuildId = digestCanonical("sillymaker:application:v1", {
+      fixture: "e2e-recorded-build",
+    });
+    const currentAppBuildId = digestCanonical("sillymaker:application:v1", {
+      fixture: "e2e-current-build",
+    });
+    const replayInput = createE2eReplayInputV1(
+      resolved,
+      createIdentityReplayBundleV1(resolved, recordedAppBuildId),
+      currentAppBuildId,
+    );
+
+    expect(replayInput.recordedIdentity.appBuildId).toBe(recordedAppBuildId);
+    expect(replayInput.runtimeIdentity.appBuildId).toBe(currentAppBuildId);
+    await expect(replayAuthoritativelyV1(replayInput)).resolves.toMatchObject({
+      authoritative: true,
+      identityMatch: true,
+      visualMatch: false,
+      matches: true,
+      executedEntries: 0,
+      mismatches: [],
+    });
+  });
+
+  it("does not invent a recorded application identity for a legacy bundle", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const currentAppBuildId = digestCanonical("sillymaker:application:v1", {
+      fixture: "e2e-current-build-for-legacy-bundle",
+    });
+    const replayInput = createE2eReplayInputV1(
+      resolved,
+      createIdentityReplayBundleV1(resolved),
+      currentAppBuildId,
+    );
+
+    expect(replayInput.recordedIdentity).not.toHaveProperty("appBuildId");
+    expect(replayInput.runtimeIdentity.appBuildId).toBe(currentAppBuildId);
+    await expect(replayAuthoritativelyV1(replayInput)).resolves.toMatchObject({
+      authoritative: true,
+      identityMatch: true,
+      visualMatch: false,
+      matches: true,
+      executedEntries: 0,
+      mismatches: [],
+    });
+  });
+
   it("replays the retained 200-entry canonical GameSimulation log without touching live state or persistence", async () => {
     const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
     const gameSimulation = resolved.gameSimulation;
@@ -389,7 +466,7 @@ describe("E2E authoritative replay", () => {
     await expect(replayAuthoritativelyV1(replayInput)).resolves.toEqual({
       authoritative: true,
       identityMatch: true,
-      visualMatch: true,
+      visualMatch: false,
       matches: true,
       executedEntries: 200,
       mismatches: [],
@@ -423,7 +500,7 @@ describe("E2E authoritative replay", () => {
     expect(mutatedComparison).toEqual({
       authoritative: true,
       identityMatch: true,
-      visualMatch: true,
+      visualMatch: false,
       matches: false,
       executedEntries: 200,
       mismatches: [

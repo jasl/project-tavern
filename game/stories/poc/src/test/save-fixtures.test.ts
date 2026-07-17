@@ -47,7 +47,7 @@ function canonicalMutatedSaveBytesV1(record: MutableSaveAuditRecordV1): Uint8Arr
 }
 
 describe("PoC provisional Save fixtures", () => {
-  it("accepts only the live Presentation diagnostic drift in read-only verification", () => {
+  it("matches the complete reviewed live provenance tuple", () => {
     const resolved = resolveStoryForTestV1(pocStoryEntryV1);
     const live = projectPocSaveFixtureProvenanceV1({
       provenance: resolved.provenance,
@@ -55,21 +55,7 @@ describe("PoC provisional Save fixtures", () => {
     });
     const frozen = pocSaveFixtureProvenanceV1;
 
-    expect(live.blocking).toEqual(frozen.blocking);
-    expect(live.diagnosticAtGeneration.presentationDigest).not.toBe(
-      frozen.diagnosticAtGeneration.presentationDigest,
-    );
-    expect({
-      storyDigest: live.diagnosticAtGeneration.storyDigest,
-      patchSet: live.diagnosticAtGeneration.patchSet,
-      engineVersion: live.diagnosticAtGeneration.engineVersion,
-      appBuildId: live.diagnosticAtGeneration.appBuildId,
-    }).toEqual({
-      storyDigest: frozen.diagnosticAtGeneration.storyDigest,
-      patchSet: frozen.diagnosticAtGeneration.patchSet,
-      engineVersion: frozen.diagnosticAtGeneration.engineVersion,
-      appBuildId: frozen.diagnosticAtGeneration.appBuildId,
-    });
+    expect(live).toEqual(frozen);
   });
 
   it("keeps diagnostic-only drift nonblocking for verification and strict for generation", () => {

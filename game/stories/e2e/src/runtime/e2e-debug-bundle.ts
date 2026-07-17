@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
   createDebugBundleEnvelopeSchemaV1,
+  createDebugUiContextSchemaV1,
   createGameSnapshotEnvelopeSchemaV1,
   createTransactionalRngV1,
   parseDigest,
@@ -14,7 +15,9 @@ import type {
   CommandExecutionAttemptEnvelopeV1,
   CommandLogEntryEnvelopeV1,
   DebugBundleEnvelopeV1,
+  DebugUiContextV1,
   DeepReadonly,
+  Digest,
   RngDrawTraceV1,
   RngStateV1,
   RuntimeCapabilitiesV1,
@@ -489,12 +492,6 @@ const e2eDiagnosticSummarySchemaV1: RuntimeSchemaV1<E2eDiagnosticSummaryV1> = Ob
   },
 });
 
-const absentDebugEvidenceSchemaV1: RuntimeSchemaV1<never> = Object.freeze({
-  parse(_value: unknown): never {
-    throw new TypeError("unsupported E2E Debug evidence");
-  },
-});
-
 function createE2eDebugFailureSchemaV1(
   snapshotSchema: RuntimeSchemaV1<E2eGameSnapshotV1>,
 ): RuntimeSchemaV1<E2eDebugFailureV1> {
@@ -589,7 +586,7 @@ export type E2eDebugBundleV1 = DebugBundleEnvelopeV1<
   E2eDiagnosticSummaryV1,
   RuntimeOperationFaultV1,
   E2eDebugFailureV1,
-  never
+  DebugUiContextV1
 >;
 
 export function createE2eDebugBundleCodecV1(
@@ -605,7 +602,7 @@ export function createE2eDebugBundleCodecV1(
     diagnosticsSchema: e2eDiagnosticSummarySchemaV1,
     runtimeFailureSchema: runtimeOperationFaultSchemaV1,
     failureSchema: createE2eDebugFailureSchemaV1(snapshotSchema),
-    uiContextSchema: absentDebugEvidenceSchemaV1,
+    uiContextSchema: createDebugUiContextSchemaV1(),
   });
 
   return Object.freeze({
@@ -808,13 +805,17 @@ export function createE2eReplayDriverV1(
 export function createE2eReplayInputV1(
   resolved: E2eResolvedGameV1,
   bundle: DeepReadonly<E2eDebugBundleV1>,
+  currentAppBuildId?: Digest,
 ): E2eReplayInputV1 {
   return Object.freeze({
     recordedIdentity: Object.freeze({
       provenance: bundle.provenance,
       ...(bundle.appBuildId === undefined ? {} : { appBuildId: bundle.appBuildId }),
     }),
-    runtimeIdentity: Object.freeze({ provenance: resolved.provenance }),
+    runtimeIdentity: Object.freeze({
+      provenance: resolved.provenance,
+      ...(currentAppBuildId === undefined ? {} : { appBuildId: currentAppBuildId }),
+    }),
     replayBase: bundle.replayBase,
     replayBaseStateDigest: bundle.replayBaseStateDigest,
     commandLog: bundle.commandLog,

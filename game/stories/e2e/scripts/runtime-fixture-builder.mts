@@ -113,7 +113,10 @@ type RuntimeFixtureSaveRecordV1 = SaveRecordEnvelopeV1<
 export interface RuntimeFixtureVerificationContextV1 {
   readonly root: string;
   readonly resolved: E2eResolvedGameV1;
+  /** Reviewed identity recorded in generated fixture bytes. */
   readonly appBuildId: Digest;
+  /** Live application identity used only for current-runtime replay classification. */
+  readonly currentAppBuildId: Digest;
   readonly frozenProvenance: RuntimeFixtureProvenanceV1;
   readonly recordProvenance: DeepReadonly<BuildProvenanceV1>;
   readonly codec: SaveCodecContextV1<E2eGameSnapshotV1, RuntimeFixtureSaveRecordV1>;
@@ -587,6 +590,7 @@ export async function createRuntimeFixtureVerificationContextV1(
     root: absoluteRoot,
     resolved,
     appBuildId: fixtureAppBuildId,
+    currentAppBuildId: appBuildId,
     frozenProvenance,
     recordProvenance: buildReviewedRecordProvenanceV1(frozenProvenance),
     codec: codec.codec,
@@ -1116,7 +1120,11 @@ export async function replayTrackedDebugBundleV1(
     throw new TypeError(`runtime fixture Debug Bundle failed to decode: ${decoded.code}`);
   }
   const comparison = await modules.runtime.replayAuthoritativelyV1(
-    modules.debugBundle.createE2eReplayInputV1(context.resolved, decoded.bundle),
+    modules.debugBundle.createE2eReplayInputV1(
+      context.resolved,
+      decoded.bundle,
+      context.currentAppBuildId,
+    ),
   );
   return Object.freeze({
     authoritative: comparison.authoritative,

@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
+  createDebugUiContextSchemaV1,
   createGameSnapshotEnvelopeSchemaV1,
+  parseDigest,
   parseNonNegativeSafeInteger,
   parsePositiveSafeInteger,
   rngStateV1Schema,
 } from "@sillymaker/base";
 import type {
   DebugToolsPortV1,
+  DebugUiContextV1,
   DeepReadonly,
+  Digest,
   ExportedDebugBundleV1,
   ExportedSaveV1,
   GameApplicationPortV1,
@@ -221,14 +225,27 @@ type E2eToolingLoaderV1 = (
 export async function createE2eGameRuntimeV1(input: {
   readonly resolved: E2eResolvedGameV1;
   readonly host: GameHostV1;
+  readonly appBuildId?: Digest;
+  readonly readUiContext?: () => DeepReadonly<DebugUiContextV1> | undefined;
   readonly loadTooling?: E2eToolingLoaderV1;
   readonly rebootstrapDisposition?: DeepReadonly<PersistenceRebootstrapDisposalV1>;
   onRebootstrapLifecycle?(
     lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>,
-  ): void;
+  ): void | PromiseLike<void>;
 }): Promise<E2eGameApplicationPortV1> {
-  return createGameRuntimeV1<E2eGameApplicationPortV1, PersistenceRebootstrapDisposalV1>({
+  const appBuildId = input.appBuildId === undefined ? undefined : parseDigest(input.appBuildId);
+  return createGameRuntimeV1<
+    E2eGameApplicationPortV1,
+    PersistenceRebootstrapDisposalV1,
+    DebugUiContextV1
+  >({
     host: input.host,
+    ...(input.readUiContext === undefined
+      ? {}
+      : {
+          uiContextSchema: createDebugUiContextSchemaV1(),
+          readUiContext: input.readUiContext,
+        }),
     ...(input.onRebootstrapLifecycle === undefined
       ? {}
       : { onRebootstrapLifecycle: input.onRebootstrapLifecycle }),
@@ -236,6 +253,8 @@ export async function createE2eGameRuntimeV1(input: {
       capabilities,
       persistenceIdentity,
       runtimeFailures,
+      uiContextSchema,
+      readUiContext,
       reportObserverFailure,
       reportHmrInvalidated,
       registerRebootstrapLifecycle,
@@ -357,6 +376,7 @@ export async function createE2eGameRuntimeV1(input: {
       const diagnostics = createGameDiagnosticsServiceV1({
         codec: debugBundleCodec,
         provenance: input.resolved.provenance,
+        ...(appBuildId === undefined ? {} : { appBuildId }),
         getCapabilities: () => capabilities.state.getCurrent(),
         getSimulationLineage: () => persistenceService.getSimulationLineage(),
         readAtQueueFront: (reader) => created.runtimeControl.readAtQueueFront(reader),
@@ -370,7 +390,9 @@ export async function createE2eGameRuntimeV1(input: {
         getRuntimeFailures: () => runtimeFailures.entries(),
         getFailure: () => latestFailure,
         scrubFailure: (failure) => failure,
-        getUiContext: () => undefined,
+        ...(uiContextSchema === undefined || readUiContext === undefined
+          ? {}
+          : { uiContextSchema, readUiContext }),
         metadataClock: input.host.metadataClock,
         exportFilename: "project-tavern-e2e.debug-bundle.json",
       });
@@ -415,7 +437,7 @@ export async function createE2eGameRuntimeV1(input: {
       ): Promise<E2eDebugReplayResultV1> => {
         const decoded = decodeDebugBundleV1(bytes, debugBundleCodec);
         if (decoded.kind === "rejected") return decoded;
-        const replayInput = createE2eReplayInputV1(input.resolved, decoded.bundle);
+        const replayInput = createE2eReplayInputV1(input.resolved, decoded.bundle, appBuildId);
         const comparison =
           mode === "authoritative"
             ? await replayAuthoritativelyV1(replayInput)
@@ -556,7 +578,7 @@ export async function createE2eGameRuntimeV1(input: {
                 });
               }
               const comparison = await replayAuthoritativelyV1(
-                createE2eReplayInputV1(input.resolved, decoded.bundle),
+                createE2eReplayInputV1(input.resolved, decoded.bundle, appBuildId),
               );
               if (!comparison.authoritative || !comparison.identityMatch || !comparison.matches) {
                 return Object.freeze({

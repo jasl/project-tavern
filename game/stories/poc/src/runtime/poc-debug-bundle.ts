@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import {
+  createDebugUiContextSchemaV1,
   createDebugBundleEnvelopeSchemaV1,
   createGameSnapshotEnvelopeSchemaV1,
   createPristineRunIntegrityV1,
@@ -14,6 +15,7 @@ import {
 } from "@sillymaker/base";
 import type {
   DebugBundleEnvelopeV1,
+  DebugUiContextV1,
   DebugToolsPortV1,
   DeepReadonly,
   Digest,
@@ -159,7 +161,7 @@ export type PocDebugBundleV1 = DebugBundleEnvelopeV1<
   PocDiagnosticSummaryV1,
   RuntimeOperationFaultV1,
   PocDebugFailureV1,
-  never
+  DebugUiContextV1
 >;
 
 export type PocDebugCommandResultV1 =
@@ -761,12 +763,6 @@ const diagnosticSummarySchemaV1: RuntimeSchemaV1<PocDiagnosticSummaryV1> = Objec
   },
 });
 
-const absentUiContextSchemaV1: RuntimeSchemaV1<never> = Object.freeze({
-  parse(): never {
-    throw new TypeError("unsupported PoC Debug UI context");
-  },
-});
-
 function createPocDebugFailureSchemaV1(): RuntimeSchemaV1<PocDebugFailureV1> {
   return Object.freeze({
     parse(value: unknown): PocDebugFailureV1 {
@@ -871,7 +867,7 @@ export function createPocDebugBundleCodecV1(): DebugBundleCodecContextV1<
     diagnosticsSchema: diagnosticSummarySchemaV1,
     runtimeFailureSchema: runtimeOperationFaultSchemaV1,
     failureSchema: createPocDebugFailureSchemaV1(),
-    uiContextSchema: absentUiContextSchemaV1,
+    uiContextSchema: createDebugUiContextSchemaV1(),
   });
 
   return Object.freeze({

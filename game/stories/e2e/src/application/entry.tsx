@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { resolveGamePackageV1 } from "@sillymaker/base";
+import { digestCanonical, resolveGamePackageV1 } from "@sillymaker/base";
 import type { BuildProvenanceV1, GameHostV1 } from "@sillymaker/base";
 import type { PersistenceRebootstrapDisposalV1 } from "@sillymaker/base/runtime";
 import {
@@ -118,10 +118,12 @@ export async function createE2eApplicationCompositionV1(input: {
   if (bootstrapped.kind !== "ready") {
     throw new TypeError(`E2e bootstrap failed: ${bootstrapped.code}`);
   }
+  const appBuildId = digestCanonical("sillymaker:application:v1", e2eBuildIdentityV1.application);
   let lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
   const presentationRuntime = await createE2ePresentationRuntimeV1({
     resolved: bootstrapped.resolved,
     host: input.host,
+    appBuildId,
     environment: input.environment ?? resolveDefaultE2ePresentationEnvironmentV1(),
     ...(input.rebootstrapDisposition === undefined
       ? {}

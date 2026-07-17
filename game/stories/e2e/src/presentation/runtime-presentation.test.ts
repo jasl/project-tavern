@@ -41,6 +41,7 @@ import type {
   E2eSemanticPublicationV1,
 } from "../runtime/e2e-semantic-game-port.js";
 import {
+  isE2eNarrativeOpenV1,
   projectE2eRuntimePresentationV1,
   type E2ePresentationRouteV1,
   type E2ePresentationUiStateV1,
@@ -195,6 +196,15 @@ function projectE2ePresentationFixtureV1(flowStatus: E2eGameViewV1["flow"]["stat
 }
 
 describe("projectE2eRuntimePresentationV1", () => {
+  it.each([
+    ["idle", false],
+    ["choosing", true],
+    ["blocked", true],
+    ["resolved", false],
+  ] as const)("shares the exact E2E Narrative predicate for %s", (status, expected) => {
+    expect(isE2eNarrativeOpenV1(status)).toBe(expected);
+  });
+
   it("uses the neutral Phase 2 fixture without introducing PoC semantics", () => {
     expect(e2eInteractionFixtureV1.stageScenes.map((scene) => scene.stageSceneId)).toEqual([
       "stage_scene.e2e.main",

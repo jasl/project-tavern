@@ -44,6 +44,7 @@ import { pocStoryEntryV1 } from "../story-definition.js";
 import { pocResolvedPresentationCatalogV1 } from "./assets.js";
 import { pocContentMaturityPolicyV1 } from "./content-maturity-policy.js";
 import type { PocPresentationUiStateV1 } from "./runtime/contracts.js";
+import { isPocNarrativeOpenV1 } from "./runtime/contracts.js";
 import { projectPocRuntimePresentationV1 } from "./runtime/project-poc-runtime-presentation.js";
 import { pocSceneGraphV1, pocStageRendererIdsV1 } from "./scene-graph.js";
 import { pocGameSymbolRegistryV1 } from "./symbols/poc-game-symbols.js";
@@ -118,12 +119,13 @@ const narrativeDescriptorV1 = Object.freeze({
 >;
 
 function narrativeFixtureV1(input?: {
+  readonly status?: NarrativeProjectionV1["status"];
   readonly enabled?: boolean;
   readonly disabledReasonId?: (typeof reasonIdsV1)[number];
 }): DeepReadonly<NarrativeProjectionV1> {
   const enabled = input?.enabled ?? true;
   return Object.freeze({
-    status: "active",
+    status: input?.status ?? "active",
     cursor: Object.freeze({ sceneId: sceneIdsV1[1], nodeId: nodeIdsV1[2] }),
     stage: Object.freeze({
       backgroundAssetId: null,
@@ -413,6 +415,36 @@ describe("pocUiContributionsV1", () => {
     expect(dispatch).toHaveBeenCalledOnce();
     expect(dispatch.mock.calls[0]?.[0]).toBe(narrativeInvocationV1);
   });
+
+  it.each([
+    ["missing", null],
+    ["idle", narrativeFixtureV1({ status: "idle" })],
+    ["active", narrativeFixtureV1({ status: "active" })],
+    ["completed", narrativeFixtureV1({ status: "completed" })],
+  ] as const)(
+    "renders %s Narrative exactly when the shared predicate is open",
+    (_name, narrative) => {
+      const semantic = Object.freeze({ dispatch: vi.fn() }) as unknown as PocSemanticGamePortV1;
+      const NarrativeRenderer = narrativeRendererV1();
+
+      render(
+        <InputContextProviderV1 router={createInputRouterV1()}>
+          <NarrativeRenderer
+            viewSlice={Object.freeze({
+              narrative,
+              actions: Object.freeze([narrativeDescriptorV1]),
+            })}
+            semantic={semantic}
+            presentation={presentationFixtureV1()}
+          />
+        </InputContextProviderV1>,
+      );
+
+      expect(screen.queryByRole("dialog", { name: "旅店的一周" }) !== null).toBe(
+        isPocNarrativeOpenV1(narrative),
+      );
+    },
+  );
 
   it("keeps authored disabled Narrative choices visible and invocation-free", () => {
     const dispatch = vi.fn((_invocation: DeepReadonly<PocSemanticInvocationV1>) => undefined);

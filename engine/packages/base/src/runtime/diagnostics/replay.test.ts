@@ -446,6 +446,22 @@ describe("authoritative replay", () => {
     });
   });
 
+  it("does not claim an exact visual match when both application identities are absent", async () => {
+    const fixture = fixtureV1();
+    const result = await replayAuthoritativelyV1({
+      ...fixture.input,
+      recordedIdentity: identityV1(fixture.input.recordedIdentity.provenance),
+      runtimeIdentity: identityV1(fixture.input.runtimeIdentity.provenance),
+    });
+
+    expect(result).toMatchObject({
+      authoritative: true,
+      identityMatch: true,
+      visualMatch: false,
+      matches: true,
+    });
+  });
+
   it("compares mixed outcomes, ordered facts, digests, sequence, and every RNG field", async () => {
     const fixture = fixtureV1();
     await expect(replayAuthoritativelyV1(fixture.input)).resolves.toEqual({
@@ -484,11 +500,12 @@ describe("authoritative replay", () => {
     const second = entryV1(2, first.after, debug);
     const submitted: SyntheticLoggedCommandV1[] = [];
     const provenance = provenanceV1();
+    const appBuildId = digestV1("app-build");
 
     await expect(
       replayAuthoritativelyV1({
-        recordedIdentity: identityV1(provenance),
-        runtimeIdentity: identityV1(provenance),
+        recordedIdentity: identityV1(provenance, appBuildId),
+        runtimeIdentity: identityV1(provenance, appBuildId),
         replayBase,
         replayBaseStateDigest: stateDigestV1(replayBase),
         commandLog: Object.freeze([first.entry, second.entry]),

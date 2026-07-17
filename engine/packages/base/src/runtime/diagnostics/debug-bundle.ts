@@ -71,7 +71,7 @@ type StandardDebugBundleV1<
   TUiContext
 >;
 
-export interface CreateGameDiagnosticsServiceInputV1<
+export type CreateGameDiagnosticsServiceInputV1<
   TProvenance,
   TCapabilities,
   TSimulationLineage,
@@ -79,8 +79,8 @@ export interface CreateGameDiagnosticsServiceInputV1<
   TCommandLogEntry,
   TDiagnostics,
   TFailure,
-  TUiContext,
-> {
+  TUiContext = never,
+> = {
   readonly codec: DebugBundleCodecContextV1<
     TSnapshot,
     StandardDebugBundleV1<
@@ -106,10 +106,18 @@ export interface CreateGameDiagnosticsServiceInputV1<
   getRuntimeFailures(): readonly DeepReadonly<RuntimeOperationFaultV1>[];
   getFailure(): DeepReadonly<TFailure> | undefined;
   scrubFailure(failure: DeepReadonly<TFailure>): DeepReadonly<TFailure>;
-  getUiContext(): DeepReadonly<TUiContext> | undefined;
   readonly metadataClock: { now(): IsoUtcInstant };
   readonly exportFilename: string;
-}
+} & (
+  | {
+      readonly uiContextSchema: RuntimeSchemaV1<TUiContext>;
+      readonly readUiContext: () => unknown;
+    }
+  | {
+      readonly uiContextSchema?: undefined;
+      readonly readUiContext?: undefined;
+    }
+);
 
 function hasMatchingStateDigestV1<TSnapshot>(snapshot: TSnapshot, digest: Digest): boolean {
   return digest === digestCanonical("sillymaker:state:v1", snapshot);
@@ -235,6 +243,15 @@ export function createGameDiagnosticsServiceV1<
   ) {
     throw new TypeError("invalid Debug Bundle export filename");
   }
+  const uiContextSchema = input.uiContextSchema;
+  const readUiContext = input.readUiContext;
+  if ((uiContextSchema === undefined) !== (readUiContext === undefined)) {
+    throw new TypeError("Debug Bundle UI-context schema and reader must be supplied together");
+  }
+  const uiContextProvider =
+    uiContextSchema === undefined || readUiContext === undefined
+      ? undefined
+      : Object.freeze({ schema: uiContextSchema, read: readUiContext });
 
   return Object.freeze({
     async exportDebugBundle(): Promise<ExportedDebugBundleV1> {
@@ -242,7 +259,9 @@ export function createGameDiagnosticsServiceV1<
         return await input.readAtQueueFront((currentSnapshot) => {
           const replay = input.getReplayEvidence();
           const failure = input.getFailure();
-          const uiContext = input.getUiContext();
+          const rawUiContext = uiContextProvider?.read();
+          const uiContext =
+            rawUiContext === undefined ? undefined : uiContextProvider?.schema.parse(rawUiContext);
           const runtimeFailures = Object.freeze(
             input
               .getRuntimeFailures()

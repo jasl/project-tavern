@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
 import { createWebHostV1 } from "@sillymaker/web";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -132,6 +132,40 @@ describe("E2eApplicationRootV1", () => {
       expect(screen.getAllByRole("checkbox")).toHaveLength(2);
       expect(fixture.runtime.application.semantic.observe()).toBe(semanticBefore);
     } finally {
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("wires the launcher and host to the one runtime-owned System-dialog session", async () => {
+    const fixture = await createRootFixtureV1();
+    const user = userEvent.setup();
+    const rendered = render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+      container: fixture.container,
+    });
+    try {
+      expect(fixture.runtime.systemDialogSession.getSnapshot()).toEqual({
+        settingsOpen: false,
+      });
+
+      await user.click(screen.getByRole("button", { name: "设置" }));
+      expect(fixture.runtime.systemDialogSession.getSnapshot()).toEqual({
+        settingsOpen: true,
+      });
+      expect(screen.getByRole("dialog", { name: "设置" })).toBeVisible();
+
+      await user.click(screen.getByRole("button", { name: "关闭" }));
+      expect(fixture.runtime.systemDialogSession.getSnapshot()).toEqual({
+        settingsOpen: false,
+      });
+
+      act(() => fixture.runtime.systemDialogSession.openSettings());
+      expect(screen.getByRole("dialog", { name: "设置" })).toBeVisible();
+      rendered.unmount();
+      expect(fixture.runtime.systemDialogSession.getSnapshot()).toEqual({
+        settingsOpen: false,
+      });
+    } finally {
+      rendered.unmount();
       fixture.runtime.dispose();
     }
   });

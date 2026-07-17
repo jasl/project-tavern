@@ -53,7 +53,7 @@ import { RelationshipOverlayV1 } from "./overlays/RelationshipOverlay.js";
 import { RunSummaryOverlayV1 } from "./overlays/RunSummaryOverlay.js";
 import { TavernPlanOverlayV1 } from "./overlays/TavernPlanOverlay.js";
 import { WorldActionOverlayV1 } from "./overlays/WorldActionOverlay.js";
-import type { PocOverlayIdV1 } from "./runtime/contracts.js";
+import { isPocNarrativeOpenV1, type PocOverlayIdV1 } from "./runtime/contracts.js";
 import { pocSceneGraphV1, pocStageRendererIdsV1 } from "./scene-graph.js";
 import { PocMainMenuSceneV1 } from "./scenes/PocMainMenuScene.js";
 import { PocMarketSceneV1 } from "./scenes/PocMarketScene.js";
@@ -438,7 +438,7 @@ function narrativeSpeakerLabelV1(
 function PocNarrativeRendererV1(props: PocUiRendererContextsV1["narrative"]): ReactElement | null {
   const inputRouter = useInputRouterV1();
   const narrative = props.viewSlice.narrative;
-  if (narrative === null || narrative.status !== "active") return null;
+  if (!isPocNarrativeOpenV1(narrative)) return null;
 
   const choices = projectNarrativeChoicesV1(narrative, props.viewSlice.actions, props.presentation);
   const advance = projectNarrativeAdvanceV1(narrative, props.viewSlice.actions, props.presentation);

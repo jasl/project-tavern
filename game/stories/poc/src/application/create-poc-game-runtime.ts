@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import {
+  createDebugUiContextSchemaV1,
   createGameSnapshotEnvelopeSchemaV1,
   createPristineRunIntegrityV1,
   createTransactionalRngV1,
@@ -10,6 +11,7 @@ import {
 } from "@sillymaker/base";
 import type {
   DeepReadonly,
+  DebugUiContextV1,
   Digest,
   GameHostV1,
   SessionAnchorResultV1,
@@ -169,6 +171,7 @@ export async function createPocGameRuntimeV1(input: {
   readonly resolved: PocResolvedGameV1;
   readonly host: GameHostV1;
   readonly appBuildId: Digest;
+  readonly readUiContext?: () => DeepReadonly<DebugUiContextV1> | undefined;
   readonly loadTooling?: PocToolingLoaderV1;
   readonly rebootstrapDisposition?: DeepReadonly<PersistenceRebootstrapDisposalV1>;
   onRebootstrapLifecycle?(
@@ -176,8 +179,17 @@ export async function createPocGameRuntimeV1(input: {
   ): void | PromiseLike<void>;
 }): Promise<PocGameApplicationPortV1> {
   const appBuildId = parseDigest(input.appBuildId);
-  return await createGameRuntimeV1<PocGameApplicationPortV1, PersistenceRebootstrapDisposalV1>({
+  const uiContextSchema =
+    input.readUiContext === undefined ? undefined : createDebugUiContextSchemaV1();
+  return await createGameRuntimeV1<
+    PocGameApplicationPortV1,
+    PersistenceRebootstrapDisposalV1,
+    DebugUiContextV1
+  >({
     host: input.host,
+    ...(uiContextSchema === undefined || input.readUiContext === undefined
+      ? {}
+      : { uiContextSchema, readUiContext: input.readUiContext }),
     ...(input.onRebootstrapLifecycle === undefined
       ? {}
       : { onRebootstrapLifecycle: input.onRebootstrapLifecycle }),
@@ -188,6 +200,8 @@ export async function createPocGameRuntimeV1(input: {
       reportObserverFailure,
       reportHmrInvalidated,
       registerRebootstrapLifecycle,
+      uiContextSchema: runtimeUiContextSchema,
+      readUiContext,
     }) {
       const gameSimulation = input.resolved.gameSimulation;
       const snapshotSchema = createGameSnapshotEnvelopeSchemaV1(
@@ -315,7 +329,9 @@ export async function createPocGameRuntimeV1(input: {
         getRuntimeFailures: () => runtimeFailures.entries(),
         getFailure: () => latestFailure,
         scrubFailure: scrubPocDebugFailureV1,
-        getUiContext: () => undefined,
+        ...(runtimeUiContextSchema === undefined || readUiContext === undefined
+          ? {}
+          : { uiContextSchema: runtimeUiContextSchema, readUiContext }),
         metadataClock: input.host.metadataClock,
         exportFilename: "project-tavern-poc.debug-bundle.json",
       });

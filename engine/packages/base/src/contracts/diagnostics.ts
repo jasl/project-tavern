@@ -1,5 +1,28 @@
 // SPDX-License-Identifier: MIT
 import type { IsoUtcInstant } from "./host.js";
+import type {
+  AppearanceLayerId,
+  CharacterExpressionId,
+  CharacterId,
+  CharacterPoseId,
+  CharacterRigId,
+  ContentMaturityFlagsV1,
+  InteractionSurfaceId,
+  StageSceneId,
+  StageSceneVariantId,
+} from "./presentation.js";
+import {
+  parseAppearanceLayerId,
+  parseCharacterExpressionId,
+  parseCharacterId,
+  parseCharacterPoseId,
+  parseCharacterRigId,
+  parseContentMaturityFlagsV1,
+  parseInteractionSurfaceId,
+  parseStageSceneId,
+  parseStageSceneVariantId,
+} from "./presentation.js";
+import type { BuildProvenanceV1 } from "./provenance.js";
 import type { RngDrawTraceV1, RngStateV1 } from "./rng.js";
 import { parseStrictJsonLimitsV1 } from "./strict-json.js";
 import type {
@@ -8,7 +31,7 @@ import type {
   PositiveSafeInteger,
   RuntimeSchemaV1,
 } from "./values.js";
-import { parseDigest } from "./values.js";
+import { parseDigest, parseNonNegativeSafeInteger, parsePositiveSafeInteger } from "./values.js";
 import {
   exactEnvelopeDescriptorsV1,
   parseByteExportV1,
@@ -97,6 +120,74 @@ export interface DebugBundleEnvelopeV1<
   readonly uiContext?: TUiContext;
 }
 
+export const debugPresentationLimitsV1 = Object.freeze({
+  stableIdUtf8Bytes: 256,
+  renderers: 16,
+  appearanceLayersPerRenderer: 16,
+  visibleInteractionSurfaces: 32,
+  detailOverlayStack: 8,
+} as const);
+
+export interface DebugPresentationRendererSummaryV1 {
+  readonly rendererId: string;
+  readonly characterId: CharacterId;
+  readonly rigId: CharacterRigId;
+  readonly poseId: CharacterPoseId;
+  readonly expressionId: CharacterExpressionId;
+  readonly appearanceLayerIds: readonly AppearanceLayerId[];
+}
+
+export interface DebugPresentationSummaryV1 {
+  readonly presentationRevision: NonNegativeSafeInteger;
+  readonly stageSceneId: StageSceneId | null;
+  readonly variantId: StageSceneVariantId | null;
+  readonly stageRendererId: string | null;
+  readonly renderers: readonly DebugPresentationRendererSummaryV1[];
+  readonly visibleInteractionSurfaceIds: readonly InteractionSurfaceId[];
+  readonly activeInteractionSurfaceId: InteractionSurfaceId | null;
+  readonly contentPolicyRevision: PositiveSafeInteger;
+  readonly allowedContentFlags: ContentMaturityFlagsV1;
+}
+
+export interface DebugUiSessionSummaryV1 {
+  readonly routeId: string | null;
+  readonly primaryOverlayId: string | null;
+  readonly detailOverlayIds: readonly string[];
+  readonly narrativeOpen: boolean;
+  readonly systemDialogOpen: boolean;
+  readonly devDock: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+}
+
+export interface DebugUiSessionProjectionInputV1 extends DebugUiSessionSummaryV1 {
+  readonly activeInteractionSurfaceId: InteractionSurfaceId | null;
+}
+
+export interface DebugUiContextV1 {
+  readonly revision: 1;
+  readonly presentation: DebugPresentationSummaryV1 | null;
+  readonly session: DebugUiSessionSummaryV1;
+}
+
+export interface DebugUiContextRecordedIdentityV1 {
+  readonly provenance: BuildProvenanceV1;
+  readonly appBuildId?: Digest;
+}
+
+export interface DebugUiContextCurrentIdentityV1 {
+  readonly provenance: BuildProvenanceV1;
+  readonly appBuildId: Digest;
+}
+
+export type DebugUiContextUseMismatchReasonV1 =
+  "story_identity_mismatch" | "presentation_identity_mismatch" | "application_identity_mismatch";
+
+export type DebugUiContextUseClassificationV1 =
+  | { readonly kind: "restorable" }
+  | {
+      readonly kind: "diagnostic_only";
+      readonly reasons: readonly DebugUiContextUseMismatchReasonV1[];
+    };
+
 export type DebugBundleEnvelopeSchemaFailureCodeV1 =
   "envelope.unsupported_revision" | "digest.invalid_format";
 
@@ -176,6 +267,24 @@ function utf8ByteLengthV1(value: string): number {
   return bytes;
 }
 
+function diagnosticIdUtf8ByteLengthV1(value: string): number {
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x7f) bytes += 1;
+    else if (code <= 0x7ff) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next < 0xdc00 || next > 0xdfff) throw new TypeError("invalid UTF-8 text");
+      bytes += 4;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      throw new TypeError("invalid UTF-8 text");
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
 const text = (value: unknown, label: string, maximumBytes?: number): string => {
   if (
     typeof value !== "string" ||
@@ -219,6 +328,329 @@ function parseDenseArrayV1<T>(
     throw new TypeError(`invalid ${label}`);
   }
   return Object.freeze(keys.map((key) => schema.parse(descriptors[key]?.value)));
+}
+
+function readDebugDenseArrayV1(
+  value: unknown,
+  maximumItems: number,
+  limitCode: string,
+  label: string,
+): readonly unknown[] {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    Object.getOwnPropertySymbols(value).length !== 0
+  ) {
+    throw new TypeError(`invalid ${label}`);
+  }
+  if (value.length > maximumItems) throw new TypeError(limitCode);
+
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Object.keys(descriptors).filter((key) => key !== "length");
+  if (
+    keys.length !== value.length ||
+    keys.some((key, index) => key !== String(index)) ||
+    keys.some((key) => {
+      const descriptor = descriptors[key];
+      return (
+        descriptor === undefined ||
+        descriptor.get !== undefined ||
+        descriptor.set !== undefined ||
+        !descriptor.enumerable
+      );
+    })
+  ) {
+    throw new TypeError(`invalid ${label}`);
+  }
+  return keys.map((key) => descriptors[key]?.value);
+}
+
+function assertDiagnosticIdCeilingV1(value: unknown): void {
+  if (
+    typeof value === "string" &&
+    diagnosticIdUtf8ByteLengthV1(value) > debugPresentationLimitsV1.stableIdUtf8Bytes
+  ) {
+    throw new TypeError("diagnostics.ui_context_id_limit");
+  }
+}
+
+function assertDebugUiContextIdCeilingsV1(value: unknown): void {
+  const fields = exactEnvelopeDescriptorsV1(
+    value,
+    ["revision", "presentation", "session"],
+    "DebugUiContextV1",
+  );
+  const presentation = fields.presentation?.value;
+  if (presentation !== null) {
+    const presentationFields = exactEnvelopeDescriptorsV1(
+      presentation,
+      [
+        "presentationRevision",
+        "stageSceneId",
+        "variantId",
+        "stageRendererId",
+        "renderers",
+        "visibleInteractionSurfaceIds",
+        "activeInteractionSurfaceId",
+        "contentPolicyRevision",
+        "allowedContentFlags",
+      ],
+      "DebugPresentationSummaryV1",
+    );
+    assertDiagnosticIdCeilingV1(presentationFields.stageSceneId?.value);
+    assertDiagnosticIdCeilingV1(presentationFields.variantId?.value);
+    assertDiagnosticIdCeilingV1(presentationFields.stageRendererId?.value);
+    assertDiagnosticIdCeilingV1(presentationFields.activeInteractionSurfaceId?.value);
+
+    const renderers = readDebugDenseArrayV1(
+      presentationFields.renderers?.value,
+      debugPresentationLimitsV1.renderers,
+      "diagnostics.presentation_renderers_limit",
+      "Debug presentation renderers",
+    );
+    for (const renderer of renderers) {
+      const rendererFields = exactEnvelopeDescriptorsV1(
+        renderer,
+        ["rendererId", "characterId", "rigId", "poseId", "expressionId", "appearanceLayerIds"],
+        "DebugPresentationRendererSummaryV1",
+      );
+      assertDiagnosticIdCeilingV1(rendererFields.rendererId?.value);
+      assertDiagnosticIdCeilingV1(rendererFields.characterId?.value);
+      assertDiagnosticIdCeilingV1(rendererFields.rigId?.value);
+      assertDiagnosticIdCeilingV1(rendererFields.poseId?.value);
+      assertDiagnosticIdCeilingV1(rendererFields.expressionId?.value);
+      const appearanceLayerIds = readDebugDenseArrayV1(
+        rendererFields.appearanceLayerIds?.value,
+        debugPresentationLimitsV1.appearanceLayersPerRenderer,
+        "diagnostics.presentation_appearance_limit",
+        "Debug presentation appearance layers",
+      );
+      for (const appearanceLayerId of appearanceLayerIds) {
+        assertDiagnosticIdCeilingV1(appearanceLayerId);
+      }
+    }
+
+    const visibleInteractionSurfaceIds = readDebugDenseArrayV1(
+      presentationFields.visibleInteractionSurfaceIds?.value,
+      debugPresentationLimitsV1.visibleInteractionSurfaces,
+      "diagnostics.presentation_surfaces_limit",
+      "Debug presentation interaction surfaces",
+    );
+    for (const surfaceId of visibleInteractionSurfaceIds) {
+      assertDiagnosticIdCeilingV1(surfaceId);
+    }
+  }
+
+  const sessionFields = exactEnvelopeDescriptorsV1(
+    fields.session?.value,
+    [
+      "routeId",
+      "primaryOverlayId",
+      "detailOverlayIds",
+      "narrativeOpen",
+      "systemDialogOpen",
+      "devDock",
+    ],
+    "DebugUiSessionSummaryV1",
+  );
+  assertDiagnosticIdCeilingV1(sessionFields.routeId?.value);
+  assertDiagnosticIdCeilingV1(sessionFields.primaryOverlayId?.value);
+  const detailOverlayIds = readDebugDenseArrayV1(
+    sessionFields.detailOverlayIds?.value,
+    debugPresentationLimitsV1.detailOverlayStack,
+    "diagnostics.ui_context_detail_stack_limit",
+    "Debug UI detail overlay stack",
+  );
+  for (const overlayId of detailOverlayIds) assertDiagnosticIdCeilingV1(overlayId);
+  exactEnvelopeDescriptorsV1(
+    sessionFields.devDock?.value,
+    ["leftOpen", "rightOpen"],
+    "Debug UI DevDock summary",
+  );
+}
+
+function parseDiagnosticIdV1(value: unknown, label: string): string {
+  assertDiagnosticIdCeilingV1(value);
+  return text(value, label);
+}
+
+function parseNullableDiagnosticIdV1(value: unknown, label: string): string | null {
+  return value === null ? null : parseDiagnosticIdV1(value, label);
+}
+
+function parseBrandedDiagnosticIdV1<T extends string>(
+  value: unknown,
+  parser: (candidate: unknown) => T,
+): T {
+  assertDiagnosticIdCeilingV1(value);
+  return parser(value);
+}
+
+function parseNullableBrandedDiagnosticIdV1<T extends string>(
+  value: unknown,
+  parser: (candidate: unknown) => T,
+): T | null {
+  return value === null ? null : parseBrandedDiagnosticIdV1(value, parser);
+}
+
+function parseDebugBooleanV1(value: unknown, label: string): boolean {
+  if (typeof value !== "boolean") throw new TypeError(`invalid ${label}`);
+  return value;
+}
+
+function parseDebugPresentationRendererSummaryV1(
+  value: unknown,
+): DebugPresentationRendererSummaryV1 {
+  const fields = exactEnvelopeDescriptorsV1(
+    value,
+    ["rendererId", "characterId", "rigId", "poseId", "expressionId", "appearanceLayerIds"],
+    "DebugPresentationRendererSummaryV1",
+  );
+  const appearanceLayerIds = Object.freeze(
+    readDebugDenseArrayV1(
+      fields.appearanceLayerIds?.value,
+      debugPresentationLimitsV1.appearanceLayersPerRenderer,
+      "diagnostics.presentation_appearance_limit",
+      "Debug presentation appearance layers",
+    ).map((entry) => parseBrandedDiagnosticIdV1(entry, parseAppearanceLayerId)),
+  );
+  if (new Set(appearanceLayerIds).size !== appearanceLayerIds.length) {
+    throw new TypeError("diagnostics.presentation_appearance_duplicate");
+  }
+  return Object.freeze({
+    rendererId: parseDiagnosticIdV1(fields.rendererId?.value, "Debug rendererId"),
+    characterId: parseBrandedDiagnosticIdV1(fields.characterId?.value, parseCharacterId),
+    rigId: parseBrandedDiagnosticIdV1(fields.rigId?.value, parseCharacterRigId),
+    poseId: parseBrandedDiagnosticIdV1(fields.poseId?.value, parseCharacterPoseId),
+    expressionId: parseBrandedDiagnosticIdV1(
+      fields.expressionId?.value,
+      parseCharacterExpressionId,
+    ),
+    appearanceLayerIds,
+  });
+}
+
+function parseDebugPresentationSummaryV1(value: unknown): DebugPresentationSummaryV1 {
+  const fields = exactEnvelopeDescriptorsV1(
+    value,
+    [
+      "presentationRevision",
+      "stageSceneId",
+      "variantId",
+      "stageRendererId",
+      "renderers",
+      "visibleInteractionSurfaceIds",
+      "activeInteractionSurfaceId",
+      "contentPolicyRevision",
+      "allowedContentFlags",
+    ],
+    "DebugPresentationSummaryV1",
+  );
+  const renderers = Object.freeze(
+    readDebugDenseArrayV1(
+      fields.renderers?.value,
+      debugPresentationLimitsV1.renderers,
+      "diagnostics.presentation_renderers_limit",
+      "Debug presentation renderers",
+    ).map(parseDebugPresentationRendererSummaryV1),
+  );
+  if (new Set(renderers.map(({ characterId }) => characterId)).size !== renderers.length) {
+    throw new TypeError("diagnostics.presentation_character_duplicate");
+  }
+  const visibleInteractionSurfaceIds = Object.freeze(
+    readDebugDenseArrayV1(
+      fields.visibleInteractionSurfaceIds?.value,
+      debugPresentationLimitsV1.visibleInteractionSurfaces,
+      "diagnostics.presentation_surfaces_limit",
+      "Debug presentation interaction surfaces",
+    ).map((entry) => parseBrandedDiagnosticIdV1(entry, parseInteractionSurfaceId)),
+  );
+  if (new Set(visibleInteractionSurfaceIds).size !== visibleInteractionSurfaceIds.length) {
+    throw new TypeError("diagnostics.presentation_surface_duplicate");
+  }
+  return Object.freeze({
+    presentationRevision: parseNonNegativeSafeInteger(fields.presentationRevision?.value),
+    stageSceneId: parseNullableBrandedDiagnosticIdV1(fields.stageSceneId?.value, parseStageSceneId),
+    variantId: parseNullableBrandedDiagnosticIdV1(
+      fields.variantId?.value,
+      parseStageSceneVariantId,
+    ),
+    stageRendererId: parseNullableDiagnosticIdV1(
+      fields.stageRendererId?.value,
+      "Debug stageRendererId",
+    ),
+    renderers,
+    visibleInteractionSurfaceIds,
+    activeInteractionSurfaceId: parseNullableBrandedDiagnosticIdV1(
+      fields.activeInteractionSurfaceId?.value,
+      parseInteractionSurfaceId,
+    ),
+    contentPolicyRevision: parsePositiveSafeInteger(fields.contentPolicyRevision?.value),
+    allowedContentFlags: parseContentMaturityFlagsV1(fields.allowedContentFlags?.value),
+  });
+}
+
+function parseDebugUiSessionSummaryV1(value: unknown): DebugUiSessionSummaryV1 {
+  const fields = exactEnvelopeDescriptorsV1(
+    value,
+    [
+      "routeId",
+      "primaryOverlayId",
+      "detailOverlayIds",
+      "narrativeOpen",
+      "systemDialogOpen",
+      "devDock",
+    ],
+    "DebugUiSessionSummaryV1",
+  );
+  const devDockFields = exactEnvelopeDescriptorsV1(
+    fields.devDock?.value,
+    ["leftOpen", "rightOpen"],
+    "Debug UI DevDock summary",
+  );
+  const detailOverlayIds = Object.freeze(
+    readDebugDenseArrayV1(
+      fields.detailOverlayIds?.value,
+      debugPresentationLimitsV1.detailOverlayStack,
+      "diagnostics.ui_context_detail_stack_limit",
+      "Debug UI detail overlay stack",
+    ).map((entry) => parseDiagnosticIdV1(entry, "Debug detail overlay ID")),
+  );
+  return Object.freeze({
+    routeId: parseNullableDiagnosticIdV1(fields.routeId?.value, "Debug routeId"),
+    primaryOverlayId: parseNullableDiagnosticIdV1(
+      fields.primaryOverlayId?.value,
+      "Debug primaryOverlayId",
+    ),
+    detailOverlayIds,
+    narrativeOpen: parseDebugBooleanV1(fields.narrativeOpen?.value, "Debug narrativeOpen"),
+    systemDialogOpen: parseDebugBooleanV1(fields.systemDialogOpen?.value, "Debug systemDialogOpen"),
+    devDock: Object.freeze({
+      leftOpen: parseDebugBooleanV1(devDockFields.leftOpen?.value, "Debug left dock state"),
+      rightOpen: parseDebugBooleanV1(devDockFields.rightOpen?.value, "Debug right dock state"),
+    }),
+  });
+}
+
+export function createDebugUiContextSchemaV1(): RuntimeSchemaV1<DebugUiContextV1> {
+  return Object.freeze({
+    parse(value: unknown) {
+      assertDebugUiContextIdCeilingsV1(value);
+      const fields = exactEnvelopeDescriptorsV1(
+        value,
+        ["revision", "presentation", "session"],
+        "DebugUiContextV1",
+      );
+      if (fields.revision?.value !== 1) throw new TypeError("invalid Debug UI context revision");
+      const presentationValue = fields.presentation?.value;
+      return Object.freeze({
+        revision: 1 as const,
+        presentation:
+          presentationValue === null ? null : parseDebugPresentationSummaryV1(presentationValue),
+        session: parseDebugUiSessionSummaryV1(fields.session?.value),
+      });
+    },
+  });
 }
 
 export function createDebugBundleEnvelopeSchemaV1<

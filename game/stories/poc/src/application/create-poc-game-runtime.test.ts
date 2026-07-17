@@ -2,7 +2,8 @@
 import { access, readFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 
-import { digestCanonical } from "@sillymaker/base";
+import { createDebugUiContextSchemaV1, digestCanonical } from "@sillymaker/base";
+import type { DebugUiContextV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import { createWebHostV1 } from "@sillymaker/web";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
@@ -17,11 +18,15 @@ const initialSeedV1 = 0x0002_3049;
 const persistenceOwnerIdV1 = "00000000-0000-4000-8000-000000000091";
 const initialRunIdV1 = "00000000-0000-4000-8000-000000000092";
 const appBuildIdV1 = digestCanonical("sillymaker:application:v1", ["poc-runtime-test"]);
+const debugUiContextSchemaV1 = createDebugUiContextSchemaV1();
 
 interface PocRuntimeBundleWitnessV1 {
   readonly appBuildId?: string;
+  readonly replayBaseStateDigest: string;
+  readonly currentStateDigest: string;
   readonly currentSnapshot: PocGameSnapshotV1;
   readonly commandLog: readonly { readonly source: string }[];
+  readonly uiContext?: DebugUiContextV1;
   readonly failure?: {
     readonly command: {
       readonly source: string;
@@ -39,6 +44,33 @@ interface PocRuntimeBundleWitnessV1 {
     readonly recentErrorCodes: readonly string[];
     readonly hmrInvalidated: boolean;
   };
+}
+
+function debugUiContextFixtureV1(
+  variantId: "stage_variant.poc.tavern.day" | "stage_variant.poc.tavern.evening",
+): DebugUiContextV1 {
+  return debugUiContextSchemaV1.parse({
+    revision: 1,
+    presentation: Object.freeze({
+      presentationRevision: 7,
+      stageSceneId: "stage_scene.poc.tavern",
+      variantId,
+      stageRendererId: "renderer.poc.stage.tavern",
+      renderers: Object.freeze([]),
+      visibleInteractionSurfaceIds: Object.freeze(["surface.poc.tavern"]),
+      activeInteractionSurfaceId: null,
+      contentPolicyRevision: 1,
+      allowedContentFlags: 0,
+    }),
+    session: Object.freeze({
+      routeId: "play",
+      primaryOverlayId: null,
+      detailOverlayIds: Object.freeze([]),
+      narrativeOpen: false,
+      systemDialogOpen: false,
+      devDock: Object.freeze({ leftOpen: false, rightOpen: false }),
+    }),
+  });
 }
 
 function decodeJsonV1<T>(bytes: Uint8Array): T {
@@ -96,6 +128,41 @@ async function collectProductionImportClosureV1(entry: string): Promise<string> 
 }
 
 describe("createPocGameRuntimeV1", () => {
+  it("reads optional UI context only for export without changing replay evidence", async () => {
+    const resolved = resolveStoryForTestV1(pocStoryEntryV1);
+    let currentContext = debugUiContextFixtureV1("stage_variant.poc.tavern.day");
+    const readUiContext = vi.fn(() => currentContext);
+    const application = await createPocGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [initialSeedV1],
+        uuids: [persistenceOwnerIdV1, initialRunIdV1],
+        now: () => "2026-07-17T05:00:00.000Z",
+      }),
+      appBuildId: appBuildIdV1,
+      readUiContext,
+    });
+
+    expect(readUiContext).not.toHaveBeenCalled();
+    const day = decodeJsonV1<PocRuntimeBundleWitnessV1>(
+      (await application.diagnostics.exportDebugBundle()).bytes,
+    );
+    expect(readUiContext).toHaveBeenCalledOnce();
+    expect(day.uiContext).toEqual(currentContext);
+
+    currentContext = debugUiContextFixtureV1("stage_variant.poc.tavern.evening");
+    const evening = decodeJsonV1<PocRuntimeBundleWitnessV1>(
+      (await application.diagnostics.exportDebugBundle()).bytes,
+    );
+    expect(readUiContext).toHaveBeenCalledTimes(2);
+    expect(evening.uiContext).toEqual(currentContext);
+    expect(evening.currentStateDigest).toBe(day.currentStateDigest);
+    expect(evening.replayBaseStateDigest).toBe(day.replayBaseStateDigest);
+    expect(evening.currentSnapshot).toEqual(day.currentSnapshot);
+    expect(evening.commandLog).toEqual(day.commandLog);
+  });
+
   it("uses Host entropy for one unified six-port runtime and exports the required appBuildId", async () => {
     const resolved = resolveStoryForTestV1(pocStoryEntryV1);
     const application = await createPocGameRuntimeV1({

@@ -510,7 +510,6 @@ export function createPocRuntimeTestFixtureV1(input: {
     getRuntimeFailures: () => emptyRuntimeFailuresV1,
     getFailure: (): DeepReadonly<PocDebugFailureV1> | undefined => undefined,
     scrubFailure: scrubPocDebugFailureV1,
-    getUiContext: (): never | undefined => undefined,
     metadataClock: metadataClockV1,
     exportFilename: "project-tavern-poc-runtime-test.debug-bundle.json",
   });

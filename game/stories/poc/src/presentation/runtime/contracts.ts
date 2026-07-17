@@ -84,3 +84,10 @@ export type PocRuntimePresentationPublicationV1 = RuntimePresentationPublication
   PocRuntimePresentationViewV1,
   AssetId
 >;
+
+/** The one Story-local Narrative visibility predicate shared by rendering and diagnostics. */
+export function isPocNarrativeOpenV1(
+  narrative: DeepReadonly<NarrativeProjectionV1 | null>,
+): narrative is DeepReadonly<NarrativeProjectionV1> {
+  return narrative !== null && narrative.status === "active";
+}

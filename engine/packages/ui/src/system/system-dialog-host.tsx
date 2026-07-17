@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { ReactElement, ReactNode } from "react";
 import {
@@ -24,10 +25,13 @@ import {
 } from "../shell/game-stage.js";
 import { SettingsDialogContentV1 } from "./settings-dialog.js";
 import type { SettingsDialogPropsV1 } from "./settings-dialog.js";
+import { createSystemDialogSessionStoreV1 } from "./system-dialog-session-store.js";
+import type { SystemDialogSessionStoreV1 } from "./system-dialog-session-store.js";
 
 export type SystemDialogSettingsV1 = Omit<SettingsDialogPropsV1, "onClose">;
 
 export interface SystemDialogHostPropsV1 {
+  readonly store?: SystemDialogSessionStoreV1;
   readonly inputRouter: InputRouterV1;
   readonly settings: SystemDialogSettingsV1;
   readonly children: ReactNode;
@@ -53,7 +57,13 @@ function focusConnectedElementV1(element: HTMLElement | null): void {
 }
 
 export function SystemDialogHostV1(props: SystemDialogHostPropsV1): ReactElement {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const fallbackStoreRef = useRef<SystemDialogSessionStoreV1 | null>(null);
+  const store = props.store ?? (fallbackStoreRef.current ??= createSystemDialogSessionStoreV1());
+  const { settingsOpen } = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
   const [focusScopeElement, setFocusScopeElement] = useState<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const portalContainer = useStageSystemPortalContainerV1();
@@ -61,23 +71,27 @@ export function SystemDialogHostV1(props: SystemDialogHostPropsV1): ReactElement
   useStageSystemFocusScopeRegistrationV1(focusScopeElement);
 
   const closeSettings = useCallback((): void => {
-    setSettingsOpen(false);
+    store.closeSettings();
     const opener = openerRef.current;
     openerRef.current = null;
     focusConnectedElementV1(opener);
-  }, []);
+  }, [store]);
 
-  const openSettings = useCallback((opener: HTMLButtonElement): void => {
-    openerRef.current = opener;
-    setSettingsOpen(true);
-  }, []);
+  const openSettings = useCallback(
+    (opener: HTMLButtonElement): void => {
+      openerRef.current = opener;
+      store.openSettings();
+    },
+    [store],
+  );
 
   useLayoutEffect(
     () => () => {
+      store.closeSettings();
       focusConnectedElementV1(openerRef.current);
       openerRef.current = null;
     },
-    [],
+    [store],
   );
 
   useLayoutEffect(() => {

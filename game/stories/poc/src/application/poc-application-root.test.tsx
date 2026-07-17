@@ -99,12 +99,19 @@ describe("PocApplicationRootV1", () => {
     const runtime = await createRuntimeV1();
     const semanticRevision = runtime.application.semantic.observe().revision;
     render(<PocApplicationRootV1 runtime={runtime} />);
+    expect(runtime.rendering.systemDialogSession.getSnapshot()).toEqual({ settingsOpen: false });
 
     await userEvent.setup().click(screen.getByRole("button", { name: "设置" }));
 
-    expect(screen.getByRole("dialog", { name: "设置" })).toBeVisible();
+    const settings = screen.getByRole("dialog", { name: "设置" });
+    expect(settings).toBeVisible();
     expect(screen.getByText("当前故事没有可调整的内容过滤选项。")).toBeVisible();
+    expect(runtime.rendering.systemDialogSession.getSnapshot()).toEqual({ settingsOpen: true });
     expect(runtime.application.semantic.observe().revision).toBe(semanticRevision);
+
+    await userEvent.setup().click(within(settings).getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "设置" })).not.toBeInTheDocument();
+    expect(runtime.rendering.systemDialogSession.getSnapshot()).toEqual({ settingsOpen: false });
 
     runtime.dispose();
   });

@@ -3,6 +3,7 @@ import type {
   GameHostV1,
   LeaseHandoffRequestId,
   RuntimeCapabilityPortV1,
+  RuntimeSchemaV1,
   SessionLeaseOwnerId,
 } from "@sillymaker/base";
 import {
@@ -15,30 +16,54 @@ import {
 import { createWebCapabilityPreferencesV1 } from "../capabilities/web-capability-preferences.js";
 import type { WebRuntimeRebootstrapLifecycleV1 } from "./resolved-game-hmr.js";
 
+type WebUiContextProviderV1<TUiContext> =
+  | {
+      readonly uiContextSchema: RuntimeSchemaV1<TUiContext>;
+      readonly readUiContext: () => unknown;
+    }
+  | {
+      readonly uiContextSchema?: undefined;
+      readonly readUiContext?: undefined;
+    };
+
 export interface WebPersistenceIdentityV1 {
   readonly ownerId: SessionLeaseOwnerId;
   nextHandoffRequestId(): LeaseHandoffRequestId;
 }
 
-export interface WebGameRuntimeCompositionV1<TDisposition> {
+export interface WebGameRuntimeCompositionV1<TDisposition, TUiContext = never> {
   readonly capabilities: RuntimeCapabilityPortV1;
   readonly persistenceIdentity: WebPersistenceIdentityV1;
   readonly runtimeFailures: RuntimeFailureBufferV1;
+  readonly uiContextSchema?: RuntimeSchemaV1<TUiContext>;
+  readonly readUiContext?: () => unknown;
   reportObserverFailure(error: unknown): void;
   reportHmrInvalidated(): void;
   registerRebootstrapLifecycle(lifecycle: WebRuntimeRebootstrapLifecycleV1<TDisposition>): void;
 }
 
 /** Hydrates Host state and composes one application while keeping HMR owner authority out-of-band. */
-export async function createGameRuntimeV1<TApplication, TDisposition = unknown>(input: {
-  readonly host: GameHostV1;
-  createApplication(
-    input: WebGameRuntimeCompositionV1<TDisposition>,
-  ): TApplication | PromiseLike<TApplication>;
-  onRebootstrapLifecycle?(
-    lifecycle: WebRuntimeRebootstrapLifecycleV1<TDisposition>,
-  ): void | PromiseLike<void>;
-}): Promise<TApplication> {
+export async function createGameRuntimeV1<TApplication, TDisposition = unknown, TUiContext = never>(
+  input: {
+    readonly host: GameHostV1;
+    createApplication(
+      input: WebGameRuntimeCompositionV1<TDisposition, TUiContext>,
+    ): TApplication | PromiseLike<TApplication>;
+    onRebootstrapLifecycle?(
+      lifecycle: WebRuntimeRebootstrapLifecycleV1<TDisposition>,
+    ): void | PromiseLike<void>;
+  } & WebUiContextProviderV1<TUiContext>,
+): Promise<TApplication> {
+  const uiContextSchema = input.uiContextSchema;
+  const readUiContext = input.readUiContext;
+  if ((uiContextSchema === undefined) !== (readUiContext === undefined)) {
+    throw new TypeError("Web UI-context schema and reader must be supplied together");
+  }
+  const uiContextProvider = Object.freeze(
+    uiContextSchema === undefined || readUiContext === undefined
+      ? {}
+      : { uiContextSchema, readUiContext },
+  );
   const capabilities = await createWebCapabilityPreferencesV1(input.host);
   const persistenceIdentity: WebPersistenceIdentityV1 = Object.freeze({
     ownerId: input.host.bootstrapEntropy.nextUuidV4() as SessionLeaseOwnerId,
@@ -74,6 +99,7 @@ export async function createGameRuntimeV1<TApplication, TDisposition = unknown>(
         capabilities,
         persistenceIdentity,
         runtimeFailures,
+        ...uiContextProvider,
         reportObserverFailure,
         reportHmrInvalidated,
         registerRebootstrapLifecycle,

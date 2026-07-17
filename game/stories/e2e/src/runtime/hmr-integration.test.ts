@@ -669,6 +669,19 @@ describe("E2E unified-root HMR integration", () => {
       "nativeEntryHotV1.data[acceptedE2eEntryModuleHandlerKeyV1] = handler",
     );
     expect(entrySource).toContain("import.meta.hot?.data[acceptedE2eEntryModuleHandlerKeyV1]");
+    const compositionSource = entrySource.slice(
+      entrySource.indexOf("export async function createE2eApplicationCompositionV1"),
+      entrySource.indexOf("export function resolveE2eHmrProvenanceV1"),
+    );
+    expect(compositionSource).toMatch(
+      /const appBuildId = digestCanonical\(\s*"sillymaker:application:v1",\s*e2eBuildIdentityV1\.application,?\s*\);/u,
+    );
+    expect(compositionSource).toMatch(
+      /createE2ePresentationRuntimeV1\(\{[\s\S]*?\bappBuildId,[\s\S]*?\}\);/u,
+    );
+    expect(compositionSource).not.toMatch(
+      /appBuildId\s*=\s*bootstrapped\.resolved\.provenance\.resolved\.presentationDigest/u,
+    );
 
     const applicationFiles = await readdir(
       resolve(repositoryRoot, "game/stories/e2e/src/application"),

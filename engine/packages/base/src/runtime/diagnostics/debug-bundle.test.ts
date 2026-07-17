@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { RuntimeCapabilitiesV1 } from "../../contracts/application.js";
 import { canonicalJsonBytes } from "../../contracts/canonical-json.js";
@@ -306,6 +306,10 @@ describe("Game diagnostics service", () => {
     const assertInsideQueue = (): void => {
       expect(insideQueueReader).toBe(true);
     };
+    const readUiContext = vi.fn(() => {
+      assertInsideQueue();
+      return { route: "play" };
+    });
     const service = createGameDiagnosticsServiceV1({
       codec: codecV1,
       provenance: Object.freeze({ id: "story.synthetic" }),
@@ -339,18 +343,18 @@ describe("Game diagnostics service", () => {
         return undefined;
       },
       scrubFailure: (failure) => failure,
-      getUiContext() {
-        assertInsideQueue();
-        return Object.freeze({ route: "play" as const });
-      },
+      uiContextSchema: uiContextSchemaV1,
+      readUiContext,
       metadataClock: Object.freeze({
         now: () => parseIsoUtcInstantV1("2026-07-14T00:00:00.000Z"),
       }),
       exportFilename: "synthetic.debug-bundle.json",
     });
 
+    expect(readUiContext).not.toHaveBeenCalled();
     const exported = await service.exportDebugBundle();
     expect(readAtQueueFrontCalls).toBe(1);
+    expect(readUiContext).toHaveBeenCalledOnce();
     expect(Object.isFrozen(service)).toBe(true);
     expect(exported).toMatchObject({
       filename: "synthetic.debug-bundle.json",
@@ -380,6 +384,64 @@ describe("Game diagnostics service", () => {
     });
   });
 
+  it("parses a fresh UI context immediately and never retains it across exports", async () => {
+    const snapshot = snapshotV1();
+    const stateDigest = digestCanonical("sillymaker:state:v1", snapshot);
+    const events: string[] = [];
+    let currentUiContext: { route: string } | undefined = { route: "play" };
+    const providerSchema: RuntimeSchemaV1<SyntheticUiContextV1> = Object.freeze({
+      parse(value: unknown) {
+        events.push("parse-ui");
+        return uiContextSchemaV1.parse(value);
+      },
+    });
+    const readUiContext = vi.fn((): unknown => {
+      events.push("read-ui");
+      return currentUiContext;
+    });
+    const service = createGameDiagnosticsServiceV1({
+      codec: codecV1,
+      provenance: Object.freeze({ id: "story.synthetic" }),
+      getCapabilities: () =>
+        Object.freeze({ debugTools: false, cheats: false, automationBridge: false }),
+      getSimulationLineage: () => Object.freeze([]),
+      readAtQueueFront: async (reader) => {
+        events.push("queue-front");
+        return reader(snapshot);
+      },
+      getReplayEvidence: () =>
+        Object.freeze({ replayBase: snapshot, replayBaseStateDigest: stateDigest, commandLog: [] }),
+      getDiagnostics: () => Object.freeze({ codes: Object.freeze([]) }),
+      getRuntimeFailures() {
+        events.push("runtime-failures");
+        if (currentUiContext !== undefined) currentUiContext.route = "mutated-after-parse";
+        return Object.freeze([]);
+      },
+      getFailure: () => undefined,
+      scrubFailure: (failure) => failure,
+      uiContextSchema: providerSchema,
+      readUiContext,
+      metadataClock: Object.freeze({
+        now: () => parseIsoUtcInstantV1("2026-07-14T00:00:00.000Z"),
+      }),
+      exportFilename: "synthetic.debug-bundle.json",
+    });
+
+    expect(readUiContext).not.toHaveBeenCalled();
+    const first = decodeDebugBundleV1((await service.exportDebugBundle()).bytes, codecV1);
+    expect(events.slice(0, 4)).toEqual(["queue-front", "read-ui", "parse-ui", "runtime-failures"]);
+    expect(first).toMatchObject({ kind: "decoded", bundle: { uiContext: { route: "play" } } });
+
+    currentUiContext = undefined;
+    events.length = 0;
+    const second = decodeDebugBundleV1((await service.exportDebugBundle()).bytes, codecV1);
+    expect(events).toEqual(["queue-front", "read-ui", "runtime-failures"]);
+    expect(second).toMatchObject({ kind: "decoded" });
+    if (second.kind !== "decoded") throw new TypeError("expected decoded Debug Bundle");
+    expect(second.bundle).not.toHaveProperty("uiContext");
+    expect(readUiContext).toHaveBeenCalledTimes(2);
+  });
+
   it("reads capability state at each export without changing either Snapshot digest", async () => {
     const snapshot = snapshotV1();
     let capabilities: RuntimeCapabilitiesV1 = Object.freeze({
@@ -400,7 +462,6 @@ describe("Game diagnostics service", () => {
       getRuntimeFailures: () => Object.freeze([]),
       getFailure: () => undefined,
       scrubFailure: (failure) => failure,
-      getUiContext: () => undefined,
       metadataClock: Object.freeze({
         now: () => parseIsoUtcInstantV1("2026-07-14T00:00:00.000Z"),
       }),
@@ -417,6 +478,8 @@ describe("Game diagnostics service", () => {
         currentStateDigest: stateDigest,
       },
     });
+    if (result.kind !== "decoded") throw new TypeError("expected decoded Debug Bundle");
+    expect(result.bundle).not.toHaveProperty("uiContext");
   });
 
   it("normalizes unexpected export faults without leaking local paths", async () => {
@@ -437,7 +500,6 @@ describe("Game diagnostics service", () => {
       getRuntimeFailures: () => Object.freeze([]),
       getFailure: () => undefined,
       scrubFailure: (failure) => failure,
-      getUiContext: () => undefined,
       metadataClock: Object.freeze({
         now: () => parseIsoUtcInstantV1("2026-07-14T00:00:00.000Z"),
       }),

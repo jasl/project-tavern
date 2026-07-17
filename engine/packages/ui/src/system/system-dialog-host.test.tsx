@@ -10,6 +10,7 @@ import { createInputRouterV1 } from "../input/input-router.js";
 import { GameStageV1 } from "../shell/game-stage.js";
 import { SettingsLauncherV1 } from "./settings-launcher.js";
 import { SystemDialogHostV1 } from "./system-dialog-host.js";
+import { createSystemDialogSessionStoreV1 } from "./system-dialog-session-store.js";
 
 afterEach(cleanup);
 
@@ -55,6 +56,39 @@ function StageSystemHarnessV1(props: {
 }
 
 describe("SystemDialogHostV1", () => {
+  it("uses one supplied session store for rendering, diagnostics, and unmount cleanup", async () => {
+    const store = createSystemDialogSessionStoreV1();
+    const readSystemDialogOpenForDiagnosticsV1 = (): boolean => store.getSnapshot().settingsOpen;
+    const rendered = render(
+      <SystemDialogHostV1 store={store} inputRouter={createInputRouterV1()} settings={settingsV1}>
+        <SettingsLauncherV1 label="设置" />
+      </SystemDialogHostV1>,
+    );
+    const user = userEvent.setup();
+
+    expect(readSystemDialogOpenForDiagnosticsV1()).toBe(false);
+    expect(screen.queryByRole("dialog", { name: "设置" })).not.toBeInTheDocument();
+
+    act(() => store.openSettings());
+
+    expect(readSystemDialogOpenForDiagnosticsV1()).toBe(true);
+    expect(screen.getByRole("dialog", { name: "设置" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "关闭设置" }));
+
+    expect(readSystemDialogOpenForDiagnosticsV1()).toBe(false);
+    expect(screen.queryByRole("dialog", { name: "设置" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "设置" }));
+
+    expect(readSystemDialogOpenForDiagnosticsV1()).toBe(true);
+    expect(screen.getByRole("dialog", { name: "设置" })).toBeVisible();
+
+    rendered.unmount();
+
+    expect(readSystemDialogOpenForDiagnosticsV1()).toBe(false);
+  });
+
   it("uses System above Overlay and Narrative and never leaks to Gameplay", async () => {
     const inputRouter = createInputRouterV1();
     const overlay = vi.fn(() => inputHandledV1);

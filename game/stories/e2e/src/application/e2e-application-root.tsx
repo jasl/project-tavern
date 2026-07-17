@@ -273,6 +273,7 @@ function createSystemLayerV1(
   ) => runtime.presentationRead.text(textId).text;
   return (
     <SystemDialogHostV1
+      store={runtime.systemDialogSession}
       inputRouter={runtime.input}
       settings={Object.freeze({
         title: applicationTextV1(e2eApplicationTextIdsV1.settings),

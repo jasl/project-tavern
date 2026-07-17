@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import { digestCanonical } from "@sillymaker/base";
+import { createDebugUiContextSchemaV1, digestCanonical } from "@sillymaker/base";
+import type { DebugUiContextV1 } from "@sillymaker/base";
 import {
   createGameSessionV1,
   decodeDebugBundleV1,
@@ -33,6 +34,45 @@ const appBuildIdV1 = digestCanonical("sillymaker:application:v1", ["poc-debug-bu
 const otherAppBuildIdV1 = digestCanonical("sillymaker:application:v1", [
   "poc-debug-bundle-test-other",
 ]);
+const debugUiContextSchemaV1 = createDebugUiContextSchemaV1();
+
+function debugUiContextFixtureV1(
+  variantId:
+    | "stage_variant.poc.tavern.day"
+    | "stage_variant.poc.tavern.evening" = "stage_variant.poc.tavern.day",
+): DebugUiContextV1 {
+  return debugUiContextSchemaV1.parse({
+    revision: 1,
+    presentation: Object.freeze({
+      presentationRevision: 7,
+      stageSceneId: "stage_scene.poc.tavern",
+      variantId,
+      stageRendererId: "renderer.poc.stage.tavern",
+      renderers: Object.freeze([
+        Object.freeze({
+          rendererId: "renderer.poc.character.layered",
+          characterId: "character.poc.heroine",
+          rigId: "rig.poc.heroine.default",
+          poseId: "pose.poc.heroine.idle",
+          expressionId: "expression.poc.heroine.neutral",
+          appearanceLayerIds: Object.freeze(["appearance_layer.poc.heroine.costume_body"]),
+        }),
+      ]),
+      visibleInteractionSurfaceIds: Object.freeze(["surface.poc.tavern", "surface.poc.heroine"]),
+      activeInteractionSurfaceId: "surface.poc.heroine",
+      contentPolicyRevision: 1,
+      allowedContentFlags: 0,
+    }),
+    session: Object.freeze({
+      routeId: "play",
+      primaryOverlayId: null,
+      detailOverlayIds: Object.freeze([]),
+      narrativeOpen: false,
+      systemDialogOpen: false,
+      devDock: Object.freeze({ leftOpen: false, rightOpen: false }),
+    }),
+  });
+}
 
 async function productionBundleFixtureV1(): Promise<PocDebugBundleV1> {
   const fixture = createPocRuntimeTestFixtureV1({ debugTools: true, cheats: true });
@@ -53,6 +93,24 @@ async function productionBundleFixtureV1(): Promise<PocDebugBundleV1> {
 }
 
 describe("PoC production DebugBundle helpers", () => {
+  it("round-trips the concrete bounded UI context while preserving legacy omission", async () => {
+    const codec = createPocDebugBundleCodecV1();
+    const legacyBundle = await productionBundleFixtureV1();
+    expect(legacyBundle).not.toHaveProperty("uiContext");
+    expect(codec.bundleSchema.parse(legacyBundle)).not.toHaveProperty("uiContext");
+
+    const withUiContext = codec.bundleSchema.parse({
+      ...legacyBundle,
+      uiContext: debugUiContextFixtureV1(),
+    });
+    const decoded = decodeDebugBundleV1(encodeDebugBundleV1(withUiContext, codec), codec);
+
+    expect(decoded).toEqual({ kind: "decoded", bundle: withUiContext });
+    if (decoded.kind !== "decoded") throw new TypeError("missing decoded PoC UI context");
+    expect(decoded.bundle.uiContext).toEqual(debugUiContextFixtureV1());
+    expect(Object.isFrozen(decoded.bundle.uiContext)).toBe(true);
+  });
+
   it("round-trips the strict envelope and rejects broken CommandLog continuity", async () => {
     const codec = createPocDebugBundleCodecV1();
     const bundle = await productionBundleFixtureV1();

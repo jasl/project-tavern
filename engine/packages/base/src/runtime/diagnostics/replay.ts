@@ -203,8 +203,11 @@ function identityMismatchesV1(
 
 function exactVisualIdentityV1(recorded: ReplayIdentityV1, runtime: ReplayIdentityV1): boolean {
   return (
+    recorded.appBuildId !== undefined &&
+    runtime.appBuildId !== undefined &&
     recorded.provenance.resolved.presentationDigest ===
-      runtime.provenance.resolved.presentationDigest && recorded.appBuildId === runtime.appBuildId
+      runtime.provenance.resolved.presentationDigest &&
+    recorded.appBuildId === runtime.appBuildId
   );
 }
 

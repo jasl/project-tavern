@@ -19,6 +19,7 @@ import {
   createPresentationReadPortV1,
   createRuntimePresentationStoreV1,
   createSemanticPublicationBridgeV1,
+  createSystemDialogSessionStoreV1,
   createUiContributionRegistryV1,
   createViewSourceV1,
   initialInteractionSessionStateV1,
@@ -38,8 +39,11 @@ import type {
   RuntimeAssetLoaderV1,
   RuntimeInteractionSurfaceV1,
   RuntimePresentationStoreV1,
+  SystemDialogSessionStoreV1,
   UiContributionRegistryV1,
 } from "@sillymaker/ui";
+import { createDebugUiContextV1 } from "@sillymaker/ui/diagnostics";
+import type { DebugUiSessionProjectionInputV1 } from "@sillymaker/ui/diagnostics";
 import {
   createBrowserImageLoaderV1,
   createGameBootstrapControllerV1,
@@ -62,6 +66,7 @@ import type {
   PocPresentationUiStateV1,
   PocRuntimePresentationPublicationV1,
 } from "../presentation/runtime/contracts.js";
+import { isPocNarrativeOpenV1 } from "../presentation/runtime/contracts.js";
 import { projectPocRuntimePresentationV1 } from "../presentation/runtime/project-poc-runtime-presentation.js";
 import type {
   PocSemanticActionDescriptorV1,
@@ -135,6 +140,7 @@ export interface PocPresentationRuntimeV1 {
     readonly interactionSession: InteractionSessionStoreV1;
     readonly interactionController: ReturnType<typeof createInteractionControllerV1>;
     readonly overlaySession: OverlaySessionStoreV1<PocOverlayIdV1>;
+    readonly systemDialogSession: SystemDialogSessionStoreV1;
     resolveInteractionSurface(
       publication: DeepReadonly<PocRuntimePresentationPublicationV1>,
       surfaceId: InteractionSurfaceId,
@@ -272,210 +278,293 @@ export async function createPocPresentationRuntimeV1(
   }
 
   const resolvedGame = bootstrapped.resolved as PocResolvedGameV1;
+  let diagnosticsPresentation:
+    RuntimePresentationStoreV1<PocRuntimePresentationPublicationV1> | undefined;
+  let readDiagnosticsUiSession:
+    | ((
+        publication: DeepReadonly<PocRuntimePresentationPublicationV1>,
+      ) => DebugUiSessionProjectionInputV1)
+    | undefined;
+  let capturedLifecycle:
+    WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
   const application = await createPocGameRuntimeV1({
     resolved: resolvedGame,
     host: input.host,
     appBuildId: input.appBuildId,
+    readUiContext() {
+      const presentation = diagnosticsPresentation?.getSnapshot();
+      const readUiSession = readDiagnosticsUiSession;
+      if (presentation === undefined || readUiSession === undefined) return undefined;
+      const contentPreferenceSnapshot = contentPreference.observe();
+      const uiSession = readUiSession(presentation);
+      return createDebugUiContextV1({
+        presentation,
+        contentPolicy: pocContentMaturityPolicyV1,
+        contentPreference: contentPreferenceSnapshot,
+        uiSession,
+      });
+    },
     ...(input.rebootstrapDisposition === undefined
       ? {}
       : { rebootstrapDisposition: input.rebootstrapDisposition }),
-    ...(input.onRebootstrapLifecycle === undefined
-      ? {}
-      : { onRebootstrapLifecycle: input.onRebootstrapLifecycle }),
+    onRebootstrapLifecycle(lifecycle) {
+      if (capturedLifecycle !== undefined) {
+        throw new TypeError("PoC presentation runtime received duplicate HMR lifecycle");
+      }
+      capturedLifecycle = lifecycle;
+    },
   });
-  const playerUi = createPlayerUiPortsV1({
-    files: input.host.files,
-    persistence: application.persistence,
-    diagnostics: application.diagnostics,
-  });
-
-  const locationPort = input.location ?? browserLocationV1();
-  const router = createHashRouterV1({
-    location: locationPort,
-    ...(input.hashEvents === undefined ? {} : { eventTarget: input.hashEvents }),
-  });
-  const uiStateSource = createViewSourceV1<PocPresentationUiStateV1>(
-    Object.freeze({
-      route: router.observe().route,
-      primaryOverlayId: null,
-      interaction: initialInteractionSessionStateV1,
-      activeCueId: null,
-    }),
-  );
-  const uiState = readonlyUiStateV1(uiStateSource);
-  const updateUiStateV1 = (
-    update: (current: DeepReadonly<PocPresentationUiStateV1>) => PocPresentationUiStateV1,
-  ): void => {
-    const current = uiStateSource.getCurrent();
-    const next = Object.freeze(update(current));
-    if (
-      next.route === current.route &&
-      next.primaryOverlayId === current.primaryOverlayId &&
-      next.interaction === current.interaction &&
-      next.activeCueId === current.activeCueId
-    ) {
-      return;
+  let completedRuntime: PocPresentationRuntimeV1 | undefined;
+  const presentationCleanups: (() => void)[] = [];
+  let presentationDisposed = false;
+  const disposePresentationConstructionV1 = (): void => {
+    if (presentationDisposed) return;
+    presentationDisposed = true;
+    diagnosticsPresentation = undefined;
+    readDiagnosticsUiSession = undefined;
+    for (const cleanup of presentationCleanups.toReversed()) {
+      try {
+        cleanup();
+      } catch {
+        // The first construction or lifecycle failure remains authoritative.
+      }
     }
-    uiStateSource.publish(next);
   };
-
-  const interactionSession = createInteractionSessionStoreV1({
-    getSnapshot: () => uiStateSource.getCurrent().interaction,
-    subscribe: uiStateSource.subscribe,
-    update(reducer) {
-      updateUiStateV1((current) =>
-        Object.freeze({ ...current, interaction: reducer(current.interaction) }),
-      );
-    },
-  });
-  const overlaySession = createOverlaySessionV1(
-    () => uiStateSource.getCurrent().primaryOverlayId,
-    (primaryOverlayId) =>
-      updateUiStateV1((current) => Object.freeze({ ...current, primaryOverlayId })),
-    uiStateSource.subscribe,
-  );
-  const intents = createPresentationIntentRouterV1({
-    knownOverlayIds: pocOverlayIdsV1,
-    knownSurfaceIds: resolvedGame.sceneGraph.interactionSurfaces.map(({ surfaceId }) => surfaceId),
-    knownCueIds: noPresentationCueIdsV1,
-    overlay: Object.freeze({
-      open: (overlayId: string) => overlaySession.openPrimary(overlayId as PocOverlayIdV1),
-    }),
-    session: interactionSession,
-    cue: Object.freeze({
-      play: (activeCueId: string) =>
-        updateUiStateV1((current) => Object.freeze({ ...current, activeCueId })),
-    }),
-  });
-
-  const semanticBridge = createSemanticPublicationBridgeV1(application.semantic);
-  const presentation = createRuntimePresentationStoreV1({
-    semantic: semanticBridge,
-    resolvedCatalog: resolvedGame.presentation.resolvedCatalog,
-    contentPreference,
-    uiState,
-    project: projectPocRuntimePresentationV1,
-    reportFailure: (failure) =>
-      input.host.log.write("warn", failure.code, Object.freeze({ summary: failure.summary })),
-  });
-
-  const assetLoader = input.assetLoader ?? createDefaultAssetLoaderV1();
-  const assets = createAssetRegistryV1<AssetId, PocAssetUsageV1, string>(
-    resolvedGame.assets,
-    assetLoader,
-    () => input.host.log.write("warn", "presentation.asset_load_failed", Object.freeze({})),
-  );
-  const presentationRead = createPresentationReadPortV1({
-    catalogs: resolvedGame.presentation.textCatalogs,
-    locale: resolvedGame.presentation.textCatalogs.defaultLocale,
-    assets,
-  }) as PocPresentationReadPortV1;
-  const contributions = createUiContributionRegistryV1<PocUiRendererContextsV1>([
-    pocUiContributionsV1,
-  ]);
-  const inputRouter = createInputRouterV1();
-
-  const resolveInteractionSurfaceV1 = (
-    publication: DeepReadonly<PocRuntimePresentationPublicationV1>,
-    surfaceId: InteractionSurfaceId,
-  ): PocInteractionSurfaceResolutionV1 | null => {
-    const surface = findOnlyRuntimeSurfaceV1(publication, surfaceId);
-    if (surface === null) return null;
-    const validation = validateRuntimeInteractionSurfaceV1(surface, {
-      revision: publication.revision,
-      resolvedSurfaces: resolvedGame.sceneGraph.interactionSurfaces,
-      runtimeSurfaces: publication.view.interactionSurfaces,
+  try {
+    const playerUi = createPlayerUiPortsV1({
+      files: input.host.files,
+      persistence: application.persistence,
+      diagnostics: application.diagnostics,
     });
-    return Object.freeze({
-      surface: validation.surface,
-      spatialState: validation.spatialState,
-      faults: validation.faults,
+
+    const locationPort = input.location ?? browserLocationV1();
+    const router = createHashRouterV1({
+      location: locationPort,
+      ...(input.hashEvents === undefined ? {} : { eventTarget: input.hashEvents }),
     });
-  };
+    presentationCleanups.push(() => router.dispose());
+    const uiStateSource = createViewSourceV1<PocPresentationUiStateV1>(
+      Object.freeze({
+        route: router.observe().route,
+        primaryOverlayId: null,
+        interaction: initialInteractionSessionStateV1,
+        activeCueId: null,
+      }),
+    );
+    const uiState = readonlyUiStateV1(uiStateSource);
+    const updateUiStateV1 = (
+      update: (current: DeepReadonly<PocPresentationUiStateV1>) => PocPresentationUiStateV1,
+    ): void => {
+      const current = uiStateSource.getCurrent();
+      const next = Object.freeze(update(current));
+      if (
+        next.route === current.route &&
+        next.primaryOverlayId === current.primaryOverlayId &&
+        next.interaction === current.interaction &&
+        next.activeCueId === current.activeCueId
+      ) {
+        return;
+      }
+      uiStateSource.publish(next);
+    };
 
-  const interactionController = createInteractionControllerV1({
-    presentation,
-    resolveSurface(publication, surfaceId) {
-      return resolveInteractionSurfaceV1(publication, surfaceId)?.surface ?? null;
-    },
-    semantic: application.semantic,
-    intents,
-    session: interactionSession,
-    getReturnFocusId: (activation) =>
-      interactionTargetControlIdV1(activation.surfaceId, activation.targetId),
-  });
-
-  const pointer = installPointerAdapterV1({
-    target: input.pointerTarget,
-    route: inputRouter.route,
-    window: input.pointerWindow ?? browserPointerWindowV1(),
-    document: input.pointerDocument ?? browserPointerDocumentV1(),
-  });
-  const unsubscribeRouter = router.subscribe(() => {
-    const route = router.observe().route;
-    updateUiStateV1((current) => Object.freeze({ ...current, route }));
-  });
-
-  let preloadController = new AbortController();
-  const preloadCurrentV1 = (): void => {
-    preloadController.abort();
-    const controller = new AbortController();
-    preloadController = controller;
-    void assets
-      .preload(presentation.getSnapshot().requiredAssetIds, controller.signal)
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          input.host.log.write("warn", "presentation.asset_preload_failed", Object.freeze({}));
-        }
+    const interactionSession = createInteractionSessionStoreV1({
+      getSnapshot: () => uiStateSource.getCurrent().interaction,
+      subscribe: uiStateSource.subscribe,
+      update(reducer) {
+        updateUiStateV1((current) =>
+          Object.freeze({ ...current, interaction: reducer(current.interaction) }),
+        );
+      },
+    });
+    const overlaySession = createOverlaySessionV1(
+      () => uiStateSource.getCurrent().primaryOverlayId,
+      (primaryOverlayId) =>
+        updateUiStateV1((current) => Object.freeze({ ...current, primaryOverlayId })),
+      uiStateSource.subscribe,
+    );
+    const systemDialogSession = createSystemDialogSessionStoreV1();
+    presentationCleanups.push(() => systemDialogSession.closeSettings());
+    readDiagnosticsUiSession = (publication) => {
+      const currentUiState = uiStateSource.getCurrent();
+      const currentOverlay = overlaySession.getSnapshot();
+      const currentSystemDialog = systemDialogSession.getSnapshot();
+      return Object.freeze({
+        routeId: currentUiState.route,
+        primaryOverlayId: currentOverlay.primaryId,
+        detailOverlayIds: Object.freeze([...currentOverlay.detailIds]),
+        narrativeOpen: isPocNarrativeOpenV1(publication.view.narrative),
+        systemDialogOpen: currentSystemDialog.settingsOpen,
+        devDock: Object.freeze({ leftOpen: false, rightOpen: false }),
+        activeInteractionSurfaceId: currentUiState.interaction.activeSurfaceId,
       });
-  };
-  preloadCurrentV1();
-  const unsubscribePreload = presentation.subscribe(preloadCurrentV1);
+    };
 
-  let previousStageSceneId = presentation.getSnapshot().view.stage.stageSceneId;
-  const unsubscribeStageCleanup = presentation.subscribe(() => {
-    const nextStageSceneId = presentation.getSnapshot().view.stage.stageSceneId;
-    if (nextStageSceneId === previousStageSceneId) return;
-    previousStageSceneId = nextStageSceneId;
-    if (interactionSession.getSnapshot().activeSurfaceId !== null) {
-      interactionSession.cleanup("stage_scene_replaced");
-    }
-  });
+    const intents = createPresentationIntentRouterV1({
+      knownOverlayIds: pocOverlayIdsV1,
+      knownSurfaceIds: resolvedGame.sceneGraph.interactionSurfaces.map(
+        ({ surfaceId }) => surfaceId,
+      ),
+      knownCueIds: noPresentationCueIdsV1,
+      overlay: Object.freeze({
+        open: (overlayId: string) => overlaySession.openPrimary(overlayId as PocOverlayIdV1),
+      }),
+      session: interactionSession,
+      cue: Object.freeze({
+        play: (activeCueId: string) =>
+          updateUiStateV1((current) => Object.freeze({ ...current, activeCueId })),
+      }),
+    });
 
-  let disposed = false;
-  const runtime = Object.freeze({
-    applicationId: pocApplicationIdV1,
-    resolvedGame,
-    application,
-    playerUi,
-    contentPreference,
-    uiState,
-    presentation,
-    intents,
-    input: inputRouter,
-    assets,
-    presentationRead,
-    contributions,
-    gameSymbols: pocGameSymbolRegistryV1,
-    rendering: Object.freeze({
-      interactionSession,
-      interactionController,
-      overlaySession,
-      resolveInteractionSurface: resolveInteractionSurfaceV1,
-    }),
-    dispose(): void {
-      if (disposed) return;
-      disposed = true;
-      pointer.dispose();
-      unsubscribeRouter();
-      router.dispose();
+    const semanticBridge = createSemanticPublicationBridgeV1(application.semantic);
+    presentationCleanups.push(() => semanticBridge.dispose());
+    const presentation = createRuntimePresentationStoreV1({
+      semantic: semanticBridge,
+      resolvedCatalog: resolvedGame.presentation.resolvedCatalog,
+      contentPreference,
+      uiState,
+      project: projectPocRuntimePresentationV1,
+      reportFailure: (failure) =>
+        input.host.log.write("warn", failure.code, Object.freeze({ summary: failure.summary })),
+    });
+    presentationCleanups.push(() => presentation.dispose());
+
+    diagnosticsPresentation = presentation;
+
+    const assetLoader = input.assetLoader ?? createDefaultAssetLoaderV1();
+    const assets = createAssetRegistryV1<AssetId, PocAssetUsageV1, string>(
+      resolvedGame.assets,
+      assetLoader,
+      () => input.host.log.write("warn", "presentation.asset_load_failed", Object.freeze({})),
+    );
+    presentationCleanups.push(() => assets.dispose());
+    const presentationRead = createPresentationReadPortV1({
+      catalogs: resolvedGame.presentation.textCatalogs,
+      locale: resolvedGame.presentation.textCatalogs.defaultLocale,
+      assets,
+    }) as PocPresentationReadPortV1;
+    const contributions = createUiContributionRegistryV1<PocUiRendererContextsV1>([
+      pocUiContributionsV1,
+    ]);
+    const inputRouter = createInputRouterV1();
+
+    const resolveInteractionSurfaceV1 = (
+      publication: DeepReadonly<PocRuntimePresentationPublicationV1>,
+      surfaceId: InteractionSurfaceId,
+    ): PocInteractionSurfaceResolutionV1 | null => {
+      const surface = findOnlyRuntimeSurfaceV1(publication, surfaceId);
+      if (surface === null) return null;
+      const validation = validateRuntimeInteractionSurfaceV1(surface, {
+        revision: publication.revision,
+        resolvedSurfaces: resolvedGame.sceneGraph.interactionSurfaces,
+        runtimeSurfaces: publication.view.interactionSurfaces,
+      });
+      return Object.freeze({
+        surface: validation.surface,
+        spatialState: validation.spatialState,
+        faults: validation.faults,
+      });
+    };
+
+    const interactionController = createInteractionControllerV1({
+      presentation,
+      resolveSurface(publication, surfaceId) {
+        return resolveInteractionSurfaceV1(publication, surfaceId)?.surface ?? null;
+      },
+      semantic: application.semantic,
+      intents,
+      session: interactionSession,
+      getReturnFocusId: (activation) =>
+        interactionTargetControlIdV1(activation.surfaceId, activation.targetId),
+    });
+
+    const pointer = installPointerAdapterV1({
+      target: input.pointerTarget,
+      route: inputRouter.route,
+      window: input.pointerWindow ?? browserPointerWindowV1(),
+      document: input.pointerDocument ?? browserPointerDocumentV1(),
+    });
+    presentationCleanups.push(() => pointer.dispose());
+    const unsubscribeRouter = router.subscribe(() => {
+      const route = router.observe().route;
+      updateUiStateV1((current) => Object.freeze({ ...current, route }));
+    });
+    presentationCleanups.push(unsubscribeRouter);
+
+    let preloadController = new AbortController();
+    const preloadCurrentV1 = (): void => {
+      preloadController.abort();
+      const controller = new AbortController();
+      preloadController = controller;
+      void assets
+        .preload(presentation.getSnapshot().requiredAssetIds, controller.signal)
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            input.host.log.write("warn", "presentation.asset_preload_failed", Object.freeze({}));
+          }
+        });
+    };
+    preloadCurrentV1();
+    const unsubscribePreload = presentation.subscribe(preloadCurrentV1);
+    presentationCleanups.push(() => {
       preloadController.abort();
       unsubscribePreload();
-      unsubscribeStageCleanup();
-      presentation.dispose();
-      semanticBridge.dispose();
-      assets.dispose();
-    },
-  }) satisfies PocPresentationRuntimeV1;
-  return runtime;
+    });
+
+    let previousStageSceneId = presentation.getSnapshot().view.stage.stageSceneId;
+    const unsubscribeStageCleanup = presentation.subscribe(() => {
+      const nextStageSceneId = presentation.getSnapshot().view.stage.stageSceneId;
+      if (nextStageSceneId === previousStageSceneId) return;
+      previousStageSceneId = nextStageSceneId;
+      if (interactionSession.getSnapshot().activeSurfaceId !== null) {
+        interactionSession.cleanup("stage_scene_replaced");
+      }
+    });
+    presentationCleanups.push(unsubscribeStageCleanup);
+
+    const runtime = Object.freeze({
+      applicationId: pocApplicationIdV1,
+      resolvedGame,
+      application,
+      playerUi,
+      contentPreference,
+      uiState,
+      presentation,
+      intents,
+      input: inputRouter,
+      assets,
+      presentationRead,
+      contributions,
+      gameSymbols: pocGameSymbolRegistryV1,
+      rendering: Object.freeze({
+        interactionSession,
+        interactionController,
+        overlaySession,
+        systemDialogSession,
+        resolveInteractionSurface: resolveInteractionSurfaceV1,
+      }),
+      dispose(): void {
+        disposePresentationConstructionV1();
+      },
+    }) satisfies PocPresentationRuntimeV1;
+    completedRuntime = runtime;
+    const lifecycle = capturedLifecycle;
+    if (lifecycle === undefined) {
+      throw new TypeError("PoC presentation runtime did not capture an HMR lifecycle");
+    }
+    await input.onRebootstrapLifecycle?.(lifecycle);
+    return runtime;
+  } catch (error) {
+    completedRuntime?.dispose();
+    disposePresentationConstructionV1();
+    const lifecycle = capturedLifecycle;
+    if (lifecycle !== undefined) {
+      try {
+        await lifecycle.disposeForRebootstrap();
+      } catch {
+        // Construction failure remains authoritative over best-effort game-owner cleanup.
+      }
+    }
+    throw error;
+  }
 }

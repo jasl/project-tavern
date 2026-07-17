@@ -87,6 +87,21 @@ function createCountingE2eStoryEntryV1() {
   });
 }
 
+function createMutableE2eDebugUiContextV1(routeId = "route.e2e.play") {
+  return {
+    revision: 1 as const,
+    presentation: null,
+    session: {
+      routeId,
+      primaryOverlayId: null,
+      detailOverlayIds: [] as string[],
+      narrativeOpen: false,
+      systemDialogOpen: false,
+      devDock: { leftOpen: false, rightOpen: false },
+    },
+  };
+}
+
 describe("E2e Game Application runtime", () => {
   it("exports one privacy-scrubbed bundle from the shared observer-failure sink", async () => {
     const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
@@ -174,6 +189,110 @@ describe("E2e Game Application runtime", () => {
     ]);
     expect(application.diagnostics).not.toHaveProperty("inspectDebugBundle");
     expect(application.diagnostics).not.toHaveProperty("anchorDebugBundle");
+  });
+
+  it("reads and copies one concrete UI context only while exporting diagnostics", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const appBuildId = digestCanonical("sillymaker:application:v1", {
+      fixture: "e2e-diagnostics-current-build",
+    });
+    let currentUiContext: ReturnType<typeof createMutableE2eDebugUiContextV1> | undefined =
+      createMutableE2eDebugUiContextV1();
+    const readUiContext = vi.fn(() => currentUiContext);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000090"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+      appBuildId,
+      readUiContext,
+    });
+
+    expect(readUiContext).not.toHaveBeenCalled();
+    const firstExport = await application.diagnostics.exportDebugBundle();
+    expect(readUiContext).toHaveBeenCalledOnce();
+    const firstBundle = JSON.parse(new TextDecoder().decode(firstExport.bytes)) as {
+      readonly appBuildId?: string;
+      readonly uiContext?: {
+        readonly revision: number;
+        readonly presentation: unknown;
+        readonly session: { readonly routeId: string | null };
+      };
+    };
+    expect(firstBundle).toMatchObject({
+      appBuildId,
+      uiContext: {
+        revision: 1,
+        presentation: null,
+        session: { routeId: "route.e2e.play" },
+      },
+    });
+    await application.capabilities.setEnabled("debug_tools", true);
+    await expect(application.debugTools.replayAuthoritatively(firstExport.bytes)).resolves.toEqual({
+      kind: "replayed",
+      comparison: {
+        authoritative: true,
+        identityMatch: true,
+        visualMatch: true,
+        matches: true,
+        executedEntries: 0,
+        mismatches: [],
+      },
+    });
+    expect(readUiContext).toHaveBeenCalledOnce();
+
+    if (currentUiContext === undefined) throw new TypeError("missing mutable E2E UI context");
+    currentUiContext.session.routeId = "route.e2e.mutated-after-export";
+    currentUiContext = undefined;
+    const secondExport = await application.diagnostics.exportDebugBundle();
+    expect(readUiContext).toHaveBeenCalledTimes(2);
+    const secondBundle = JSON.parse(new TextDecoder().decode(secondExport.bytes)) as {
+      readonly appBuildId?: string;
+      readonly uiContext?: unknown;
+    };
+    expect(secondBundle.appBuildId).toBe(appBuildId);
+    expect(secondBundle).not.toHaveProperty("uiContext");
+    const rereadFirstBundle = JSON.parse(new TextDecoder().decode(firstExport.bytes)) as {
+      readonly uiContext?: { readonly session: { readonly routeId: string | null } };
+    };
+    expect(rereadFirstBundle.uiContext?.session.routeId).toBe("route.e2e.play");
+
+    const decoded = createE2eDebugBundleCodecV1(
+      resolved.gameSimulation.stateSchema,
+    ).bundleSchema.parse(rereadFirstBundle);
+    expect(decoded.uiContext).toMatchObject({
+      revision: 1,
+      presentation: null,
+      session: { routeId: "route.e2e.play" },
+    });
+    expect(Object.isFrozen(decoded.uiContext)).toBe(true);
+  });
+
+  it("keeps legacy headless bundles valid when application identity and UI context are omitted", async () => {
+    const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
+    const application = await createE2eGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000089"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+    });
+    const legacyBundle = JSON.parse(
+      new TextDecoder().decode((await application.diagnostics.exportDebugBundle()).bytes),
+    ) as Record<string, unknown>;
+
+    expect(legacyBundle).not.toHaveProperty("appBuildId");
+    expect(legacyBundle).not.toHaveProperty("uiContext");
+    const parsed = createE2eDebugBundleCodecV1(
+      resolved.gameSimulation.stateSchema,
+    ).bundleSchema.parse(legacyBundle);
+    expect(parsed).not.toHaveProperty("appBuildId");
+    expect(parsed).not.toHaveProperty("uiContext");
   });
 
   it("loads only the fixed tooling export after DebugTools is enabled", async () => {
@@ -408,7 +527,7 @@ describe("E2e Game Application runtime", () => {
       comparison: {
         authoritative: true,
         identityMatch: true,
-        visualMatch: true,
+        visualMatch: false,
         matches: true,
         executedEntries: 1,
         mismatches: [],

@@ -248,8 +248,10 @@ export type {
 } from "./persistence.js";
 export {
   createDebugBundleEnvelopeSchemaV1,
+  createDebugUiContextSchemaV1,
   DebugBundleEnvelopeSchemaFailureV1,
   debugBundleJsonLimitsV1,
+  debugPresentationLimitsV1,
   exportedDebugBundleSchemaV1,
   runtimeOperationFaultSchemaV1,
 } from "./diagnostics.js";
@@ -260,6 +262,15 @@ export type {
   DebugBundleEnvelopeV1,
   DebugBundleEnvelopeSchemaFailureCodeV1,
   DebugBundleEnvelopeSchemaInputV1,
+  DebugPresentationRendererSummaryV1,
+  DebugPresentationSummaryV1,
+  DebugUiContextCurrentIdentityV1,
+  DebugUiContextRecordedIdentityV1,
+  DebugUiContextUseClassificationV1,
+  DebugUiContextUseMismatchReasonV1,
+  DebugUiContextV1,
+  DebugUiSessionProjectionInputV1,
+  DebugUiSessionSummaryV1,
   ExportedDebugBundleV1,
   PersistenceFaultCodeV1,
   RuntimeFaultBaseV1,

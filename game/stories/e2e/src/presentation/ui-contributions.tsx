@@ -39,7 +39,7 @@ import type {
   E2eSemanticGamePortV1,
   E2eSemanticInvocationV1,
 } from "../runtime/e2e-semantic-game-port.js";
-import type { E2eRuntimePresentationViewV1 } from "./runtime-presentation.js";
+import { isE2eNarrativeOpenV1, type E2eRuntimePresentationViewV1 } from "./runtime-presentation.js";
 import {
   e2eCharacterRendererIdV1,
   e2eStageRendererIdV1,
@@ -413,7 +413,7 @@ function E2eNarrativeHostV1(props: E2eUiRendererContextsV1["narrative"]): ReactE
   const inputRouter = useInputRouterV1();
   const accessibleName = props.presentation.text(textIdsV1.narrativeName).text;
   const status = props.viewSlice.game.flow.status;
-  const active = status === "choosing" || status === "blocked";
+  const active = isE2eNarrativeOpenV1(status);
   const choices =
     status === "choosing"
       ? selectE2eFlowActionOptionsV1(props.viewSlice.actions, ["action.e2e.choose"]).map((option) =>

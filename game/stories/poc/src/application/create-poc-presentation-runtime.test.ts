@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const ownerDisposalsV1 = vi.hoisted(() =>
   Object.freeze({
+    gameOwner: vi.fn(),
     pointer: vi.fn(),
     router: vi.fn(),
     preload: vi.fn(),
@@ -24,9 +25,26 @@ const ownerDisposalsV1 = vi.hoisted(() =>
     presentationStore: vi.fn(),
   }),
 );
+const constructionControlV1 = vi.hoisted(() => ({ failPointerInstall: false }));
 
 vi.mock("@sillymaker/web", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@sillymaker/web")>();
+  const createGameRuntime = async (
+    input: Parameters<typeof actual.createGameRuntimeV1>[0],
+  ): Promise<unknown> =>
+    await actual.createGameRuntimeV1({
+      ...input,
+      async onRebootstrapLifecycle(lifecycle) {
+        const observedLifecycle = Object.freeze({
+          invalidationController: lifecycle.invalidationController,
+          async disposeForRebootstrap() {
+            ownerDisposalsV1.gameOwner();
+            return await lifecycle.disposeForRebootstrap();
+          },
+        });
+        await input.onRebootstrapLifecycle?.(observedLifecycle);
+      },
+    });
   const createHashRouter = ((options: Parameters<typeof actual.createHashRouterV1>[0]) => {
     const router = actual.createHashRouterV1(options);
     return Object.freeze({
@@ -38,6 +56,9 @@ vi.mock("@sillymaker/web", async (importOriginal) => {
     });
   }) satisfies typeof actual.createHashRouterV1;
   const installPointerAdapter = ((input: Parameters<typeof actual.installPointerAdapterV1>[0]) => {
+    if (constructionControlV1.failPointerInstall) {
+      throw new TypeError("poc.test.pointer_install_failed");
+    }
     const pointer = actual.installPointerAdapterV1(input);
     return Object.freeze({
       dispose(): void {
@@ -48,6 +69,7 @@ vi.mock("@sillymaker/web", async (importOriginal) => {
   }) satisfies typeof actual.installPointerAdapterV1;
   return {
     ...actual,
+    createGameRuntimeV1: createGameRuntime,
     createHashRouterV1: createHashRouter,
     installPointerAdapterV1: installPointerAdapter,
   };
@@ -207,6 +229,7 @@ async function createFixtureV1() {
 
 describe("createPocPresentationRuntimeV1", () => {
   beforeEach(() => {
+    constructionControlV1.failPointerInstall = false;
     for (const disposal of Object.values(ownerDisposalsV1)) disposal.mockClear();
   });
 
@@ -268,6 +291,91 @@ describe("createPocPresentationRuntimeV1", () => {
     fixture.runtime.dispose();
   });
 
+  it("exports one live UI-session projection from the existing presentation stores", async () => {
+    const fixture = await createFixtureV1();
+    const runtime = fixture.runtime;
+    await runtime.application.semantic.dispatch({
+      kind: "invoke",
+      actionId: "action.run_start",
+      options: {},
+    });
+    expect(runtime.presentation.getSnapshot().view.narrative?.status).toBe("active");
+
+    expect(
+      runtime.intents.execute({
+        kind: "overlay.open",
+        overlayId: "overlay.poc.purchase",
+      }),
+    ).toEqual({ kind: "executed" });
+    const activeSurfaceId =
+      runtime.presentation.getSnapshot().view.interactionSurfaces[0]?.surfaceId;
+    if (activeSurfaceId === undefined) throw new TypeError("missing PoC interaction surface");
+    runtime.rendering.interactionSession.open(activeSurfaceId, null);
+    runtime.rendering.systemDialogSession.openSettings();
+
+    const bundle = JSON.parse(
+      new TextDecoder().decode((await runtime.application.diagnostics.exportDebugBundle()).bytes),
+    ) as {
+      readonly uiContext?: {
+        readonly presentation: { readonly activeInteractionSurfaceId: string | null } | null;
+        readonly session: {
+          readonly routeId: string | null;
+          readonly primaryOverlayId: string | null;
+          readonly detailOverlayIds: readonly string[];
+          readonly narrativeOpen: boolean;
+          readonly systemDialogOpen: boolean;
+          readonly devDock: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+        };
+      };
+    };
+
+    expect(bundle.uiContext).toMatchObject({
+      presentation: { activeInteractionSurfaceId: activeSurfaceId },
+      session: {
+        routeId: "play",
+        primaryOverlayId: "overlay.poc.purchase",
+        detailOverlayIds: [],
+        narrativeOpen: true,
+        systemDialogOpen: true,
+        devDock: { leftOpen: false, rightOpen: false },
+      },
+    });
+    expect(bundle.uiContext?.session).not.toHaveProperty("activeInteractionSurfaceId");
+
+    runtime.rendering.systemDialogSession.closeSettings();
+    const closedBundle = JSON.parse(
+      new TextDecoder().decode((await runtime.application.diagnostics.exportDebugBundle()).bytes),
+    ) as { readonly uiContext?: { readonly session: { readonly systemDialogOpen: boolean } } };
+    expect(closedBundle.uiContext?.session.systemDialogOpen).toBe(false);
+
+    runtime.dispose();
+  });
+
+  it("defers lifecycle handoff and disposes the game owner after late construction failure", async () => {
+    const hash = createHashFixtureV1();
+    const assets = createAssetLoaderV1();
+    const onRebootstrapLifecycle = vi.fn();
+    constructionControlV1.failPointerInstall = true;
+
+    await expect(
+      createPocPresentationRuntimeV1({
+        host: createHostV1(),
+        buildIdentity: emptyBuildIdentityV1,
+        appBuildId: digestCanonical("sillymaker:application:v1", emptyBuildIdentityV1.application),
+        pointerTarget: document.createElement("div"),
+        location: hash.location,
+        hashEvents: hash.events,
+        pointerWindow: window,
+        pointerDocument: document,
+        assetLoader: assets.loader,
+        onRebootstrapLifecycle,
+      }),
+    ).rejects.toThrow("poc.test.pointer_install_failed");
+
+    expect(onRebootstrapLifecycle).not.toHaveBeenCalled();
+    expect(ownerDisposalsV1.gameOwner).toHaveBeenCalledOnce();
+  });
+
   it("disposes browser and presentation resources exactly once", async () => {
     const fixture = await createFixtureV1();
 
@@ -282,6 +390,7 @@ describe("createPocPresentationRuntimeV1", () => {
         ]),
       ),
     ).toEqual({
+      gameOwner: 0,
       pointer: 1,
       router: 1,
       preload: 1,

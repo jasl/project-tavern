@@ -40,8 +40,16 @@ export type {
   UiRendererContributionV1,
   UiRendererNamespaceV1,
 } from "./contributions/types.js";
-export { DiagnosticExportButtonV1 } from "./diagnostics/index.js";
-export type { DiagnosticExportButtonPropsV1, DiagnosticExportPortV1 } from "./diagnostics/index.js";
+export {
+  DiagnosticExportButtonV1,
+  classifyDebugUiContextUseV1,
+  createDebugUiContextV1,
+} from "./diagnostics/index.js";
+export type {
+  DebugUiSessionProjectionInputV1,
+  DiagnosticExportButtonPropsV1,
+  DiagnosticExportPortV1,
+} from "./diagnostics/index.js";
 export { RootErrorBoundaryV1, RuntimeFailureDialogV1 } from "./errors/index.js";
 export type {
   RootErrorBoundaryFailureDialogV1,
@@ -193,10 +201,17 @@ export type {
   StageBackgroundPresentationV1,
   StageSceneHostPropsV1,
 } from "./stage/index.js";
-export { SettingsDialogV1, SettingsLauncherV1, SystemDialogHostV1 } from "./system/index.js";
+export {
+  SettingsDialogV1,
+  SettingsLauncherV1,
+  SystemDialogHostV1,
+  createSystemDialogSessionStoreV1,
+} from "./system/index.js";
 export type {
   SettingsDialogPropsV1,
   SettingsLauncherPropsV1,
+  SystemDialogSessionStateV1,
+  SystemDialogSessionStoreV1,
   SystemDialogHostPropsV1,
   SystemDialogSettingsV1,
 } from "./system/index.js";

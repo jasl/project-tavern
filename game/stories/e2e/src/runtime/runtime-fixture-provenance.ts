@@ -170,12 +170,12 @@ export const runtimeFixtureProvenanceV1 = parseRuntimeFixtureProvenanceV1({
     storyRevision: 1,
     stateContractRevision: 1,
     stateContractDigest: "sha256:e3c1273a0bd3514a7a75a848873051f39170026624ae47ccae6790640b69897e",
-    engineDigest: "sha256:f9deca0c66badc04e1f62bc48ccd49d2c7a6d063cc7cd4cde32b6d95ccb9377d",
+    engineDigest: "sha256:6124f5950b2a7b934ae93e3001064d420f0232954b4914ea2c8c60e08824dd0a",
     simulationDigest: "sha256:6ef07f9708aca997c1ab2fe782ed038f4d5757274d0b3f87dcfbd6877a981ca5",
   },
   diagnosticAtGeneration: {
-    storyDigest: "sha256:be333b6c3a0a99f6c814763a138c5808bffa07765d3161c2f37981318988bbe5",
-    presentationDigest: "sha256:87a71df2cbd6acbd248fddd5cf6415b64f812d29cba36fc1904b9ae588344aa2",
+    storyDigest: "sha256:3ed7e43d68b8ed10d2300a2eacf04fdaecc112b890fd1a3d5bec390add6caaba",
+    presentationDigest: "sha256:6a24a65ea908f224031747013d2a06d56ba509ea3e753f9c08a649c054209b03",
     patchSet: {
       digest: "sha256:075e4a3753319341f977756b786b3423038b6610c7c2cf57df51d3ded5701988",
       simulationDigest: "sha256:075e4a3753319341f977756b786b3423038b6610c7c2cf57df51d3ded5701988",
@@ -183,6 +183,6 @@ export const runtimeFixtureProvenanceV1 = parseRuntimeFixtureProvenanceV1({
       appliedHotfixes: [],
     },
     engineVersion: "0.0.0",
-    appBuildId: "sha256:a835285f8052df076f5548a73e0223f8511ccde5d861eff27700f8b25482d827",
+    appBuildId: "sha256:dc49aa9b4a47b5549ea1e2ba74c79872ede23eb76e56a7ade99067f854b3271f",
   },
 });

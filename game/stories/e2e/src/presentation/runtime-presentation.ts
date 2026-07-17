@@ -40,6 +40,10 @@ export type {
 
 export type E2ePresentationRouteV1 = "main_menu" | "play";
 
+export function isE2eNarrativeOpenV1(status: E2eGameViewV1["flow"]["status"]): boolean {
+  return status === "choosing" || status === "blocked";
+}
+
 export interface E2ePresentationUiStateV1 {
   readonly route: E2ePresentationRouteV1;
   readonly primaryOverlayId: string | null;

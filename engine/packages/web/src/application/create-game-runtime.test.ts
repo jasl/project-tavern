@@ -2,6 +2,7 @@
 import type {
   GameHostV1,
   HostStoredRecordV1,
+  RuntimeSchemaV1,
   RuntimeInvalidationControllerV1,
 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
@@ -27,6 +28,36 @@ function deferredValueV1<T>() {
 }
 
 describe("generic Web game runtime", () => {
+  it("forwards a paired UI-context schema and reader without invoking either", async () => {
+    const host = createWebHostV1({
+      records: createMemoryHostRecordStoreV1(),
+      uuids: ["00000000-0000-4000-8000-000000000110"],
+    });
+    const uiContextSchema: RuntimeSchemaV1<{ readonly route: "play" }> = Object.freeze({
+      parse: vi.fn(() => Object.freeze({ route: "play" as const })),
+    });
+    const readUiContext = vi.fn(() => ({ route: "play" }));
+    const createApplication = vi.fn((composition) => {
+      expect(composition.uiContextSchema).toBe(uiContextSchema);
+      expect(composition.readUiContext).toBe(readUiContext);
+      expect(uiContextSchema.parse).not.toHaveBeenCalled();
+      expect(readUiContext).not.toHaveBeenCalled();
+      return composition;
+    });
+
+    const application = await createGameRuntimeV1({
+      host,
+      uiContextSchema,
+      readUiContext,
+      createApplication,
+    });
+
+    expect(application.uiContextSchema).toBe(uiContextSchema);
+    expect(application.readUiContext).toBe(readUiContext);
+    expect(uiContextSchema.parse).not.toHaveBeenCalled();
+    expect(readUiContext).not.toHaveBeenCalled();
+  });
+
   it("injects one shared bounded observer-failure sink into application composition", async () => {
     const host = createWebHostV1({
       records: createMemoryHostRecordStoreV1(),

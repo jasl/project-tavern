@@ -36,7 +36,7 @@ import type {
   E2ePresentationUiStateV1,
   E2eRuntimePresentationViewV1,
 } from "./runtime-presentation.js";
-import { projectE2eRuntimePresentationV1 } from "./runtime-presentation.js";
+import { isE2eNarrativeOpenV1, projectE2eRuntimePresentationV1 } from "./runtime-presentation.js";
 import { e2eSceneGraphV1 } from "./scene-graph.js";
 import {
   e2eUiContributionRegistryV1,
@@ -493,6 +493,9 @@ describe("e2eUiContributionsV1", () => {
       expect(
         screen.getByRole("group", { name: flowCatalogWitnessV1(flowTextIdsV1.hud) }),
       ).toBeVisible();
+      expect(isE2eNarrativeOpenV1(fixture.application.semantic.observe().game.flow.status)).toBe(
+        false,
+      );
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: labels.start })).toBeEnabled();
       expect(screen.getByRole("button", { name: labels.complete })).toBeDisabled();
@@ -525,6 +528,7 @@ describe("e2eUiContributionsV1", () => {
       const choosingDialog = screen.getByRole("dialog", {
         name: flowCatalogWitnessV1(flowTextIdsV1.narrative),
       });
+      expect(isE2eNarrativeOpenV1(publication.game.flow.status)).toBe(true);
       expect(choosingDialog).toBeVisible();
       expect(choosingDialog).toHaveTextContent(flowCatalogWitnessV1(flowTextIdsV1.choiceNode));
       expect(screen.getByRole("button", { name: labels.chooseLeft })).toBeEnabled();
@@ -559,6 +563,7 @@ describe("e2eUiContributionsV1", () => {
       const blockedDialog = screen.getByRole("dialog", {
         name: flowCatalogWitnessV1(flowTextIdsV1.narrative),
       });
+      expect(isE2eNarrativeOpenV1(publication.game.flow.status)).toBe(true);
       expect(blockedDialog).toBeVisible();
       expect(blockedDialog).toHaveTextContent(flowCatalogWitnessV1(flowTextIdsV1.rejoinNode));
       expect(screen.getByRole("button", { name: labels.continue })).toBeEnabled();
@@ -583,6 +588,7 @@ describe("e2eUiContributionsV1", () => {
       if (completeInvocation === undefined) {
         throw new TypeError("missing published E2E complete option");
       }
+      expect(isE2eNarrativeOpenV1(publication.game.flow.status)).toBe(false);
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(
         fixture.inputRouter.route({

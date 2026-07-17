@@ -6,7 +6,8 @@
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
-    "./assets": "./src/assets/index.ts"
+    "./assets": "./src/assets/index.ts",
+    "./diagnostics": "./src/diagnostics/index.ts"
   },
   "scripts": {
     "test": "pnpm --workspace-root exec vitest run engine/packages/ui/src"
