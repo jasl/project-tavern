@@ -2517,6 +2517,52 @@ Repair TDD and contract:
    git commit -m "test(story-poc): bound tooling anchor timeout"
    ```
 
+#### Authorized owner repair before Phase 5B Task 9: keep historical Save diagnostics nonblocking
+
+Task 9's required Story UI copy is a Presentation-only upstream correction. It changes the Story
+and `presentationDigest`, but ordinary Save compatibility already treats both values as diagnostic
+warnings: the blocking tuple remains Story ID/revision, state-contract revision/digest, engine
+digest, and `simulationDigest`. The eight reviewed Save files are historical byte evidence and must
+not be regenerated merely to make their diagnostic-at-generation tuple equal a newer Presentation.
+
+Apply the Phase 3 Task 11 accepted two-mode fixture-provenance contract to the PoC builder:
+
+- `read_only_verification` requires the complete live blocking tuple to equal the frozen tuple, then
+  reconstructs the expected historical records with the frozen `diagnosticAtGeneration` values;
+- `fixture_generation` requires both blocking and diagnostic tuples to equal the current resolved
+  Story before the tracked writer may produce a candidate;
+- blocking drift fails both modes, diagnostic-only drift is accepted only by read-only verification,
+  and compatibility classification still reports Story/presentation differences as warnings;
+- the writer explicitly selects `fixture_generation`; ordinary verification defaults to
+  `read_only_verification`; no tracked Save JSON byte changes in this repair.
+
+First add focused tests proving diagnostic-only drift passes read-only verification but fails
+generation, while blocking drift fails both and the frozen diagnostic tuple reconstructs the exact
+historical bytes. Then add the complete Task 9 TextIds and Chinese copy to the existing Story
+catalog, including one exhaustive `PocRejectionReasonV1["code"] -> TextId` mapping so preview and
+disabled reasons never need a React fallback dictionary. Prove state-contract, engine, and
+simulation identity remain unchanged while only the expected presentation diagnostic identity
+changes; Story digest, PatchSet, engine version and appBuildId remain equal to the reviewed
+diagnostic tuple. Hash all eight Save files before and after, run the focused Story/provenance
+suites and `pnpm verify:fixtures` twice, and require byte equality.
+
+**Exact repair files:**
+
+- Modify: `docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md`
+- Modify: `docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md`
+- Modify: `game/stories/poc/src/content/ids.ts`
+- Modify: `game/stories/poc/src/presentation/text-catalogs/zh-CN.ts`
+- Modify: `game/stories/poc/src/testing/save-fixture-provenance.ts`
+- Modify: `game/stories/poc/src/testing/save-fixture-builder.ts`
+- Modify: `game/stories/poc/src/test/save-fixtures.test.ts`
+- Modify: `game/stories/poc/src/test/story-validation.test.ts`
+- Modify: `game/stories/poc/scripts/update-save-fixtures.mjs`
+
+Run the focused tests, `pnpm verify:fixtures` twice, `pnpm verify:commands`, `pnpm verify:golden`,
+`pnpm verify:semantic`, `pnpm verify:stories`, `pnpm verify:boundaries`, `pnpm typecheck`, full
+`pnpm verify`, and `git diff --check`. Exact-stage only the nine files above and commit
+`fix(story-poc): complete presentation text contract`.
+
 ## Task 13: Add the Read-Only Phase 4B Verification Gate
 
 **Files:**

@@ -57,9 +57,12 @@ import { pocStateContractManifestV1, pocStoryEntryV1 } from "../story-definition
 import { pocReferenceToolingFixtureByStrategyIdV1 } from "../tooling-fixtures.js";
 import { compilePocToolingCommandsV1 } from "./compile-reference-strategy.js";
 import {
+  buildReviewedPocSaveRecordProvenanceV1,
+  isPocSaveFixtureProvenanceCurrentV1,
   pocSaveFixtureProvenanceV1,
   projectPocSaveFixtureProvenanceV1,
   type PocSaveFixtureCaptureProvenanceV1,
+  type PocSaveFixtureProvenanceModeV1,
 } from "./save-fixture-provenance.js";
 
 export const pocSaveFixtureNamesV1 = Object.freeze([
@@ -87,6 +90,10 @@ export interface PocSaveFixtureMatrixV1 {
       readonly string[]
     >
   >;
+}
+
+export interface BuildPocSaveFixtureMatrixOptionsV1 {
+  readonly provenanceMode?: PocSaveFixtureProvenanceModeV1;
 }
 
 interface PocSaveSlotMetadataV1 {
@@ -724,6 +731,7 @@ function createValidationContextV1(
 function createFixturePersistenceV1(
   runtime: PocFixtureRuntimeV1,
   resolved: PocResolvedGameV1,
+  recordProvenance: DeepReadonly<BuildProvenanceV1>,
   records: HostAtomicRecordStoreV1,
   clock: FixedClockV1,
 ): Promise<PocPersistenceV1> {
@@ -731,7 +739,7 @@ function createFixturePersistenceV1(
     runtimeControl: runtime.runtimeControl,
     records,
     snapshotSchema: pocSnapshotSchemaV1,
-    provenance: resolved.provenance,
+    provenance: recordProvenance,
     adoptionDeclaration: null,
     ownerId: "owner.poc-save-fixtures" as SessionLeaseOwnerId,
     nextHandoffRequestId: () => "request.poc-save-fixtures" as LeaseHandoffRequestId,
@@ -776,6 +784,7 @@ function assertCaptureV1(
 
 async function buildAutoCaptureV1(
   resolved: PocResolvedGameV1,
+  recordProvenance: DeepReadonly<BuildProvenanceV1>,
   invocations: readonly DeepReadonly<PocSemanticInvocationV1>[],
 ): Promise<AutoCaptureV1> {
   const startIndex = invocations.findIndex(
@@ -793,7 +802,13 @@ async function buildAutoCaptureV1(
   const openingCapture = pocSaveFixtureProvenanceV1.captures.auto_opening;
   const postCapture = pocSaveFixtureProvenanceV1.captures.auto_post_opening;
   const clock = createFixedClockV1([openingCapture.savedAt, postCapture.savedAt]);
-  const persistence = await createFixturePersistenceV1(runtime, resolved, store.store, clock);
+  const persistence = await createFixturePersistenceV1(
+    runtime,
+    resolved,
+    recordProvenance,
+    store.store,
+    clock,
+  );
 
   await replayInvocationsV1(runtime, [invocations[startIndex]!]);
   await persistence.autoSaveIdle();
@@ -857,6 +872,7 @@ async function buildAutoCaptureV1(
 
 async function buildQuickCaptureV1(
   resolved: PocResolvedGameV1,
+  recordProvenance: DeepReadonly<BuildProvenanceV1>,
   invocations: readonly DeepReadonly<PocSemanticInvocationV1>[],
 ): Promise<DeepReadonly<PocSaveRecordV1>> {
   const worldActionIndex = invocations.findIndex(
@@ -873,6 +889,7 @@ async function buildQuickCaptureV1(
   const persistence = await createFixturePersistenceV1(
     runtime,
     resolved,
+    recordProvenance,
     createMemoryHostRecordStoreV1(),
     clock,
   );
@@ -886,6 +903,7 @@ async function buildQuickCaptureV1(
 
 async function buildManualCaptureV1(
   resolved: PocResolvedGameV1,
+  recordProvenance: DeepReadonly<BuildProvenanceV1>,
   invocations: readonly DeepReadonly<PocSemanticInvocationV1>[],
 ): Promise<DeepReadonly<PocSaveRecordV1>> {
   const runtime = createFixtureRuntimeV1(resolved);
@@ -903,6 +921,7 @@ async function buildManualCaptureV1(
   const persistence = await createFixturePersistenceV1(
     runtime,
     resolved,
+    recordProvenance,
     createMemoryHostRecordStoreV1(),
     clock,
   );
@@ -942,19 +961,27 @@ function changedJsonPathsV1(left: unknown, right: unknown, prefix = ""): readonl
   return Object.freeze([prefix]);
 }
 
-function assertProvenanceV1(resolved: PocResolvedGameV1): void {
+function requireRecordProvenanceV1(
+  resolved: PocResolvedGameV1,
+  mode: PocSaveFixtureProvenanceModeV1,
+): DeepReadonly<BuildProvenanceV1> {
   const live = projectPocSaveFixtureProvenanceV1({
     provenance: resolved.provenance,
     appBuildId: digestCanonical("sillymaker:application:v1", []),
   });
-  if (!bytesEqualV1(canonicalJsonBytes(live), canonicalJsonBytes(pocSaveFixtureProvenanceV1))) {
+  if (!isPocSaveFixtureProvenanceCurrentV1(live, pocSaveFixtureProvenanceV1, mode)) {
     throw new TypeError("poc_save_fixture.provenance_drift");
   }
+  return mode === "read_only_verification"
+    ? buildReviewedPocSaveRecordProvenanceV1(pocSaveFixtureProvenanceV1)
+    : resolved.provenance;
 }
 
-async function buildInternalV1(): Promise<InternalBuildV1> {
+async function buildInternalV1(
+  provenanceMode: PocSaveFixtureProvenanceModeV1,
+): Promise<InternalBuildV1> {
   const resolved = resolveStoryForTestV1(pocStoryEntryV1);
-  assertProvenanceV1(resolved);
+  const recordProvenance = requireRecordProvenanceV1(resolved, provenanceMode);
   const source = pocReferenceToolingFixtureByStrategyIdV1["strategy.investigation_first"];
   const compiled = await compilePocToolingCommandsV1(
     "strategy.investigation_first",
@@ -962,9 +989,9 @@ async function buildInternalV1(): Promise<InternalBuildV1> {
   );
   const invocations = Object.freeze(compiled.entries.map(({ invocation }) => invocation));
   const [auto, quick, manual] = await Promise.all([
-    buildAutoCaptureV1(resolved, invocations),
-    buildQuickCaptureV1(resolved, invocations),
-    buildManualCaptureV1(resolved, invocations),
+    buildAutoCaptureV1(resolved, recordProvenance, invocations),
+    buildQuickCaptureV1(resolved, recordProvenance, invocations),
+    buildManualCaptureV1(resolved, recordProvenance, invocations),
   ]);
 
   const futureFormat = deepFreezePocValueV1({ ...manual, formatRevision: 2 });
@@ -1012,19 +1039,24 @@ async function buildInternalV1(): Promise<InternalBuildV1> {
   });
 }
 
-let internalBuildPromiseV1: Promise<InternalBuildV1> | undefined;
+const internalBuildPromisesV1 = new Map<PocSaveFixtureProvenanceModeV1, Promise<InternalBuildV1>>();
 let recoveryPromiseV1: Promise<AutoCaptureV1["recovery"]> | undefined;
 
-function internalBuildV1(): Promise<InternalBuildV1> {
-  internalBuildPromiseV1 ??= buildInternalV1().catch((error: unknown) => {
-    internalBuildPromiseV1 = undefined;
+function internalBuildV1(mode: PocSaveFixtureProvenanceModeV1): Promise<InternalBuildV1> {
+  const current = internalBuildPromisesV1.get(mode);
+  if (current !== undefined) return current;
+  const pending = buildInternalV1(mode).catch((error: unknown) => {
+    internalBuildPromisesV1.delete(mode);
     throw error;
   });
-  return internalBuildPromiseV1;
+  internalBuildPromisesV1.set(mode, pending);
+  return pending;
 }
 
-export async function buildPocSaveFixtureMatrixV1(): Promise<PocSaveFixtureMatrixV1> {
-  return (await internalBuildV1()).matrix;
+export async function buildPocSaveFixtureMatrixV1(
+  options: BuildPocSaveFixtureMatrixOptionsV1 = {},
+): Promise<PocSaveFixtureMatrixV1> {
+  return (await internalBuildV1(options.provenanceMode ?? "read_only_verification")).matrix;
 }
 
 function fixtureUrlV1(name: PocSaveFixtureNameV1): URL {
@@ -1062,7 +1094,7 @@ export type PocSaveFixtureClassificationV1 =
 
 export function classifyPocSaveBytesV1(bytes: Uint8Array): PocSaveFixtureClassificationV1 {
   const resolved = resolveStoryForTestV1(pocStoryEntryV1);
-  assertProvenanceV1(resolved);
+  requireRecordProvenanceV1(resolved, "read_only_verification");
   const result = validateSaveImportCandidateV1(bytes, createValidationContextV1(resolved));
   if (result.kind === "rejected") {
     return Object.freeze({ kind: "rejected" as const, code: result.code });
@@ -1094,14 +1126,14 @@ export async function classifyPocSaveFixtureV1(
 export async function inspectPocAutoRecoveryPairV1(): Promise<AutoCaptureV1["recovery"]> {
   recoveryPromiseV1 ??= (async () => {
     const resolved = resolveStoryForTestV1(pocStoryEntryV1);
-    assertProvenanceV1(resolved);
+    const recordProvenance = requireRecordProvenanceV1(resolved, "read_only_verification");
     const source = pocReferenceToolingFixtureByStrategyIdV1["strategy.investigation_first"];
     const compiled = await compilePocToolingCommandsV1(
       "strategy.investigation_first",
       source.commands,
     );
     const invocations = Object.freeze(compiled.entries.map(({ invocation }) => invocation));
-    return (await buildAutoCaptureV1(resolved, invocations)).recovery;
+    return (await buildAutoCaptureV1(resolved, recordProvenance, invocations)).recovery;
   })().catch((error: unknown) => {
     recoveryPromiseV1 = undefined;
     throw error;

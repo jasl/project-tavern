@@ -83,6 +83,7 @@ import {
   pocNoContentFilterOptionsTextIdV1,
   pocPresentationProviderIdsV1,
   pocPresentationCharacterIdsV1,
+  pocRejectionReasonTextIdsByCodeV1,
   pocSemanticWorkflowActionIdsV1,
   pocStageSceneIdsV1,
   pocStageSceneVariantIdsV1,
@@ -2035,7 +2036,7 @@ describe("closed Story presentation ID catalog", () => {
     expect(pocNoContentFilterOptionsTextIdV1).toBe("text.poc.settings.content_filter.none");
     expect(pocStoryTitleTextIdV1).toBe("text.poc.story.title");
     expect(textIdsV1).toEqual(Object.values(pocTextIdsV1));
-    expect(textIdsV1).toHaveLength(200);
+    expect(textIdsV1).toHaveLength(299);
     expect(new Set(textIdsV1).size).toBe(textIdsV1.length);
     expect(textIdsV1.every((id) => id.startsWith("text.poc."))).toBe(true);
     expect(textIdsV1.map(parseTextId)).toEqual(textIdsV1);
@@ -2065,6 +2066,100 @@ describe("closed Story presentation ID catalog", () => {
       expect(catalog.has(`text.poc.service_mode.${serviceMode}.name`), serviceMode).toBe(true);
     }
     expect(pocTextIdsV1.choiceFacilitySkipLabel).toBe("text.poc.choice.facility.skip.label");
+  });
+
+  it("provides the complete Task 9 presentation chrome through the Story TextCatalog", () => {
+    const textById = new Map(
+      pocZhCnTextCatalogV1.entries.map(({ textId, text }) => [textId, text] as const),
+    );
+    const expectedById = new Map<TextId, string>([
+      [pocTextIdsV1.calendarDay1Label, "周一"],
+      [pocTextIdsV1.calendarDay2Label, "周二"],
+      [pocTextIdsV1.calendarDay3Label, "周三"],
+      [pocTextIdsV1.calendarDay4Label, "周四"],
+      [pocTextIdsV1.calendarDay5Label, "周五"],
+      [pocTextIdsV1.calendarDay6Label, "周六"],
+      [pocTextIdsV1.calendarDay7Label, "周日"],
+      [pocTextIdsV1.calendarPhaseMorningLabel, "上午"],
+      [pocTextIdsV1.calendarPhaseAfternoonLabel, "下午"],
+      [pocTextIdsV1.calendarPhaseEveningLabel, "夜晚"],
+      [pocTextIdsV1.hudActionPointsLabel, "行动点"],
+      [pocTextIdsV1.hudPlayerStaminaLabel, "主角体力"],
+      [pocTextIdsV1.hudHeroineStaminaLabel, "女主体力"],
+      [pocTextIdsV1.hudCashLabel, "现金"],
+      [pocTextIdsV1.hudReputationLabel, "人气"],
+      [pocTextIdsV1.hudLevyLabel, "重建税"],
+      [pocTextIdsV1.overlayPolicyTitle, "生活策略"],
+      [pocTextIdsV1.overlayInventoryTitle, "库存"],
+      [pocTextIdsV1.overlayPurchaseTitle, "采购食材"],
+      [pocTextIdsV1.overlayTavernPlanTitle, "营业计划"],
+      [pocTextIdsV1.overlayFacilityTitle, "设施建设"],
+      [pocTextIdsV1.overlayWorldActionTitle, "旧贸易路线调查"],
+      [pocTextIdsV1.overlayLedgerTitle, "经营账本"],
+      [pocTextIdsV1.overlayRelationshipTitle, "人物关系"],
+      [pocTextIdsV1.overlayRunSummaryTitle, "本周总结"],
+      [pocTextIdsV1.controlCloseLabel, "关闭"],
+      [pocTextIdsV1.controlCancelLabel, "取消"],
+      [pocTextIdsV1.controlConfirmLabel, "确认"],
+      [pocTextIdsV1.controlConfirmPurchaseLabel, "确认采购"],
+      [pocTextIdsV1.controlConfirmTavernPlanLabel, "确认营业计划"],
+      [pocTextIdsV1.controlConfirmFacilityLabel, "确认设施选择"],
+      [pocTextIdsV1.controlConfirmWorldActionLabel, "确认出发"],
+      [pocTextIdsV1.controlAddLineLabel, "添加一项"],
+      [pocTextIdsV1.controlRemoveLineLabel, "移除"],
+      [pocTextIdsV1.formIngredientLabel, "食材"],
+      [pocTextIdsV1.formQuantityLabel, "数量"],
+      [pocTextIdsV1.formRecipeLabel, "菜品"],
+      [pocTextIdsV1.formPortionsLabel, "份数"],
+      [pocTextIdsV1.formServiceModeLabel, "营业方式"],
+      [pocTextIdsV1.sectionInventoryTableLabel, "完整库存"],
+      [pocTextIdsV1.sectionInventoryEmptyLabel, "暂无库存"],
+      [pocTextIdsV1.sectionLedgerEmptyLabel, "暂无账目"],
+      [pocTextIdsV1.sectionStartingCashLabel, "初始现金"],
+      [pocTextIdsV1.sectionCurrentCashLabel, "当前现金"],
+      [pocTextIdsV1.sectionLedgerAmountLabel, "金额"],
+      [pocTextIdsV1.sectionLedgerReasonLabel, "原因"],
+      [pocTextIdsV1.sectionAffectionLabel, "好感"],
+      [pocTextIdsV1.sectionTeamworkLabel, "默契"],
+      [pocTextIdsV1.sectionMoodLabel, "心情"],
+      [pocTextIdsV1.sectionEndingLabel, "本周结局"],
+      [pocTextIdsV1.sectionPreviewLabel, "行动预览"],
+    ]);
+
+    expect(expectedById.size).toBe(51);
+    for (const [textId, expected] of expectedById) {
+      expect(textById.get(textId), textId).toBe(expected);
+    }
+    expect(textById.get(pocTextIdsV1.characterHeroineName)).toBe("女主");
+    expect(textById.get(pocTextIdsV1.stageVariantTavernDayAccessibleName)).toBe("酒馆主厅");
+    expect(textById.get(pocTextIdsV1.stageVariantMarketDayAccessibleName)).toBe("市集");
+    expect(textById.get(pocTextIdsV1.targetHeroineFigureAccessibleName)).toBe("与女主互动");
+    expect(textById.get(pocTextIdsV1.targetTavernServiceAccessibleName)).toBe("安排营业");
+    expect(textById.get(pocTextIdsV1.targetMarketPurchaseAccessibleName)).toBe("采购");
+    expect(textById.get(pocTextIdsV1.targetWorldMapOldTradeRoadAccessibleName)).toBe("旧贸易路线");
+    expect(textById.get(pocTextIdsV1.choiceOldTradeRoadBasicLabel)).toBe("基础准备");
+    expect(textById.get(pocTextIdsV1.choiceOldTradeRoadPreparedLabel)).toBe("充分准备");
+  });
+
+  it("maps every player-visible rejection code to the Story TextCatalog", () => {
+    const textById = new Map(
+      pocZhCnTextCatalogV1.entries.map(({ textId, text }) => [textId, text] as const),
+    );
+
+    expect(Object.keys(pocRejectionReasonTextIdsByCodeV1)).toHaveLength(48);
+    expect(new Set(Object.values(pocRejectionReasonTextIdsByCodeV1)).size).toBe(48);
+    for (const [code, textId] of Object.entries(pocRejectionReasonTextIdsByCodeV1)) {
+      expect(textById.get(textId), code).toMatch(/\S/u);
+    }
+    expect(textById.get(pocRejectionReasonTextIdsByCodeV1["calendar.insufficient_ap"])).toBe(
+      "行动点不足",
+    );
+    expect(textById.get(pocRejectionReasonTextIdsByCodeV1["inventory.insufficient_cash"])).toBe(
+      "现金不足",
+    );
+    expect(textById.get(pocRejectionReasonTextIdsByCodeV1["tavern.invalid_plan"])).toBe(
+      "营业计划无效",
+    );
   });
 });
 
@@ -2193,6 +2288,7 @@ describe("ID parser, brand, and immutability guarantees", () => {
       pocHeroinePresentationIdsV1,
       pocHeroineAppearanceLayerOrderV1,
       pocGameSymbolIdsV1,
+      pocRejectionReasonTextIdsByCodeV1,
       pocSemanticWorkflowActionIdsV1,
     ]) {
       expectDeeplyFrozenV1(registry);

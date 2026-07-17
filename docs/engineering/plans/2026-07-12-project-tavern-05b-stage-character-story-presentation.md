@@ -1073,7 +1073,7 @@ git diff --cached --check
 git commit -m "fix(story-poc): declare appearance fallback policy"
 ```
 
-The first repair attempt placed `fallbackPolicy` inside Phase 4B `pocResolvedPresentationCatalogV1`. The clean post-commit gate correctly rejected all eight Save fixtures because that field changed the diagnostic `presentationDigest`, even though state-contract, engine, and simulation digests remained identical. Phase 5B requires those fixture bytes to remain unchanged, so the accepted recovery restores the Phase 4B pairs and keeps one exhaustive policy function solely in Task 8's Web/application closure. Do not weaken the provenance guard or regenerate the fixtures. Stage the same five repair files for the recovery commit:
+The first repair attempt placed `fallbackPolicy` inside Phase 4B `pocResolvedPresentationCatalogV1`. The clean post-commit gate correctly rejected all eight Save fixtures because the then-current PoC builder required the complete live diagnostic tuple, even though state-contract, engine, and simulation digests remained identical. The accepted Task 3 recovery restores the Phase 4B pairs and keeps one exhaustive policy function solely in Task 8's Web/application closure. At this recovery point do not bypass that provenance guard or regenerate the fixtures. The authorized Task 9 owner repair below later adopts Phase 3's strict two-mode provenance contract without relaxing any blocking key or writer check. Stage the same five repair files for the recovery commit:
 
 ```bash
 git add -- docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md docs/engineering/plans/2026-07-12-project-tavern-05b-stage-character-story-presentation.md docs/engineering/specs/2026-07-12-scene-interaction-character-presentation-design.md game/stories/poc/src/presentation/assets.ts game/stories/poc/src/test/story-validation.test.ts
@@ -2280,6 +2280,32 @@ git diff --cached --check
 git commit -m "feat(story-poc): project stage interactions"
 ```
 
+#### Authorized owner repair before Task 9
+
+The live Task 9 input audit found two presentation-contract gaps:
+
+1. the Phase 4B TextCatalog lacks the code-native HUD, Overlay, form and compact Stage labels that
+   Task 9 explicitly requires, while React is forbidden to embed a second dictionary; and
+2. the Task 9 AP example called for a meter even though `PocHudProjectionV1` intentionally exposes
+   only `apRemaining`, with no authoritative maximum that a renderer may infer.
+
+Correct the first gap additively in the existing `pocTextIdsV1`/`zh-CN` authority, including an
+exhaustive Story-owned rejection-code-to-TextId map for Semantic preview and disabled reasons. This
+is a Presentation-only change: `presentationDigest` changes, while Story digest, PatchSet,
+state-contract, engine, simulation, command, golden and Gameplay IDs remain unchanged. Preserve all
+eight Save bytes through the Phase 4B authorized two-mode fixture-provenance repair: read-only
+verification requires the complete blocking tuple and rebuilds historical bytes with the frozen
+diagnostic tuple; the tracked writer remains strict over both tuples. Do not add a React fallback
+string or run the writer.
+
+Render AP as the named discrete counter `行动点 N`. Continue to render player and heroine stamina
+with the Phase 5A `ProgressMeterV1` using their projected current/maximum values. This changes no
+GameView field and prevents the renderer from hard-coding or recomputing an AP maximum.
+
+The exact repair files, TDD sequence, verification commands and independent repair commit are
+recorded under Phase 4B Task 12. Complete that repair from a clean checkpoint before Task 9's own
+expected-red.
+
 ### Task 9: Build the PoC HUD, Tavern Idle, Market, World Map, and Story Overlays
 
 **Files:**
@@ -2315,7 +2341,7 @@ git commit -m "feat(story-poc): project stage interactions"
 **Interfaces:**
 
 - Consumes: Task 8 `PocRuntimePresentationViewV1`, Phase 5A Shell/Stage slots/Overlay/VN/System/primitives/AssetRegistry/PresentationReadPort plus the separate `GameSymbolIdV1`/provider/registry/`GameSymbolV1` surface, Tasks 3–6 Stage/Character/Interaction components, Phase 4B action descriptors/options/previews, player-visible GameView slices, the frozen `pocGameSymbolIdsV1` tuple, and Story Text/Asset catalogs.
-- Produces: all player-facing PoC React contributions, `pocUiContributionsV1` across the seven Phase 5A namespaces, and the separate Story-owned `pocGameSymbolIdsByRoleV1`/`pocGameSymbolProvidersV1`/`pocGameSymbolRegistryV1` while consuming the complete Phase 4B TextCatalog, resolved asset manifest, and symbol-ID tuple unchanged.
+- Produces: all player-facing PoC React contributions, `pocUiContributionsV1` across the seven Phase 5A namespaces, and the separate Story-owned `pocGameSymbolIdsByRoleV1`/`pocGameSymbolProvidersV1`/`pocGameSymbolRegistryV1` while consuming the explicitly corrected Phase 4B TextCatalog plus the resolved asset manifest and symbol-ID tuple unchanged.
 
 - [ ] **Step 1: Write failing top-card HUD and tavern-idle tests**
 
@@ -2323,9 +2349,9 @@ git commit -m "feat(story-poc): project stage interactions"
 it("renders the compact top-card HUD from the projected GameView", () => {
   renderPocHudV1(pocRuntimeViewFixtureV1());
   expect(screen.getByText("周一 · 上午")).toBeVisible();
-  expect(screen.getByRole("meter", { name: "行动点" })).toHaveAttribute("aria-valuenow", "2");
-  expect(screen.getByRole("meter", { name: "主角体力" })).toBeVisible();
-  expect(screen.getByRole("meter", { name: "女主体力" })).toBeVisible();
+  expect(screen.getByText("行动点 2")).toBeVisible();
+  expect(screen.getByRole("progressbar", { name: "主角体力" })).toBeVisible();
+  expect(screen.getByRole("progressbar", { name: "女主体力" })).toBeVisible();
   expect(screen.getByText("现金 70")).toBeVisible();
   expect(screen.getByText("人气 50")).toBeVisible();
   expect(screen.getByText("重建税 140")).toBeVisible();
@@ -2488,7 +2514,7 @@ export const pocGameSymbolRegistryV1 = createGameSymbolRegistryV1(pocGameSymbolP
 
 The Phase 4B Story validator remains the single assertion of the tuple's exact values and authored order; Task 9 asserts its length and provider equality before deriving only role aliases. Each provider is a small Story-owned inline-SVG/CSS component with the exact Phase 5A `GameSymbolRenderPropsV1 = { size } & ({ accessibleName; decorative?: false } | { accessibleName?: never; decorative: true })` contract and `16 | 20 | 24 | 32` size. It forwards size and accessible/decorative semantics unchanged, is noninteractive and nonfocusable, imports no Lucide component or Gameplay symbol, and owns no rule value. `GameSymbolV1` remains the only resolver and wraps unknown/thrown providers in its visible code-native fallback. HUD and Overlays resolve any named symbol label from their Story `TextId` through `PresentationReadPortV1`, then use `GameSymbolV1`; they never call providers directly.
 
-The persistent HUD uses the Phase 5A `start/center/end` top-card slots: date/phase; AP and both stamina meters; cash/reputation/levy forecast. Detailed inventory, obligation explanations, service forecasts, facilities, ledger, relationship profile, and summary stay in primary Overlays. `PocTavernScene` keeps the background and heroine visible, mounts `InteractionSurfaceV1` over the compatible character-local rect, and renders the DOM behavior list. `PocMarketScene` and `PocWorldMapScene` are separate StageScene renderers selected by UI state; returning/closing the Overlay returns to tavern without advancing Gameplay.
+The persistent HUD uses the Phase 5A `start/center/end` top-card slots: date/phase; one named AP counter and both stamina meters; cash/reputation/levy forecast. AP consumes only `apRemaining`; it does not invent a maximum. Detailed inventory, obligation explanations, service forecasts, facilities, ledger, relationship profile, and summary stay in primary Overlays. `PocTavernScene` keeps the background and heroine visible, mounts `InteractionSurfaceV1` over the compatible character-local rect, and renders the DOM behavior list. `PocMarketScene` and `PocWorldMapScene` are separate StageScene renderers selected by UI state; returning/closing the Overlay returns to tavern without advancing Gameplay.
 
 The first heroine uses the frozen hybrid order from the PoC catalog (`back_hair`, `costume_body`, `face`, `front_hair`, `accessory`, `held_prop`, `foreground_effect`) only as Story-owned IDs; the generic renderer still treats them as opaque. The default runtime consumes Phase 4B's already resolved provider-or-fallback entries: owner-approved providers may render, while every missing/load-failed layer follows its registered static/code-native fallback. Source-archive concepts are never imported directly by this task.
 
@@ -2517,7 +2543,7 @@ Tests require every renderer ID referenced by the frozen SceneGraph/runtime proj
 
 Phase 4B `presentation/assets.ts` and the closed IDs in `content/ids.ts` remain the only PoC slot authority; this task does not create a second slots/packs catalog. The predecessor-approved pack is already merged into `resolvedGame.assets` and is consumed as data, not re-read from source directories. `GameSymbolIdV1` values and their code-native providers are not `AssetId` values and never enter `requiredAssetIds` or asset preload. Scene/character/Overlay render tests resolve every required zero-mask Asset ID from `resolvedGame.assets`; include both the default approved-pack fixture and an injected empty-pack fixture proving full fallback operation. The Phase 5A asset validator must show no read of `art-source/aigc/**` or `references/**`, no remote URL, no provider with nonzero required flags, and no transparent interactive element after fallback.
 
-Resolve every HUD/Overlay/symbol label from the complete Phase 4B `zh-CN` Story catalog through `PresentationReadPortV1`, and fail the Story presentation test if any required `TextId` is absent. If the supposedly complete Phase 4B catalog lacks a required label, stop and correct that upstream contract explicitly before continuing rather than embedding a raw fallback string in `.tsx`. Task 9 does not add a second localization dictionary or silently mutate the frozen Text ID/catalog authority; React files contain rendered-text expectations only.
+Resolve every HUD/Overlay/symbol label from the corrected complete Phase 4B `zh-CN` Story catalog through `PresentationReadPortV1`, and fail the Story presentation test if any required `TextId` is absent. If a later required label is still absent, stop and correct that upstream contract explicitly rather than embedding a raw fallback string in `.tsx`. Task 9 does not add a second localization dictionary or mutate Text ID/catalog authority from React; `.tsx` files contain rendered-text expectations only.
 
 Run: `pnpm --filter @project-tavern/story-poc exec vitest run src/presentation && pnpm verify:assets && pnpm lint:styles && pnpm verify:stories && pnpm verify:boundaries && pnpm typecheck && pnpm verify`
 

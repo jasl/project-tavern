@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { canonicalJsonBytes, digestCanonical } from "@sillymaker/base";
+import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import { describe, expect, it } from "vitest";
 
+import { pocStoryEntryV1 } from "../story-definition.js";
 import {
   buildPocSaveFixtureMatrixV1,
   classifyPocSaveBytesV1,
@@ -11,6 +13,13 @@ import {
   pocSaveFixtureNamesV1,
   readPocSaveFixtureV1,
 } from "../testing/save-fixture-builder.js";
+import {
+  buildReviewedPocSaveRecordProvenanceV1,
+  isPocSaveFixtureProvenanceCurrentV1,
+  parsePocSaveFixtureProvenanceV1,
+  pocSaveFixtureProvenanceV1,
+  projectPocSaveFixtureProvenanceV1,
+} from "../testing/save-fixture-provenance.js";
 
 interface MutableSaveAuditRecordV1 {
   stateDigest: string;
@@ -38,6 +47,116 @@ function canonicalMutatedSaveBytesV1(record: MutableSaveAuditRecordV1): Uint8Arr
 }
 
 describe("PoC provisional Save fixtures", () => {
+  it("accepts only the live Presentation diagnostic drift in read-only verification", () => {
+    const resolved = resolveStoryForTestV1(pocStoryEntryV1);
+    const live = projectPocSaveFixtureProvenanceV1({
+      provenance: resolved.provenance,
+      appBuildId: digestCanonical("sillymaker:application:v1", []),
+    });
+    const frozen = pocSaveFixtureProvenanceV1;
+
+    expect(live.blocking).toEqual(frozen.blocking);
+    expect(live.diagnosticAtGeneration.presentationDigest).not.toBe(
+      frozen.diagnosticAtGeneration.presentationDigest,
+    );
+    expect({
+      storyDigest: live.diagnosticAtGeneration.storyDigest,
+      patchSet: live.diagnosticAtGeneration.patchSet,
+      engineVersion: live.diagnosticAtGeneration.engineVersion,
+      appBuildId: live.diagnosticAtGeneration.appBuildId,
+    }).toEqual({
+      storyDigest: frozen.diagnosticAtGeneration.storyDigest,
+      patchSet: frozen.diagnosticAtGeneration.patchSet,
+      engineVersion: frozen.diagnosticAtGeneration.engineVersion,
+      appBuildId: frozen.diagnosticAtGeneration.appBuildId,
+    });
+  });
+
+  it("keeps diagnostic-only drift nonblocking for verification and strict for generation", () => {
+    const diagnosticDrift = parsePocSaveFixtureProvenanceV1({
+      ...pocSaveFixtureProvenanceV1,
+      diagnosticAtGeneration: {
+        ...pocSaveFixtureProvenanceV1.diagnosticAtGeneration,
+        presentationDigest: digestCanonical("sillymaker:presentation:v1", [
+          "poc-save-fixture-diagnostic-drift",
+        ]),
+      },
+    });
+
+    expect(
+      isPocSaveFixtureProvenanceCurrentV1(
+        diagnosticDrift,
+        pocSaveFixtureProvenanceV1,
+        "read_only_verification",
+      ),
+    ).toBe(true);
+    expect(
+      isPocSaveFixtureProvenanceCurrentV1(
+        diagnosticDrift,
+        pocSaveFixtureProvenanceV1,
+        "fixture_generation",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects blocking provenance drift in both modes", () => {
+    const blockingDrift = parsePocSaveFixtureProvenanceV1({
+      ...pocSaveFixtureProvenanceV1,
+      blocking: {
+        ...pocSaveFixtureProvenanceV1.blocking,
+        simulationDigest: digestCanonical("sillymaker:simulation:v1", [
+          "poc-save-fixture-blocking-drift",
+        ]),
+      },
+    });
+
+    expect(
+      isPocSaveFixtureProvenanceCurrentV1(
+        blockingDrift,
+        pocSaveFixtureProvenanceV1,
+        "read_only_verification",
+      ),
+    ).toBe(false);
+    expect(
+      isPocSaveFixtureProvenanceCurrentV1(
+        blockingDrift,
+        pocSaveFixtureProvenanceV1,
+        "fixture_generation",
+      ),
+    ).toBe(false);
+  });
+
+  it("rebuilds read-only records from the reviewed diagnostic evidence", async () => {
+    const reviewedRecordProvenance = buildReviewedPocSaveRecordProvenanceV1(
+      pocSaveFixtureProvenanceV1,
+    );
+    const built = await buildPocSaveFixtureMatrixV1({
+      provenanceMode: "read_only_verification",
+    });
+
+    expect(built.records["save.manual-completed.json"]).toMatchObject({
+      provenance: reviewedRecordProvenance,
+    });
+    expect(reviewedRecordProvenance).toEqual({
+      story: {
+        id: pocSaveFixtureProvenanceV1.blocking.storyId,
+        revision: pocSaveFixtureProvenanceV1.blocking.storyRevision,
+        digest: pocSaveFixtureProvenanceV1.diagnosticAtGeneration.storyDigest,
+      },
+      engine: {
+        version: pocSaveFixtureProvenanceV1.diagnosticAtGeneration.engineVersion,
+        digest: pocSaveFixtureProvenanceV1.blocking.engineDigest,
+      },
+      resolved: {
+        stateContractRevision: pocSaveFixtureProvenanceV1.blocking.stateContractRevision,
+        stateContractDigest: pocSaveFixtureProvenanceV1.blocking.stateContractDigest,
+        simulationDigest: pocSaveFixtureProvenanceV1.blocking.simulationDigest,
+        presentationDigest: pocSaveFixtureProvenanceV1.diagnosticAtGeneration.presentationDigest,
+        patchSet: pocSaveFixtureProvenanceV1.diagnosticAtGeneration.patchSet,
+      },
+    });
+  }, 30_000);
+
   it("classifies exact, rejected, and inspect-only imports without flattening codes", async () => {
     await expect(classifyPocSaveFixtureV1("save.auto-opening.json")).resolves.toEqual({
       kind: "exact",

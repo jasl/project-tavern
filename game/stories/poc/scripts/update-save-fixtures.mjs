@@ -37,7 +37,7 @@ if (
   throw new TypeError("unexpected PoC Save fixture filename contract");
 }
 
-const built = await buildPocSaveFixtureMatrixV1();
+const built = await buildPocSaveFixtureMatrixV1({ provenanceMode: "fixture_generation" });
 const builtFilenames = [...built.files.keys()];
 if (
   builtFilenames.length !== expectedFilenames.length ||

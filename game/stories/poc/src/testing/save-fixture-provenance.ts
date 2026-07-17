@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import {
+  canonicalJsonBytes,
   parseDigest,
   parsePositiveSafeInteger,
   type BuildProvenanceV1,
@@ -43,6 +44,60 @@ export interface PocSaveFixtureProvenanceV1 {
     readonly appBuildId: Digest;
   };
   readonly captures: Readonly<Record<PocSaveCaptureIdV1, PocSaveFixtureCaptureProvenanceV1>>;
+}
+
+export type PocSaveFixtureProvenanceModeV1 = "read_only_verification" | "fixture_generation";
+
+function canonicalDataEqualV1(left: unknown, right: unknown): boolean {
+  const leftBytes = canonicalJsonBytes(left);
+  const rightBytes = canonicalJsonBytes(right);
+  return (
+    leftBytes.byteLength === rightBytes.byteLength &&
+    leftBytes.every((byte, index) => byte === rightBytes[index])
+  );
+}
+
+/**
+ * Keeps Save compatibility provenance blocking for read-only verification while requiring the
+ * complete diagnostic-at-generation tuple to be current before a writer may produce new bytes.
+ */
+export function isPocSaveFixtureProvenanceCurrentV1(
+  live: DeepReadonly<PocSaveFixtureProvenanceV1>,
+  frozen: DeepReadonly<PocSaveFixtureProvenanceV1>,
+  mode: PocSaveFixtureProvenanceModeV1,
+): boolean {
+  if (!canonicalDataEqualV1(live.blocking, frozen.blocking)) return false;
+  switch (mode) {
+    case "read_only_verification":
+      return true;
+    case "fixture_generation":
+      return canonicalDataEqualV1(live.diagnosticAtGeneration, frozen.diagnosticAtGeneration);
+    default:
+      throw new TypeError("invalid PoC Save fixture provenance mode");
+  }
+}
+
+export function buildReviewedPocSaveRecordProvenanceV1(
+  frozen: DeepReadonly<PocSaveFixtureProvenanceV1>,
+): DeepReadonly<BuildProvenanceV1> {
+  return Object.freeze({
+    story: Object.freeze({
+      id: frozen.blocking.storyId,
+      revision: frozen.blocking.storyRevision,
+      digest: frozen.diagnosticAtGeneration.storyDigest,
+    }),
+    engine: Object.freeze({
+      version: frozen.diagnosticAtGeneration.engineVersion,
+      digest: frozen.blocking.engineDigest,
+    }),
+    resolved: Object.freeze({
+      stateContractRevision: frozen.blocking.stateContractRevision,
+      stateContractDigest: frozen.blocking.stateContractDigest,
+      simulationDigest: frozen.blocking.simulationDigest,
+      presentationDigest: frozen.diagnosticAtGeneration.presentationDigest,
+      patchSet: frozen.diagnosticAtGeneration.patchSet,
+    }),
+  });
 }
 
 type ExactFieldsV1<TField extends string> = Readonly<Record<TField, unknown>>;
