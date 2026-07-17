@@ -6,6 +6,7 @@ import type {
   NonZeroUint32,
 } from "@sillymaker/base";
 import { parseNonZeroUint32 } from "@sillymaker/base";
+import { createBrowserFilePortV1 } from "./browser-file-port.js";
 import { createIndexedDbRecordStoreV1 } from "./indexeddb-record-store.js";
 
 interface CreateWebHostCommonOptionsV1 {
@@ -13,6 +14,7 @@ interface CreateWebHostCommonOptionsV1 {
   readonly uuids?: readonly string[];
   readonly now?: () => string;
   readonly crypto?: Pick<Crypto, "getRandomValues" | "randomUUID">;
+  readonly files?: GameHostV1["files"];
 }
 
 export type CreateWebHostOptionsV1 = CreateWebHostCommonOptionsV1 &
@@ -63,6 +65,7 @@ export function createWebHostV1(options: CreateWebHostOptionsV1): GameHostV1 {
   }
   const cryptoPort = options.crypto ?? globalThis.crypto;
   const records = resolveRecordsV1(options);
+  const files = options.files ?? createBrowserFilePortV1();
   const seeds = [...(options.seeds ?? [])];
   const uuids = [...(options.uuids ?? [])];
   let seedIndex = 0;
@@ -92,21 +95,7 @@ export function createWebHostV1(options: CreateWebHostOptionsV1): GameHostV1 {
       nextNonZeroUint32: nextSeed,
     }),
     records,
-    files: Object.freeze({
-      async selectOne() {
-        return Object.freeze({ kind: "cancelled" as const });
-      },
-      async download(request: Parameters<GameHostV1["files"]["download"]>[0]) {
-        const url = URL.createObjectURL(
-          new Blob([request.bytes as BlobPart], { type: request.mediaType }),
-        );
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = request.filename;
-        anchor.click();
-        URL.revokeObjectURL(url);
-      },
-    }),
+    files,
     metadataClock: Object.freeze({
       now: () => (options.now?.() ?? new Date().toISOString()) as IsoUtcInstant,
     }),

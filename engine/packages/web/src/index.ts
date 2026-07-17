@@ -6,6 +6,12 @@ export type {
   WebGameRuntimeCompositionV1,
   WebPersistenceIdentityV1,
 } from "./application/create-game-runtime.js";
+export { createPlayerUiPortsV1 } from "./application/create-player-ui-ports.js";
+export type {
+  PlayerUiDiagnosticsSourceV1,
+  PlayerUiPersistenceSourceV1,
+  PlayerUiPortsV1,
+} from "./application/create-player-ui-ports.js";
 export {
   createResolvedGameHmrIdentityV1,
   installResolvedGameHmrV1,
@@ -20,6 +26,8 @@ export type {
 } from "./application/resolved-game-hmr.js";
 export { createWebHostV1 } from "./host/create-web-host.js";
 export type { CreateWebHostOptionsV1 } from "./host/create-web-host.js";
+export { createBrowserFilePortV1 } from "./host/browser-file-port.js";
+export type { BrowserFilePortEnvironmentV1 } from "./host/browser-file-port.js";
 export { installPointerAdapterV1 } from "./input/index.js";
 export type { InstalledPointerAdapterV1, PointerAdapterInputV1 } from "./input/index.js";
 export { createGameBootstrapControllerV1, Loader } from "./loader/loader.js";

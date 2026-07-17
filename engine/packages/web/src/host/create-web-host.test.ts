@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HostRecordMutationV1 } from "@sillymaker/base";
+import type { HostFilePortV1, HostRecordMutationV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import { IDBFactory as FakeIDBFactory } from "fake-indexeddb";
 import { createWebHostV1 } from "./create-web-host.js";
@@ -32,6 +32,19 @@ describe("Web Host", () => {
       ]);
     }
     expect((await host.records.list("settings")).map(({ key }) => key)).toEqual(["a", "b"]);
+  });
+
+  it("accepts one narrow file-port override without changing persistence composition", () => {
+    const files = Object.freeze({
+      selectOne: vi.fn(async () => Object.freeze({ kind: "cancelled" as const })),
+      download: vi.fn(async () => undefined),
+    }) satisfies HostFilePortV1;
+    const records = createMemoryHostRecordStoreV1();
+
+    const host = createWebHostV1({ records, files });
+
+    expect(host.files).toBe(files);
+    expect(host.records).toBe(records);
   });
 
   it("opens the application-owned database lazily with the exact name", async () => {
