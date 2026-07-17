@@ -5099,32 +5099,93 @@ type RuntimeOperationFaultV1 =
       readonly code: RuntimeFaultCodeV1;
     });
 
-type DebugRouteV1 =
-  | { readonly kind: "play" }
-  | { readonly kind: "playground" }
-  | { readonly kind: "preview"; readonly fixtureId: FixtureId };
+interface SystemDialogSessionStateV1 {
+  readonly settingsOpen: boolean;
+}
+
+interface SystemDialogSessionStoreV1 {
+  getSnapshot(): DeepReadonly<SystemDialogSessionStateV1>;
+  subscribe(listener: () => void): () => void;
+  openSettings(): void;
+  closeSettings(): void;
+}
+
+declare function createSystemDialogSessionStoreV1(): SystemDialogSessionStoreV1;
+
+const debugPresentationLimitsV1 = Object.freeze({
+  stableIdUtf8Bytes: 256,
+  renderers: 16,
+  appearanceLayersPerRenderer: 16,
+  visibleInteractionSurfaces: 32,
+  detailOverlayStack: 8,
+} as const);
+
+interface DebugPresentationRendererSummaryV1 {
+  readonly rendererId: string;
+  readonly characterId: CharacterId;
+  readonly rigId: CharacterRigId;
+  readonly poseId: CharacterPoseId;
+  readonly expressionId: CharacterExpressionId;
+  readonly appearanceLayerIds: readonly AppearanceLayerId[];
+}
+
+interface DebugPresentationSummaryV1 {
+  readonly presentationRevision: NonNegativeSafeInteger;
+  readonly stageSceneId: StageSceneId | null;
+  readonly variantId: StageSceneVariantId | null;
+  readonly stageRendererId: string | null;
+  readonly renderers: readonly DebugPresentationRendererSummaryV1[];
+  readonly visibleInteractionSurfaceIds: readonly InteractionSurfaceId[];
+  readonly activeInteractionSurfaceId: InteractionSurfaceId | null;
+  readonly contentPolicyRevision: PositiveSafeInteger;
+  readonly allowedContentFlags: ContentMaturityFlagsV1;
+}
+
+interface DebugUiSessionSummaryV1 {
+  readonly routeId: string | null;
+  readonly primaryOverlayId: string | null;
+  readonly detailOverlayIds: readonly string[];
+  readonly narrativeOpen: boolean;
+  readonly systemDialogOpen: boolean;
+  readonly devDock: { readonly leftOpen: boolean; readonly rightOpen: boolean };
+}
+
+/** Application-local projector input; the extra field is copied only into presentation. */
+interface DebugUiSessionProjectionInputV1 extends DebugUiSessionSummaryV1 {
+  readonly activeInteractionSurfaceId: InteractionSurfaceId | null;
+}
 
 interface DebugUiContextV1 {
-  readonly route: DebugRouteV1;
-  readonly overlayIds: readonly (
-    | "hud_details"
-    | "life_policy"
-    | "obligation"
-    | "purchase"
-    | "inventory"
-    | "service_plan"
-    | "facility_choice"
-    | "world_action"
-    | "ledger"
-    | "save"
-    | "week_summary"
-    | "action_confirmation"
-    | "recovery"
-  )[];
-  readonly leftDockOpen: boolean;
-  readonly rightDockOpen: boolean;
-  readonly selectedActionId: ActionId | null;
+  readonly revision: 1;
+  readonly presentation: DebugPresentationSummaryV1 | null;
+  readonly session: DebugUiSessionSummaryV1;
 }
+
+interface DebugUiContextRecordedIdentityV1 {
+  readonly provenance: BuildProvenanceV1;
+  readonly appBuildId?: Digest;
+}
+
+interface DebugUiContextCurrentIdentityV1 {
+  readonly provenance: BuildProvenanceV1;
+  readonly appBuildId: Digest;
+}
+
+type DebugUiContextUseMismatchReasonV1 =
+  "story_identity_mismatch" | "presentation_identity_mismatch" | "application_identity_mismatch";
+
+type DebugUiContextUseClassificationV1 =
+  | { readonly kind: "restorable" }
+  | {
+      readonly kind: "diagnostic_only";
+      readonly reasons: readonly DebugUiContextUseMismatchReasonV1[];
+    };
+
+declare function createDebugUiContextSchemaV1(): RuntimeSchemaV1<DebugUiContextV1>;
+declare function classifyDebugUiContextUseV1(
+  recorded: DeepReadonly<DebugUiContextRecordedIdentityV1>,
+  current: DeepReadonly<DebugUiContextCurrentIdentityV1>,
+): DebugUiContextUseClassificationV1;
 
 interface DiagnosticSummaryV1 {
   readonly invariantCodes: readonly EngineInvariantCodeV1[];
@@ -5187,6 +5248,10 @@ type DebugBundleV1 = DebugBundleEnvelopeV1<
 不进入 Gameplay State、Money、Ledger 或 Save ABI；`minimum`/`maximum` 仍是当前 number 边界。
 
 State Dump 使用完整 `DebugBundleV1`，不另建弱类型 envelope。`simulationLineage` 遵守 SaveRecord 的同一链式不变量；adoption 之前的旧 CommandLog 只能作为另行导出的历史证据，当前 bundle 的 `replayBase → commandLog → currentSnapshot` 必须全部属于 provenance 中同一个 resolved simulation digest。
+
+`SystemDialogSessionStoreV1` 是每个 Story Application 独享的瞬态 UI session source；冻结初态为 `{ settingsOpen:false }`，`openSettings`/`closeSettings` 幂等且只在真实转换时通知。`SystemDialogHostV1` 接受 optional store，并在缺省时创建稳定的 component-local fallback，以保持 additive public compatibility；两个 production Story root 必须显式传入各自 runtime-owned store，让 Host 和 diagnostics 读取同一 source。Host 仍在组件内持有 opener/focus 引用并在 unmount 时关闭 active store；该状态不持久化、不进入 RuntimePresentationPublication，也不允许用 DOM 查询或第二份 callback mirror 替代。
+
+`DebugUiContextV1` 是 Phase 5 的中立、版本化替代合同；旧的 PoC-specific route/overlay 草案从未被生产 Story codec 接受，因此本次替换没有已接纳 bytes 或迁移器。Schema 对字段、数组、diagnostic ID byte ceiling、重复 character/surface/appearance 和 uint32 flags 做严格结构校验，但不会用当前 Story policy 拒绝旧 bundle 中仍然有界的 policy revision/mask。256-byte diagnostics ceiling 必须先于字段 parser 检查，以便超限 bytes 得到稳定 diagnostics code；使用 Base brand 的字段仍必须满足 §2 的 canonical 3..96-byte stable-ID parser，只有 route/overlay/renderer 等 neutral diagnostic string 可以使用更宽 ceiling，禁止把 97..256-byte string 强制断言成 branded ID。`DebugUiSessionProjectionInputV1.activeInteractionSurfaceId` 来自现有 Interaction session，不从可见 surface 列表推断，也不重复写入导出的 session。`systemDialogOpen` 精确复制同一 Application-owned `SystemDialogSessionStoreV1.settingsOpen`；PoC `narrativeOpen` 仅在当前 publication 的 narrative 非空且 status 为 `active` 时为 true，E2E 则仅在 flow status 为 `choosing | blocked` 时为 true。每个 Story 的 renderer 与 diagnostics 必须调用同一个 Node-type-strip-safe pure predicate，不能分别重写判断或读取 E2E 永远为 null 的 neutral narrative slot。缺少 recorded `appBuildId` 必须得到 `application_identity_mismatch`；只有 Story ID/revision、`presentationDigest` 和 present `appBuildId` 全部精确匹配时才允许静态表现恢复。
 
 所有会改变 Session 权威 Snapshot 的 GameCommand、Save load/import、lifecycle create/restart、replayable DebugCommand 与 `debug.fixture.load` 共用 GameSession 的一条 FIFO mutation tail；入队即同步标记 busy，公开 Port 不暴露绕过队列的 setter。DebugCommand 可在入口做 strict Schema 校验，但引用、Aura policy 与当前状态冲突等语义预校验必须等操作到达队首后针对最新 committed Snapshot 执行；`validation_failed` 不打开候选事务、不消费 RNG/sequence、不进入 CommandLog。被接受的 replayable DebugCommand 由 Story/GameSimulation-owned debug executor 通过同一 owner capabilities 执行，只可能 committed 或 faulted；两种结果都在同一队列项内把同一次 finalized attempt 追加为对应 Debug-source CommandLog entry，committed 更新 Snapshot，faulted 保持旧 Snapshot并另外暂停 Session、生成 failure bundle，不存在 Debug 版 `PocRejectionReasonV1`。`debug.fixture.load` 只从 capability-gated active-Story tooling resolver 解析；未知/外部 fixtureId 是 `debug.unknown_reference`，不引入不存在的跨 Story fixture-mismatch 状态。合法 fixture 经完整验证后在同一队列项内原子替换 current Snapshot 与 replay base并清空旧 CommandLog；普通 load/import、adoption 与 lifecycle create/restart 也必须在各自队列项内完成相同 anchor replacement。失败返回 validation/fault result并完整保留旧会话，绝不作为普通 log entry。tail 的内部异常被归一化后必须 settled，不能永久 rejected 而阻断允许的恢复操作。泛型 `DebugCommandOperationResultForV1<C>` 保证 replayable command 只能返回 committed/faulted，anchoring command 只能返回 anchor_established/faulted；两者都可在 admission 前返回 validation_failed，且 `error.commandKind` 必须精确等于该调用 command 的 kind。
 

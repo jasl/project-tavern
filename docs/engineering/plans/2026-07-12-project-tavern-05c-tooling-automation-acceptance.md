@@ -43,11 +43,41 @@ engine/packages/base/src/contracts/diagnostics.ts
 engine/packages/base/src/contracts/diagnostics.test.ts
   # bounded non-authoritative DebugPresentationSummary inside DebugUiContext
 
+engine/packages/base/src/runtime/diagnostics/debug-bundle.ts
+engine/packages/base/src/runtime/diagnostics/debug-bundle.test.ts
+  # export-time optional UI-context reader and strict copy boundary
+
 engine/packages/ui/src/diagnostics/
   debug-ui-context.ts
   debug-ui-context.test.ts
   index.ts
   # derives a privacy-safe summary from RuntimePresentationPublication
+
+engine/packages/ui/src/system/
+  system-dialog-session-store.ts
+  system-dialog-session-store.test.ts
+  system-dialog-host.tsx
+  system-dialog-host.test.tsx
+  # one application-local transient source shared by rendering and diagnostics
+
+game/stories/{poc,e2e}/src/runtime/*-debug-bundle.ts
+  # Story production codecs admit the one concrete DebugUiContextV1 schema
+
+game/stories/e2e/src/runtime/hmr-integration.test.ts
+  # entry-owned application identity reaches diagnostics unchanged
+
+game/stories/e2e/src/runtime/diagnostics-replay.test.ts
+  # recorded bundle identity is never reused as the current application identity
+
+game/stories/e2e/scripts/runtime-fixture-builder.mts
+game/stories/e2e/src/runtime/runtime-fixtures.test.ts
+  # fixture replay supplies its independently materialized current appBuildId
+
+game/stories/poc/src/presentation/runtime/contracts.ts
+game/stories/poc/src/presentation/ui-contributions.tsx
+game/stories/e2e/src/presentation/runtime-presentation.ts
+game/stories/e2e/src/presentation/ui-contributions.tsx
+  # renderer and diagnostics share one Node-safe Narrative-open predicate per Story
 
 engine/packages/ui/src/debug/
   DevDock.tsx
@@ -90,6 +120,7 @@ game/stories/e2e/src/tooling-ui/
   ui-contributions.test.tsx
 
 game/stories/poc/src/application/
+  create-poc-game-runtime.ts
   create-poc-presentation-runtime.ts
   install-poc-hmr.ts
   install-poc-hmr.integration.test.ts
@@ -97,6 +128,7 @@ game/stories/poc/src/application/
   entry.tsx
 
 game/stories/e2e/src/application/
+  create-e2e-game-runtime.ts
   create-e2e-presentation-runtime.ts
   e2e-application-root.tsx
   entry.tsx
@@ -153,21 +185,49 @@ engine/packages/web/playwright.ui.config.ts
 - Create: `engine/packages/ui/src/diagnostics/debug-ui-context.ts`
 - Create: `engine/packages/ui/src/diagnostics/debug-ui-context.test.ts`
 - Modify: `engine/packages/ui/src/diagnostics/index.ts`
+- Modify: `engine/packages/ui/src/index.ts`
+- Create: `engine/packages/ui/src/system/system-dialog-session-store.ts`
+- Create: `engine/packages/ui/src/system/system-dialog-session-store.test.ts`
+- Modify: `engine/packages/ui/src/system/system-dialog-host.tsx`
+- Modify: `engine/packages/ui/src/system/system-dialog-host.test.tsx`
+- Modify: `engine/packages/ui/src/system/index.ts`
 - Create: `engine/packages/ui/type-tests/diagnostics-public.test-d.ts`
 - Modify: `engine/packages/ui/package.json`
 - Modify: `engine/packages/web/src/application/create-game-runtime.ts`
 - Modify: `engine/packages/web/src/application/create-game-runtime.test.ts`
 - Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.ts`
 - Modify: `game/stories/poc/src/application/create-poc-presentation-runtime.test.ts`
+- Modify: `game/stories/poc/src/application/poc-application-root.tsx`
+- Modify: `game/stories/poc/src/application/poc-application-root.test.tsx`
+- Modify: `game/stories/poc/src/presentation/runtime/contracts.ts`
+- Modify: `game/stories/poc/src/presentation/runtime/project-poc-runtime-presentation.test.ts`
+- Modify: `game/stories/poc/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/poc/src/presentation/ui-contributions.test.tsx`
+- Modify: `game/stories/poc/src/application/create-poc-game-runtime.ts`
+- Modify: `game/stories/poc/src/application/create-poc-game-runtime.test.ts`
+- Modify: `game/stories/poc/src/runtime/poc-debug-bundle.ts`
+- Modify: `game/stories/poc/src/runtime/poc-debug-bundle.test.ts`
+- Modify: `game/stories/poc/src/testing/poc-runtime-test-fixture.ts`
 - Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.ts`
 - Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts`
 - Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.ts`
 - Modify: `game/stories/e2e/src/application/create-e2e-game-runtime.test.ts`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
+- Modify: `game/stories/e2e/src/presentation/runtime-presentation.ts`
+- Modify: `game/stories/e2e/src/presentation/runtime-presentation.test.ts`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.test.tsx`
+- Modify: `game/stories/e2e/src/application/entry.tsx`
+- Modify: `game/stories/e2e/src/runtime/e2e-debug-bundle.ts`
+- Modify: `game/stories/e2e/src/runtime/diagnostics-replay.test.ts`
+- Modify: `game/stories/e2e/src/runtime/hmr-integration.test.ts`
+- Modify: `game/stories/e2e/scripts/runtime-fixture-builder.mts`
 
 **Interfaces:**
 
 - Consumes: Phase 3 generic `DebugBundleEnvelopeV1<TUiContext>`, diagnostics-provider seam, provenance/digest checks and privacy scrubber; Phase 5B `RuntimePresentationPublicationV1`, `RuntimeStageSceneV1`, `RuntimeCharacterPresentationV1`, UI session projection, active `ContentMaturityPolicyV1`, and `ContentPreferencePortV1`.
-- Produces: concrete `DebugUiContextV1`, `DebugUiSessionSummaryV1`, `DebugPresentationRendererSummaryV1`, `DebugPresentationSummaryV1`, exact limits, strict structural `createDebugUiContextSchemaV1()`, policy-validating pure `createDebugUiContextV1`, and `classifyDebugUiContextUseV1`.
+- Produces: concrete `DebugUiContextV1`, `DebugUiSessionSummaryV1`, input-only `DebugUiSessionProjectionInputV1`, `DebugPresentationRendererSummaryV1`, `DebugPresentationSummaryV1`, exact limits, strict structural `createDebugUiContextSchemaV1()`, policy-validating pure `createDebugUiContextV1`, `classifyDebugUiContextUseV1`, and the application-local `SystemDialogSessionStateV1`/`SystemDialogSessionStoreV1` plus `createSystemDialogSessionStoreV1()`.
 
 - [ ] **Step 1: Write the failing bounds, privacy, digest-independence, and identity tests**
 
@@ -258,7 +318,9 @@ describe("DebugBundle presentation context", () => {
 });
 ```
 
-`debug-ui-context.test.ts` defines `emptyFlagPolicyV1` as the exact revision-1 empty policy and makes `debugPresentationFixtureV1` return all four constructor inputs: one frozen runtime publication, an overridable active policy, a preference whose `allowedFlags` defaults to that policy, and a copied UI-session summary. `overLimitDebugUiContextFixtureV1` starts from the same complete input. These are test-local helpers defined before the first run, so the expected-red is the missing schema/projector rather than an undefined fixture.
+`debug-ui-context.test.ts` defines `emptyFlagPolicyV1` as the exact revision-1 empty policy and makes `debugPresentationFixtureV1` return all four constructor inputs: one frozen runtime publication, an overridable active policy, a preference whose `allowedFlags` defaults to that policy, and a copied UI-session projection input. The fourth input contains the bounded output session fields plus the current `activeInteractionSurfaceId`; the projector copies that ID only into `presentation.activeInteractionSurfaceId`, so the exported session ABI does not duplicate it. `overLimitDebugUiContextFixtureV1` starts from the same complete input. These are test-local helpers defined before the first run, so the expected-red is the missing schema/projector rather than an undefined fixture.
+
+The same expected-red slice adds `SystemDialogSessionStoreV1` tests proving frozen initial/transition snapshots, idempotent `openSettings`/`closeSettings`, and exact subscription notification, plus `SystemDialogHostV1` coverage proving the host and diagnostics reader observe the same application-local store through open, close, and unmount. Story root tests prove each production `SettingsLauncherV1` is wired to the one store owned by its presentation runtime; no DOM query or second mirrored boolean is accepted as diagnostics state.
 
 - [ ] **Step 2: Run the focused tests and confirm the strict context is absent**
 
@@ -266,10 +328,12 @@ Run:
 
 ```bash
 pnpm --filter @sillymaker/base exec vitest run src/contracts/diagnostics.test.ts
-pnpm --filter @sillymaker/ui exec vitest run src/diagnostics/debug-ui-context.test.ts
+pnpm --filter @sillymaker/ui exec vitest run src/diagnostics/debug-ui-context.test.ts src/system/system-dialog-session-store.test.ts src/system/system-dialog-host.test.tsx
+pnpm --filter @project-tavern/story-poc exec vitest run src/application/poc-application-root.test.tsx src/presentation/runtime/project-poc-runtime-presentation.test.ts src/presentation/ui-contributions.test.tsx
+pnpm --filter @project-tavern/story-e2e exec vitest run src/application/e2e-application-root.test.tsx src/presentation/runtime-presentation.test.ts src/presentation/ui-contributions.test.tsx
 ```
 
-Expected: FAIL because the bounded presentation summary contract and UI adapter do not exist.
+Expected: FAIL because the bounded presentation summary contract/UI adapter, System-dialog session store, production-root wiring, and shared Narrative predicates do not exist.
 
 - [ ] **Step 3: Implement the exact neutral summary and limits**
 
@@ -312,6 +376,10 @@ export interface DebugUiSessionSummaryV1 {
   readonly devDock: { readonly leftOpen: boolean; readonly rightOpen: boolean };
 }
 
+export interface DebugUiSessionProjectionInputV1 extends DebugUiSessionSummaryV1 {
+  readonly activeInteractionSurfaceId: InteractionSurfaceId | null;
+}
+
 export interface DebugUiContextV1 {
   readonly revision: 1;
   readonly presentation: DebugPresentationSummaryV1 | null;
@@ -319,11 +387,11 @@ export interface DebugUiContextV1 {
 }
 ```
 
-Use Phase 3's generic closed UI-context slot to define the concrete `DebugUiContextV1` above; the outer `DebugBundleEnvelopeV1.uiContext` remains optional, but a present V1 context has both required fields. `createDebugUiContextSchemaV1()` is strict and structural: it rejects unknown keys; duplicate `characterId`; duplicate visible surface IDs; duplicate appearance-layer IDs within one character; any ID over 256 UTF-8 bytes; an over-limit renderer/appearance/surface/detail-stack array; non-uint32 flags; coordinates; asset runtime paths; DOM values; callbacks or renderer instances; and Live2D parameters. It intentionally does not close imported bytes over the current policy: an older bundle's bounded policy revision/mask must remain inspectable and will be classified diagnostic-only by identity. Different characters may legally reuse the same renderer, rig, pose, expression, or appearance-layer ID, so those cross-character repetitions are preserved.
+Use Phase 3's generic closed UI-context slot to define the concrete `DebugUiContextV1` above; the outer `DebugBundleEnvelopeV1.uiContext` remains optional, but a present V1 context has both required fields. `createDebugUiContextSchemaV1()` is strict and structural: it rejects unknown keys; duplicate `characterId`; duplicate visible surface IDs; duplicate appearance-layer IDs within one character; any ID over 256 UTF-8 bytes; an over-limit renderer/appearance/surface/detail-stack array; non-uint32 flags; coordinates; asset runtime paths; DOM values; callbacks or renderer instances; and Live2D parameters. The 256-byte diagnostics ceiling is checked before field parsing so over-limit data gets the stable diagnostics code; fields typed with a Base stable-ID brand still use that brand's canonical 3..96-byte syntax/parser, while neutral diagnostic strings such as route/overlay/renderer IDs use the wider diagnostics ceiling. Never cast a 97..256-byte string into a branded ID merely to fill the outer privacy bound. The schema intentionally does not close imported bytes over the current policy: an older bundle's bounded policy revision/mask must remain inspectable and will be classified diagnostic-only by identity. Different characters may legally reuse the same renderer, rig, pose, expression, or appearance-layer ID, so those cross-character repetitions are preserved.
 
-`createDebugUiContextV1` is a pure structural projection over exactly `(1)` one cached `RuntimePresentationPublicationV1` whose view is constrained to the neutral `stage`, `characters`, and `interactionSurfaces` slices from 5B, `(2)` the active frozen `ContentMaturityPolicyV1`, `(3)` the current `ContentPreferencePortV1.observe()` value, and `(4)` a newly copied `DebugUiSessionSummaryV1`. It validates the preference against that policy, copies `policy.policyRevision` and the normalized mask, and reads only stable IDs and booleans. It does not infer a runtime fallback result that is absent from the publication, inspect `layout`, action descriptors/invocations, HitMap geometry, renderer contributions/instances, asset providers, GameQueries, or Snapshot. The application reads the four sources once per bundle export; because the result is diagnostic-only, it records the consumed presentation revision instead of inventing cross-source atomicity.
+`createDebugUiContextV1` is a pure structural projection over exactly `(1)` one cached `RuntimePresentationPublicationV1` whose view is constrained to the neutral `stage`, `characters`, and `interactionSurfaces` slices from 5B, `(2)` the active frozen `ContentMaturityPolicyV1`, `(3)` the current `ContentPreferencePortV1.observe()` value, and `(4)` a newly copied `DebugUiSessionProjectionInputV1`. The input-only `activeInteractionSurfaceId` comes from the existing Interaction session and is copied only into `DebugPresentationSummaryV1`; it is not inferred from the visible-surface array and is not duplicated in `DebugUiSessionSummaryV1`. The projector validates the preference against that policy, copies `policy.policyRevision` and the normalized mask, and reads only stable IDs and booleans. It does not infer a runtime fallback result that is absent from the publication, inspect `layout`, action descriptors/invocations, HitMap geometry, renderer contributions/instances, asset providers, GameQueries, or Snapshot. The application reads the four sources once per bundle export; because the result is diagnostic-only, it records the consumed presentation revision instead of inventing cross-source atomicity.
 
-`classifyDebugUiContextUseV1` returns `restorable` only when Story ID/revision, `presentationDigest`, and `appBuildId` all match the current application. Otherwise it returns ordered reasons from the closed set `story_identity_mismatch | presentation_identity_mismatch | application_identity_mismatch`. The diagnostics inspector may offer a static pose/overlay preview only for `restorable`; it never changes GameSession or automatically installs UI state.
+`classifyDebugUiContextUseV1` returns `restorable` only when Story ID/revision, `presentationDigest`, and a present `appBuildId` all match the current application. A historical bundle with no `appBuildId` is `application_identity_mismatch`, even if the current application also came from an older test path. Otherwise it returns ordered reasons from the closed set `story_identity_mismatch | presentation_identity_mismatch | application_identity_mismatch`. The diagnostics inspector may offer a static pose/overlay preview only for `restorable`; it never changes GameSession or automatically installs UI state.
 
 Extend the existing diagnostics directory and UI-root export from Phase 5A, then add the one player-safe `@sillymaker/ui/diagnostics` package subpath in this task; do not create a competing diagnostics entry. The type test proves the new subpath accepts `RuntimePresentationPublicationV1` and neutral IDs but exports no Story type, Snapshot, GameSession, DebugTools, owner capability, DOM node, or renderer instance.
 
@@ -353,7 +421,11 @@ presentation = createRuntimePresentationStoreV1({
 });
 ```
 
-This is the PoC spelling; E2E substitutes its frozen `E2eRuntimePresentationPublicationV1` rather than introducing a generic Story export. The closure is application-local and never exported; construction failure disposes `gameRuntime`, and no completed application is returned before `presentation` is bound. `readCurrentDebugUiSessionV1` is a pure reader over the already existing route, Overlay/detail stack, Interaction session, Narrative/System booleans, and dock-open booleans; it has no setter and returns a new bounded plain-data DTO. In this task the not-yet-created dock booleans are both false; Task 2 replaces only that source with its real root-owned state. The callback must not subscribe, publish a Semantic or Presentation revision, capture browser history, or retain a mutable publication.
+This is the PoC spelling; E2E substitutes its frozen `E2eRuntimePresentationPublicationV1` rather than introducing a generic Story export. The closure is application-local and never exported; no completed application is returned before `presentation` is bound. Each presentation runtime intercepts and captures the `WebRuntimeRebootstrapLifecycleV1` registered by its newly created game owner without exposing it to the caller yet. Only after all presentation/session bindings succeed does it invoke and await the caller's lifecycle callback immediately before return. Any construction or lifecycle-handoff failure awaits the captured `disposeForRebootstrap()` before rethrowing, including an E2E preference failure racing a successfully created game owner; the caller never observes a half-constructed owner.
+
+Create one generic `SystemDialogSessionStoreV1` per Story presentation runtime. Its frozen state is exactly `{ settingsOpen: boolean }`; `openSettings` and `closeSettings` are idempotent, notify only on a real transition, and never persist or enter RuntimePresentationPublication. `SystemDialogHostV1` renders from an optional supplied store, retains opener/focus ownership locally, and closes the active store during unmount; when the prop is absent it creates one stable private fallback so this additive engine API does not break existing consumers. Each production Story root must pass its runtime-owned store. Thus production rendering and diagnostics share one transient source without a global store, DOM inspection, callback mirror, or extra Presentation subscription.
+
+`readCurrentDebugUiSessionV1` is a pure reader over the already existing route, Overlay/detail stack, Interaction session, the shared System-dialog session, the current publication's Story-local Narrative predicate, and dock-open booleans; it has no setter and returns a new bounded plain-data DTO. Add one Node-type-strip-safe pure predicate per Story and call the same function from both renderer and diagnostics: PoC is exactly `publication.view.narrative !== null && publication.view.narrative.status === "active"`; E2E is exactly `publication.view.game.flow.status === "choosing" || publication.view.game.flow.status === "blocked"`, never the E2E publication's always-null neutral narrative slot. In this task the not-yet-created dock booleans are both false; Task 2 replaces only that source with its real root-owned state. The callback must not subscribe, publish a Semantic or Presentation revision, capture browser history, or retain a mutable publication. The E2E entry computes `appBuildId` from the same application build identity used by its resolver and passes it through presentation runtime → game runtime → diagnostics; direct/headless construction may omit that current identity but can never claim exact visual restoration. `createE2eReplayInputV1` receives the current runtime `appBuildId` separately and never reuses the decoded bundle's recorded `appBuildId` as current identity; neither Story may synthesize application identity from `presentationDigest`.
 
 - [ ] **Step 5: Run diagnostics, public exports, and repository verification**
 
@@ -361,10 +433,10 @@ Run:
 
 ```bash
 pnpm --filter @sillymaker/base exec vitest run src/contracts/diagnostics.test.ts src/runtime/diagnostics
-pnpm --filter @sillymaker/ui exec vitest run src/diagnostics
+pnpm --filter @sillymaker/ui exec vitest run src/diagnostics src/system/system-dialog-session-store.test.ts src/system/system-dialog-host.test.tsx
 pnpm --filter @sillymaker/web exec vitest run src/application/create-game-runtime.test.ts
-pnpm --filter @project-tavern/story-poc exec vitest run src/application/create-poc-presentation-runtime.test.ts
-pnpm --filter @project-tavern/story-e2e exec vitest run src/application/create-e2e-game-runtime.test.ts src/application/create-e2e-presentation-runtime.test.ts
+pnpm --filter @project-tavern/story-poc exec vitest run src/runtime/poc-debug-bundle.test.ts src/application/create-poc-game-runtime.test.ts src/application/create-poc-presentation-runtime.test.ts src/application/poc-application-root.test.tsx src/presentation/runtime/project-poc-runtime-presentation.test.ts src/presentation/ui-contributions.test.tsx
+pnpm --filter @project-tavern/story-e2e exec vitest run src/application/create-e2e-game-runtime.test.ts src/application/create-e2e-presentation-runtime.test.ts src/application/e2e-application-root.test.tsx src/presentation/runtime-presentation.test.ts src/presentation/ui-contributions.test.tsx src/runtime/diagnostics-replay.test.ts src/runtime/hmr-integration.test.ts src/runtime/runtime-fixtures.test.ts
 pnpm verify:public-exports
 pnpm verify:phase5b
 pnpm verify
@@ -376,7 +448,7 @@ Expected: all commands exit 0; UI context round-trips strictly, exceeds no limit
 - [ ] **Step 6: Commit bounded presentation diagnostics**
 
 ```bash
-git add -- engine/packages/base/src/contracts/diagnostics.ts engine/packages/base/src/contracts/diagnostics.test.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/public-exports.v1.json engine/packages/base/src/runtime/diagnostics/debug-bundle.ts engine/packages/base/src/runtime/diagnostics/debug-bundle.test.ts engine/packages/ui/src/diagnostics engine/packages/ui/type-tests/diagnostics-public.test-d.ts engine/packages/ui/package.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/poc/src/application/create-poc-presentation-runtime.ts game/stories/poc/src/application/create-poc-presentation-runtime.test.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-presentation-runtime.ts game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts
+git add -- engine/packages/base/src/contracts/diagnostics.ts engine/packages/base/src/contracts/diagnostics.test.ts engine/packages/base/src/contracts/index.ts engine/packages/base/src/index.ts engine/packages/base/public-exports.v1.json engine/packages/base/src/runtime/diagnostics/debug-bundle.ts engine/packages/base/src/runtime/diagnostics/debug-bundle.test.ts engine/packages/ui/src/diagnostics/debug-ui-context.ts engine/packages/ui/src/diagnostics/debug-ui-context.test.ts engine/packages/ui/src/diagnostics/index.ts engine/packages/ui/src/index.ts engine/packages/ui/src/system/system-dialog-session-store.ts engine/packages/ui/src/system/system-dialog-session-store.test.ts engine/packages/ui/src/system/system-dialog-host.tsx engine/packages/ui/src/system/system-dialog-host.test.tsx engine/packages/ui/src/system/index.ts engine/packages/ui/type-tests/diagnostics-public.test-d.ts engine/packages/ui/package.json engine/packages/web/src/application/create-game-runtime.ts engine/packages/web/src/application/create-game-runtime.test.ts game/stories/poc/src/application/create-poc-game-runtime.ts game/stories/poc/src/application/create-poc-game-runtime.test.ts game/stories/poc/src/application/create-poc-presentation-runtime.ts game/stories/poc/src/application/create-poc-presentation-runtime.test.ts game/stories/poc/src/application/poc-application-root.tsx game/stories/poc/src/application/poc-application-root.test.tsx game/stories/poc/src/presentation/runtime/contracts.ts game/stories/poc/src/presentation/runtime/project-poc-runtime-presentation.test.ts game/stories/poc/src/presentation/ui-contributions.tsx game/stories/poc/src/presentation/ui-contributions.test.tsx game/stories/poc/src/runtime/poc-debug-bundle.ts game/stories/poc/src/runtime/poc-debug-bundle.test.ts game/stories/poc/src/testing/poc-runtime-test-fixture.ts game/stories/e2e/src/application/create-e2e-game-runtime.ts game/stories/e2e/src/application/create-e2e-game-runtime.test.ts game/stories/e2e/src/application/create-e2e-presentation-runtime.ts game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts game/stories/e2e/src/application/e2e-application-root.tsx game/stories/e2e/src/application/e2e-application-root.test.tsx game/stories/e2e/src/presentation/runtime-presentation.ts game/stories/e2e/src/presentation/runtime-presentation.test.ts game/stories/e2e/src/presentation/ui-contributions.tsx game/stories/e2e/src/presentation/ui-contributions.test.tsx game/stories/e2e/src/application/entry.tsx game/stories/e2e/src/runtime/e2e-debug-bundle.ts game/stories/e2e/src/runtime/diagnostics-replay.test.ts game/stories/e2e/src/runtime/hmr-integration.test.ts game/stories/e2e/scripts/runtime-fixture-builder.mts
 git diff --cached --check
 git commit -m "feat(diagnostics): capture bounded presentation context"
 ```
