@@ -36,7 +36,7 @@ import type {
 } from "./runtime-presentation.js";
 import { projectE2eRuntimePresentationV1 } from "./runtime-presentation.js";
 import { e2eSceneGraphV1 } from "./scene-graph.js";
-import { e2eUiContributionsV1 } from "./ui-contributions.js";
+import { e2eUiContributionsV1, selectE2eFlowActionOptionsV1 } from "./ui-contributions.js";
 
 afterEach(cleanup);
 
@@ -161,6 +161,7 @@ async function createContributionFixtureV1() {
     dispatch,
     resolvedGame,
     presentation,
+    resolveText: basePresentation.text,
     text,
     inputRouter,
     session,
@@ -173,6 +174,48 @@ async function createContributionFixtureV1() {
 }
 
 type ContributionFixtureV1 = Awaited<ReturnType<typeof createContributionFixtureV1>>;
+
+const flowTextIdsV1 = Object.freeze({
+  hud: parseTextId("text.e2e.hud.name"),
+  narrative: parseTextId("text.e2e.narrative.name"),
+  start: parseTextId("text.e2e.action.start"),
+  chooseLeft: parseTextId("text.e2e.action.choose.left"),
+  chooseRight: parseTextId("text.e2e.action.choose.right"),
+  continue: parseTextId("text.e2e.action.continue"),
+  complete: parseTextId("text.e2e.action.complete"),
+  unavailable: parseTextId("text.e2e.reason.flow_unavailable"),
+});
+
+type FlowTextIdV1 = (typeof flowTextIdsV1)[keyof typeof flowTextIdsV1];
+
+function flowCatalogWitnessV1(textId: FlowTextIdV1): string {
+  return `catalog:${textId}`;
+}
+
+function installFlowCatalogWitnessesV1(fixture: ContributionFixtureV1): void {
+  const flowTextIds = new Set<FlowTextIdV1>(Object.values(flowTextIdsV1));
+  fixture.text.mockImplementation((textId) => {
+    const resolved = fixture.resolveText(textId);
+    return flowTextIds.has(textId as FlowTextIdV1)
+      ? Object.freeze({ ...resolved, text: flowCatalogWitnessV1(textId as FlowTextIdV1) })
+      : resolved;
+  });
+}
+
+async function clickAndAwaitExactInvocationV1(
+  fixture: ContributionFixtureV1,
+  user: ReturnType<typeof userEvent.setup>,
+  button: HTMLElement,
+  expectedInvocation: object,
+): Promise<void> {
+  const callIndex = fixture.dispatch.mock.calls.length;
+  await user.click(button);
+  const call = fixture.dispatch.mock.calls[callIndex];
+  expect(call?.[0]).toBe(expectedInvocation);
+  const result = fixture.dispatch.mock.results[callIndex];
+  if (result?.type !== "return") throw new TypeError("missing E2E Semantic dispatch result");
+  await result.value;
+}
 
 function requireCounterCharacterV1(view: E2eRuntimePresentationViewV1) {
   const character = view.characters.find(
@@ -402,6 +445,15 @@ describe("e2eUiContributionsV1", () => {
     const fixture = await createContributionFixtureV1();
     const user = userEvent.setup();
     try {
+      installFlowCatalogWitnessesV1(fixture);
+      const labels = Object.freeze({
+        start: flowCatalogWitnessV1(flowTextIdsV1.start),
+        chooseLeft: flowCatalogWitnessV1(flowTextIdsV1.chooseLeft),
+        chooseRight: flowCatalogWitnessV1(flowTextIdsV1.chooseRight),
+        continue: flowCatalogWitnessV1(flowTextIdsV1.continue),
+        complete: flowCatalogWitnessV1(flowTextIdsV1.complete),
+        unavailable: flowCatalogWitnessV1(flowTextIdsV1.unavailable),
+      });
       let publication = fixture.application.semantic.observe();
       let rendered = render(
         <E2eUiHarnessV1 fixture={fixture} view={fixture.project(emptyContentMaturityFlagsV1)} />,
@@ -411,18 +463,32 @@ describe("e2eUiContributionsV1", () => {
       if (start === undefined) throw new TypeError("missing published E2E start action");
       const startInvocation = start.options[0];
       if (startInvocation === undefined) throw new TypeError("missing published E2E start option");
-      expect(screen.getByRole("button", { name: "开始流程" })).toBeEnabled();
-      expect(screen.getByRole("button", { name: "完成流程" })).toBeDisabled();
-      expect(screen.getByRole("button", { name: "选择左侧" })).toBeDisabled();
-      expect(screen.getByRole("button", { name: "选择左侧" })).toHaveAccessibleDescription(
-        "当前流程不可用",
-      );
-      expect(screen.getByRole("button", { name: "选择右侧" })).toBeDisabled();
-      expect(screen.getByRole("button", { name: "继续" })).toBeDisabled();
+      expect(
+        screen.getByRole("group", { name: flowCatalogWitnessV1(flowTextIdsV1.hud) }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("group", { name: flowCatalogWitnessV1(flowTextIdsV1.narrative) }),
+      ).toBeVisible();
+      expect(screen.getByRole("button", { name: labels.start })).toBeEnabled();
+      for (const name of [
+        labels.complete,
+        labels.chooseLeft,
+        labels.chooseRight,
+        labels.continue,
+      ]) {
+        expect(screen.getByRole("button", { name })).toBeDisabled();
+        expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(
+          labels.unavailable,
+        );
+      }
       expect(screen.getAllByRole("button", { name: "增加计数" })).toHaveLength(1);
 
-      await user.click(screen.getByRole("button", { name: "开始流程" }));
-      expect(fixture.dispatch).toHaveBeenLastCalledWith(startInvocation);
+      await clickAndAwaitExactInvocationV1(
+        fixture,
+        user,
+        screen.getByRole("button", { name: labels.start }),
+        startInvocation,
+      );
       rendered.unmount();
 
       publication = fixture.application.semantic.observe();
@@ -435,8 +501,12 @@ describe("e2eUiContributionsV1", () => {
           candidate.actionId === "action.e2e.choose" && candidate.parameters.choice === "right",
       );
       if (rightInvocation === undefined) throw new TypeError("missing published E2E right option");
-      await user.click(screen.getByRole("button", { name: "选择右侧" }));
-      expect(fixture.dispatch).toHaveBeenLastCalledWith(rightInvocation);
+      await clickAndAwaitExactInvocationV1(
+        fixture,
+        user,
+        screen.getByRole("button", { name: labels.chooseRight }),
+        rightInvocation,
+      );
       rendered.unmount();
 
       publication = fixture.application.semantic.observe();
@@ -450,8 +520,12 @@ describe("e2eUiContributionsV1", () => {
       if (continueInvocation === undefined) {
         throw new TypeError("missing published E2E continue option");
       }
-      await user.click(screen.getByRole("button", { name: "继续" }));
-      expect(fixture.dispatch).toHaveBeenLastCalledWith(continueInvocation);
+      await clickAndAwaitExactInvocationV1(
+        fixture,
+        user,
+        screen.getByRole("button", { name: labels.continue }),
+        continueInvocation,
+      );
       rendered.unmount();
 
       publication = fixture.application.semantic.observe();
@@ -465,8 +539,12 @@ describe("e2eUiContributionsV1", () => {
       if (completeInvocation === undefined) {
         throw new TypeError("missing published E2E complete option");
       }
-      await user.click(screen.getByRole("button", { name: "完成流程" }));
-      expect(fixture.dispatch).toHaveBeenLastCalledWith(completeInvocation);
+      await clickAndAwaitExactInvocationV1(
+        fixture,
+        user,
+        screen.getByRole("button", { name: labels.complete }),
+        completeInvocation,
+      );
       rendered.unmount();
 
       const terminalView = fixture.project(emptyContentMaturityFlagsV1);
@@ -477,10 +555,66 @@ describe("e2eUiContributionsV1", () => {
         </>,
       );
       expect(fixture.application.semantic.observe().game.terminal).toBe(true);
-      expect(screen.queryByRole("button", { name: "开始流程" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "选择左侧" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "继续" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "完成流程" })).not.toBeInTheDocument();
+      for (const name of [
+        labels.start,
+        labels.chooseLeft,
+        labels.chooseRight,
+        labels.continue,
+        labels.complete,
+      ]) {
+        expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+      }
+    } finally {
+      fixture.dispose();
+    }
+  });
+
+  it("preserves both published choice descriptor and option object identities", async () => {
+    const fixture = await createContributionFixtureV1();
+    const user = userEvent.setup();
+    try {
+      installFlowCatalogWitnessesV1(fixture);
+      let rendered = render(
+        <E2eUiHarnessV1 fixture={fixture} view={fixture.project(emptyContentMaturityFlagsV1)} />,
+      );
+      const start = fixture.application.semantic
+        .observe()
+        .actions.find(({ actionId }) => actionId === "action.e2e.start");
+      const startInvocation = start?.options[0];
+      if (startInvocation === undefined) throw new TypeError("missing published E2E start option");
+      await clickAndAwaitExactInvocationV1(
+        fixture,
+        user,
+        screen.getByRole("button", { name: flowCatalogWitnessV1(flowTextIdsV1.start) }),
+        startInvocation,
+      );
+      rendered.unmount();
+
+      const publication = fixture.application.semantic.observe();
+      const choose = publication.actions.find(({ actionId }) => actionId === "action.e2e.choose");
+      if (choose === undefined) throw new TypeError("missing published E2E choose action");
+      const selected = selectE2eFlowActionOptionsV1(publication.actions, [choose.actionId]);
+      expect(selected).toHaveLength(2);
+      expect(selected[0]?.descriptor).toBe(choose);
+      expect(selected[0]?.invocation).toBe(choose.options[0]);
+      expect(selected[1]?.descriptor).toBe(choose);
+      expect(selected[1]?.invocation).toBe(choose.options[1]);
+
+      rendered = render(
+        <E2eUiHarnessV1 fixture={fixture} view={fixture.project(emptyContentMaturityFlagsV1)} />,
+      );
+      const leftInvocation = choose.options.find(
+        (candidate) =>
+          candidate.actionId === "action.e2e.choose" && candidate.parameters.choice === "left",
+      );
+      if (leftInvocation === undefined) throw new TypeError("missing published E2E left option");
+      await clickAndAwaitExactInvocationV1(
+        fixture,
+        user,
+        screen.getByRole("button", { name: flowCatalogWitnessV1(flowTextIdsV1.chooseLeft) }),
+        leftInvocation,
+      );
+      rendered.unmount();
     } finally {
       fixture.dispose();
     }

@@ -2728,6 +2728,33 @@ Stage exactly the Files above and commit
 `fix(story-e2e): retain complete semantic controls`. Task 10 begins only from that clean repair
 commit.
 
+#### Authorized post-repair verification hardening before Task 10: prove Semantic option identity
+
+Independent review of the clean Semantic-flow repair found no implementation defect, but its test
+accepted structural equality for dispatched invocations, exercised only the right-hand choice,
+and did not prove that every flow label/group/reason came from the declared TextCatalog IDs. Close
+that evidence gap in a separate follow-up commit before Task 10; do not amend the accepted repair
+or change Gameplay behavior.
+
+**Files:**
+
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.tsx`
+- Modify: `game/stories/e2e/src/presentation/ui-contributions.test.tsx`
+- Modify: this Phase 5B plan.
+
+Export one narrow pure selector that preserves the exact published descriptor and option object
+references while pairing them with their stable option index, and make the HUD/Narrative action
+group consume that selector. Tests substitute witness text only at the exact existing flow
+`TextId` lookups, assert every disabled reason, await each dispatch result before observing the
+next publication, exercise both choice identities across the suite, use reference equality for
+each dispatched invocation, and prove terminal cleanup includes both choices.
+
+The qualifying RED is the focused contribution test failing with
+`selectE2eFlowActionOptionsV1 is not a function`. After GREEN, run the complete E2E presentation
+and application-root suites, root typecheck and boundary/cycle gates. Stage exactly the Files
+above and commit `fix(story-e2e): prove semantic control identity`. Task 10 begins only from that
+clean, verified follow-up commit.
+
 ### Task 10: Compose Exactly Two Story-Owned Web Application Roots
 
 **Files:**

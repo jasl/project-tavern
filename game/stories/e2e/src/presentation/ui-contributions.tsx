@@ -76,6 +76,12 @@ export interface E2eFlowRendererViewV1 {
   readonly actions: readonly DeepReadonly<E2eSemanticActionDescriptorV1>[];
 }
 
+export interface E2eFlowActionOptionV1 {
+  readonly descriptor: DeepReadonly<E2eSemanticActionDescriptorV1>;
+  readonly invocation: DeepReadonly<E2eSemanticInvocationV1>;
+  readonly optionIndex: number;
+}
+
 type E2eFlowRendererContextV1 = GameRendererContextV1<
   E2eFlowRendererViewV1,
   E2eSemanticGamePortV1,
@@ -256,6 +262,21 @@ function flowOptionTextIdV1(
   return descriptor.textId;
 }
 
+export function selectE2eFlowActionOptionsV1(
+  actions: readonly DeepReadonly<E2eSemanticActionDescriptorV1>[],
+  actionIds: readonly E2eSemanticInvocationV1["actionId"][],
+): readonly E2eFlowActionOptionV1[] {
+  return Object.freeze(
+    actions.flatMap((descriptor) =>
+      actionIds.includes(descriptor.actionId)
+        ? descriptor.options.map((invocation, optionIndex) =>
+            Object.freeze({ descriptor, invocation, optionIndex }),
+          )
+        : [],
+    ),
+  );
+}
+
 function E2eSemanticActionGroupV1(props: {
   readonly context: E2eFlowRendererContextV1;
   readonly actionIds: readonly E2eSemanticInvocationV1["actionId"][];
@@ -264,24 +285,27 @@ function E2eSemanticActionGroupV1(props: {
   if (props.context.viewSlice.game.terminal) return null;
   return (
     <div role="group" aria-label={props.accessibleName}>
-      {props.context.viewSlice.actions.flatMap((descriptor) => {
-        if (!props.actionIds.includes(descriptor.actionId)) return [];
-        const disabledReasonLabels = Object.freeze(
-          descriptor.reasons.map(
-            () => props.context.presentation.text(textIdsV1.unavailableReason).text,
-          ),
-        );
-        return descriptor.options.map((invocation, optionIndex) => (
-          <SemanticActionControlV1
-            key={`${descriptor.actionId}:${optionIndex}`}
-            descriptor={descriptor}
-            invocation={invocation}
-            semantic={props.context.semantic}
-            label={props.context.presentation.text(flowOptionTextIdV1(descriptor, invocation)).text}
-            disabledReasonLabels={disabledReasonLabels}
-          />
-        ));
-      })}
+      {selectE2eFlowActionOptionsV1(props.context.viewSlice.actions, props.actionIds).map(
+        ({ descriptor, invocation, optionIndex }) => {
+          const disabledReasonLabels = Object.freeze(
+            descriptor.reasons.map(
+              () => props.context.presentation.text(textIdsV1.unavailableReason).text,
+            ),
+          );
+          return (
+            <SemanticActionControlV1
+              key={`${descriptor.actionId}:${optionIndex}`}
+              descriptor={descriptor}
+              invocation={invocation}
+              semantic={props.context.semantic}
+              label={
+                props.context.presentation.text(flowOptionTextIdV1(descriptor, invocation)).text
+              }
+              disabledReasonLabels={disabledReasonLabels}
+            />
+          );
+        },
+      )}
     </div>
   );
 }
