@@ -13,6 +13,7 @@ import type {
   SemanticPublicationSourceV1,
 } from "@sillymaker/ui";
 import { createWebHostV1 } from "@sillymaker/web";
+import { createDevDockContributionSetV1 } from "@sillymaker/ui/debug";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const ownerDisposalsV1 = vi.hoisted(() =>
@@ -201,7 +202,12 @@ function createAssetLoaderV1() {
   return Object.freeze({ loader, dispose });
 }
 
-async function createFixtureV1() {
+async function createFixtureV1(
+  options: Pick<
+    Parameters<typeof createPocPresentationRuntimeV1>[0],
+    "capabilitySearch" | "loadToolingUi"
+  > = {},
+) {
   const hash = createHashFixtureV1();
   const assets = createAssetLoaderV1();
   let defineCalls = 0;
@@ -223,6 +229,7 @@ async function createFixtureV1() {
     pointerWindow: window,
     pointerDocument: document,
     assetLoader: assets.loader,
+    ...options,
   });
   return Object.freeze({ runtime, defineCalls: () => defineCalls, hash, assets });
 }
@@ -255,6 +262,67 @@ describe("createPocPresentationRuntimeV1", () => {
     }
 
     fixture.runtime.dispose();
+  });
+
+  it("composes URL-requested capabilities as an effective non-persistent session", async () => {
+    const fixture = await createFixtureV1({
+      capabilitySearch: "?capability=debug_tools&capability=cheats",
+    });
+
+    expect(fixture.runtime.capabilitySession.sessionRequested).toEqual(["debug_tools", "cheats"]);
+    expect(fixture.runtime.capabilitySession.persisted.state.getCurrent()).toEqual({
+      debugTools: false,
+      cheats: false,
+      automationBridge: false,
+    });
+    expect(fixture.runtime.capabilitySession.state.getCurrent()).toEqual({
+      debugTools: true,
+      cheats: true,
+      automationBridge: false,
+    });
+    await expect(fixture.runtime.application.debugTools.listFixtures()).resolves.toMatchObject({
+      kind: "listed",
+    });
+    expect(
+      await fixture.runtime.application.capabilities.setEnabled("debug_tools", false),
+    ).toMatchObject({
+      state: { debugTools: true, cheats: true, automationBridge: false },
+    });
+
+    fixture.runtime.dispose();
+  });
+
+  it("keeps browser tooling unloaded while disabled and retries only its rejected load", async () => {
+    const contributions = createDevDockContributionSetV1({ panels: [] });
+    let shouldReject = true;
+    const loadToolingUi = vi.fn(async (specifier: unknown) => {
+      expect(specifier).toBe("@project-tavern/story-poc/tooling-ui");
+      if (shouldReject) throw new TypeError("poc.test.tooling_ui_load_failed");
+      return Object.freeze({
+        pocToolingUiContributionsV1: vi.fn(() => contributions),
+      });
+    });
+    const fixture = await createFixtureV1({ loadToolingUi });
+
+    expect(loadToolingUi).not.toHaveBeenCalled();
+    await expect(fixture.runtime.loadToolingUiContributions()).rejects.toThrow(
+      "presentation.poc.tooling_ui_capability_disabled",
+    );
+    expect(loadToolingUi).not.toHaveBeenCalled();
+
+    await fixture.runtime.application.capabilities.setEnabled("debug_tools", true);
+    await expect(fixture.runtime.loadToolingUiContributions()).rejects.toThrow(
+      "poc.test.tooling_ui_load_failed",
+    );
+    shouldReject = false;
+    await expect(fixture.runtime.loadToolingUiContributions()).resolves.toBe(contributions);
+    await expect(fixture.runtime.loadToolingUiContributions()).resolves.toBe(contributions);
+    expect(loadToolingUi).toHaveBeenCalledTimes(2);
+
+    fixture.runtime.dispose();
+    await expect(fixture.runtime.loadToolingUiContributions()).rejects.toThrow(
+      "presentation.poc.tooling_ui_disposed",
+    );
   });
 
   it("reprojects an Overlay route without replacing authoritative runtime objects", async () => {
@@ -397,6 +465,7 @@ describe("createPocPresentationRuntimeV1", () => {
     const hash = createHashFixtureV1();
     const assets = createAssetLoaderV1();
     const onRebootstrapLifecycle = vi.fn();
+    const onConstructionFailureDisposition = vi.fn();
     constructionControlV1.failPointerInstall = true;
 
     await expect(
@@ -410,19 +479,27 @@ describe("createPocPresentationRuntimeV1", () => {
         pointerWindow: window,
         pointerDocument: document,
         assetLoader: assets.loader,
+        onConstructionFailureDisposition,
         onRebootstrapLifecycle,
       }),
     ).rejects.toThrow("poc.test.pointer_install_failed");
 
     expect(onRebootstrapLifecycle).not.toHaveBeenCalled();
+    expect(onConstructionFailureDisposition).toHaveBeenCalledWith(
+      expect.objectContaining({ ownership: "released" }),
+    );
     expect(ownerDisposalsV1.gameOwner).toHaveBeenCalledOnce();
   });
 
   it("disposes browser and presentation resources exactly once", async () => {
     const fixture = await createFixtureV1();
+    const capabilityListener = vi.fn();
+    fixture.runtime.capabilitySession.state.subscribe(capabilityListener);
 
     fixture.runtime.dispose();
     fixture.runtime.dispose();
+    await fixture.runtime.capabilitySession.persisted.setEnabled("debug_tools", true);
+    expect(capabilityListener).not.toHaveBeenCalled();
     expect(() =>
       fixture.runtime.bindDevDockStateReader(() =>
         Object.freeze({ leftOpen: false, rightOpen: false }),

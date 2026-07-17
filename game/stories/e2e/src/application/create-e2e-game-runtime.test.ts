@@ -10,6 +10,11 @@ import {
   rngStateV1Schema,
 } from "@sillymaker/base";
 import { createWebHostV1 } from "@sillymaker/web";
+import type {
+  RuntimeCapabilitySessionOverlayV1,
+  WebRuntimeRebootstrapLifecycleV1,
+} from "@sillymaker/web";
+import type { PersistenceRebootstrapDisposalV1 } from "@sillymaker/base/runtime";
 import {
   createMemoryHostRecordStoreV1,
   resolveStoryForTestV1,
@@ -330,6 +335,92 @@ describe("E2e Game Application runtime", () => {
     });
     expect(loadTooling).toHaveBeenCalledTimes(1);
     expect(loadTooling).toHaveBeenCalledWith("@project-tavern/story-e2e/tooling");
+  });
+
+  it("uses session-requested capabilities at the real DebugTools boundary without persisting them", async () => {
+    const records = createMemoryHostRecordStoreV1();
+    let capabilitySession: RuntimeCapabilitySessionOverlayV1 | undefined;
+    let lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
+    const application = await createE2eGameRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createWebHostV1({
+        records,
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000096"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+      sessionRequestedCapabilities: ["debug_tools", "cheats"],
+      onCapabilitySession(value) {
+        capabilitySession = value;
+      },
+      onRebootstrapLifecycle(value) {
+        lifecycle = value;
+      },
+    });
+
+    try {
+      const session = capabilitySession;
+      if (session === undefined) throw new TypeError("missing E2E capability session");
+      expect(application.capabilities).toBe(session);
+      expect(session.sessionRequested).toEqual(["debug_tools", "cheats"]);
+      expect(session.persisted.state.getCurrent()).toEqual({
+        debugTools: false,
+        cheats: false,
+        automationBridge: false,
+      });
+      expect(application.capabilities.state.getCurrent()).toEqual({
+        debugTools: true,
+        cheats: true,
+        automationBridge: false,
+      });
+      await expect(application.debugTools.listFixtures()).resolves.toMatchObject({
+        kind: "listed",
+      });
+      await expect(
+        application.debugTools.executeDebugCommand({
+          kind: "debug.e2e.counter.add",
+          amount: parsePositiveSafeInteger(3),
+        }),
+      ).resolves.toEqual({ kind: "committed", commandSequence: 1 });
+      expect(application.semantic.observe().game.counterLabel).toBe("计数 3");
+      const bundle = JSON.parse(
+        new TextDecoder().decode((await application.diagnostics.exportDebugBundle()).bytes),
+      ) as { readonly capabilities: unknown };
+      expect(bundle.capabilities).toEqual({
+        debugTools: true,
+        cheats: true,
+        automationBridge: false,
+      });
+      expect(await records.list("settings")).toEqual([]);
+    } finally {
+      await lifecycle?.disposeForRebootstrap();
+    }
+  });
+
+  it("retries one rejected fixed Node tooling load and memoizes the first success", async () => {
+    const loadFailure = new TypeError("e2e.tooling_load_failed");
+    const loadTooling = vi.fn(async () => {
+      if (loadTooling.mock.calls.length === 1) throw loadFailure;
+      return Object.freeze({ e2eToolingEntryV1 });
+    });
+    const application = await createE2eGameRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createWebHostV1({
+        records: createMemoryHostRecordStoreV1(),
+        seeds: [0x0002_3049],
+        uuids: ["00000000-0000-4000-8000-000000000096"],
+        now: () => "2026-07-14T03:04:05.000Z",
+      }),
+      loadTooling,
+      sessionRequestedCapabilities: ["debug_tools"],
+    });
+
+    await expect(application.debugTools.listFixtures()).rejects.toBe(loadFailure);
+    await expect(application.debugTools.listFixtures()).resolves.toMatchObject({ kind: "listed" });
+    await expect(application.debugTools.listFixtures()).resolves.toMatchObject({ kind: "listed" });
+    expect(loadTooling).toHaveBeenCalledTimes(2);
+    expect(loadTooling).toHaveBeenNthCalledWith(1, "@project-tavern/story-e2e/tooling");
+    expect(loadTooling).toHaveBeenNthCalledWith(2, "@project-tavern/story-e2e/tooling");
   });
 
   it("executes parsed DebugCommands without tooling import and finalizes integrity once", async () => {

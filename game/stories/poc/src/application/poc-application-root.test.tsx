@@ -4,8 +4,9 @@ import "@testing-library/jest-dom/vitest";
 import { digestCanonical, resolveGamePackageV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
+import { createDevDockContributionSetV1 } from "@sillymaker/ui/debug";
 import { createWebHostV1 } from "@sillymaker/web";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -27,7 +28,13 @@ const assetLoaderV1 = Object.freeze({
   dispose: () => undefined,
 }) satisfies RuntimeAssetLoaderV1;
 
-async function createRuntimeV1(initialHash = "#/play") {
+async function createRuntimeV1(
+  initialHash = "#/play",
+  options: Pick<
+    Parameters<typeof createPocPresentationRuntimeV1>[0],
+    "capabilitySearch" | "loadToolingUi"
+  > = {},
+) {
   const host = createWebHostV1({
     records: createMemoryHostRecordStoreV1(),
     seeds: [0x0002_3049],
@@ -52,6 +59,7 @@ async function createRuntimeV1(initialHash = "#/play") {
     pointerWindow: window,
     pointerDocument: document,
     assetLoader: assetLoaderV1,
+    ...options,
   });
 }
 
@@ -147,6 +155,48 @@ describe("PocApplicationRootV1", () => {
     rendered.unmount();
     unsubscribePresentation();
     unsubscribeSemantic();
+    runtime.dispose();
+  });
+
+  it("loads Story DevDock contributions only after DebugTools becomes effective", async () => {
+    const contributions = createDevDockContributionSetV1({
+      panels: [
+        Object.freeze({
+          id: "poc.test.tooling",
+          side: "left" as const,
+          title: "PoC 测试工具",
+          authority: "read_only" as const,
+          render: () => <p>PoC tooling loaded</p>,
+        }),
+      ],
+    });
+    const loadToolingUi = vi.fn(async () =>
+      Object.freeze({
+        pocToolingUiContributionsV1: () => contributions,
+      }),
+    );
+    const runtime = await createRuntimeV1("#/play", { loadToolingUi });
+    render(<PocApplicationRootV1 runtime={runtime} />);
+
+    expect(loadToolingUi).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "打开左侧开发工具" })).not.toBeInTheDocument();
+
+    await runtime.application.capabilities.setEnabled("debug_tools", true);
+    await waitFor(() => expect(loadToolingUi).toHaveBeenCalledOnce());
+    await userEvent.setup().click(screen.getByRole("button", { name: "打开左侧开发工具" }));
+    expect(screen.getByRole("button", { name: "PoC 测试工具" })).toBeVisible();
+    expect(screen.getByText("PoC tooling loaded")).toBeVisible();
+
+    await runtime.application.capabilities.setEnabled("debug_tools", false);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "打开左侧开发工具" })).not.toBeInTheDocument(),
+    );
+    await runtime.application.capabilities.setEnabled("debug_tools", true);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "打开左侧开发工具" })).toBeVisible(),
+    );
+    expect(loadToolingUi).toHaveBeenCalledOnce();
+
     runtime.dispose();
   });
 

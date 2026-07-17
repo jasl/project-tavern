@@ -12,9 +12,16 @@
     "src/application/**/*.tsx",
     "src/presentation/e2e-settings-section.tsx",
     "src/presentation/runtime-presentation.ts",
-    "src/presentation/ui-contributions.tsx"
+    "src/presentation/ui-contributions.tsx",
+    "src/tooling-ui/**/*.ts",
+    "src/tooling-ui/**/*.tsx"
   ],
-  "exclude": ["src/application/**/*.test.ts", "src/application/**/*.test.tsx"],
+  "exclude": [
+    "src/application/**/*.test.ts",
+    "src/application/**/*.test.tsx",
+    "src/tooling-ui/**/*.test.ts",
+    "src/tooling-ui/**/*.test.tsx"
+  ],
   "references": [
     { "path": "." },
     { "path": "../../../engine/packages/base" },

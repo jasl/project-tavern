@@ -39,7 +39,7 @@ function createEventTargetFixtureV1() {
   });
 }
 
-function createRuntimeEnvironmentFixtureV1(hash: string) {
+function createRuntimeEnvironmentFixtureV1(hash: string, capabilitySearch = "") {
   const hashEvents = createEventTargetFixtureV1();
   const pointerWindow = createEventTargetFixtureV1();
   const pointerDocument = createEventTargetFixtureV1();
@@ -70,6 +70,7 @@ function createRuntimeEnvironmentFixtureV1(hash: string) {
       }),
       location,
       hashEventTarget: hashEvents.target,
+      capabilitySearch,
       assetLoader,
     }),
     location,
@@ -155,6 +156,99 @@ function createDelayedSettingsFailureV1(): Readonly<{
 }
 
 describe("createE2ePresentationRuntimeV1", () => {
+  it("composes URL-requested capabilities and retries only the fixed browser tooling entry", async () => {
+    const records = createMemoryHostRecordStoreV1();
+    const loadFailure = new TypeError("e2e.tooling_ui_load_failed");
+    const loadToolingUi = vi.fn(async (specifier: "@project-tavern/story-e2e/tooling-ui") => {
+      expect(specifier).toBe("@project-tavern/story-e2e/tooling-ui");
+      if (loadToolingUi.mock.calls.length === 1) throw loadFailure;
+      return await import("../tooling-ui/index.js");
+    });
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(undefined, records),
+      environment: createRuntimeEnvironmentFixtureV1(
+        "#/play",
+        "?capability=debug_tools&capability=cheats",
+      ).environment,
+      loadToolingUi,
+    });
+
+    try {
+      expect(runtime.application.capabilities).toBe(runtime.capabilitySession);
+      expect(runtime.capabilitySession.sessionRequested).toEqual(["debug_tools", "cheats"]);
+      expect(runtime.capabilitySession.persisted.state.getCurrent()).toEqual({
+        debugTools: false,
+        cheats: false,
+        automationBridge: false,
+      });
+      expect(runtime.application.capabilities.state.getCurrent()).toEqual({
+        debugTools: true,
+        cheats: true,
+        automationBridge: false,
+      });
+      expect(loadToolingUi).not.toHaveBeenCalled();
+      await expect(runtime.application.debugTools.listFixtures()).resolves.toMatchObject({
+        kind: "listed",
+      });
+      expect(loadToolingUi).not.toHaveBeenCalled();
+      expect(await records.list("settings")).toEqual([]);
+
+      await expect(runtime.loadToolingUiContributions()).rejects.toBe(loadFailure);
+      const first = await runtime.loadToolingUiContributions();
+      const second = await runtime.loadToolingUiContributions();
+      expect(second).toBe(first);
+      expect(first.panels.map(({ id }) => id)).toEqual([
+        "e2e.capabilities",
+        "e2e.diagnostics",
+        "e2e.fixtures",
+        "e2e.commands",
+      ]);
+      expect(loadToolingUi).toHaveBeenCalledTimes(2);
+
+      runtime.dispose();
+      await expect(runtime.loadToolingUiContributions()).rejects.toThrow(
+        "presentation.e2e.tooling_ui_disposed",
+      );
+    } finally {
+      runtime.dispose();
+    }
+  });
+
+  it("turns a rejected capability request into an empty non-persistent session overlay", async () => {
+    const loadToolingUi = vi.fn(
+      async (_specifier: "@project-tavern/story-e2e/tooling-ui") =>
+        await import("../tooling-ui/index.js"),
+    );
+    const runtime = await createE2ePresentationRuntimeV1({
+      resolved: resolveStoryForTestV1(e2eStoryEntryV1),
+      host: createHostV1(),
+      environment: createRuntimeEnvironmentFixtureV1(
+        "#/play",
+        "?capability=debug_tools&capability=unknown",
+      ).environment,
+      loadToolingUi,
+    });
+
+    try {
+      expect(runtime.capabilitySession.sessionRequested).toEqual([]);
+      expect(runtime.application.capabilities.state.getCurrent()).toEqual({
+        debugTools: false,
+        cheats: false,
+        automationBridge: false,
+      });
+      await expect(runtime.application.debugTools.listFixtures()).resolves.toEqual({
+        kind: "capability_disabled",
+      });
+      await expect(runtime.loadToolingUiContributions()).rejects.toThrow(
+        "presentation.e2e.tooling_ui_capability_disabled",
+      );
+      expect(loadToolingUi).not.toHaveBeenCalled();
+    } finally {
+      runtime.dispose();
+    }
+  });
+
   it("composes one Semantic bridge, complete UI state, and one presentation publication", async () => {
     const resolved = resolveStoryForTestV1(e2eStoryEntryV1);
     const browser = createRuntimeEnvironmentFixtureV1("#/play");
@@ -518,6 +612,7 @@ describe("createE2ePresentationRuntimeV1", () => {
     const records = createMemoryHostRecordStoreV1();
     const browser = createRuntimeEnvironmentFixtureV1("#/play");
     const handoffFailure = new TypeError("e2e.lifecycle_handoff_failed");
+    const onConstructionFailureDisposition = vi.fn();
     const observations: Array<Readonly<{ blur: number; visibility: number }>> = [];
 
     await expect(
@@ -525,6 +620,7 @@ describe("createE2ePresentationRuntimeV1", () => {
         resolved: resolveStoryForTestV1(e2eStoryEntryV1),
         host: createHostV1(undefined, records, "00000000-0000-4000-8000-000000000403"),
         environment: browser.environment,
+        onConstructionFailureDisposition,
         onRebootstrapLifecycle() {
           observations.push(
             Object.freeze({
@@ -538,6 +634,9 @@ describe("createE2ePresentationRuntimeV1", () => {
     ).rejects.toBe(handoffFailure);
 
     expect(observations).toEqual([{ blur: 1, visibility: 1 }]);
+    expect(onConstructionFailureDisposition).toHaveBeenCalledWith(
+      expect.objectContaining({ ownership: "released" }),
+    );
     expect(await readLeaseOwnerIdV1(records)).toBeNull();
     expect(browser.hashEvents.listenerCount("hashchange")).toBe(0);
     expect(browser.pointerWindow.listenerCount("blur")).toBe(0);

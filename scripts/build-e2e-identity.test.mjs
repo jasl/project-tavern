@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import test from "node:test";
+import test, { after, before } from "node:test";
 
 import {
   collectE2eBuildIdentityV1,
@@ -15,6 +17,44 @@ import {
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const facetNames = Object.freeze(["engine", "storySimulation", "storyPresentation", "application"]);
+const identityMutationLockPath = join(
+  tmpdir(),
+  `project-tavern-build-identity-${process.ppid}.lock`,
+);
+let ownsIdentityMutationLock = false;
+
+function isAlreadyExistsError(error) {
+  return typeof error === "object" && error !== null && Reflect.get(error, "code") === "EEXIST";
+}
+
+async function acquireIdentityMutationLock() {
+  const deadline = Date.now() + 30_000;
+  while (true) {
+    try {
+      await mkdir(identityMutationLockPath);
+      ownsIdentityMutationLock = true;
+      return;
+    } catch (error) {
+      if (!isAlreadyExistsError(error)) throw error;
+      if (Date.now() >= deadline) {
+        throw new TypeError("timed out acquiring the BuildIdentity test mutation lock", {
+          cause: error,
+        });
+      }
+      await delay(10);
+    }
+  }
+}
+
+before(async () => {
+  await acquireIdentityMutationLock();
+});
+
+after(async () => {
+  if (!ownsIdentityMutationLock) return;
+  ownsIdentityMutationLock = false;
+  await rm(identityMutationLockPath, { force: true, recursive: true });
+});
 
 function assertWorkspaceRelativePath(path) {
   assert(path.length > 0);
@@ -51,9 +91,9 @@ async function assertLiveRecords(records, facet) {
   }
 }
 
-function changedFacets(before, after) {
+function changedFacets(previousIdentity, nextIdentity) {
   return facetNames.filter(
-    (facet) => JSON.stringify(before[facet]) !== JSON.stringify(after[facet]),
+    (facet) => JSON.stringify(previousIdentity[facet]) !== JSON.stringify(nextIdentity[facet]),
   );
 }
 
@@ -129,6 +169,11 @@ void test("collects four non-empty production identity facets from live sources"
   );
 
   for (const explicitSource of [
+    "game/stories/e2e/src/tooling.ts",
+    "game/stories/e2e/src/tooling-ui/index.ts",
+    "engine/packages/ui/src/assets/index.ts",
+    "engine/packages/ui/src/debug/index.ts",
+    "engine/packages/ui/src/diagnostics/index.ts",
     "scripts/build-story-identity.mjs",
     "scripts/collect-import-closure.mjs",
     "scripts/build-e2e-identity.mjs",
@@ -327,6 +372,10 @@ void test("partitions live source mutations into only their owning facets", asyn
     },
     {
       path: "game/stories/e2e/src/application/e2e-application-root.tsx",
+      expected: ["application"],
+    },
+    {
+      path: "game/stories/e2e/src/tooling-ui/index.ts",
       expected: ["application"],
     },
   ];

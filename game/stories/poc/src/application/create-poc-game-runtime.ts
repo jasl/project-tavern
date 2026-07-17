@@ -16,6 +16,7 @@ import type {
   GameHostV1,
   SessionAnchorResultV1,
   SimulationAdoptionV1,
+  RuntimeCapabilityIdV1,
 } from "@sillymaker/base";
 import {
   createDebugToolsPortV1,
@@ -32,7 +33,10 @@ import type {
   PersistenceRebootstrapDisposalV1,
 } from "@sillymaker/base/runtime";
 import { createGameRuntimeV1 } from "@sillymaker/web";
-import type { WebRuntimeRebootstrapLifecycleV1 } from "@sillymaker/web";
+import type {
+  RuntimeCapabilitySessionOverlayV1,
+  WebRuntimeRebootstrapLifecycleV1,
+} from "@sillymaker/web";
 
 import { pocStoryIdentityV1 } from "../content/identity.js";
 import type {
@@ -173,7 +177,9 @@ export async function createPocGameRuntimeV1(input: {
   readonly appBuildId: Digest;
   readonly readUiContext?: () => DeepReadonly<DebugUiContextV1> | undefined;
   readonly loadTooling?: PocToolingLoaderV1;
+  readonly sessionRequestedCapabilities?: readonly RuntimeCapabilityIdV1[];
   readonly rebootstrapDisposition?: DeepReadonly<PersistenceRebootstrapDisposalV1>;
+  onCapabilitySession?(session: RuntimeCapabilitySessionOverlayV1): void;
   onRebootstrapLifecycle?(
     lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>,
   ): void | PromiseLike<void>;
@@ -187,6 +193,9 @@ export async function createPocGameRuntimeV1(input: {
     DebugUiContextV1
   >({
     host: input.host,
+    ...(input.sessionRequestedCapabilities === undefined
+      ? {}
+      : { sessionRequestedCapabilities: input.sessionRequestedCapabilities }),
     ...(uiContextSchema === undefined || input.readUiContext === undefined
       ? {}
       : { uiContextSchema, readUiContext: input.readUiContext }),
@@ -195,6 +204,7 @@ export async function createPocGameRuntimeV1(input: {
       : { onRebootstrapLifecycle: input.onRebootstrapLifecycle }),
     async createApplication({
       capabilities,
+      capabilitySession,
       persistenceIdentity,
       runtimeFailures,
       reportObserverFailure,
@@ -605,6 +615,7 @@ export async function createPocGameRuntimeV1(input: {
       if (input.rebootstrapDisposition !== undefined) {
         await persistenceService.takeOverForRebootstrap(input.rebootstrapDisposition);
       }
+      input.onCapabilitySession?.(capabilitySession);
       return application;
     },
   });

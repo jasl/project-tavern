@@ -6,7 +6,8 @@
   "license": "PolyForm-Noncommercial-1.0.0",
   "exports": {
     ".": "./src/index.ts",
-    "./tooling": "./src/tooling.ts"
+    "./tooling": "./src/tooling.ts",
+    "./tooling-ui": "./src/tooling-ui/index.ts"
   },
   "scripts": {
     "test": "pnpm --workspace-root exec vitest run game/stories/e2e/src",

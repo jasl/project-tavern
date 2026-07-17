@@ -6,7 +6,8 @@
   "license": "SEE LICENSE IN LICENSE.md",
   "exports": {
     ".": "./src/index.ts",
-    "./tooling": "./src/tooling/index.ts"
+    "./tooling": "./src/tooling/index.ts",
+    "./tooling-ui": "./src/tooling-ui/index.ts"
   },
   "scripts": {
     "test": "pnpm --workspace-root exec vitest run game/stories/poc/src --passWithNoTests",

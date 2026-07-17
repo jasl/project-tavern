@@ -6,6 +6,15 @@ export type {
   WebGameRuntimeCompositionV1,
   WebPersistenceIdentityV1,
 } from "./application/create-game-runtime.js";
+export {
+  createRuntimeCapabilitySessionOverlayV1,
+  parseCapabilityRequestV1,
+} from "./capabilities/index.js";
+export type {
+  CapabilityRequestParseResultV1,
+  CapabilityRequestRejectionCodeV1,
+  RuntimeCapabilitySessionOverlayV1,
+} from "./capabilities/index.js";
 export { createPlayerUiPortsV1 } from "./application/create-player-ui-ports.js";
 export type {
   PlayerUiDiagnosticsSourceV1,

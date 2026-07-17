@@ -21,6 +21,7 @@ import type {
   PersistenceStatusV1,
   NonNegativeSafeInteger,
   PositiveSafeInteger,
+  RuntimeCapabilityIdV1,
   RuntimeCapabilityPortV1,
   SaveExportOperationResultV1,
   SaveSlotSummaryV1,
@@ -47,7 +48,10 @@ import type {
   ReplayComparisonV1,
 } from "@sillymaker/base/runtime";
 import { createGameRuntimeV1 } from "@sillymaker/web";
-import type { WebRuntimeRebootstrapLifecycleV1 } from "@sillymaker/web";
+import type {
+  RuntimeCapabilitySessionOverlayV1,
+  WebRuntimeRebootstrapLifecycleV1,
+} from "@sillymaker/web";
 
 import type {
   E2eDebugCommandV1,
@@ -228,7 +232,11 @@ export async function createE2eGameRuntimeV1(input: {
   readonly appBuildId?: Digest;
   readonly readUiContext?: () => DeepReadonly<DebugUiContextV1> | undefined;
   readonly loadTooling?: E2eToolingLoaderV1;
+  readonly sessionRequestedCapabilities?: readonly RuntimeCapabilityIdV1[];
   readonly rebootstrapDisposition?: DeepReadonly<PersistenceRebootstrapDisposalV1>;
+  onCapabilitySession?(
+    capabilitySession: RuntimeCapabilitySessionOverlayV1,
+  ): void | PromiseLike<void>;
   onRebootstrapLifecycle?(
     lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>,
   ): void | PromiseLike<void>;
@@ -240,6 +248,9 @@ export async function createE2eGameRuntimeV1(input: {
     DebugUiContextV1
   >({
     host: input.host,
+    ...(input.sessionRequestedCapabilities === undefined
+      ? {}
+      : { sessionRequestedCapabilities: input.sessionRequestedCapabilities }),
     ...(input.readUiContext === undefined
       ? {}
       : {
@@ -251,6 +262,7 @@ export async function createE2eGameRuntimeV1(input: {
       : { onRebootstrapLifecycle: input.onRebootstrapLifecycle }),
     async createApplication({
       capabilities,
+      capabilitySession,
       persistenceIdentity,
       runtimeFailures,
       uiContextSchema,
@@ -401,13 +413,18 @@ export async function createE2eGameRuntimeV1(input: {
         input.loadTooling ?? (async () => await import("@project-tavern/story-e2e/tooling"));
       let fixtureResolverPromise: Promise<E2eFixtureResolverV1> | undefined;
       const getFixtureResolver = (): Promise<E2eFixtureResolverV1> => {
-        fixtureResolverPromise ??= loadTooling("@project-tavern/story-e2e/tooling").then(
-          ({ e2eToolingEntryV1 }) => {
+        if (fixtureResolverPromise !== undefined) return fixtureResolverPromise;
+        const attempt = Promise.resolve()
+          .then(async () => await loadTooling("@project-tavern/story-e2e/tooling"))
+          .then(({ e2eToolingEntryV1 }) => {
             const support = e2eToolingEntryV1.defineToolingSupport();
             return support.createFixtureResolver(gameSimulation, e2eToolingEntryV1);
-          },
-        );
-        return fixtureResolverPromise;
+          });
+        fixtureResolverPromise = attempt;
+        void attempt.catch(() => {
+          if (fixtureResolverPromise === attempt) fixtureResolverPromise = undefined;
+        });
+        return attempt;
       };
 
       const publicUnexpectedFault = Object.freeze({ code: "e2e.runtime.unexpected" as const });
@@ -651,6 +668,7 @@ export async function createE2eGameRuntimeV1(input: {
       if (input.rebootstrapDisposition !== undefined) {
         await persistenceService.takeOverForRebootstrap(input.rebootstrapDisposition);
       }
+      await input.onCapabilitySession?.(capabilitySession);
       return application;
     },
   });

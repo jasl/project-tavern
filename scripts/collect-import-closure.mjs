@@ -9,15 +9,21 @@ const packageTargets = Object.freeze({
   "@sillymaker/base/runtime": "engine/packages/base/src/runtime/index.ts",
   "@sillymaker/base/testkit": "engine/packages/base/src/testkit/index.ts",
   "@sillymaker/ui": "engine/packages/ui/src/index.ts",
+  "@sillymaker/ui/assets": "engine/packages/ui/src/assets/index.ts",
+  "@sillymaker/ui/debug": "engine/packages/ui/src/debug/index.ts",
+  "@sillymaker/ui/diagnostics": "engine/packages/ui/src/diagnostics/index.ts",
   "@sillymaker/web": "engine/packages/web/src/index.ts",
   "@project-tavern/assets": "game/packages/assets/src/index.ts",
   "@project-tavern/story-e2e": "game/stories/e2e/src/index.ts",
   "@project-tavern/story-e2e/tooling": "game/stories/e2e/src/tooling.ts",
+  "@project-tavern/story-e2e/tooling-ui": "game/stories/e2e/src/tooling-ui/index.ts",
   "@project-tavern/story-poc": "game/stories/poc/src/index.ts",
   "@project-tavern/story-poc/tooling": "game/stories/poc/src/tooling/index.ts",
+  "@project-tavern/story-poc/tooling-ui": "game/stories/poc/src/tooling-ui/index.ts",
 });
 
 const posix = (root, path) => relative(root, path).split(sep).join("/");
+const internalWorkspaceSpecifierPattern = /^@(?:project-tavern|sillymaker)\//u;
 const buildIdentityFacetsV1 = new Set([
   "engine",
   "story_simulation",
@@ -116,6 +122,8 @@ export async function collectImportClosure(root, entries) {
         queue.push(dependency);
       } else if (specifier.startsWith(".")) {
         errors.push(`${relativePath}: missing import: ${specifier}`);
+      } else if (internalWorkspaceSpecifierPattern.test(specifier)) {
+        errors.push(`${relativePath}: unknown workspace import ${specifier}`);
       } else {
         const key = `${relativePath}\0${specifier}`;
         externalImports.set(

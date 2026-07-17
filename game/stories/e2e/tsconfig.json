@@ -10,7 +10,8 @@
     "src/**/*.test.tsx",
     "src/**/*.test-d.ts",
     "src/application/**",
-    "src/presentation/runtime-presentation.ts"
+    "src/presentation/runtime-presentation.ts",
+    "src/tooling-ui/**"
   ],
   "references": [
     { "path": "../../../engine/packages/base" },

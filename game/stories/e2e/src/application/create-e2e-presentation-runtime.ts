@@ -42,10 +42,11 @@ import {
 } from "@sillymaker/ui";
 import { createDebugUiContextV1 } from "@sillymaker/ui/diagnostics";
 import type { DebugUiSessionProjectionInputV1 } from "@sillymaker/ui/diagnostics";
-import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
+import type { DevDockContributionSetV1, DevDockOpenStateV1 } from "@sillymaker/ui/debug";
 import {
   createBrowserImageLoaderV1,
   createHashRouterV1,
+  parseCapabilityRequestV1,
   createPlayerUiPortsV1,
   createWebContentPreferencePortV1,
   installPointerAdapterV1,
@@ -53,6 +54,7 @@ import {
   type HashRouterEventTargetV1,
   type HashRouterLocationV1,
   type PointerAdapterInputV1,
+  type RuntimeCapabilitySessionOverlayV1,
   type WebRuntimeRebootstrapLifecycleV1,
 } from "@sillymaker/web";
 
@@ -92,6 +94,7 @@ interface E2ePresentationBrowserEnvironmentCommonV1 {
   readonly pointerDocument: E2ePointerDocumentV1;
   readonly location: HashRouterLocationV1;
   readonly hashEventTarget: HashRouterEventTargetV1;
+  readonly capabilitySearch: string;
 }
 
 export type E2ePresentationBrowserEnvironmentV1 = E2ePresentationBrowserEnvironmentCommonV1 &
@@ -108,7 +111,9 @@ export interface CreateE2ePresentationRuntimeInputV1 {
   readonly host: GameHostV1;
   readonly environment: E2ePresentationBrowserEnvironmentV1;
   readonly appBuildId?: Digest;
+  readonly loadToolingUi?: E2eToolingUiLoaderV1;
   readonly rebootstrapDisposition?: DeepReadonly<PersistenceRebootstrapDisposalV1>;
+  onConstructionFailureDisposition?(disposition: PersistenceRebootstrapDisposalV1): void;
   onRebootstrapLifecycle?(
     lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>,
   ): void | PromiseLike<void>;
@@ -118,6 +123,7 @@ export interface E2ePresentationRuntimeV1 {
   readonly applicationId: "e2e-web";
   readonly resolvedGame: E2eResolvedGameV1;
   readonly application: E2eGameApplicationPortV1;
+  readonly capabilitySession: RuntimeCapabilitySessionOverlayV1;
   readonly playerUi: ReturnType<typeof createPlayerUiPortsV1>;
   readonly contentPreference: ContentPreferencePortV1;
   readonly uiState: ReadonlyViewSourceV1<E2ePresentationUiStateV1>;
@@ -137,9 +143,18 @@ export interface E2ePresentationRuntimeV1 {
   readonly interactionController: InteractionBehaviorControllerV1;
   readonly overlaySession: OverlaySessionStoreV1<string>;
   readonly systemDialogSession: SystemDialogSessionStoreV1;
+  loadToolingUiContributions(): Promise<DevDockContributionSetV1>;
   bindDevDockStateReader(reader: () => DeepReadonly<DevDockOpenStateV1>): () => void;
   dispose(): void;
 }
+
+type E2eToolingUiModuleV1 = {
+  readonly e2eToolingUiContributionsV1: typeof import("../tooling-ui/index.js").e2eToolingUiContributionsV1;
+};
+
+type E2eToolingUiLoaderV1 = (
+  specifier: "@project-tavern/story-e2e/tooling-ui",
+) => Promise<E2eToolingUiModuleV1>;
 
 const closedDevDockStateV1 = Object.freeze({
   leftOpen: false,
@@ -255,6 +270,7 @@ export async function createE2ePresentationRuntimeV1(
   let hydratedContentPreference: ContentPreferencePortV1 | undefined;
   let capturedLifecycle:
     WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
+  let capturedCapabilitySession: RuntimeCapabilitySessionOverlayV1 | undefined;
   let applicationPromise: Promise<E2eGameApplicationPortV1> | undefined;
   let pointerForCleanup: { dispose(): void } | undefined;
   let unsubscribeRoute: (() => void) | undefined;
@@ -265,25 +281,34 @@ export async function createE2ePresentationRuntimeV1(
     RuntimePresentationStoreV1<E2eRuntimePresentationPublicationV1> | undefined;
   let semanticBridgeForCleanup: { dispose(): void } | undefined;
   let presentationResourcesDisposed = false;
+  let toolingUiDisposed = false;
   const disposePresentationResources = (): void => {
     if (presentationResourcesDisposed) return;
     presentationResourcesDisposed = true;
+    toolingUiDisposed = true;
     diagnosticsPresentation = undefined;
     readDiagnosticsUiSession = undefined;
     readDiagnosticsDevDockState = undefined;
-    systemDialogSession.closeSettings();
-    pointerForCleanup?.dispose();
-    unsubscribeRoute?.();
-    router.dispose();
-    unsubscribePreload?.();
-    preloadController?.abort();
-    unsubscribeStageCleanup?.();
-    presentationForCleanup?.dispose();
-    semanticBridgeForCleanup?.dispose();
-    assets.dispose();
+    try {
+      systemDialogSession.closeSettings();
+      pointerForCleanup?.dispose();
+      unsubscribeRoute?.();
+      router.dispose();
+      unsubscribePreload?.();
+      preloadController?.abort();
+      unsubscribeStageCleanup?.();
+      presentationForCleanup?.dispose();
+      semanticBridgeForCleanup?.dispose();
+      assets.dispose();
+    } finally {
+      capturedCapabilitySession?.dispose();
+    }
   };
 
   try {
+    const capabilityRequest = parseCapabilityRequestV1(environment.capabilitySearch);
+    const sessionRequestedCapabilities =
+      capabilityRequest.kind === "accepted" ? capabilityRequest.requested : Object.freeze([]);
     const contentPreferencePromise = createWebContentPreferencePortV1({
       records: input.host.records,
       storyId: parseStoryId(input.resolved.provenance.story.id),
@@ -294,6 +319,7 @@ export async function createE2ePresentationRuntimeV1(
     applicationPromise = createE2eGameRuntimeV1({
       resolved: input.resolved,
       host: input.host,
+      sessionRequestedCapabilities,
       ...(input.appBuildId === undefined ? {} : { appBuildId: input.appBuildId }),
       readUiContext() {
         const presentation = diagnosticsPresentation?.getSnapshot();
@@ -316,6 +342,12 @@ export async function createE2ePresentationRuntimeV1(
       ...(input.rebootstrapDisposition === undefined
         ? {}
         : { rebootstrapDisposition: input.rebootstrapDisposition }),
+      onCapabilitySession(capabilitySession) {
+        if (capturedCapabilitySession !== undefined) {
+          throw new TypeError("E2E presentation runtime received duplicate capability session");
+        }
+        capturedCapabilitySession = capabilitySession;
+      },
       onRebootstrapLifecycle(lifecycle) {
         if (capturedLifecycle !== undefined) {
           throw new TypeError("E2E presentation runtime received duplicate HMR lifecycle");
@@ -327,6 +359,10 @@ export async function createE2ePresentationRuntimeV1(
       applicationPromise,
       contentPreferencePromise,
     ]);
+    const capabilitySession = capturedCapabilitySession;
+    if (capabilitySession === undefined) {
+      throw new TypeError("E2E presentation runtime did not capture a capability session");
+    }
     hydratedContentPreference = contentPreference;
     const playerUi = createPlayerUiPortsV1({
       files: input.host.files,
@@ -525,10 +561,43 @@ export async function createE2ePresentationRuntimeV1(
       };
     };
 
+    const loadToolingUi: E2eToolingUiLoaderV1 =
+      input.loadToolingUi ?? (async () => await import("@project-tavern/story-e2e/tooling-ui"));
+    let toolingUiContributionsPromise: Promise<DevDockContributionSetV1> | undefined;
+    const loadToolingUiContributions = (): Promise<DevDockContributionSetV1> => {
+      if (toolingUiDisposed) {
+        return Promise.reject(new TypeError("presentation.e2e.tooling_ui_disposed"));
+      }
+      if (!capabilitySession.state.getCurrent().debugTools) {
+        return Promise.reject(new TypeError("presentation.e2e.tooling_ui_capability_disabled"));
+      }
+      if (toolingUiContributionsPromise !== undefined) return toolingUiContributionsPromise;
+      const attempt = (async () => {
+        const { e2eToolingUiContributionsV1 } = await loadToolingUi(
+          "@project-tavern/story-e2e/tooling-ui",
+        );
+        if (toolingUiDisposed) {
+          throw new TypeError("presentation.e2e.tooling_ui_disposed");
+        }
+        return e2eToolingUiContributionsV1({
+          debugTools: application.debugTools,
+          effectiveCapabilities: capabilitySession.state,
+          persistedCapabilities: capabilitySession.persisted,
+          sessionRequested: capabilitySession.sessionRequested,
+        });
+      })();
+      toolingUiContributionsPromise = attempt;
+      void attempt.catch(() => {
+        if (toolingUiContributionsPromise === attempt) toolingUiContributionsPromise = undefined;
+      });
+      return attempt;
+    };
+
     const runtime = Object.freeze({
       applicationId: "e2e-web" as const,
       resolvedGame: input.resolved,
       application,
+      capabilitySession,
       playerUi,
       contentPreference,
       uiState,
@@ -542,6 +611,7 @@ export async function createE2ePresentationRuntimeV1(
       interactionController,
       overlaySession,
       systemDialogSession,
+      loadToolingUiContributions,
       bindDevDockStateReader,
       dispose: disposePresentationResources,
     }) satisfies E2ePresentationRuntimeV1;
@@ -567,7 +637,8 @@ export async function createE2ePresentationRuntimeV1(
     const lifecycle = capturedLifecycle;
     if (lifecycle !== undefined) {
       try {
-        await lifecycle.disposeForRebootstrap();
+        const disposition = await lifecycle.disposeForRebootstrap();
+        input.onConstructionFailureDisposition?.(disposition);
       } catch {
         // Construction failure remains authoritative over best-effort game-owner cleanup.
       }

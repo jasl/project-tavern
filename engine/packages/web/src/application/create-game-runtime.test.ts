@@ -9,7 +9,7 @@ import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import { describe, expect, it, vi } from "vitest";
 
 import { createWebHostV1 } from "../host/create-web-host.js";
-import { createGameRuntimeV1 } from "./create-game-runtime.js";
+import { createGameRuntimeV1, type WebGameRuntimeCompositionV1 } from "./create-game-runtime.js";
 
 function deferredRecordV1() {
   let resolve!: (value: HostStoredRecordV1 | null) => void;
@@ -28,6 +28,44 @@ function deferredValueV1<T>() {
 }
 
 describe("generic Web game runtime", () => {
+  it("composes a fresh session request as effective state without persisting it", async () => {
+    const records = createMemoryHostRecordStoreV1();
+    const host = createWebHostV1({
+      records,
+      uuids: ["00000000-0000-4000-8000-000000000111"],
+    });
+
+    const application = await createGameRuntimeV1({
+      host,
+      sessionRequestedCapabilities: ["debug_tools", "automation_bridge"],
+      createApplication: (composition) => composition,
+    });
+
+    expect(application.capabilities).toBe(application.capabilitySession);
+    expect(application.capabilities.state.getCurrent()).toEqual({
+      debugTools: true,
+      cheats: false,
+      automationBridge: true,
+    });
+    expect(application.capabilitySession.persisted.state.getCurrent()).toEqual({
+      debugTools: false,
+      cheats: false,
+      automationBridge: false,
+    });
+    expect(application.capabilitySession.sessionRequested).toEqual([
+      "debug_tools",
+      "automation_bridge",
+    ]);
+    expect(Object.isFrozen(application.capabilitySession.sessionRequested)).toBe(true);
+    expect(await records.list("settings")).toEqual([]);
+
+    await expect(application.capabilities.setEnabled("debug_tools", false)).resolves.toEqual({
+      kind: "unchanged",
+      state: { debugTools: true, cheats: false, automationBridge: true },
+    });
+    expect(await records.list("settings")).toEqual([]);
+  });
+
   it("forwards a paired UI-context schema and reader without invoking either", async () => {
     const host = createWebHostV1({
       records: createMemoryHostRecordStoreV1(),
@@ -202,6 +240,69 @@ describe("generic Web game runtime", () => {
         createApplication: () => Object.freeze({ kind: "application" as const }),
       }),
     ).rejects.toThrow("did not register an HMR lifecycle");
+  });
+
+  it("disposes the capability session when application construction fails", async () => {
+    const host = createWebHostV1({
+      records: createMemoryHostRecordStoreV1(),
+      uuids: ["00000000-0000-4000-8000-000000000112"],
+    });
+    const constructionFailure = new Error("application construction failed before registration");
+    let captured: WebGameRuntimeCompositionV1<unknown> | undefined;
+    const listener = vi.fn();
+
+    await expect(
+      createGameRuntimeV1({
+        host,
+        sessionRequestedCapabilities: [],
+        createApplication(composition) {
+          captured = composition;
+          composition.capabilities.state.subscribe(listener);
+          throw constructionFailure;
+        },
+      }),
+    ).rejects.toBe(constructionFailure);
+
+    expect(captured).toBeDefined();
+    await captured?.capabilitySession.persisted.setEnabled("debug_tools", true);
+    expect(listener).not.toHaveBeenCalled();
+    expect(captured?.capabilities.state.getCurrent().debugTools).toBe(false);
+  });
+
+  it("disposes the capability session in the HMR lifecycle finally path", async () => {
+    const host = createWebHostV1({
+      records: createMemoryHostRecordStoreV1(),
+      uuids: ["00000000-0000-4000-8000-000000000113"],
+    });
+    const invalidationController = Object.freeze({
+      invalidateForHmr: vi.fn(),
+    }) as RuntimeInvalidationControllerV1;
+    const disposalFailure = new Error("runtime disposal failed");
+    const disposeForRebootstrap = vi.fn(async () => {
+      throw disposalFailure;
+    });
+    const onRebootstrapLifecycle =
+      vi.fn<NonNullable<Parameters<typeof createGameRuntimeV1>[0]["onRebootstrapLifecycle"]>>();
+
+    const composition = await createGameRuntimeV1({
+      host,
+      onRebootstrapLifecycle,
+      createApplication(input) {
+        input.registerRebootstrapLifecycle({ invalidationController, disposeForRebootstrap });
+        return input;
+      },
+    });
+    const listener = vi.fn();
+    composition.capabilities.state.subscribe(listener);
+
+    const registered = onRebootstrapLifecycle.mock.calls[0]?.[0];
+    if (registered === undefined) throw new Error("missing registered lifecycle");
+    await expect(registered.disposeForRebootstrap()).rejects.toBe(disposalFailure);
+    await composition.capabilitySession.persisted.setEnabled("debug_tools", true);
+
+    expect(disposeForRebootstrap).toHaveBeenCalledOnce();
+    expect(listener).not.toHaveBeenCalled();
+    expect(composition.capabilities.state.getCurrent().debugTools).toBe(false);
   });
 
   it("awaits lifecycle disposal and preserves an application-construction failure", async () => {

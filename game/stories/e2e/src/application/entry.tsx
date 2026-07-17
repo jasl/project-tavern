@@ -92,6 +92,7 @@ function createE2ePresentationBrowserEnvironmentV1(
     pointerDocument: document,
     location: globalThis.location,
     hashEventTarget: globalThis,
+    capabilitySearch: globalThis.location.search,
     imageLoader: Object.freeze({
       resolveRuntimeUrl: (runtimePath: string) => new URL(runtimePath, document.baseURI).href,
       createImage: () => new Image(),
@@ -109,6 +110,7 @@ export async function createE2eApplicationCompositionV1(input: {
   readonly host: GameHostV1;
   readonly environment?: E2ePresentationBrowserEnvironmentV1;
   readonly rebootstrapDisposition?: PersistenceRebootstrapDisposalV1;
+  onConstructionFailureDisposition?(disposition: PersistenceRebootstrapDisposalV1): void;
 }): Promise<E2eApplicationCompositionV1> {
   const bootstrap = createGameBootstrapControllerV1({
     host: input.host,
@@ -128,6 +130,9 @@ export async function createE2eApplicationCompositionV1(input: {
     ...(input.rebootstrapDisposition === undefined
       ? {}
       : { rebootstrapDisposition: input.rebootstrapDisposition }),
+    ...(input.onConstructionFailureDisposition === undefined
+      ? {}
+      : { onConstructionFailureDisposition: input.onConstructionFailureDisposition }),
     onRebootstrapLifecycle(value) {
       lifecycle = value;
     },
@@ -221,6 +226,9 @@ export function installE2eApplicationHmrV1(input: {
         composition = await module.createE2eApplicationCompositionV1({
           host: input.state.host,
           rebootstrapDisposition: retryDisposition ?? disposition,
+          onConstructionFailureDisposition(nextDisposition) {
+            retryDisposition = nextDisposition;
+          },
         });
         nextState = mountComposition(input.state.root, input.state.host, composition);
         module.installE2eApplicationHmrV1({ state: nextState });

@@ -17,8 +17,15 @@ import {
   type UiContributionRegistryV1,
 } from "@sillymaker/ui";
 import { DevDockV1, createDevDockContributionSetV1 } from "@sillymaker/ui/debug";
-import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import type { DevDockContributionSetV1, DevDockOpenStateV1 } from "@sillymaker/ui/debug";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ComponentType, ReactElement } from "react";
 
 import type { E2ePresentationRuntimeV1 } from "./create-e2e-presentation-runtime.js";
@@ -401,6 +408,40 @@ export function E2eApplicationRootV1(props: E2eApplicationRootPropsV1): ReactEle
     () => props.runtime.bindDevDockStateReader(() => devDockOpenStateRef.current),
     [props.runtime],
   );
+  const capabilities = useSyncExternalStore(
+    props.runtime.application.capabilities.state.subscribe,
+    props.runtime.application.capabilities.state.getCurrent,
+    props.runtime.application.capabilities.state.getCurrent,
+  );
+  const [loadedTooling, setLoadedTooling] = useState<{
+    readonly runtime: E2ePresentationRuntimeV1;
+    readonly contributions: DevDockContributionSetV1;
+  } | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (!capabilities.debugTools) {
+      return () => {
+        active = false;
+      };
+    }
+    void props.runtime
+      .loadToolingUiContributions()
+      .then((contributions) => {
+        if (!active) return;
+        setLoadedTooling(Object.freeze({ runtime: props.runtime, contributions }));
+      })
+      .catch(() => {
+        if (!active) return;
+        setLoadedTooling((current) => (current?.runtime === props.runtime ? null : current));
+      });
+    return () => {
+      active = false;
+    };
+  }, [capabilities.debugTools, props.runtime]);
+  const devDockContributions =
+    capabilities.debugTools && loadedTooling?.runtime === props.runtime
+      ? loadedTooling.contributions
+      : emptyDevDockContributionsV1;
   const publication = useRuntimePresentationV1(props.runtime.presentation);
   const layers = createFixedLayersV1(props.runtime, publication);
   const accessibleName = props.runtime.presentationRead.text(
@@ -426,7 +467,7 @@ export function E2eApplicationRootV1(props: E2eApplicationRootPropsV1): ReactEle
         devDock={
           <DevDockV1
             capabilities={props.runtime.application.capabilities}
-            contributions={emptyDevDockContributionsV1}
+            contributions={devDockContributions}
             inputRouter={props.runtime.input}
             openState={devDockOpenState}
             onOpenStateChange={updateDevDockOpenState}

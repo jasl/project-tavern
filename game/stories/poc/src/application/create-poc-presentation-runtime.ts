@@ -45,6 +45,7 @@ import type {
 import { createDebugUiContextV1 } from "@sillymaker/ui/diagnostics";
 import type { DebugUiSessionProjectionInputV1 } from "@sillymaker/ui/diagnostics";
 import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
+import type { DevDockContributionSetV1 } from "@sillymaker/ui/debug";
 import {
   createBrowserImageLoaderV1,
   createGameBootstrapControllerV1,
@@ -52,11 +53,13 @@ import {
   createPlayerUiPortsV1,
   createWebContentPreferencePortV1,
   installPointerAdapterV1,
+  parseCapabilityRequestV1,
 } from "@sillymaker/web";
 import type {
   HashRouterEventTargetV1,
   HashRouterLocationV1,
   PointerAdapterInputV1,
+  RuntimeCapabilitySessionOverlayV1,
   WebRuntimeRebootstrapLifecycleV1,
 } from "@sillymaker/web";
 
@@ -101,6 +104,15 @@ type PocRuntimeSurfaceV1 = RuntimeInteractionSurfaceV1<
 >;
 
 export const pocApplicationIdV1 = "poc-web" as const;
+const pocToolingUiSpecifierV1 = "@project-tavern/story-poc/tooling-ui" as const;
+
+type PocToolingUiModuleV1 = {
+  readonly pocToolingUiContributionsV1: typeof import("../tooling-ui/index.js").pocToolingUiContributionsV1;
+};
+
+export type PocToolingUiLoaderV1 = (
+  specifier: typeof pocToolingUiSpecifierV1,
+) => Promise<PocToolingUiModuleV1>;
 
 const pocOverlayIdsV1 = Object.freeze([
   "overlay.poc.policy",
@@ -131,6 +143,7 @@ export interface PocPresentationRuntimeV1 {
   readonly applicationId: typeof pocApplicationIdV1;
   readonly resolvedGame: PocResolvedGameV1;
   readonly application: PocGameApplicationPortV1;
+  readonly capabilitySession: RuntimeCapabilitySessionOverlayV1;
   readonly playerUi: ReturnType<typeof createPlayerUiPortsV1>;
   readonly contentPreference: ContentPreferencePortV1;
   readonly uiState: ReadonlyViewSourceV1<PocPresentationUiStateV1>;
@@ -141,6 +154,7 @@ export interface PocPresentationRuntimeV1 {
   readonly presentationRead: PocPresentationReadPortV1;
   readonly contributions: UiContributionRegistryV1<PocUiRendererContextsV1>;
   readonly gameSymbols: GameSymbolRegistryV1;
+  loadToolingUiContributions(): Promise<DevDockContributionSetV1>;
   bindDevDockStateReader(reader: () => DeepReadonly<DevDockOpenStateV1>): () => void;
   readonly rendering: Readonly<{
     readonly interactionSession: InteractionSessionStoreV1;
@@ -166,7 +180,10 @@ export interface CreatePocPresentationRuntimeInputV1 {
   readonly pointerWindow?: PointerAdapterInputV1["window"];
   readonly pointerDocument?: PointerAdapterInputV1["document"];
   readonly assetLoader?: RuntimeAssetLoaderV1;
+  readonly capabilitySearch?: string;
+  readonly loadToolingUi?: PocToolingUiLoaderV1;
   readonly rebootstrapDisposition?: DeepReadonly<PersistenceRebootstrapDisposalV1>;
+  onConstructionFailureDisposition?(disposition: PersistenceRebootstrapDisposalV1): void;
   onRebootstrapLifecycle?(
     lifecycle: WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1>,
   ): void | PromiseLike<void>;
@@ -175,6 +192,10 @@ export interface CreatePocPresentationRuntimeInputV1 {
 function browserLocationV1(): HashRouterLocationV1 {
   if (typeof location === "undefined") throw new TypeError("poc.hash_location_unavailable");
   return location;
+}
+
+function browserCapabilitySearchV1(): string {
+  return typeof location === "undefined" ? "" : location.search;
 }
 
 function browserPointerWindowV1(): PointerAdapterInputV1["window"] {
@@ -284,6 +305,11 @@ export async function createPocPresentationRuntimeV1(
   }
 
   const resolvedGame = bootstrapped.resolved as PocResolvedGameV1;
+  const capabilityRequest = parseCapabilityRequestV1(
+    input.capabilitySearch ?? browserCapabilitySearchV1(),
+  );
+  const sessionRequestedCapabilities =
+    capabilityRequest.kind === "accepted" ? capabilityRequest.requested : Object.freeze([]);
   let diagnosticsPresentation:
     RuntimePresentationStoreV1<PocRuntimePresentationPublicationV1> | undefined;
   let readDiagnosticsUiSession:
@@ -294,10 +320,12 @@ export async function createPocPresentationRuntimeV1(
   let readDiagnosticsDevDockState: (() => DeepReadonly<DevDockOpenStateV1>) | undefined;
   let capturedLifecycle:
     WebRuntimeRebootstrapLifecycleV1<PersistenceRebootstrapDisposalV1> | undefined;
+  let capturedCapabilitySession: RuntimeCapabilitySessionOverlayV1 | undefined;
   const application = await createPocGameRuntimeV1({
     resolved: resolvedGame,
     host: input.host,
     appBuildId: input.appBuildId,
+    sessionRequestedCapabilities,
     readUiContext() {
       const presentation = diagnosticsPresentation?.getSnapshot();
       const readUiSession = readDiagnosticsUiSession;
@@ -314,6 +342,12 @@ export async function createPocPresentationRuntimeV1(
     ...(input.rebootstrapDisposition === undefined
       ? {}
       : { rebootstrapDisposition: input.rebootstrapDisposition }),
+    onCapabilitySession(session) {
+      if (capturedCapabilitySession !== undefined) {
+        throw new TypeError("PoC presentation runtime received duplicate capability session");
+      }
+      capturedCapabilitySession = session;
+    },
     onRebootstrapLifecycle(lifecycle) {
       if (capturedLifecycle !== undefined) {
         throw new TypeError("PoC presentation runtime received duplicate HMR lifecycle");
@@ -321,8 +355,13 @@ export async function createPocPresentationRuntimeV1(
       capturedLifecycle = lifecycle;
     },
   });
+  const capabilitySession = capturedCapabilitySession;
+  if (capabilitySession === undefined) {
+    throw new TypeError("PoC presentation runtime did not capture a capability session");
+  }
   let completedRuntime: PocPresentationRuntimeV1 | undefined;
   const presentationCleanups: (() => void)[] = [];
+  presentationCleanups.push(() => capabilitySession.dispose());
   let presentationDisposed = false;
   const disposePresentationConstructionV1 = (): void => {
     if (presentationDisposed) return;
@@ -344,6 +383,42 @@ export async function createPocPresentationRuntimeV1(
       persistence: application.persistence,
       diagnostics: application.diagnostics,
     });
+
+    const loadToolingUi: PocToolingUiLoaderV1 =
+      input.loadToolingUi ??
+      (async () => (await import("@project-tavern/story-poc/tooling-ui")) as PocToolingUiModuleV1);
+    let cachedToolingUiContributions: DevDockContributionSetV1 | undefined;
+    let toolingUiAttempt: Promise<DevDockContributionSetV1> | undefined;
+    const loadToolingUiContributions = async (): Promise<DevDockContributionSetV1> => {
+      if (presentationDisposed) {
+        throw new TypeError("presentation.poc.tooling_ui_disposed");
+      }
+      if (!capabilitySession.state.getCurrent().debugTools) {
+        throw new TypeError("presentation.poc.tooling_ui_capability_disabled");
+      }
+      if (cachedToolingUiContributions !== undefined) return cachedToolingUiContributions;
+      if (toolingUiAttempt !== undefined) return await toolingUiAttempt;
+      const attempt = (async () => {
+        const module = await loadToolingUi(pocToolingUiSpecifierV1);
+        if (presentationDisposed) {
+          throw new TypeError("presentation.poc.tooling_ui_disposed");
+        }
+        const contributions = module.pocToolingUiContributionsV1({
+          debugTools: application.debugTools,
+          effectiveCapabilities: capabilitySession.state,
+          persistedCapabilities: capabilitySession.persisted,
+          sessionRequested: capabilitySession.sessionRequested,
+        });
+        cachedToolingUiContributions = contributions;
+        return contributions;
+      })();
+      toolingUiAttempt = attempt;
+      try {
+        return await attempt;
+      } finally {
+        if (toolingUiAttempt === attempt) toolingUiAttempt = undefined;
+      }
+    };
 
     const locationPort = input.location ?? browserLocationV1();
     const router = createHashRouterV1({
@@ -558,6 +633,7 @@ export async function createPocPresentationRuntimeV1(
       applicationId: pocApplicationIdV1,
       resolvedGame,
       application,
+      capabilitySession,
       playerUi,
       contentPreference,
       uiState,
@@ -568,6 +644,7 @@ export async function createPocPresentationRuntimeV1(
       presentationRead,
       contributions,
       gameSymbols: pocGameSymbolRegistryV1,
+      loadToolingUiContributions,
       bindDevDockStateReader,
       rendering: Object.freeze({
         interactionSession,
@@ -593,7 +670,8 @@ export async function createPocPresentationRuntimeV1(
     const lifecycle = capturedLifecycle;
     if (lifecycle !== undefined) {
       try {
-        await lifecycle.disposeForRebootstrap();
+        const disposition = await lifecycle.disposeForRebootstrap();
+        input.onConstructionFailureDisposition?.(disposition);
       } catch {
         // Construction failure remains authoritative over best-effort game-owner cleanup.
       }

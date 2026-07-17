@@ -22,6 +22,11 @@ const debugUiContextSchemaV1 = createDebugUiContextSchemaV1();
 
 interface PocRuntimeBundleWitnessV1 {
   readonly appBuildId?: string;
+  readonly capabilities: {
+    readonly debugTools: boolean;
+    readonly cheats: boolean;
+    readonly automationBridge: boolean;
+  };
   readonly replayBaseStateDigest: string;
   readonly currentStateDigest: string;
   readonly currentSnapshot: PocGameSnapshotV1;
@@ -289,6 +294,56 @@ describe("createPocGameRuntimeV1", () => {
     });
     expect(replacement.currentSnapshot.integrity.mode).toBe("normal");
     expect(replacement.commandLog).toEqual([]);
+  });
+
+  it("uses session-requested DebugTools and Cheats at the real FIFO boundary without persisting them", async () => {
+    const resolved = resolveStoryForTestV1(pocStoryEntryV1);
+    const records = createMemoryHostRecordStoreV1();
+    const loadTooling = vi.fn(async () => Object.freeze({ pocStoryToolingEntryV1 }));
+    const application = await createPocGameRuntimeV1({
+      resolved,
+      host: createWebHostV1({
+        records,
+        seeds: [initialSeedV1],
+        uuids: [persistenceOwnerIdV1, initialRunIdV1],
+        now: () => "2026-07-17T05:00:00.000Z",
+      }),
+      appBuildId: appBuildIdV1,
+      sessionRequestedCapabilities: ["debug_tools", "cheats"],
+      loadTooling,
+    });
+
+    expect(application.capabilities.state.getCurrent()).toEqual({
+      debugTools: true,
+      cheats: true,
+      automationBridge: false,
+    });
+    expect(await records.read("settings", "runtime-capabilities.v1" as never)).toBeNull();
+    await expect(application.debugTools.listFixtures()).resolves.toEqual({
+      kind: "listed",
+      fixtureIds: pocFixtureIdsV1,
+    });
+    await expect(
+      application.debugTools.executeDebugCommand(
+        pocDebugCommandSchemaV1.parse({
+          kind: "debug.actor.set_mood",
+          actorId: "actor.heroine",
+          value: 1,
+          reasonId: "reason.debug.state_override",
+        }),
+      ),
+    ).resolves.toMatchObject({ kind: "committed", commandSequence: 1 });
+    expect(loadTooling).toHaveBeenCalledOnce();
+
+    const bundle = decodeJsonV1<PocRuntimeBundleWitnessV1>(
+      (await application.diagnostics.exportDebugBundle()).bytes,
+    );
+    expect(bundle.capabilities).toEqual({
+      debugTools: true,
+      cheats: true,
+      automationBridge: false,
+    });
+    expect(await records.read("settings", "runtime-capabilities.v1" as never)).toBeNull();
   });
 
   it("rejects an invalid required appBuildId before creating runtime state", async () => {

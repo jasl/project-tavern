@@ -10,6 +10,7 @@ import {
 } from "./fixtures.js";
 import { pocToolingNotesV1 } from "./notes.js";
 
+export { pocDebugCommandFormAdapterV1 } from "./debug-command-form-adapter.js";
 export { pocFixtureIdsV1, pocStoryToolingFixtureByIdV1, pocStoryToolingFixturesV1 };
 export { pocToolingNotesV1 };
 

@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
 import { createWebHostV1 } from "@sillymaker/web";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -28,7 +28,12 @@ function eventTargetV1() {
   });
 }
 
-async function createRootFixtureV1(hash = "#/play") {
+async function createRootFixtureV1(
+  hash = "#/play",
+  input: Pick<Parameters<typeof createE2ePresentationRuntimeV1>[0], "loadToolingUi"> & {
+    readonly capabilitySearch?: string;
+  } = {},
+) {
   const container = document.createElement("div");
   document.body.append(container);
   const location = {
@@ -56,13 +61,98 @@ async function createRootFixtureV1(hash = "#/play") {
       pointerDocument: Object.freeze({ ...eventTargetV1(), visibilityState: "visible" as const }),
       location,
       hashEventTarget: eventTargetV1(),
+      capabilitySearch: input.capabilitySearch ?? "",
       assetLoader,
     }),
+    ...(input.loadToolingUi === undefined ? {} : { loadToolingUi: input.loadToolingUi }),
   });
   return Object.freeze({ container, runtime });
 }
 
 describe("E2eApplicationRootV1", () => {
+  it("does not load Story tooling UI until DebugTools is effective", async () => {
+    const loadToolingUi = vi.fn(
+      async (_specifier: "@project-tavern/story-e2e/tooling-ui") =>
+        await import("../tooling-ui/index.js"),
+    );
+    const fixture = await createRootFixtureV1("#/play", { loadToolingUi });
+    const rendered = render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+      container: fixture.container,
+    });
+
+    try {
+      expect(loadToolingUi).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "打开左侧开发工具" })).not.toBeInTheDocument();
+    } finally {
+      rendered.unmount();
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("loads and mounts the fixed Story contributions for a session-requested DebugTools URL", async () => {
+    const loadToolingUi = vi.fn(async (specifier: "@project-tavern/story-e2e/tooling-ui") => {
+      expect(specifier).toBe("@project-tavern/story-e2e/tooling-ui");
+      return await import("../tooling-ui/index.js");
+    });
+    const fixture = await createRootFixtureV1("#/play", {
+      capabilitySearch: "?capability=debug_tools",
+      loadToolingUi,
+    });
+    const rendered = render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+      container: fixture.container,
+    });
+
+    try {
+      const launcher = await screen.findByRole("button", { name: "打开左侧开发工具" });
+      expect(loadToolingUi).toHaveBeenCalledOnce();
+      await userEvent.setup().click(launcher);
+      expect(screen.getByRole("button", { name: "运行时能力" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "诊断" })).toBeEnabled();
+      expect(fixture.runtime.capabilitySession.persisted.state.getCurrent().debugTools).toBe(false);
+    } finally {
+      rendered.unmount();
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("ignores a stale tooling load after disable and reuses its success after re-enable", async () => {
+    let resolveToolingUi: ((module: typeof import("../tooling-ui/index.js")) => void) | undefined;
+    const pendingToolingUi = new Promise<typeof import("../tooling-ui/index.js")>((resolve) => {
+      resolveToolingUi = resolve;
+    });
+    const loadToolingUi = vi.fn(async () => await pendingToolingUi);
+    const fixture = await createRootFixtureV1("#/play", { loadToolingUi });
+    const rendered = render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+      container: fixture.container,
+    });
+
+    try {
+      await act(async () => {
+        await fixture.runtime.application.capabilities.setEnabled("debug_tools", true);
+      });
+      await waitFor(() => expect(loadToolingUi).toHaveBeenCalledOnce());
+      await act(async () => {
+        await fixture.runtime.application.capabilities.setEnabled("debug_tools", false);
+      });
+      const resolve = resolveToolingUi;
+      if (resolve === undefined) throw new TypeError("missing E2E tooling UI resolver");
+      await act(async () => {
+        resolve(await import("../tooling-ui/index.js"));
+        await pendingToolingUi;
+      });
+      expect(screen.queryByRole("button", { name: "打开左侧开发工具" })).not.toBeInTheDocument();
+
+      await act(async () => {
+        await fixture.runtime.application.capabilities.setEnabled("debug_tools", true);
+      });
+      expect(await screen.findByRole("button", { name: "打开左侧开发工具" })).toBeEnabled();
+      expect(loadToolingUi).toHaveBeenCalledOnce();
+    } finally {
+      rendered.unmount();
+      fixture.runtime.dispose();
+    }
+  });
+
   it("renders one named application and all seven fixed Stage layers", async () => {
     const fixture = await createRootFixtureV1();
     try {

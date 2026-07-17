@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { createElement, useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ComponentType, ReactElement } from "react";
 
 import type { AssetId, DeepReadonly, HitMapDescriptorV1, TextId } from "@sillymaker/base";
@@ -17,7 +25,7 @@ import {
   useRuntimePresentationV1,
 } from "@sillymaker/ui";
 import { DevDockV1, createDevDockContributionSetV1 } from "@sillymaker/ui/debug";
-import type { DevDockOpenStateV1 } from "@sillymaker/ui/debug";
+import type { DevDockContributionSetV1, DevDockOpenStateV1 } from "@sillymaker/ui/debug";
 import type {
   OverlayRendererResolverV1,
   SaveOverlayLabelsV1,
@@ -387,6 +395,42 @@ function createOverlayResolverV1(input: {
 }
 
 export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): ReactElement {
+  const effectiveCapabilities = useSyncExternalStore(
+    runtime.capabilitySession.state.subscribe,
+    runtime.capabilitySession.state.getCurrent,
+    runtime.capabilitySession.state.getCurrent,
+  );
+  const [loadedDevDockContributions, setLoadedDevDockContributions] = useState<{
+    readonly owner: PocPresentationRuntimeV1 | null;
+    readonly contributions: DevDockContributionSetV1;
+  }>(() => Object.freeze({ owner: null, contributions: emptyDevDockContributionsV1 }));
+  useEffect(() => {
+    let active = true;
+    if (!effectiveCapabilities.debugTools) {
+      return () => {
+        active = false;
+      };
+    }
+    void runtime
+      .loadToolingUiContributions()
+      .then((contributions) => {
+        if (!active || !runtime.capabilitySession.state.getCurrent().debugTools) return;
+        setLoadedDevDockContributions(Object.freeze({ owner: runtime, contributions }));
+      })
+      .catch(() => {
+        if (!active) return;
+        setLoadedDevDockContributions(
+          Object.freeze({ owner: null, contributions: emptyDevDockContributionsV1 }),
+        );
+      });
+    return () => {
+      active = false;
+    };
+  }, [effectiveCapabilities.debugTools, runtime]);
+  const devDockContributions =
+    effectiveCapabilities.debugTools && loadedDevDockContributions.owner === runtime
+      ? loadedDevDockContributions.contributions
+      : emptyDevDockContributionsV1;
   const [devDockOpenState, setDevDockOpenState] =
     useState<DevDockOpenStateV1>(closedDevDockStateV1);
   const devDockOpenStateRef = useRef<DevDockOpenStateV1>(closedDevDockStateV1);
@@ -572,7 +616,7 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
         devDock={
           <DevDockV1
             capabilities={runtime.application.capabilities}
-            contributions={emptyDevDockContributionsV1}
+            contributions={devDockContributions}
             inputRouter={runtime.input}
             openState={devDockOpenState}
             onOpenStateChange={updateDevDockOpenState}
