@@ -1454,8 +1454,8 @@ Run:
 ```bash
 pnpm verify:phase5b
 pnpm exec vitest run scripts/ui/serve-story-roots.test.ts
-pnpm test:e2e:ui -- --project=chromium --list
-pnpm test:e2e:ui -- --project=chromium --grep @infrastructure
+pnpm test:e2e:ui --project=chromium --list
+pnpm test:e2e:ui --project=chromium --grep @infrastructure
 pnpm verify:application-graphs
 pnpm verify
 git diff --check
@@ -1629,7 +1629,7 @@ Run:
 ```bash
 pnpm build:poc
 pnpm build:e2e
-pnpm test:e2e:ui -- --project=chromium --grep @semantic-parity
+pnpm test:e2e:ui --project=chromium --grep @semantic-parity
 ```
 
 Expected: FAIL on missing root revision/disabled-reason witnesses or incomplete browser parity flows; Phase 5B Interaction tests remain green.
@@ -1672,8 +1672,8 @@ Run:
 ```bash
 pnpm verify:phase5b
 pnpm verify:application-graphs
-pnpm test:e2e:ui -- --project=chromium --grep @semantic-parity
-pnpm test:e2e:ui -- --project=chromium --grep @primary-flow
+pnpm test:e2e:ui --project=chromium --grep @semantic-parity
+pnpm test:e2e:ui --project=chromium --grep @primary-flow
 pnpm verify:semantic
 pnpm verify
 git diff --check
@@ -1840,8 +1840,8 @@ Run:
 ```bash
 pnpm build:poc
 pnpm build:e2e
-pnpm test:e2e:ui -- --project=chromium --grep "@responsive|@a11y|@motion"
-pnpm test:e2e:ui -- --project=chromium-touch --grep @a11y
+pnpm test:e2e:ui --project=chromium --grep "@responsive|@a11y|@motion"
+pnpm test:e2e:ui --project=chromium-touch --grep @a11y
 ```
 
 Expected: FAIL in the named `@responsive complete shell at 768x1024` case at the DevDock reachability/no-horizontal-overflow assertion while the Phase 5B Interaction gate remains green. A setup, browser-launch, port, materialization, or unrelated assertion failure does not satisfy this red step.
@@ -1888,7 +1888,6 @@ expect(createVisualPlaywrightInvocationV1("verify", ".project-tavern/visual-runs
   command: "pnpm",
   args: [
     "test:e2e:ui",
-    "--",
     "--project=chromium",
     "--grep",
     "@visual",
@@ -1899,7 +1898,6 @@ expect(createVisualPlaywrightInvocationV1("update", ".project-tavern/visual-runs
   command: "pnpm",
   args: [
     "test:e2e:ui",
-    "--",
     "--project=chromium",
     "--grep",
     "@visual",
@@ -1994,9 +1992,9 @@ wc -c engine/packages/web/e2e/__screenshots__/chromium/e2e-narrative.png engine/
 shasum -a 256 engine/packages/web/e2e/__screenshots__/chromium/environment.v1.json engine/packages/web/e2e/__screenshots__/chromium/e2e-narrative.png engine/packages/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png engine/packages/web/e2e/__screenshots__/chromium/poc-stage-standard.png
 git diff -- engine/packages/web/e2e/__screenshots__/chromium
 pnpm verify:ui-visual
-pnpm test:e2e:ui -- --project=chromium --grep "@responsive|@a11y|@motion"
-pnpm test:e2e:ui -- --project=chromium-touch --grep "@responsive|@a11y"
-pnpm test:e2e:ui -- --project=webkit --grep "@responsive|@a11y|@motion"
+pnpm test:e2e:ui --project=chromium --grep "@responsive|@a11y|@motion"
+pnpm test:e2e:ui --project=chromium-touch --grep "@responsive|@a11y"
+pnpm test:e2e:ui --project=webkit --grep "@responsive|@a11y|@motion"
 pnpm verify
 git diff --check
 ```
@@ -2111,24 +2109,13 @@ it("keeps Phase 5C inspect-only", () => {
     ["pnpm", ["verify:application-graphs"]],
     [
       "pnpm",
-      ["test:e2e:ui", "--", "--project=chromium", "--grep", "@phase5c", "--grep-invert", "@visual"],
+      ["test:e2e:ui", "--project=chromium", "--grep", "@phase5c", "--grep-invert", "@visual"],
     ],
     [
       "pnpm",
-      [
-        "test:e2e:ui",
-        "--",
-        "--project=chromium-touch",
-        "--grep",
-        "@phase5c",
-        "--grep-invert",
-        "@visual",
-      ],
+      ["test:e2e:ui", "--project=chromium-touch", "--grep", "@phase5c", "--grep-invert", "@visual"],
     ],
-    [
-      "pnpm",
-      ["test:e2e:ui", "--", "--project=webkit", "--grep", "@phase5c", "--grep-invert", "@visual"],
-    ],
+    ["pnpm", ["test:e2e:ui", "--project=webkit", "--grep", "@phase5c", "--grep-invert", "@visual"]],
     ["pnpm", ["verify:ui-visual"]],
   ]);
   expect(verifyPhase5cCommandsV1).not.toContainEqual(["pnpm", ["verify:ui"]]);
@@ -2183,7 +2170,7 @@ Preserve the Phase 4B headless order exactly:
 [
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]],
   ["pnpm", ["--filter", "@project-tavern/story-poc", "verify:semantic"]],
-  ["pnpm", ["test:e2e:ui", "--", "--project=chromium", "--grep", "@semantic-parity"]],
+  ["pnpm", ["test:e2e:ui", "--project=chromium", "--grep", "@semantic-parity"]],
 ];
 ```
 

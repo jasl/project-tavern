@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { uiTargetUrlV1, uiTargetsV1, type UiTargetV1 } from "./ui-targets.js";
+import {
+  uiHarnessMetadataKeyV1,
+  uiTargetUrlV1,
+  uiTargetsV1,
+  type UiTargetV1,
+} from "./ui-targets.js";
 
 interface StoryTargetV1 {
   readonly applicationName: "Project Tavern 七日原型" | "SillyMaker 引擎测试";
@@ -105,6 +110,13 @@ async function expectFreshContextDefaultsV1(browser: Browser, story: StoryTarget
 }
 
 test.describe("@phase5c @infrastructure", () => {
+  test.beforeEach((_fixtures, testInfo) => {
+    test.skip(
+      testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
+      "requires the prebuilt two-root UI harness",
+    );
+  });
+
   test("@smoke normal PoC and E2E URLs keep runtime capabilities off", async ({ page }) => {
     for (const story of storyTargetsV1) {
       await test.step(story.target.applicationId, async () => {

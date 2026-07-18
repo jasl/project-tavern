@@ -2,6 +2,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 import {
+  uiHarnessMetadataKeyV1,
   uiTargetUrlV1,
   uiTargetsV1,
   type UiTargetNameV1,
@@ -23,6 +24,7 @@ function commandForUiTargetV1(target: UiTargetV1) {
 }
 
 export default defineConfig({
+  metadata: { [uiHarnessMetadataKeyV1]: true },
   testDir: "./e2e",
   testIgnore: ["interaction/**", "walking-skeleton.spec.ts"],
   fullyParallel: false,

@@ -18,6 +18,8 @@ export const uiTargetsV1 = Object.freeze({
 export type UiTargetNameV1 = keyof typeof uiTargetsV1;
 export type UiTargetV1 = (typeof uiTargetsV1)[UiTargetNameV1];
 
+export const uiHarnessMetadataKeyV1 = "projectTavernUiHarnessV1" as const;
+
 export function uiTargetUrlV1(target: UiTargetV1): string {
   return `http://${target.host}:${target.port}`;
 }

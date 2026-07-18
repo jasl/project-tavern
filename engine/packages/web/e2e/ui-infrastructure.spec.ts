@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { expect, test, type Page, type Request } from "@playwright/test";
 
-import { uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
+import { uiHarnessMetadataKeyV1, uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
 
 const applicationCasesV1 = Object.freeze([
   Object.freeze({
@@ -89,6 +89,13 @@ async function probeStorageSentinelV1(page: Page): Promise<{
 }
 
 test.describe("@phase5c @infrastructure", () => {
+  test.beforeEach((_fixtures, testInfo) => {
+    test.skip(
+      testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
+      "requires the prebuilt two-root UI harness",
+    );
+  });
+
   for (const applicationCase of applicationCasesV1) {
     test(`serves the isolated prebuilt ${applicationCase.name} application without Vite or HMR`, async ({
       page,
