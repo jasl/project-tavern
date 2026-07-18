@@ -346,9 +346,20 @@ interface PocBalanceRemoteStrictExecutionAttestationV1 {
 所有 digest string 都使用 lowercase `sha256:<64-hex>`；commit/tree 是当前仓库 Git object format 的 lowercase exact
 object ID。`reportSha256` 是完整单行 `PoC balance report <canonical-json>\n` stdout bytes 的 SHA-256，正是 final
 `Balance-Calibration-Report-SHA256` trailer 的字节域；`evaluationSha256` 是 admitted evaluation canonical bytes 的
-SHA-256。对象以 Story-local evidence codec canonicalize，写入调用者显式指定的仓库外本机临时路径且不进入 Git。
+SHA-256。对象以 Story-local evidence codec canonicalize，写入调用者显式指定的仓库外本机路径且不进入 Git。
 Strict attestation 不增加 final trailer：它绑定 final commit/tree/archive，把其 digest 写回同一 final commit 会形成
-identity 循环；final 只记录 report digest。Attestation 丢失时必须从同一 exact commit fresh rerun，不能从聊天或缓存重建。
+identity 循环；final 只记录 report digest。Final A/B 验收完成前若 attestation 丢失，只能从同一 exact commit fresh
+rerun，不能从聊天或不受信缓存重建。
+
+Final A/B 的 report 与 strict attestation 分别 byte-identical、report trailer 相等且 postcommit gates 通过后，本 Goal
+立即结束数值校准。四份 exact bytes 必须保留在仓库外的本机 evidence root，直到 Phase 6 Acceptance 与 Roadmap
+Definition of Done 完成；后续 `pnpm verify`、`verify:release`、Artifact reproducibility 与恢复流程只读地重新 admission
+这些冻结 bytes、final commit/tree/archive、materialization 与 Save provenance，不得再运行本机或远端完整 corpus、
+历史 replay、candidate search 或数值/阈值/策略/counterfactual 调整。验收后的外部 evidence 丢失是
+`external_precondition.balance_freeze_evidence_missing`，必须由所有者恢复已验收 exact bytes 或另行改变范围，不能用
+一次新 corpus 冒充原 A/B。本轮 `openingFee: 2 → 1` 与六策略具体结果只属于可推翻的 PoC Story 数据；确定性
+evaluator、worker/remote transport、report admission、fixture writer、Save provenance 与 Artifact machinery 才是可复用
+工程资产。
 
 每个远端辅助的 step 在原七个 trailers 之外还记录 exact source archive、before evaluation、after evaluation 和 remote
 attestation 的 SHA-256。历史 replay 可以在任一满足同一输入/输出证明的执行器上完成；是否为原物理主机不参与验收。

@@ -30,8 +30,23 @@
 - E2E Web bytes are local integration evidence; PoC bytes are the handoff Artifact. Neither is uploaded by this phase.
 - `.github/workflows/**`, GitHub Actions, GitHub Pages, Cloudflare, hosting credentials, upload, Artifact deployment, remote smoke and remote rollback are forbidden scope and belong to the deferred distribution track. The balance-lab auxiliary executor is a bounded compute workspace, not an Artifact deployment or distribution adapter.
 - A dirty-worktree build is always `provenanceMode="development"` and never release-eligible. Only a clean exact `HEAD` or a `git archive` of it may produce `provenanceMode="clean_commit"`; formal release evidence is generated after the relevant task commit.
-- Every task uses a focused failing test, confirms the intended red, implements the minimum behavior, runs the focused suite plus current `pnpm verify`, reviews staged scope, and commits.
+- Every task uses a focused failing test, confirms the intended red, implements the minimum behavior, runs the focused suite, proves the exact staged bytes through the clean-candidate full gate below, reviews staged scope, and commits.
 - Every expected red must match its named test and stable diagnostic code. Every task follows the global resume contract and accepts only the exact declared staged paths.
+- The accepted final calibration is a Story-local PoC engineering baseline, not a claim about the future core loop or formal balance. After the final A/B reports and attestations are accepted, no Phase 6 task, recovery path, release gate or Definition-of-Done check may run another local or remote full corpus, enumerate a new candidate, replay calibration history, change a balance value/threshold/strategy/counterfactual, or extend Tavern-specific balance tooling.
+- Deterministic simulation/evaluation, worker partitioning, remote compute transport, report admission, fixture writers, Save provenance and reproducible Artifacts remain reusable engineering assets. The current Tavern values, thresholds, six-strategy results, counterfactuals and golden outputs remain replaceable Story data.
+
+### Exact staged clean-candidate full gate
+
+`pnpm verify:materialization` intentionally rejects every dirty tracked or untracked worktree. For Tasks 1–5, a step that requires current `pnpm verify` therefore means the following exact-candidate protocol; `external_precondition.git_worktree_dirty` is never an expected RED and no dirty-tree bypass may be added:
+
+1. Run the task's focused RED/GREEN, development build and task-specific read-only gates in the live worktree. Review the complete diff, exact-stage only the task Files, require no remaining nonignored task bytes, and freeze the live parent, staged binary patch SHA-256 and staged tree.
+2. Create a refs-isolated temporary local clone whose attached `main` is the same parent. Apply the frozen patch to its index, require its candidate tree to equal the live staged tree, create a temporary candidate commit, copy the ignored Phase 0 materialization attestation, and run only the exact materialized Node/pnpm with `pnpm install --offline --frozen-lockfile`.
+3. Run the required full `pnpm verify` on that clean candidate commit. Task 4 runs it exactly twice in the same clean candidate; no other task adds a defensive repeat.
+4. Remove the temporary clone, then require the live parent, staged tree and staged binary patch SHA-256 to be unchanged before the planned task commit. The temporary commit is verification evidence only and is never merged, pushed or used as release provenance.
+
+Focused live commands listed before `pnpm verify` remain literal. The final `pnpm verify` token in a precommit step is executed by this clean-candidate protocol, not against dirty live bytes. Postcommit clean-provenance and release commands remain literal in the live checkout.
+
+The already accepted final A/B report and strict-attestation bytes are the only full-corpus evidence consumed after the freeze. Retain the four exact files outside the repository under `${PROJECT_TAVERN_BALANCE_EVIDENCE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/project-tavern/balance-freeze}/<final-commit>/`; the raw files and strict-attestation digest do not enter Git, while the report digest remains only in the existing final trailer. Task 4 adds a read-only admission leaf that reads those files directly and validates report/attestation byte equality, canonical Story full-report admission with derived zero deficit, the final commit trailers, independently recomputed final Git archive identity, final commit/tree plus lock/materialization/package-closure/toolchain identity, the complete reviewed Save provenance projection, and absence of later protected-path changes. `verify:balance:freeze` is evidence/provenance admission, not a semantic gate or alias; the explicit `verify:balance` command retains its sole full-corpus semantics but is not rerun by this Goal. Missing external evidence is `external_precondition.balance_freeze_evidence_missing` and never authorizes a corpus rerun. That leaf must not import or invoke a corpus evaluator, worker, calibration selector, remote controller or writer.
 
 ---
 
@@ -619,6 +634,7 @@ docs/engineering/checkpoints/                    # phase and final evidence temp
 - Create: `scripts/release/build-artifact.test.ts`
 - Create: `scripts/release/build-config.mts`
 - Create: `scripts/release/build-config.test.ts`
+- Modify: `scripts/verify-bundle.test.mjs`
 - Modify: root `vite.config.ts`
 - Modify: root `package.json`
 
@@ -628,6 +644,8 @@ docs/engineering/checkpoints/                    # phase and final evidence temp
 - Produces: `buildArtifactV1(request: ArtifactBuildRequestV1)`, `build:poc`, and `build:e2e` as the only production build commands.
 
 - [ ] **Step 1: Write failing closed-matrix and path-validation tests**
+
+Update `scripts/verify-bundle.test.mjs` in the same RED so its exact package-script assertions require both public build commands to enter through `build-artifact.mts`; it must reject the current direct-Vite argv and all legacy mode/override paths.
 
 ```ts
 it("maps poc × web to the one PoC application root", () => {
@@ -663,9 +681,14 @@ it.each([
 
 - [ ] **Step 2: Run focused tests and confirm failure**
 
-Run: `pnpm exec vitest run scripts/release/build-config.test.ts scripts/release/build-artifact.test.ts`
+Run:
 
-Expected: FAIL because the Story × Host builder does not exist.
+```bash
+pnpm exec vitest run scripts/release/build-config.test.ts scripts/release/build-artifact.test.ts
+node --test scripts/verify-bundle.test.mjs
+```
+
+Expected: both commands FAIL only because the Story × Host builder/exports are absent and the live package scripts still use the old direct-Vite contract.
 
 - [ ] **Step 3: Implement the only production build entry**
 
@@ -694,14 +717,18 @@ Delete legacy `build:player`, `build:developer`, `build:e2e-player`, and their V
 
 - [ ] **Step 4: Build both closed applications and run current verification**
 
-Run: `pnpm build:poc && pnpm build:e2e && node --experimental-strip-types scripts/ui/verify-application-graphs.mts && pnpm test:scripts && pnpm verify`
+Run the live focused/development prefix:
+
+`pnpm build:poc && pnpm build:e2e && node --experimental-strip-types scripts/ui/verify-application-graphs.mts && pnpm test:scripts`
+
+Then exact-stage the seven Files and run the shared clean-candidate full gate with `pnpm verify`.
 
 Expected: PASS; both builders pass through `build-artifact.mts`, neither output contains `.map`, no third application root/output exists, and the dirty-task artifacts are explicitly non-release-eligible.
 
 - [ ] **Step 5: Commit the build wrapper**
 
 ```bash
-git add -- scripts/release/build-artifact.mts scripts/release/build-artifact.test.ts scripts/release/build-config.mts scripts/release/build-config.test.ts vite.config.ts package.json
+git add -- scripts/release/build-artifact.mts scripts/release/build-artifact.test.ts scripts/release/build-config.mts scripts/release/build-config.test.ts scripts/verify-bundle.test.mjs vite.config.ts package.json
 git diff --cached --check
 git commit -m "build: freeze story host artifacts"
 ```
@@ -911,6 +938,8 @@ Expected: both isolated builds and the exact served `dist/poc` identify the new 
 
 **Files:**
 
+- Create: `scripts/release/verify-balance-freeze.mts`
+- Create: `scripts/release/verify-balance-freeze.test.ts`
 - Modify: `scripts/verify.mjs`
 - Modify: `scripts/verify-release.mjs`
 - Modify: `scripts/verify.test.mjs`
@@ -924,8 +953,8 @@ Expected: both isolated builds and the exact served `dist/poc` identify the new 
 
 **Interfaces:**
 
-- Consumes: all stable checks through Phase 5 plus Phase 6 Tasks 1–3.
-- Produces: deterministic ordered `pnpm verify`, local `pnpm verify:release`, exact script-test ownership, and documented commands.
+- Consumes: all stable checks through Phase 5, the accepted final A/B balance evidence and Phase 6 Tasks 1–3.
+- Produces: deterministic ordered `pnpm verify`, local `pnpm verify:release`, exact script-test ownership, frozen-balance evidence admission, and documented commands.
 
 - [ ] **Step 1: Write failing exact-order, one-build, and immutability tests**
 
@@ -971,15 +1000,30 @@ expect(verificationSteps.some((step) => step.id.includes("developer"))).toBe(fal
 
 Extend recursive discovery tests against the live repository and injected omission/duplication fixtures. Assert every inspect-only step fails on missing output rather than rebuilding. Freeze the final Playwright config inventory to exactly `engine/packages/web/playwright.interaction.config.ts`, `engine/packages/web/playwright.ui.config.ts`, and `engine/packages/web/playwright.prebuilt.config.ts`; the obsolete root `playwright.config.ts` must be absent so plain `playwright test` cannot bypass explicit project/visual wrappers.
 
+Add focused frozen-evidence tests that reject missing external A/B files, unequal report or attestation bytes, malformed report or strict-attestation bytes, a nonzero/derived-mismatched deficit, a report/trailer mismatch, wrong final commit/tree/recomputed-archive/lock/materialization/package-closure/toolchain identity, incomplete or stale reviewed Save provenance, a nonancestor final, and any later protected-path change. Inject Git/filesystem/hash/admission ports in unit tests. Add a static import-closure assertion: this PolyForm Story-specific verifier may import the Story evidence codec/full-report admission and Save provenance projection, but it must not import `balance-metrics`, a counterfactual/reference-strategy runner, `scripts/verify-poc-balance.mjs` or `scripts/run-poc-balance-remote.mjs`, and must never call a worker, selector, remote transport or writer.
+
 - [ ] **Step 2: Run orchestrator tests and confirm failure**
 
-Run: `node --test scripts/run-script-tests.test.mjs scripts/verify.test.mjs scripts/docs/verify-docs.test.mjs`
+Run:
 
-Expected: FAIL because the final two-build order and Phase 6 runbook inventory extensions are absent; the existing Goal/plan/link contract remains green before those new assertions.
+```bash
+pnpm exec vitest run scripts/release/verify-balance-freeze.test.ts
+node --test scripts/run-script-tests.test.mjs scripts/verify.test.mjs scripts/docs/verify-docs.test.mjs
+```
+
+Expected: FAIL because the frozen-evidence leaf, final two-build order and Phase 6 runbook inventory extensions are absent; the existing Goal/plan/link contract remains green before those new assertions.
 
 - [ ] **Step 3: Implement fail-fast exact orchestration**
 
-Use `spawnSync(command,args,{stdio:"inherit"})`, no shell command strings. Every ID above maps to one frozen leaf command; in particular `materialization → pnpm verify:materialization`, `runtime-fixtures → pnpm verify:runtime-fixtures`, `poc-commands → pnpm --filter @project-tavern/story-poc verify:commands`, and `semantic → pnpm verify:semantic`. Preserve Task 2's ordinary development leaf `artifact → pnpm verify:artifact -- --allow-development` and its exact-argv test while moving it into the final order. No entry invokes `verify`, `verify:phase*`, or another recursive aggregate. `test:scripts` runs once before builds. `build:poc` and `build:e2e` run once; `verify:semantic`, UI, bundle, semantic smoke, and artifact steps inspect them. Preserve the Phase 1 tracked-byte/status `finally` guard. The clean-only `verify:release` calls bare `pnpm verify:artifact` separately after `release:prepare`; the development allowance never establishes release eligibility.
+Use `spawnSync(command,args,{stdio:"inherit"})`, no shell command strings. Every ID above maps to one frozen leaf command; in particular `materialization → pnpm verify:materialization`, `runtime-fixtures → pnpm verify:runtime-fixtures`, `poc-commands → pnpm --filter @project-tavern/story-poc verify:commands`, `balance → pnpm verify:balance:freeze`, and `semantic → pnpm verify:semantic`. Preserve Task 2's ordinary development leaf `artifact → pnpm verify:artifact -- --allow-development` and its exact-argv test while moving it into the final order. No entry invokes `verify`, `verify:phase*`, `verify:balance`, or another recursive/complete-corpus aggregate. `test:scripts` runs once before builds. `build:poc` and `build:e2e` run once; `verify:semantic`, UI, bundle, semantic smoke, and artifact steps inspect them. Preserve the Phase 1 tracked-byte/status `finally` guard. The clean-only `verify:release` calls bare `pnpm verify:artifact` separately after `release:prepare`; the development allowance never establishes release eligibility.
+
+`verify-balance-freeze.mts` locates the unique final commit in first-parent ancestry, then reads `final-a.report.txt`, `final-b.report.txt`, `final-a.attestation.json` and `final-b.attestation.json` from the external evidence root defined above. It compares each pair byte-for-byte, strictly decodes and re-encodes the canonical bytes, Story-full-admits the report, independently derives zero deficit, checks both digests against the final trailer and strict attestation, recomputes `git archive --format=tar <final>` read-only and checks its SHA-256, checks the attested final source commit/tree plus lock/materialization/package-closure/toolchain/corpus identities, verifies the final commit's reviewed Save provenance projection against the current resolved identity and tracked Save bytes, and rejects any final-protected path touched after it. It never recomputes gameplay metrics or contacts the auxiliary executor. Set the root script exactly:
+
+```json
+{
+  "verify:balance:freeze": "node --experimental-strip-types scripts/release/verify-balance-freeze.mts"
+}
+```
 
 `verify:release` starts with `pnpm verify`—whose first and only materialization leaf is `pnpm verify:materialization`—then runs clean-only `release:prepare`, bare artifact verification, prebuilt PoC smoke, and reproducibility. Accepted Phase 5C `pnpm verify` already runs the complete Chromium, touch, and WebKit UI matrix against the same two prebuilt roots, so the release wrapper must not run WebKit a second time. It performs no network operation and has no workflow/hosting child.
 
@@ -999,14 +1043,14 @@ Delete the Phase 2 root `playwright.config.ts` in the same slice. All public bro
 
 - [ ] **Step 4: Run the complete pre-commit local gate twice**
 
-Run: `pnpm test:scripts && pnpm verify && pnpm verify`
+Run `pnpm test:scripts` in the live worktree, then run `pnpm verify` exactly twice in the same shared clean candidate.
 
 Expected: all commands exit 0; PoC/E2E each build once per ordinary verify; tracked/worktree state is unchanged.
 
 - [ ] **Step 5: Commit the public verification contract**
 
 ```bash
-git add -- scripts/verify.mjs scripts/verify-release.mjs scripts/verify.test.mjs scripts/run-script-tests.test.mjs scripts/docs playwright.config.ts package.json README.md CONTRIBUTING.md
+git add -- scripts/release/verify-balance-freeze.mts scripts/release/verify-balance-freeze.test.ts scripts/verify.mjs scripts/verify-release.mjs scripts/verify.test.mjs scripts/run-script-tests.test.mjs scripts/docs playwright.config.ts package.json README.md CONTRIBUTING.md
 git diff --cached --check
 git commit -m "build: unify story host verification"
 ```
@@ -1098,6 +1142,7 @@ Run from the materialized checkout with a clean worktree and exact recorded tool
 pnpm verify:materialization
 pnpm install --offline --frozen-lockfile
 pnpm test:scripts
+pnpm verify:balance:freeze
 pnpm build:poc
 pnpm build:e2e
 pnpm verify
@@ -1112,7 +1157,7 @@ git status --short --branch
 Acceptance criteria:
 
 - All commands exit 0 with no unexplained skip/quarantine and no tracked/worktree mutation.
-- The deferred calibration reaches every unchanged 1–1000 threshold; two canonical full reports are byte-identical, candidate-based counterfactuals pass, provisional golden/Save bytes were regenerated and reviewed, and command fixture/tooling invocation bytes remained unchanged before the first Artifact build.
+- The frozen-balance leaf directly admits the retained external A/B report and strict-attestation files, proves each pair byte-identical, binds the final trailer and exact source/materialization provenance, independently recomputes the final archive identity, validates the complete reviewed Save provenance/current tracked bytes, and proves no later protected-path change. It performs no new corpus, candidate, replay or balance adjustment. The admitted report proves the unchanged 1–1000 thresholds and counterfactuals; the final source identity, protected-path audit and existing golden/fixture gates bind the regenerated golden/Save bytes and unchanged command/tooling invocation required before the first Artifact build.
 - Exactly `poc × web → dist/poc` and `e2e × web → dist/e2e` build through one closed `(story,host)` wrapper; no legacy flavor script/root/output or compatibility alias exists.
 - PoC and E2E production outputs contain no source map, local absolute path, `references/`, `art-source/aigc/**`, secret, or unapproved remote runtime asset.
 - Runtime Debug/Tooling code is allowed in PoC. The same manifest digest serves normal/debug/automation contexts; a fresh isolated Host store defaults all capabilities false, persisted preferences and session-only URL overrides do not change ResolvedGame/GameSimulation identity, and verification leaves no preference side effect.
