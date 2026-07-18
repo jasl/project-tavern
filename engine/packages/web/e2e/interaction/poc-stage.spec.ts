@@ -10,7 +10,7 @@ function tavernHeroineEntryV1(page: Page): Locator {
 }
 
 function purchaseLauncherV1(page: Page): Locator {
-  return page.getByTestId("stage-system").getByRole("button", { name: "采购原料" });
+  return page.getByTestId("stage-system").getByRole("button", { name: "采购原料", exact: true });
 }
 
 function semanticPublicationV1(page: Page): Locator {
@@ -41,7 +41,13 @@ async function activateV1(locator: Locator, touch: boolean): Promise<void> {
 
 async function enterPocWeekV1(page: Page, touch: boolean): Promise<void> {
   let revision = await visibleSemanticRevisionV1(page);
-  await activateV1(page.getByRole("button", { name: "开始这一周" }), touch);
+  await activateV1(
+    page.getByTestId("stage-system").getByRole("button", {
+      name: "开始这一周",
+      exact: true,
+    }),
+    touch,
+  );
   revision += 1;
   await expectVisibleSemanticRevisionV1(page, revision);
 
@@ -54,7 +60,9 @@ async function enterPocWeekV1(page: Page, touch: boolean): Promise<void> {
   await expectVisibleSemanticRevisionV1(page, revision);
   await expect(narrative).toHaveCount(0);
 
-  const choosePolicy = page.getByRole("button", { name: "选择生活策略" });
+  const choosePolicy = page
+    .getByTestId("stage-system")
+    .getByRole("button", { name: "选择生活策略", exact: true });
   await expect(choosePolicy).toBeEnabled();
   await activateV1(choosePolicy, touch);
   const policy = page.getByRole("dialog", { name: "生活策略" });

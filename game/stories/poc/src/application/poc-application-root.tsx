@@ -191,6 +191,111 @@ type PocLifePolicyDescriptorV1 = Extract<
   PocSemanticActionDescriptorV1,
   { readonly actionId: "action.choose_life_policy" }
 >;
+type PocChoicesDescriptorV1 = Extract<
+  PocSemanticActionDescriptorV1,
+  { readonly delivery: "choices" }
+>;
+
+function pocChoiceOverlayIdV1(
+  descriptor: DeepReadonly<PocChoicesDescriptorV1>,
+): PocOverlayIdV1 | null {
+  switch (descriptor.actionId) {
+    case "action.choose_life_policy":
+      return "overlay.poc.policy";
+    case "action.facility_window":
+      return "overlay.poc.facility";
+    case "action.old_trade_road":
+      return "overlay.poc.world_action";
+    case "action.narrative_choose":
+      return null;
+  }
+  const unsupportedDescriptor: never = descriptor;
+  throw new TypeError(`PoC choice action is unsupported: ${String(unsupportedDescriptor)}`);
+}
+
+function PocCanonicalSemanticControlsV1(props: {
+  readonly runtime: PocPresentationRuntimeV1;
+  readonly publication: DeepReadonly<PocRuntimePresentationPublicationV1>;
+}): ReactElement {
+  const semantic = props.runtime.application.semantic;
+  const presentation = props.runtime.presentationRead;
+
+  return (
+    <div role="group" aria-label="语义操作" data-semantic-action-catalog="true">
+      {props.publication.semantic.actions.flatMap((descriptor) => {
+        const disabledReasons = descriptor.reasons.map((reason) => reason.code).join(",");
+        const label = presentation.text(descriptor.textId).text;
+        const commonProps = Object.freeze({
+          disabled: !descriptor.enabled,
+          "data-semantic-action-id": descriptor.actionId,
+          "data-semantic-disabled-reasons": disabledReasons,
+        });
+        if (descriptor.delivery === "direct") {
+          return [
+            <Button
+              key={descriptor.actionId}
+              {...commonProps}
+              aria-label={`语义目录：${label}`}
+              onClick={() => void semantic.dispatch(descriptor.directInvocation)}
+            >
+              {label}
+            </Button>,
+          ];
+        }
+        if (descriptor.delivery === "form") {
+          const overlayId =
+            descriptor.form.kind === "purchase"
+              ? ("overlay.poc.purchase" as const)
+              : ("overlay.poc.tavern_plan" as const);
+          return [
+            <Button
+              key={descriptor.actionId}
+              {...commonProps}
+              aria-label={`语义目录：${label}`}
+              onClick={() =>
+                props.runtime.intents.execute(
+                  Object.freeze({ kind: "overlay.open" as const, overlayId }),
+                )
+              }
+            >
+              {label}
+            </Button>,
+          ];
+        }
+        const overlayId = pocChoiceOverlayIdV1(descriptor);
+        if (overlayId !== null) {
+          return [
+            <Button
+              key={descriptor.actionId}
+              {...commonProps}
+              aria-label={`语义目录：${label}`}
+              onClick={() =>
+                props.runtime.intents.execute(
+                  Object.freeze({ kind: "overlay.open" as const, overlayId }),
+                )
+              }
+            >
+              {label}
+            </Button>,
+          ];
+        }
+        return descriptor.options.map((option) => {
+          const optionLabel = presentation.text(option.textId).text;
+          return (
+            <Button
+              key={`${descriptor.actionId}:${option.optionId}`}
+              {...commonProps}
+              aria-label={`语义目录：${optionLabel}`}
+              onClick={() => void semantic.dispatch(option.invocation)}
+            >
+              {optionLabel}
+            </Button>
+          );
+        });
+      })}
+    </div>
+  );
+}
 
 function uniqueEnabledPurchaseDescriptorV1(
   actions: readonly DeepReadonly<PocSemanticActionDescriptorV1>[],
@@ -492,12 +597,17 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
       />
     )),
     sceneInteraction: <PocInteractionLayerV1 runtime={runtime} publication={publication} />,
-    hud: createElement(HudRenderer, {
-      viewSlice: publication.view.game.hud,
-      semantic,
-      presentation,
-      gameSymbols: runtime.gameSymbols,
-    }),
+    hud: (
+      <>
+        <PocCanonicalSemanticControlsV1 runtime={runtime} publication={publication} />
+        {createElement(HudRenderer, {
+          viewSlice: publication.view.game.hud,
+          semantic,
+          presentation,
+          gameSymbols: runtime.gameSymbols,
+        })}
+      </>
+    ),
     workspaceOverlay: (
       <OverlayHostV1
         store={runtime.rendering.overlaySession}
@@ -601,6 +711,7 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
       role="application"
       aria-label="Project Tavern 七日原型"
       data-application-id={runtime.applicationId}
+      data-semantic-revision={publication.semantic.revision}
     >
       {publication.view.stage.stageSceneId === pocStageSceneIdsV1[0] ? (
         <nav aria-label="Project Tavern 主菜单">

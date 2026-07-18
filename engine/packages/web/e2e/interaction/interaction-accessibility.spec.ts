@@ -69,11 +69,18 @@ test("exposes named 44px controls, disabled reasons, and parity markers without 
 }, testInfo) => {
   await page.goto(`${e2eWebUrlV1}/#/play`);
 
-  await expectFullyInViewportV1(page, page.getByRole("button", { name: "增加计数" }));
+  await expectFullyInViewportV1(
+    page,
+    page
+      .getByTestId("stage-scene-interaction")
+      .getByRole("button", { name: "增加计数", exact: true }),
+  );
   await expectFullyInViewportV1(page, page.getByTestId("spatial-increment-target"));
   await expectSceneLayerUnscrolledV1(page);
 
-  const unavailable = page.getByRole("button", { name: "完成流程" });
+  const unavailable = page
+    .getByRole("group", { name: "测试操作" })
+    .getByRole("button", { name: "完成流程", exact: true });
   await expect(unavailable).toBeDisabled();
   await expect(unavailable).toHaveAttribute("aria-describedby", /\S+/u);
   await expect(page.getByText("当前流程不可用").first()).toBeVisible();
@@ -113,7 +120,9 @@ test("switches the independent Alpha presentation flag without changing Gameplay
   const touch = testInfo.project.name === "chromium-touch";
   await page.goto(`${e2eWebUrlV1}/#/play`);
   const before = await visibleSemanticRevisionV1(page);
-  const increment = page.getByRole("button", { name: "增加计数" });
+  const increment = page
+    .getByTestId("stage-scene-interaction")
+    .getByRole("button", { name: "增加计数", exact: true });
   const incrementWasEnabled = await increment.isEnabled();
   const stage = page.getByTestId("stage-scene-background");
   await expect(stage).toHaveAttribute("data-stage-scene-id", "stage_scene.e2e.main");
@@ -146,7 +155,9 @@ test("applies the stream-safe preset through the stable DOM contract", async ({
   const touch = testInfo.project.name === "chromium-touch";
   await page.goto(`${e2eWebUrlV1}/#/play`);
   const before = await visibleSemanticRevisionV1(page);
-  const increment = page.getByRole("button", { name: "增加计数" });
+  const increment = page
+    .getByTestId("stage-scene-interaction")
+    .getByRole("button", { name: "增加计数", exact: true });
   const incrementWasEnabled = await increment.isEnabled();
   const stage = page.getByTestId("stage-scene-background");
   await expect(stage).toHaveAttribute("data-stage-scene-id", "stage_scene.e2e.main");

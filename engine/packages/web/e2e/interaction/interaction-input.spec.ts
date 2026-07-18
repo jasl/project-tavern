@@ -25,7 +25,7 @@ async function expectVisibleSemanticRevisionV1(page: Page, revision: number): Pr
 }
 
 async function activateV1(page: Page, accessibleName: string, touch: boolean): Promise<void> {
-  const control = page.getByRole("button", { name: accessibleName });
+  const control = page.getByRole("button", { name: accessibleName, exact: true });
   if (touch) await control.tap();
   else await control.click();
 }
@@ -51,7 +51,9 @@ async function enterPocWeekV1(page: Page, touch: boolean): Promise<void> {
   await expectVisibleSemanticRevisionV1(page, revision);
   await expect(narrative).toHaveCount(0);
 
-  const choosePolicy = page.getByRole("button", { name: "选择生活策略" });
+  const choosePolicy = page
+    .getByTestId("stage-system")
+    .getByRole("button", { name: "选择生活策略", exact: true });
   await expect(choosePolicy).toBeEnabled();
   if (touch) await choosePolicy.tap();
   else await choosePolicy.click();
@@ -70,7 +72,9 @@ async function enterPocWeekV1(page: Page, touch: boolean): Promise<void> {
   if (touch) await close.tap();
   else await close.click();
   await expect(policy).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "采购原料" })).toBeEnabled();
+  await expect(
+    page.getByTestId("stage-system").getByRole("button", { name: "采购原料", exact: true }),
+  ).toBeEnabled();
 }
 
 test("pointer cancel and focus loss each leave no open transient Interaction", async ({

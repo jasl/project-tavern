@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+import { parseTextId } from "@sillymaker/base";
+import type { DeepReadonly } from "@sillymaker/base";
 import {
   Button,
   CharacterHostV1,
@@ -37,6 +39,10 @@ import {
   type E2eInteractionRendererContextV1,
   type E2eUiRendererContextsV1,
 } from "../presentation/ui-contributions.js";
+import type {
+  E2eSemanticActionDescriptorV1,
+  E2eSemanticInvocationV1,
+} from "../runtime/e2e-semantic-game-port.js";
 
 export interface E2eApplicationRootPropsV1 {
   readonly runtime: E2ePresentationRuntimeV1;
@@ -49,6 +55,54 @@ const closedDevDockStateV1 = Object.freeze({
 const emptyDevDockContributionsV1 = createDevDockContributionSetV1({ panels: [] });
 
 const e2eInteractionEntryIdV1 = "e2e-interaction-entry";
+
+function e2eCanonicalOptionLabelV1(
+  runtime: E2ePresentationRuntimeV1,
+  descriptor: DeepReadonly<E2eSemanticActionDescriptorV1>,
+  invocation: DeepReadonly<E2eSemanticInvocationV1>,
+): string {
+  if (descriptor.actionId === "action.e2e.choose") {
+    if (invocation.actionId !== descriptor.actionId) {
+      throw new TypeError(`E2E Semantic option does not match ${descriptor.actionId}`);
+    }
+    return runtime.presentationRead.text(
+      parseTextId(`${descriptor.textId}.${invocation.parameters.choice}`),
+    ).text;
+  }
+  if (descriptor.options.length !== 1 || invocation.actionId !== descriptor.actionId) {
+    throw new TypeError(`E2E Semantic option does not match ${descriptor.actionId}`);
+  }
+  return runtime.presentationRead.text(descriptor.textId).text;
+}
+
+function E2eCanonicalSemanticControlsV1(props: {
+  readonly runtime: E2ePresentationRuntimeV1;
+  readonly publication: E2eRuntimePresentationPublicationV1;
+}): ReactElement {
+  return (
+    <div role="group" aria-label="语义操作" data-semantic-action-catalog="true">
+      {props.publication.semantic.actions.flatMap((descriptor) =>
+        descriptor.options.map((invocation, optionIndex) => {
+          const label = e2eCanonicalOptionLabelV1(props.runtime, descriptor, invocation);
+          return (
+            <Button
+              key={`${descriptor.actionId}:${optionIndex}`}
+              aria-label={`语义目录：${label}`}
+              disabled={!descriptor.enabled}
+              data-semantic-action-id={descriptor.actionId}
+              data-semantic-disabled-reasons={descriptor.reasons
+                .map((reason) => reason.code)
+                .join(",")}
+              onClick={() => void props.runtime.application.semantic.dispatch(invocation)}
+            >
+              {label}
+            </Button>
+          );
+        }),
+      )}
+    </div>
+  );
+}
 
 const e2eSaveOverlayLabelsV1 = Object.freeze({
   accessibleName: "保存",
@@ -373,6 +427,7 @@ function createFixedLayersV1(
     sceneInteraction: createInteractionLayerV1(runtime, publication),
     hud: (
       <>
+        <E2eCanonicalSemanticControlsV1 runtime={runtime} publication={publication} />
         <HudRenderer {...flowContext} />
         {createInteractionEntryV1(runtime, publication)}
       </>
@@ -454,6 +509,7 @@ export function E2eApplicationRootV1(props: E2eApplicationRootPropsV1): ReactEle
       role="application"
       aria-label="SillyMaker 引擎测试"
       data-application-id={props.runtime.applicationId}
+      data-semantic-revision={publication.semantic.revision}
     >
       {route === "main_menu" ? (
         <nav aria-label="引擎测试主菜单">

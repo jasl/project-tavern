@@ -48,7 +48,9 @@ test("mouse, touch, Enter, and Space each commit one increment", async ({ page }
   }
   await expectVisibleSemanticRevisionV1(page, before + 1);
 
-  const semanticButton = page.getByRole("button", { name: "增加计数" });
+  const semanticButton = page
+    .getByTestId("stage-scene-interaction")
+    .getByRole("button", { name: "增加计数", exact: true });
   await semanticButton.focus();
   await page.keyboard.press("Enter");
   await expectVisibleSemanticRevisionV1(page, before + 2);
@@ -64,7 +66,9 @@ test("Interaction makes the ordinary Stage inert and restores focus on Escape", 
   await page.goto(`${e2eWebUrlV1}/#/play`);
   const before = await visibleSemanticRevisionV1(page);
   const entry = page.getByRole("button", { name: "与测试计数器互动" });
-  const ordinaryStageAction = page.getByRole("button", { name: "开始流程" });
+  const ordinaryStageAction = page
+    .getByTestId("top-card-center")
+    .locator("button", { hasText: "开始流程" });
 
   await expect(ordinaryStageAction).toBeEnabled();
   await entry.focus();
@@ -78,7 +82,7 @@ test("Interaction makes the ordinary Stage inert and restores focus on Escape", 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("region", { name: "测试计数器互动" })).toHaveCount(0);
   await expect(entry).toBeFocused();
-  await expect(page.getByRole("button", { name: "开始流程" })).toBeEnabled();
+  await expect(ordinaryStageAction).toBeEnabled();
   await expectVisibleSemanticRevisionV1(page, before);
 });
 
@@ -87,14 +91,22 @@ test("blocking Narrative keeps Save, Settings, and diagnostics reachable", async
 }, testInfo) => {
   const touch = testInfo.project.name === "chromium-touch";
   await page.goto(`${e2eWebUrlV1}/#/play`);
-  await activateV1(page.getByRole("button", { name: "开始流程" }), touch);
+  await activateV1(
+    page.getByRole("group", { name: "测试操作" }).getByRole("button", {
+      name: "开始流程",
+      exact: true,
+    }),
+    touch,
+  );
   await expect(page.getByRole("dialog", { name: "流程操作" })).toBeVisible();
 
   await expect(page.getByRole("button", { name: "保存" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "设置" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "导出调试包" })).toBeEnabled();
   const beforeSettings = await visibleSemanticRevisionV1(page);
-  const ordinaryInteractionAction = page.getByRole("button", { name: "增加计数" });
+  const ordinaryInteractionAction = page
+    .getByTestId("stage-scene-interaction")
+    .getByRole("button", { name: "增加计数", exact: true });
   await expect(page.getByTestId("stage-hud")).toHaveAttribute("inert", "");
   await expectInertActivationV1(ordinaryInteractionAction, touch);
   await expectVisibleSemanticRevisionV1(page, beforeSettings);
