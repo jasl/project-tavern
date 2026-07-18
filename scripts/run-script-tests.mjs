@@ -61,7 +61,7 @@ export async function runScriptTestsV1(root, kind = "all") {
       { cwd: root, encoding: "utf8" },
     );
     if (listed.status !== 0) throw new TypeError("Vitest script list failed");
-    const paths = String(listed.stdout)
+    const paths = listed.stdout
       .split(/\r?\n/u)
       .map((path) => path.trim())
       .filter(Boolean)

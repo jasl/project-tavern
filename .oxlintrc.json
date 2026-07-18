@@ -10,6 +10,18 @@
     "no-unused-expressions": "off",
     "react/react-in-jsx-scope": "off",
     "typescript/no-base-to-string": "off",
+    "typescript/no-floating-promises": [
+      "error",
+      {
+        "allowForKnownSafeCalls": [
+          {
+            "from": "package",
+            "name": "test",
+            "package": "@types/node"
+          }
+        ]
+      }
+    ],
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/unbound-method": "off",
     "typescript/no-unnecessary-type-arguments": "off",

@@ -116,7 +116,7 @@ function verifyVitestDiscovery(root) {
       { cwd: root, encoding: "utf8" },
     );
     if (result.status !== 0) throw new TypeError(`Vitest ${project} list failed`);
-    listings[project] = String(result.stdout)
+    listings[project] = result.stdout
       .split(/\r?\n/u)
       .map((path) => path.trim())
       .filter(Boolean)
