@@ -1948,7 +1948,7 @@ only in the mandatory Phase 6 entry checkpoint.
 defects. Before the first calibration step, one separate repair may additionally create
 `scripts/run-poc-balance-remote.mjs`/`.test.mjs`, modify the balance-lab and delivery authority documents, GOAL/Roadmap and
 Phase 6 plan, and add only the Story `calibrate:balance:remote` alias. It may add explicit `1..64` worker scheduling, strict
-remote evidence admission/local selected-candidate replay and a Story-local exact-half-integer evidence codec. It must preserve
+remote aggregate-evidence admission/local selector verification and a Story-local exact-half-integer evidence codec. It must preserve
 all balance values/thresholds/strategies/direct expectations, provisional report/qualifier, golden, Save, command/tooling
 fixtures, root package manifest and lockfile, and commits only with `Balance-Calibration-Repair: true`.
 
@@ -2107,9 +2107,11 @@ In default/main mode `scripts/verify-poc-balance.mjs` directly imports the balan
 
 The Phase 6 repair's `calibrate:balance:remote` controller is separate from this platform-neutral evaluator. It uploads only an
 exact clean archive, requires exact source/tree/archive/lock/materialization/package closure and Node/pnpm evidence, runs a
-fresh remote offline frozen install, then strictly admits the complete result and recomputes selection locally. `N = 0` also
-replays current evaluation locally; every round fully replays the selected candidate locally. It emits only the same semantic
-stdout and writes a separate canonical attestation without host/IP/path/time/scheduling metadata. It never runs a writer,
+fresh remote offline frozen install, then canonicalizes and strictly admits the complete aggregate result, validates the exact
+legal-neighbor set or first-zero canonical prefix, and recomputes deficit/selection locally. It derives before/after digests from
+the admitted current/selected evaluations and, after `N = 0`, chains each before digest to the preceding accepted after digest;
+it does not repeat the full corpus locally. It emits only the same semantic stdout and writes a separate canonical attestation
+without host/IP/path/time/scheduling metadata. It never runs a writer,
 build, Vite, Playwright, server, Artifact or remote smoke.
 
 Task 10 also installs the temporary, unaliased `--qualify-provisional` mode. It runs that same complete corpus but exits 0 only when the entire report—every metric, counterfactual and `deficit=49`—equals the reviewed 2026-07-15 provisional evidence; any drift or additional failure remains red. The strict default mode continues to reject that report. Phase 6 final calibration removes this mode and its frozen report literal in the same exact commit that makes the default full gate pass. No other argument is admitted.
@@ -2765,8 +2767,25 @@ The accepted Phase 5C checkpoint and the first-parent commits after it are the o
 contains zero to twelve independent calibration-step commits followed by exactly one final balance-freeze commit. Chat,
 shell variables, `/tmp` reports and local progress files are not execution state. Any evaluator/runner/counterfactual/selector
 defect returns to Task 10 as a separate owner repair commit and gates before this clean closure restarts; it never shares a
-calibration or freeze commit. That commit carries `Balance-Calibration-Repair: true`; if any step already exists, the repair
-is not accepted until the repaired-evaluator replay below proves the entire old chain unchanged.
+calibration or freeze commit. A mechanical calibration/finalization authority defect is a second closed repair subtype and may modify
+only `docs/engineering/GOAL.md`, the Roadmap, the balance-lab design, this plan, the Phase 6 plan and
+the local-engineering delivery-boundaries design, plus `docs/poc/balance-v0.md`, and its diff must be nonempty. A Task 10 executable-owner repair must actually modify at least one
+listed non-authority-document executable/test/package path, so the two subtypes are disjoint. Both carry
+`Balance-Calibration-Repair: true`; neither changes balance/direct expectations,
+qualifier, golden, Save, command/tooling fixture or lock bytes, and the authority-only subtype changes no executable. If any
+step already exists, executable repairs use the repaired-evaluator replay below; authority-only repairs prove the executable
+closure unchanged and replay each step from its original parent/exact archive so unrelated documentation cannot alter its
+source-archive proof.
+
+A post-step controller-only orchestration repair is the executable-owner subtype but may change only
+`scripts/run-poc-balance-remote.mjs`, `scripts/run-poc-balance-remote.test.mjs` and the changed subset of those seven authority
+documents. It preserves the remote semantic evaluator/import closure, balance/direct expectations, provisional and fixture
+bytes. The repaired controller runs outside each historical step's original exact archive, strictly admits newly recomputed
+remote aggregate evidence and reproduces every evidence/trailer/full patch without changing the historical archive identity.
+Its focused RED removes the local `evaluateValues` port while the old controller requires it; GREEN preserves frozen-archive
+Story admission but removes the metrics import and current/selected full-corpus replay. Exact-stage those paths and commit
+`fix(story-poc): accept verified remote calibration evidence` with only `Balance-Calibration-Repair: true` after the Phase 6
+owner gates and historical replay pass.
 
 ### Calibration-step commits
 
@@ -2822,11 +2841,12 @@ captured selector stdout. A valid step commit changes the named field from its `
 `After` trailer in its own tree, strictly decreases deficit, has index exactly one greater than its accepted predecessor,
 and touches only the step allowlist.
 
-A remote-assisted step additionally records exact source archive, before evaluation, locally replayed after evaluation and
+A remote-assisted step additionally records exact source archive, admitted before evaluation, admitted selected after evaluation and
 remote attestation SHA-256 trailers. The host, private IP, remote path and elapsed time remain operator transport state and are
-never trailers. At `N = 0` the controller requires a full local current-evaluation byte match; every iteration re-admits the
-complete canonical remote evidence, recomputes selection locally and fully evaluates the selected candidate locally before any byte is
-applied.
+never trailers. Every iteration locally re-encodes and strictly admits the complete canonical remote aggregate evidence,
+validates its exact schema/current values and complete-neighbor or first-zero-prefix rule, recomputes deficit/selection, and
+checks the source/toolchain/input/output digests plus the prior-step before→after chain before any byte is applied. No local full-corpus
+current or selected-candidate replay is required.
 
 ### Clean-commit sandbox
 
@@ -2870,15 +2890,16 @@ phase5c_checkpoint="<accepted-phase5c-commit-sha>"
 audit_tip="<final-commit-if-present-otherwise-HEAD>"
 git rev-list --first-parent --reverse "${phase5c_checkpoint}..${audit_tip}"
 git log --first-parent --reverse --format='%H%x09%(trailers:key=Balance-Calibration-Index,valueonly)%x09%(trailers:key=Balance-Calibration-Repair,valueonly)%x09%(trailers:key=Balance-Calibration-Final,valueonly)%x09%(trailers:key=Balance-Calibration-Steps,valueonly)' "${phase5c_checkpoint}..${audit_tip}"
-git diff --name-only "<commit>^1" "<commit>" -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git diff --name-only "<commit>^1" "<commit>" -- docs/poc/balance-v0.md game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/src/testing/save-fixture-provenance.ts scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
 ```
 
 Every commit in `${phase5c_checkpoint}..${audit_tip}`, whether or not it touches that protected union, must be exactly one of:
 
 - a step with all seven step trailers, the exact step allowlist and the next uninterrupted index `1..N`;
-- a Task 10 owner repair with `Balance-Calibration-Repair: true`, no step/final trailer, the Task 10 Files/staging/gates
-  contract, no threshold, strategy, accepted balance value, direct expectation, golden or Save change, and no early removal
-  of the provisional report/assertion/CLI branch/tests; or
+- a closed repair with `Balance-Calibration-Repair: true` and no step/final trailer: either the Task 10 executable-owner
+  Files/staging/gates contract with at least one listed non-authority-document executable/test/package path changed, or the
+  nonempty authority-only calibration/finalization contract above; neither changes threshold, strategy,
+  accepted balance value, direct expectation, golden or Save, or removes the provisional report/assertion/CLI branch/tests; or
 - the unique final with all final trailers and the exact final allowlist.
 
 Any unclassified or multiply classified commit before final invalidates recovery. Final must be the unique last classified
@@ -2890,8 +2911,9 @@ the final-parent balance bytes must equal the accepted Phase 5C balance bytes be
 ### Historical step and repair replay
 
 For every historical step `K`, set the already-applied count `N = K - 1`, create the clean sandbox at that step's parent,
-run the complete local selector, or rebuild the exact archive and run the verified remote selector with its required local
-current/selected replay. Require canonical stdout SHA-256 plus decoded field/before/after/beforeDeficit/afterDeficit to equal
+run the complete local selector, or rebuild the exact archive and run the verified remote aggregate computation with its
+required local canonical/schema/admission, complete-prefix, selector and digest-chain verification. Require canonical stdout
+SHA-256 plus decoded field/before/after/beforeDeficit/afterDeficit to equal
 all seven semantic trailers and, when present, require all four remote proof trailers. Apply the returned candidate afresh to the
 authoritative balance document/code and exact direct literals; do not copy the commit's files. Compare the complete rebuilt
 patch, including whitespace and binary bytes:
@@ -2906,14 +2928,21 @@ cmp /tmp/project-tavern-step.expected.patch /tmp/project-tavern-step.replayed.pa
 ```
 
 The scalar/path checks remain necessary but are not sufficient; only exact selector evidence and exact full-patch replay
-accept a step. If one or more `Balance-Calibration-Repair: true` commits exist after any accepted step, create another clean
-sandbox from the Phase 5C checkpoint, overlay the accepted Task 10 repair patches through the repair being audited, and make
-that repaired evaluator the clean replay baseline. Sequentially rerun every earlier step from `--iteration=0` onward,
-requiring each canonical evidence SHA/trailer set and rebuilt `git diff --binary` patch to equal its historical step before
-committing that replayed candidate only inside the sandbox and advancing to the next. With `N = 0`, a repair may continue
-after its owner gates. With `N > 0`, any overlay conflict or evidence/trailer/full-patch difference is the authoritative
-design stop `balance_calibration_history_invalidated`; do not automatically edit old commits, rewrite history, rollback or
-choose new candidates.
+accept a step. If one or more executable-owner `Balance-Calibration-Repair: true` commits that change the
+evaluator/runner/selector/evidence codec or their semantic inputs exist after an accepted step, create another clean sandbox from
+the Phase 5C checkpoint, overlay those executable repair patches through the repair being audited, and make that repaired
+evaluator the clean replay baseline. Sequentially rerun every earlier step from
+`--iteration=0` onward, requiring each canonical evidence SHA/trailer set and rebuilt `git diff --binary` patch to equal its
+historical step before committing that replayed candidate only inside the sandbox and advancing to the next. For an
+executable controller-only orchestration repair that changes admission/verification but not that semantic closure, invoke the
+repaired controller as an admission layer outside every historical step's original parent exact archive. The original archive
+commit/tree/SHA-256 and trailers stay authoritative; do not overlay the controller repair into the archive it is auditing. For an
+authority-only calibration/finalization repair, prove its parent-to-commit patch has an empty projection onto the
+evaluator/runner/selector/remote-controller executable import closure, then rerun every historical step from its original
+parent/exact archive; never overlay unrelated authority bytes
+into the historical archive. With `N = 0`, a repair may continue after its owner gates. With `N > 0`, any overlay conflict or
+evidence/trailer/full-patch difference is the authoritative design stop `balance_calibration_history_invalidated`; do not
+automatically edit old commits, rewrite history, rollback or choose new candidates.
 
 ### Dirty classification
 
@@ -2949,9 +2978,17 @@ the candidate bytes that will actually be staged. A classified pending dirty fin
 bytes; an existing historical final never rewrites the live root. In every branch, create a separate final-parent sandbox,
 rerun the same sequence independently, and compare its complete patch before any commit is accepted.
 
-The sequence proves command bytes unchanged, reruns both writers, and repeats the complete Task 11/12 review over exactly
-six golden and eight Save files. Then make only these manual removals: the provisional report data, its assertion, the
-`--qualify-provisional` CLI branch, the tests dedicated to that branch/report, and the provisional-to-final status wording
+The sequence first projects the final parent's complete live Save fixture provenance. The existing focused test
+`matches the complete reviewed live provenance tuple` must be RED only because frozen `blocking.simulationDigest` is
+`sha256:015106ae1e2513fbf93c2fab692a119d580193e2267aa8b8ce55c0bf6ea3d1d7` while live is
+`sha256:165ea3339e15f51bb92d1cf205e6cc4bc66e23fe5912262356405ad20484140c`; every other blocking,
+diagnostic and capture byte remains identical. Mechanically update only that scalar in
+`game/stories/poc/src/testing/save-fixture-provenance.ts`, rerun the same focused test to GREEN, and stop on any additional
+drift. Do not modify the provenance parser, modes, generation guard, builder, writer or test.
+
+The remaining sequence proves command bytes unchanged, reruns both writers, and repeats the complete Task 11/12 review over
+exactly six golden and eight Save files. Then make only these manual removals: the provisional report data, its assertion,
+the `--qualify-provisional` CLI branch, the tests dedicated to that branch/report, and the provisional-to-final status wording
 in `balance-v0.md`. No adjacent refactor, balance number or direct expectation belongs to final.
 
 For the clean/no-final branch, establish the live candidate location before its first writer run:
@@ -2963,11 +3000,14 @@ test -z "$(git status --porcelain=v1)"
 ```
 
 ```bash
+pnpm exec vitest run game/stories/poc/src/test/save-fixtures.test.ts -t 'matches the complete reviewed live provenance tuple'
+# Expected RED above: exactly the reviewed blocking.simulationDigest transition. Update that one frozen scalar.
+pnpm exec vitest run game/stories/poc/src/test/save-fixtures.test.ts -t 'matches the complete reviewed live provenance tuple'
 pnpm --filter @project-tavern/story-poc verify:commands
 pnpm --filter @project-tavern/story-poc update:golden
 pnpm --filter @project-tavern/story-poc update:fixtures
 git add -N -- game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
-git diff --no-ext-diff -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git diff --no-ext-diff -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
 find game/stories/poc/src/test/fixtures/golden -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > /tmp/project-tavern-calibrated-golden.before.sha256
 find game/stories/poc/src/test/fixtures/saves -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > /tmp/project-tavern-calibrated-saves.before.sha256
 pnpm verify:golden
@@ -2986,12 +3026,12 @@ For an existing final, compare the clean parent-sandbox replay with its historic
 compare it with the live full patch:
 
 ```bash
-git diff --binary -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.replayed.patch
+git diff --binary -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.replayed.patch
 if test -n "${final_commit:-}"; then
-  git -C "$repo" diff --binary "${final_commit}^1" "$final_commit" -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.expected.patch
+  git -C "$repo" diff --binary "${final_commit}^1" "$final_commit" -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.expected.patch
   cmp /tmp/project-tavern-final.expected.patch /tmp/project-tavern-final.replayed.patch
 else
-  git -C "$repo" diff --binary -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.live.patch
+  git -C "$repo" diff --binary -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves > /tmp/project-tavern-final.live.patch
   cmp /tmp/project-tavern-final.live.patch /tmp/project-tavern-final.replayed.patch
 fi
 ```
@@ -3008,10 +3048,10 @@ pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-a.txt
 pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-b.txt
 cmp /tmp/project-tavern-balance.candidate-a.txt /tmp/project-tavern-balance.candidate-b.txt
 shasum -a 256 /tmp/project-tavern-balance.candidate-a.txt
-git add -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
+git add -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
 git diff --cached --name-status
 git diff --cached --check
-test -z "$(git diff --cached --name-only | rg -v '^(docs/poc/balance-v0\.md|scripts/verify-poc-balance\.(mjs|test\.mjs)|game/stories/poc/src/test/fixtures/(golden|saves)/)')"
+test -z "$(git diff --cached --name-only | rg -v '^(docs/poc/balance-v0\.md|scripts/verify-poc-balance\.(mjs|test\.mjs)|game/stories/poc/src/testing/save-fixture-provenance\.ts|game/stories/poc/src/test/fixtures/(golden|saves)/)')"
 test -z "$(git diff --cached --name-only -- game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts pnpm-lock.yaml)"
 git commit -m "balance(story-poc): finalize release calibration" \
   --trailer "Balance-Calibration-Final: true" \

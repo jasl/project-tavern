@@ -145,7 +145,6 @@ function controllerFixtureV1({
   calibration = calibrationFixtureV1(),
   envelopeOverrides,
   semanticOverride,
-  evaluateValues,
   remoteStatus = 0,
 } = {}) {
   const semanticStdout = semanticOverride ?? semanticStdoutV1(calibration);
@@ -154,7 +153,6 @@ function controllerFixtureV1({
     ...envelopeOverrides,
   });
   const writes = [];
-  const evaluations = [];
   const ports = {
     async inspectSource() {
       return source;
@@ -175,13 +173,6 @@ function controllerFixtureV1({
           assert.deepEqual(value, { step: calibration.step, selection: calibration.selection });
           return Object.freeze({ step: calibration.step, selection: calibration.selection });
         },
-        async evaluateValues(values) {
-          evaluations.push(values);
-          if (evaluateValues !== undefined) return evaluateValues(values);
-          return values.levy === 140
-            ? calibration.currentEvaluation
-            : calibration.selectedEvaluation;
-        },
       };
     },
     async writeAttestation(path, bytes) {
@@ -191,7 +182,7 @@ function controllerFixtureV1({
       assert.equal(received, source);
     },
   };
-  return { options, source, calibration, envelope, writes, evaluations, ports };
+  return { options, source, calibration, envelope, writes, ports };
 }
 
 test("parses only the fixed direct argument order and a strict SSH target", () => {
@@ -436,7 +427,7 @@ test("uses shell-free scp/ssh argv and the preprovisioned HOME-relative toolchai
   );
 });
 
-test("loads local replay ports only after extracting the same frozen archive and installing offline", async () => {
+test("loads local admission ports only after extracting the same frozen archive and installing offline", async () => {
   const source = sourceFixtureV1();
   const options = parsePocBalanceRemoteArgumentsV1(validArgsV1());
   const calls = [];
@@ -477,17 +468,11 @@ test("loads local replay ports only after extracting the same frozen archive and
     async loadRuntimeModules(input) {
       assert.equal(input.temporaryDirectory, "/tmp/frozen-replay");
       assert.equal(input.source, source);
-      return [
-        {
-          canonicalPocBalanceEvidenceBytesV1: encodeEvidenceV1,
-          pocBalanceCalibrationValuesV1: () => Object.freeze({ levy: 140 }),
-          admitPocBalanceCalibrationRunV1: (value) => value,
-        },
-        {
-          evaluatePocBalanceCalibrationValuesV1: async (inputValue) =>
-            Object.freeze({ values: inputValue.values }),
-        },
-      ];
+      return {
+        canonicalPocBalanceEvidenceBytesV1: encodeEvidenceV1,
+        pocBalanceCalibrationValuesV1: () => Object.freeze({ levy: 140 }),
+        admitPocBalanceCalibrationRunV1: (value) => value,
+      };
     },
   });
   assert.deepEqual(calls[2], {
@@ -510,7 +495,7 @@ test("loads local replay ports only after extracting the same frozen archive and
     options: { cwd: "/tmp/frozen-replay", shell: false },
   });
   assert.deepEqual(runtime.currentValues(), { levy: 140 });
-  assert.deepEqual(await runtime.evaluateValues({ levy: 138 }), { values: { levy: 138 } });
+  assert.equal("evaluateValues" in runtime, false);
   await runtime.cleanup();
   assert.deepEqual(removals, ["/tmp/frozen-replay/.git", "/tmp/frozen-replay"]);
 });
@@ -546,7 +531,7 @@ test("surfaces bounded remote nonzero diagnostics and never treats stdout as evi
   );
 });
 
-test("admits remote evidence, replays current and selected evaluations, and writes canonical attestation", async () => {
+test("admits remote evidence and derives both evaluation digests from its canonical bytes", async () => {
   const fixture = controllerFixtureV1();
   const stdout = [];
   const status = await runPocBalanceRemoteCliV1({
@@ -558,7 +543,6 @@ test("admits remote evidence, replays current and selected evaluations, and writ
   });
   assert.equal(status, 0);
   assert.equal(stdout.join(""), semanticStdoutV1(fixture.calibration));
-  assert.deepEqual(fixture.evaluations, [{ levy: 140 }, { levy: 138 }]);
   assert.equal(fixture.writes.length, 1);
   assert.equal(fixture.writes[0].path, "/private/tmp/balance-attestation.json");
   const attestationText = new TextDecoder().decode(fixture.writes[0].bytes);
@@ -596,6 +580,14 @@ test("admits remote evidence, replays current and selected evaluations, and writ
   assert.equal(
     attestation.beforeEvaluationSha256,
     `sha256:${Buffer.from(beforeHash).toString("hex")}`,
+  );
+  const afterHash = await crypto.subtle.digest(
+    "SHA-256",
+    encodeEvidenceV1(fixture.calibration.selectedEvaluation),
+  );
+  assert.equal(
+    attestation.afterEvaluationSha256,
+    `sha256:${Buffer.from(afterHash).toString("hex")}`,
   );
   assert.match(attestation.beforeEvaluationSha256, /^sha256:[0-9a-f]{64}$/u);
   assert.match(attestation.afterEvaluationSha256, /^sha256:[0-9a-f]{64}$/u);
@@ -655,7 +647,6 @@ test("admits status one only for canonical unsatisfied evidence and attests a nu
   });
   assert.equal(status, 1);
   assert.equal(stdout.join(""), semanticStdoutV1(calibration));
-  assert.deepEqual(fixture.evaluations, [{ levy: 140 }]);
   assert.equal(fixture.writes.length, 1);
   const attestation = JSON.parse(new TextDecoder().decode(fixture.writes[0].bytes));
   assert.equal(attestation.afterEvaluationSha256, null);
@@ -721,20 +712,7 @@ test("rejects noncanonical, extra-line, and structurally invalid semantic eviden
   }
 });
 
-test("rejects a local current-baseline mismatch at iteration zero", async () => {
-  const fixture = controllerFixtureV1({
-    evaluateValues(values) {
-      return values.levy === 140 ? { median: 9.5, score: 4 } : { median: 11.5, score: 2 };
-    },
-  });
-  await assert.rejects(
-    () => runPocBalanceRemoteCliV1({ args: validArgsV1(), ports: fixture.ports }),
-    /balance_remote_baseline_mismatch/u,
-  );
-  assert.equal(fixture.writes.length, 0);
-});
-
-test("rejects selector admission and selected-candidate evaluation mismatches", async () => {
+test("rejects selector admission mismatches without requiring a local evaluator", async () => {
   const admission = controllerFixtureV1();
   admission.ports.loadRuntime = async () => ({
     encodeEvidence: encodeEvidenceV1,
@@ -742,23 +720,11 @@ test("rejects selector admission and selected-candidate evaluation mismatches", 
     admitRemoteRun() {
       throw new TypeError("selector differs");
     },
-    evaluateValues: async () => ({ median: 10.5, score: 3 }),
   });
   await assert.rejects(
     () => runPocBalanceRemoteCliV1({ args: validArgsV1(), ports: admission.ports }),
     /balance_remote_evidence_invalid.*selector differs/u,
   );
-
-  const selected = controllerFixtureV1({
-    evaluateValues(values) {
-      return values.levy === 140 ? { median: 10.5, score: 3 } : { median: 12.5, score: 1 };
-    },
-  });
-  await assert.rejects(
-    () => runPocBalanceRemoteCliV1({ args: validArgsV1(), ports: selected.ports }),
-    /balance_remote_selected_evaluation_mismatch/u,
-  );
-  assert.equal(selected.writes.length, 0);
 });
 
 test("accepts an admitted first-zero candidate prefix but rejects a nonzero partial prefix", async () => {
@@ -797,7 +763,6 @@ test("accepts an admitted first-zero candidate prefix but rejects a nonzero part
     admitRemoteRun() {
       throw new TypeError("nonzero evidence ends before canonical neighbor set");
     },
-    evaluateValues: async () => base.currentEvaluation,
   });
   await assert.rejects(
     () => runPocBalanceRemoteCliV1({ args: validArgsV1(), ports: rejected.ports }),
@@ -805,7 +770,7 @@ test("accepts an admitted first-zero candidate prefix but rejects a nonzero part
   );
 });
 
-test("chains iteration greater than zero to an explicit prior local after digest", async () => {
+test("chains iteration greater than zero to an explicit prior accepted after digest", async () => {
   const calibration = calibrationFixtureV1();
   const prior = await crypto.subtle.digest(
     "SHA-256",
@@ -825,7 +790,6 @@ test("chains iteration greater than zero to an explicit prior local after digest
     writeStdout() {},
   });
   assert.equal(status, 0);
-  assert.deepEqual(fixture.evaluations, [{ levy: 138 }]);
   const attestation = JSON.parse(new TextDecoder().decode(fixture.writes[0].bytes));
   assert.equal(attestation.beforeEvaluationSha256, priorDigest);
 

@@ -997,14 +997,6 @@ function selectedCandidateEvaluationV1(run) {
   return matching[0].evaluation;
 }
 
-function selectedValuesV1(run) {
-  if (run.selection.kind !== "candidate") return null;
-  return Object.freeze({
-    ...run.step.values,
-    [run.selection.field]: run.selection.afterValue,
-  });
-}
-
 export async function writePocBalanceRemoteAttestationV1(path, bytes) {
   if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0 || bytes.at(-1) === 0x0a) {
     failV1("balance_remote_attestation_invalid", "attestation bytes are required");
@@ -1066,21 +1058,12 @@ async function installTypeStripHooksV1() {
 async function loadFrozenReplayModulesV1({ temporaryDirectory, source }) {
   await installTypeStripHooksV1();
   const cacheKey = `${source.sourceCommit}-${randomUUID()}`;
-  return Promise.all([
-    import(
-      `${
-        pathToFileURL(
-          join(temporaryDirectory, "game/stories/poc/src/testing/balance-calibration.ts"),
-        ).href
-      }?source=${cacheKey}`
-    ),
-    import(
-      `${
-        pathToFileURL(join(temporaryDirectory, "game/stories/poc/src/testing/balance-metrics.ts"))
-          .href
-      }?source=${cacheKey}`
-    ),
-  ]);
+  return import(
+    `${
+      pathToFileURL(join(temporaryDirectory, "game/stories/poc/src/testing/balance-calibration.ts"))
+        .href
+    }?source=${cacheKey}`
+  );
 }
 
 export async function loadPocBalanceFrozenReplayRuntimeV1({
@@ -1178,17 +1161,16 @@ export async function loadPocBalanceFrozenReplayRuntimeV1({
       { cwd: temporaryDirectory, shell: false },
       "balance_remote_local_install_failed",
     );
-    const [calibration, metrics] = await loadRuntimeModules({
+    const calibration = await loadRuntimeModules({
       temporaryDirectory,
       source,
     });
-    for (const [owner, name] of [
-      [calibration, "canonicalPocBalanceEvidenceBytesV1"],
-      [calibration, "pocBalanceCalibrationValuesV1"],
-      [calibration, "admitPocBalanceCalibrationRunV1"],
-      [metrics, "evaluatePocBalanceCalibrationValuesV1"],
+    for (const name of [
+      "canonicalPocBalanceEvidenceBytesV1",
+      "pocBalanceCalibrationValuesV1",
+      "admitPocBalanceCalibrationRunV1",
     ]) {
-      if (typeof owner[name] !== "function") {
+      if (typeof calibration[name] !== "function") {
         failV1("balance_remote_runtime_invalid", `missing runtime export ${name}`);
       }
     }
@@ -1202,12 +1184,6 @@ export async function loadPocBalanceFrozenReplayRuntimeV1({
         return calibration.admitPocBalanceCalibrationRunV1(value, {
           iteration: options.iteration,
           values,
-        });
-      },
-      evaluateValues(value) {
-        return metrics.evaluatePocBalanceCalibrationValuesV1({
-          values: value,
-          workerCount: 16,
         });
       },
       async cleanup() {
@@ -1273,7 +1249,7 @@ export async function runPocBalanceRemoteCliV1({
       );
     }
     runtime = await ports.loadRuntime({ source, options });
-    for (const name of ["encodeEvidence", "currentValues", "admitRemoteRun", "evaluateValues"]) {
+    for (const name of ["encodeEvidence", "currentValues", "admitRemoteRun"]) {
       if (typeof runtime?.[name] !== "function") {
         failV1("balance_remote_runtime_invalid", `missing runtime port ${name}`);
       }
@@ -1290,19 +1266,10 @@ export async function runPocBalanceRemoteCliV1({
 
     const remoteBeforeBytes = evidenceBytesV1(runtime, run.step.evaluation, "before evaluation");
     const beforeEvaluationSha256 = sha256BytesV1(remoteBeforeBytes);
-    if (options.iteration === 0) {
-      const localBefore = await runtime.evaluateValues(currentValues);
-      const localBeforeBytes = evidenceBytesV1(runtime, localBefore, "local before evaluation");
-      if (!Buffer.from(localBeforeBytes).equals(Buffer.from(remoteBeforeBytes))) {
-        failV1(
-          "balance_remote_baseline_mismatch",
-          "local current evaluation differs from remote evidence",
-        );
-      }
-    } else if (beforeEvaluationSha256 !== options.priorAfterEvaluationSha256) {
+    if (options.iteration > 0 && beforeEvaluationSha256 !== options.priorAfterEvaluationSha256) {
       failV1(
         "balance_remote_prior_evaluation_mismatch",
-        "remote current evaluation does not match the prior accepted local after digest",
+        "remote current evaluation does not match the prior accepted after digest",
       );
     }
 
@@ -1355,24 +1322,11 @@ export async function runPocBalanceRemoteCliV1({
     }
 
     const remoteSelectedEvaluation = selectedCandidateEvaluationV1(run);
-    const selectedValues = selectedValuesV1(run);
-    const localSelectedEvaluation = await runtime.evaluateValues(selectedValues);
     const remoteSelectedBytes = evidenceBytesV1(
       runtime,
       remoteSelectedEvaluation,
       "remote selected evaluation",
     );
-    const localSelectedBytes = evidenceBytesV1(
-      runtime,
-      localSelectedEvaluation,
-      "local selected evaluation",
-    );
-    if (!Buffer.from(remoteSelectedBytes).equals(Buffer.from(localSelectedBytes))) {
-      failV1(
-        "balance_remote_selected_evaluation_mismatch",
-        "local selected evaluation differs from remote evidence",
-      );
-    }
     const afterEvaluationSha256 = sha256BytesV1(remoteSelectedBytes);
     await publishAttestationV1(afterEvaluationSha256);
     writeStdout(envelope.semanticStdout);
