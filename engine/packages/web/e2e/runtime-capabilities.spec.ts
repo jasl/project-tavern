@@ -110,10 +110,10 @@ async function expectFreshContextDefaultsV1(browser: Browser, story: StoryTarget
 }
 
 test.describe("@phase5c @infrastructure", () => {
-  test.beforeEach((_fixtures, testInfo) => {
+  test.beforeEach(({ browserName }, testInfo) => {
     test.skip(
       testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
-      "requires the prebuilt two-root UI harness",
+      `requires the prebuilt two-root UI harness for ${browserName}`,
     );
   });
 
