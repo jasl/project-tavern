@@ -10,14 +10,16 @@ const requireFromConfigV1 = createRequire(import.meta.url);
 
 const applicationRoots = Object.freeze({
   "e2e-web": Object.freeze({
-    html: resolve(repositoryRoot, "game/stories/e2e/index.html"),
+    entry: "game/stories/e2e/src/application/entry.tsx",
+    htmlEntry: "game/stories/e2e/index.html",
     outDir: resolve(repositoryRoot, "dist/e2e"),
     identityModule: "scripts/build-e2e-identity.mjs",
     collectIdentityExport: "collectE2eBuildIdentityV1",
     createIdentityPluginExport: "createE2eBuildIdentityVirtualPluginV1",
   }),
   "poc-web": Object.freeze({
-    html: resolve(repositoryRoot, "game/stories/poc/index.html"),
+    entry: "game/stories/poc/src/application/entry.tsx",
+    htmlEntry: "game/stories/poc/index.html",
     outDir: resolve(repositoryRoot, "dist/poc"),
     identityModule: "scripts/build-poc-identity.mjs",
     collectIdentityExport: "collectPocBuildIdentityV1",
@@ -28,6 +30,17 @@ const applicationRoots = Object.freeze({
 interface SelectedBuildIdentityModuleV1 {
   collect(root: string): Promise<unknown>;
   createPlugin(input: { readonly root: string; readonly initialIdentity: unknown }): Plugin;
+}
+
+interface SourceGraphInputV1 {
+  readonly applicationId: keyof typeof applicationRoots;
+  readonly entry: string;
+  readonly htmlEntry: string;
+  readonly repositoryRoot: string;
+}
+
+interface SourceGraphModuleV1 {
+  collect(input: SourceGraphInputV1): Plugin;
 }
 
 function loadSelectedBuildIdentityModuleV1(
@@ -46,6 +59,22 @@ function loadSelectedBuildIdentityModuleV1(
     collect: (root: string) => collect(root) as Promise<unknown>,
     createPlugin: (input: { readonly root: string; readonly initialIdentity: unknown }) =>
       createPlugin(input) as Plugin,
+  });
+}
+
+function loadSourceGraphModuleV1(): SourceGraphModuleV1 {
+  const loaded: unknown = requireFromConfigV1(
+    resolve(repositoryRoot, "scripts/ui/source-graph-plugin.mts"),
+  );
+  if (typeof loaded !== "object" || loaded === null) {
+    throw new TypeError("application source graph collector module is invalid");
+  }
+  const collect = Reflect.get(loaded, "collectApplicationGraphV1");
+  if (typeof collect !== "function") {
+    throw new TypeError("application source graph collector module is invalid");
+  }
+  return Object.freeze({
+    collect: (input: SourceGraphInputV1) => collect(input) as Plugin,
   });
 }
 
@@ -82,9 +111,11 @@ export default defineConfig(async ({ mode }) => {
   if (application === undefined) {
     throw new TypeError(`unsupported Project Tavern build mode: ${mode}`);
   }
-  const storyRoot = dirname(application.html);
-  const htmlName = basename(application.html);
+  const html = resolve(repositoryRoot, application.htmlEntry);
+  const storyRoot = dirname(html);
+  const htmlName = basename(html);
   const identity = loadSelectedBuildIdentityModuleV1(application);
+  const sourceGraph = loadSourceGraphModuleV1();
   const initialBuildIdentity = await identity.collect(repositoryRoot);
   return {
     root: storyRoot,
@@ -133,12 +164,18 @@ export default defineConfig(async ({ mode }) => {
           output.fileName = "index.html";
         },
       },
+      sourceGraph.collect({
+        applicationId: mode as keyof typeof applicationRoots,
+        repositoryRoot,
+        htmlEntry: application.htmlEntry,
+        entry: application.entry,
+      }),
     ],
     build: {
       outDir: application.outDir,
       emptyOutDir: true,
       sourcemap: false,
-      rollupOptions: { input: application.html },
+      rollupOptions: { input: html },
     },
   } satisfies UserConfig;
 });
