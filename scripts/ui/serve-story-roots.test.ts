@@ -8,6 +8,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { uiTargetsV1 } from "../../engine/packages/web/e2e/ui-targets.js";
+
 import {
   createStoryRootServerFixtureV1,
   createStoryRootServerV1,
@@ -84,6 +86,27 @@ async function startInvalidStoryRootServerV1(input: string, repositoryRoot: stri
 }
 
 describe.sequential("prebuilt Story root server", () => {
+  it("serves exactly two distinct loopback targets without building", () => {
+    expect(uiTargetsV1).toEqual({
+      e2e: {
+        applicationId: "e2e-web",
+        root: "dist/e2e",
+        host: "127.0.0.1",
+        port: 41731,
+      },
+      poc: {
+        applicationId: "poc-web",
+        root: "dist/poc",
+        host: "127.0.0.1",
+        port: 41732,
+      },
+    });
+    expect(storyRootServerTargetsV1).toEqual(uiTargetsV1);
+    expect(Object.isFrozen(uiTargetsV1)).toBe(true);
+    expect(Object.values(uiTargetsV1).every((target) => Object.isFrozen(target))).toBe(true);
+    expect(uiTargetsV1.e2e.port).not.toBe(uiTargetsV1.poc.port);
+  });
+
   it("serves exactly the two prebuilt Story roots on loopback", async () => {
     const repositoryRoot = await createRepositoryFixtureV1();
     const fixture = await createStoryRootServerFixtureV1(repositoryRoot);
@@ -179,6 +202,23 @@ describe.sequential("prebuilt Story root server", () => {
     const server = trackServerV1(await createStoryRootServerV1("dist/e2e", repositoryRoot));
     await expect(requestRawV1(server, "/assets/")).resolves.toMatchObject({ status: 404 });
     await expect(requestRawV1(server, "/", "POST")).resolves.toMatchObject({ status: 405 });
+  });
+
+  it("serves index only for the legal hash-router entry path", async () => {
+    const repositoryRoot = await createRepositoryFixtureV1();
+    const server = trackServerV1(await createStoryRootServerV1("dist/e2e", repositoryRoot));
+
+    await expect(requestRawV1(server, "/#/play")).resolves.toMatchObject({ status: 200 });
+    await expect(requestRawV1(server, "/missing#/play")).resolves.toMatchObject({ status: 404 });
+  });
+
+  it("refuses a second server on an occupied fixed target port", async () => {
+    const repositoryRoot = await createRepositoryFixtureV1();
+    trackServerV1(await createStoryRootServerV1("dist/e2e", repositoryRoot));
+
+    await expect(createStoryRootServerV1("dist/e2e", repositoryRoot)).rejects.toMatchObject({
+      code: "ui_server.port_unavailable",
+    });
   });
 
   it("allows the CLI to select a fixed target but not override root, host, or port", () => {

@@ -1,23 +1,28 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { lstat, readFile, realpath } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createRequire } from "node:module";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const storyRootServerBindAddressV1 = "127.0.0.1" as const;
+import type { UiTargetV1 } from "../../engine/packages/web/e2e/ui-targets.js";
 
-export const storyRootServerTargetsV1 = Object.freeze({
-  e2e: Object.freeze({
-    applicationId: "e2e-web",
-    port: 41731,
-    root: "dist/e2e",
-  }),
-  poc: Object.freeze({
-    applicationId: "poc-web",
-    port: 41732,
-    root: "dist/poc",
-  }),
-});
+const requireFromServerV1 = createRequire(import.meta.url);
+const targetModuleV1: unknown = requireFromServerV1(
+  resolve(import.meta.dirname, "../../engine/packages/web/e2e/ui-targets.ts"),
+);
+if (typeof targetModuleV1 !== "object" || targetModuleV1 === null) {
+  throw new TypeError("invalid UI target module");
+}
+const loadedUiTargetsV1: unknown = Reflect.get(targetModuleV1, "uiTargetsV1");
+if (typeof loadedUiTargetsV1 !== "object" || loadedUiTargetsV1 === null) {
+  throw new TypeError("invalid UI target map");
+}
+const uiTargetsV1 = loadedUiTargetsV1 as Readonly<Record<"e2e" | "poc", UiTargetV1>>;
+
+export const storyRootServerBindAddressV1 = uiTargetsV1.e2e.host;
+
+export const storyRootServerTargetsV1 = uiTargetsV1;
 
 export type StoryRootServerTargetNameV1 = keyof typeof storyRootServerTargetsV1;
 
@@ -331,7 +336,7 @@ export async function createStoryRootServerV1(
       server.listen(
         {
           exclusive: true,
-          host: storyRootServerBindAddressV1,
+          host: resolvedRoot.target.host,
           port: resolvedRoot.target.port,
         },
         () => {
