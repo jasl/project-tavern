@@ -44,6 +44,128 @@ interface VnChoiceControlPropsV1<TInvocation, TResult> {
   readonly semantic: VnLayerPropsV1<TInvocation, TResult>["semantic"];
 }
 
+interface FocusReturnTransitionV1 {
+  readonly opener: HTMLElement;
+  readonly ownerDocument: Document;
+  readonly logicalAnchorOrdinal: number | null;
+}
+
+const logicalFocusCandidateSelectorV1 = [
+  "a[href]",
+  "area[href]",
+  "button",
+  "input:not([type='hidden'])",
+  "select",
+  "textarea",
+  "summary",
+  "[contenteditable='true']",
+  "[tabindex]",
+].join(", ");
+
+function hasHiddenAncestorV1(element: HTMLElement): boolean {
+  const view = element.ownerDocument.defaultView;
+  for (
+    let current: HTMLElement | null = element;
+    current !== null;
+    current = current.parentElement
+  ) {
+    if (current.hidden || current.getAttribute("aria-hidden") === "true") return true;
+    const style = view?.getComputedStyle(current);
+    if (
+      style?.display === "none" ||
+      style?.visibility === "hidden" ||
+      style?.visibility === "collapse"
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isAvailableFocusTargetV1(element: HTMLElement): boolean {
+  return (
+    element.isConnected &&
+    !element.matches(":disabled") &&
+    element.closest("[inert], [aria-disabled='true']") === null &&
+    !hasHiddenAncestorV1(element)
+  );
+}
+
+function readLogicalFocusCandidatesV1(
+  ownerDocument: Document,
+  closingScope: HTMLElement | null,
+): readonly HTMLElement[] {
+  return Object.freeze(
+    [...ownerDocument.querySelectorAll<HTMLElement>(logicalFocusCandidateSelectorV1)].filter(
+      (candidate) => candidate.tabIndex >= 0 && closingScope?.contains(candidate) !== true,
+    ),
+  );
+}
+
+function captureLogicalFocusAnchorV1(
+  opener: HTMLElement | null,
+  closingScope: HTMLElement | null,
+): number | null {
+  if (opener === null) return null;
+  const ordinal = readLogicalFocusCandidatesV1(opener.ownerDocument, closingScope).indexOf(opener);
+  return ordinal < 0 ? null : ordinal;
+}
+
+function createFocusReturnTransitionV1(
+  opener: HTMLElement,
+  closingScope: HTMLElement | null,
+): FocusReturnTransitionV1 {
+  const logicalAnchorOrdinal = captureLogicalFocusAnchorV1(opener, closingScope);
+  return Object.freeze({
+    opener,
+    ownerDocument: opener.ownerDocument,
+    logicalAnchorOrdinal,
+  });
+}
+
+function captureCurrentFocusReturnTransitionV1(
+  closingScope: HTMLElement | null,
+): FocusReturnTransitionV1 | null {
+  if (typeof document === "undefined" || typeof HTMLElement === "undefined") return null;
+  const opener = document.activeElement;
+  return opener instanceof HTMLElement && opener !== document.body
+    ? createFocusReturnTransitionV1(opener, closingScope)
+    : null;
+}
+
+function resolveLiveFocusReturnTargetV1(
+  transition: FocusReturnTransitionV1,
+  closingScope: HTMLElement | null,
+): HTMLElement | undefined {
+  const candidates = readLogicalFocusCandidatesV1(transition.ownerDocument, closingScope);
+  const liveOpenerIndex = candidates.indexOf(transition.opener);
+  if (
+    (liveOpenerIndex >= 0 || transition.logicalAnchorOrdinal === null) &&
+    isAvailableFocusTargetV1(transition.opener)
+  ) {
+    return transition.opener;
+  }
+  const fallbackStart =
+    liveOpenerIndex >= 0 ? liveOpenerIndex + 1 : transition.logicalAnchorOrdinal;
+  if (fallbackStart === null) return undefined;
+  return candidates.slice(fallbackStart).find(isAvailableFocusTargetV1);
+}
+
+function restoreFocusAfterClosingCommitV1(
+  transition: FocusReturnTransitionV1,
+  closingScope: HTMLElement | null,
+): void {
+  const activeElement = transition.ownerDocument.activeElement;
+  if (
+    activeElement !== null &&
+    activeElement !== transition.ownerDocument.body &&
+    (closingScope === null || !closingScope.contains(activeElement))
+  ) {
+    return;
+  }
+  resolveLiveFocusReturnTargetV1(transition, closingScope)?.focus({ preventScroll: true });
+}
+
 function VnChoiceControlV1<TInvocation, TResult>(
   props: VnChoiceControlPropsV1<TInvocation, TResult>,
 ): ReactElement {
@@ -85,6 +207,8 @@ export function VnLayerV1<TInvocation, TResult>(
   props: VnLayerPropsV1<TInvocation, TResult>,
 ): ReactElement | null {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const focusReturnTransitionRef = useRef<FocusReturnTransitionV1 | null>(null);
+  const activeFocusCommitRef = useRef(false);
   const [dialogElement, setDialogElement] = useState<HTMLDivElement | null>(null);
   const setDialog = useCallback((element: HTMLDivElement | null): void => {
     dialogRef.current = element;
@@ -92,6 +216,24 @@ export function VnLayerV1<TInvocation, TResult>(
   }, []);
   useDevDockPortalTargetRegistrationV1("narrative", props.active ? dialogElement : null);
   useStageInputIsolationV1("narrative", props.active);
+
+  useLayoutEffect(() => {
+    if (props.active || typeof document === "undefined" || typeof HTMLElement === "undefined") {
+      return undefined;
+    }
+    focusReturnTransitionRef.current = captureCurrentFocusReturnTransitionV1(null);
+    const captureFocusedCandidate = (event: FocusEvent): void => {
+      if (
+        !(event.target instanceof HTMLElement) ||
+        event.target === event.target.ownerDocument.body
+      ) {
+        return;
+      }
+      focusReturnTransitionRef.current = createFocusReturnTransitionV1(event.target, null);
+    };
+    document.addEventListener("focusin", captureFocusedCandidate);
+    return () => document.removeEventListener("focusin", captureFocusedCandidate);
+  }, [props.active]);
 
   useLayoutEffect(() => {
     if (!props.active) return undefined;
@@ -119,24 +261,30 @@ export function VnLayerV1<TInvocation, TResult>(
   }, [props.active, props.advance, props.inputRouter, props.semantic]);
 
   useLayoutEffect(() => {
-    if (!props.active) return undefined;
-    const previouslyFocusedElement =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!props.active) {
+      activeFocusCommitRef.current = false;
+      return undefined;
+    }
+    activeFocusCommitRef.current = true;
     const dialog = dialogRef.current;
+    const focusReturnTransition =
+      focusReturnTransitionRef.current ?? captureCurrentFocusReturnTransitionV1(dialog);
+    if (focusReturnTransition !== null) {
+      focusReturnTransitionRef.current = focusReturnTransition;
+    }
     const firstEnabledControl = dialog?.querySelector<HTMLButtonElement>("button:not(:disabled)");
-    (firstEnabledControl ?? dialog)?.focus();
+    (firstEnabledControl ?? dialog)?.focus({ preventScroll: true });
 
     return () => {
-      if (previouslyFocusedElement?.isConnected !== true) return;
-      const activeElement = document.activeElement;
-      if (
-        activeElement !== null &&
-        activeElement !== document.body &&
-        (dialog === null || !dialog.contains(activeElement))
-      ) {
-        return;
-      }
-      previouslyFocusedElement.focus();
+      activeFocusCommitRef.current = false;
+      if (focusReturnTransition === null) return;
+      queueMicrotask(() => {
+        if (activeFocusCommitRef.current) return;
+        if (focusReturnTransitionRef.current === focusReturnTransition) {
+          focusReturnTransitionRef.current = null;
+        }
+        restoreFocusAfterClosingCommitV1(focusReturnTransition, dialog);
+      });
     };
   }, [props.active]);
 

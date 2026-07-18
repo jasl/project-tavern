@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import "@testing-library/jest-dom/vitest";
+import type { GameHostV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
 import { createWebHostV1 } from "@sillymaker/web";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -47,13 +48,28 @@ async function createRootFixtureV1(
     load: async () => Object.freeze({ kind: "failed" as const, code: "fetch_failed" as const }),
     dispose() {},
   }) satisfies RuntimeAssetLoaderV1;
+  const download = vi.fn(
+    async (_request: Parameters<GameHostV1["files"]["download"]>[0]) => undefined,
+  );
+  const host = createWebHostV1({
+    records: createMemoryHostRecordStoreV1(),
+    files: Object.freeze({
+      selectOne: async () => Object.freeze({ kind: "cancelled" as const }),
+      download,
+    }),
+    seeds: [0x0002_3049],
+    uuids: ["00000000-0000-4000-8000-000000000402"],
+    now: () => "2026-07-17T00:00:00.000Z",
+  });
+  const reloadApplication = vi.fn();
   const runtime = await createE2ePresentationRuntimeV1({
     resolved: resolveStoryForTestV1(e2eStoryEntryV1),
-    host: createWebHostV1({
-      records: createMemoryHostRecordStoreV1(),
-      seeds: [0x0002_3049],
-      uuids: ["00000000-0000-4000-8000-000000000402"],
-      now: () => "2026-07-17T00:00:00.000Z",
+    host: Object.freeze({
+      ...host,
+      navigation: Object.freeze({
+        reloadApplication,
+        requestExit: vi.fn(),
+      }),
     }),
     environment: Object.freeze({
       pointerTarget: container,
@@ -66,7 +82,7 @@ async function createRootFixtureV1(
     }),
     ...(input.loadToolingUi === undefined ? {} : { loadToolingUi: input.loadToolingUi }),
   });
-  return Object.freeze({ container, runtime });
+  return Object.freeze({ container, download, reloadApplication, runtime });
 }
 
 describe("E2eApplicationRootV1", () => {
@@ -292,6 +308,66 @@ describe("E2eApplicationRootV1", () => {
       rendered.unmount();
       unsubscribePresentation();
       unsubscribeSemantic();
+      fixture.runtime.dispose();
+    }
+  });
+
+  it("composes the atomic fault pause with player-safe export, Host reload, and DevDock", async () => {
+    const fixture = await createRootFixtureV1("#/play", {
+      capabilitySearch: "?capability=debug_tools&capability=cheats",
+    });
+    const user = userEvent.setup();
+    const rendered = render(<E2eApplicationRootV1 runtime={fixture.runtime} />, {
+      container: fixture.container,
+    });
+
+    try {
+      await user.click(await screen.findByRole("button", { name: "打开右侧开发工具" }));
+      await user.click(screen.getByRole("button", { name: "调试命令" }));
+      const faultControl = screen.getByRole("region", { name: "debug.e2e.test.fault" });
+      await user.click(within(faultControl).getByRole("checkbox"));
+      await user.click(within(faultControl).getByRole("button", { name: "执行调试命令" }));
+
+      const failureDialog = await screen.findByRole("dialog", { name: "界面暂时无法继续" });
+      const publication = fixture.runtime.presentation.getSnapshot();
+      expect(publication.semantic.status).toBe("fault_paused");
+      expect(fixture.runtime.application.semantic.observe()).toMatchObject({
+        revision: publication.semantic.revision,
+        status: "fault_paused",
+      });
+      expect(screen.getByRole("application", { name: "SillyMaker 引擎测试" })).toHaveAttribute(
+        "data-semantic-revision",
+        String(publication.semantic.revision),
+      );
+      expect(
+        screen
+          .getByRole("complementary", { name: "右侧开发工具" })
+          .closest('[data-blocking-focus-scope="fault_pause"]'),
+      ).toBe(failureDialog);
+
+      await user.click(within(failureDialog).getByRole("button", { name: "导出调试包" }));
+      await waitFor(() => expect(fixture.download).toHaveBeenCalledOnce());
+      const downloaded = fixture.download.mock.calls[0]?.[0];
+      if (downloaded === undefined) throw new TypeError("missing player-safe diagnostic download");
+      expect(JSON.parse(new TextDecoder().decode(downloaded.bytes))).toMatchObject({
+        failure: {
+          command: { source: "debug", command: { kind: "debug.e2e.test.fault" } },
+          fault: { code: "e2e.test.fault" },
+        },
+      });
+
+      expect(fixture.runtime.navigation.reloadApplication).toBe(fixture.reloadApplication);
+      const currentFailureDialog = screen.getByRole("dialog", { name: "界面暂时无法继续" });
+      const reloadApplication = within(currentFailureDialog).getByRole("button", {
+        name: "重新加载应用",
+      });
+      expect(reloadApplication.closest('[data-blocking-focus-scope="fault_pause"]')).toBe(
+        currentFailureDialog,
+      );
+      await user.click(reloadApplication);
+      expect(fixture.reloadApplication).toHaveBeenCalledOnce();
+    } finally {
+      rendered.unmount();
       fixture.runtime.dispose();
     }
   });

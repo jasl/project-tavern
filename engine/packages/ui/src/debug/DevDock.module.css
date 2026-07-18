@@ -2,6 +2,7 @@
   position: absolute;
   z-index: calc(var(--silly-stage-z-system) + 10);
   inset: 0;
+  min-inline-size: 0;
   pointer-events: none;
 }
 
@@ -16,23 +17,40 @@
   pointer-events: none;
 }
 
+.dev-dock__focus-scope {
+  position: absolute;
+  inset: 0;
+  min-inline-size: 0;
+  pointer-events: none;
+}
+
 .dev-dock__launcher {
   position: absolute;
-  inset-block-start: 50%;
+  top: 50%;
   min-inline-size: var(--silly-target-min-size);
   min-block-size: var(--silly-target-min-size);
+  block-size: var(--silly-target-min-size);
   padding: var(--silly-space-2);
+  overflow-wrap: normal;
+  white-space: nowrap;
   writing-mode: vertical-rl;
   translate: 0 -50%;
   pointer-events: auto;
 }
 
 .dev-dock__launcher[data-side="left"] {
-  inset-inline-start: 0;
+  right: auto;
+  left: 0;
 }
 
 .dev-dock__launcher[data-side="right"] {
-  inset-inline-end: 0;
+  right: 0;
+  left: auto;
+}
+
+.dev-dock__launcher[aria-expanded="true"] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .dev-dock__rail {
@@ -41,6 +59,9 @@
   inset-block: var(--silly-space-2);
   display: grid;
   inline-size: min(24rem, calc(100% - 4rem));
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  box-sizing: border-box;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: var(--silly-space-2);
   padding: var(--silly-space-3);
@@ -65,6 +86,7 @@
 .dev-dock__header,
 .dev-dock__tabs {
   display: flex;
+  min-inline-size: 0;
   flex-wrap: wrap;
   gap: var(--silly-space-2);
   align-items: center;
@@ -72,7 +94,9 @@
 }
 
 .dev-dock__header h2 {
+  min-inline-size: 0;
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: 1.125rem;
 }
 
@@ -83,7 +107,10 @@
 .dev-dock__tabs button,
 .dev-dock__header button {
   min-inline-size: var(--silly-target-min-size);
+  max-inline-size: 100%;
   min-block-size: var(--silly-target-min-size);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .dev-dock__authority-reason {
@@ -93,8 +120,10 @@
 }
 
 .dev-dock__panel {
+  min-inline-size: 0;
   min-block-size: 0;
   overflow: auto;
+  overflow-wrap: anywhere;
 }
 
 .dev-dock__empty {
@@ -102,14 +131,28 @@
   color: var(--silly-color-text-muted);
 }
 
+:global([data-blocking-focus-scope]):has(> .dev-dock) {
+  padding-inline-start: calc(
+    var(--silly-safe-area-inline-start) + var(--silly-target-min-size) + 5 * var(--silly-space-2)
+  );
+  padding-inline-end: calc(
+    var(--silly-safe-area-inline-end) + var(--silly-target-min-size) + 5 * var(--silly-space-2)
+  );
+}
+
 @media (aspect-ratio < 4 / 3) {
+  .dev-dock[data-devdock-open="true"][data-devdock-portrait="true"] .dev-dock__launchers {
+    display: none;
+  }
+
   .dev-dock__rail {
-    position: fixed;
+    position: absolute;
     inset: max(var(--silly-space-2), var(--silly-safe-area-block-start))
       max(var(--silly-space-2), var(--silly-safe-area-inline-end))
       max(var(--silly-space-2), var(--silly-safe-area-block-end))
       max(var(--silly-space-2), var(--silly-safe-area-inline-start));
     inline-size: auto;
+    max-inline-size: none;
   }
 }
 

@@ -4,8 +4,8 @@ import "@testing-library/jest-dom/vitest";
 import { parseNonNegativeSafeInteger } from "@sillymaker/base";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { useLayoutEffect } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode, Suspense, startTransition, useInsertionEffect, useLayoutEffect } from "react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -109,6 +109,40 @@ function DevDockPortalSelectionProbeV1() {
       data-target-scope={target?.dataset.blockingFocusScope ?? "none"}
     />
   );
+}
+
+function AtomicBrowserFocusClearProbeV1(props: { readonly active: boolean }) {
+  useInsertionEffect(() => {
+    if (!props.active) return;
+    document.body.tabIndex = -1;
+    document.body.focus({ preventScroll: true });
+    document.body.removeAttribute("tabindex");
+  }, [props.active]);
+  return null;
+}
+
+function AtomicNarrativeFocusProbeV1(props: {
+  readonly active: boolean;
+  readonly openerDisabled: boolean;
+  readonly vnProps: ReturnType<typeof createVnPropsV1>;
+}) {
+  return (
+    <>
+      <button type="button" disabled={props.openerDisabled}>
+        打开叙事
+      </button>
+      <button type="button">可用后继</button>
+      <AtomicBrowserFocusClearProbeV1 active={props.active && props.openerDisabled} />
+      <VnLayerV1 {...props.vnProps} active={props.active} />
+    </>
+  );
+}
+
+const neverSettlingSuspenseV1 = new Promise<never>(() => undefined);
+
+function AbandonedNarrativeRenderProbeV1(props: { readonly suspend: boolean }) {
+  if (props.suspend) throw neverSettlingSuspenseV1;
+  return null;
 }
 
 describe("VnLayerV1 semantic controls", () => {
@@ -361,7 +395,29 @@ describe("VnLayerV1 narrative InputContext", () => {
 });
 
 describe("VnLayerV1 focus return", () => {
-  it("restores the exact previously focused HTMLElement after becoming inactive", () => {
+  it("restores an exact programmatic opener outside the sequential Tab order", async () => {
+    const props = createVnPropsV1();
+    render(
+      <button type="button" tabIndex={-1}>
+        打开叙事
+      </button>,
+    );
+    const opener = screen.getByRole("button", { name: "打开叙事" });
+    opener.focus();
+    const rendered = render(<VnLayerV1 {...props} active={false} />);
+
+    rendered.rerender(<VnLayerV1 {...props} active />);
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+
+    const openerFocus = vi.spyOn(opener, "focus");
+    rendered.rerender(<VnLayerV1 {...props} active={false} />);
+    await waitFor(() => {
+      expect(opener).toHaveFocus();
+      expect(openerFocus).toHaveBeenCalledWith({ preventScroll: true });
+    });
+  });
+
+  it("restores the exact previously focused HTMLElement after becoming inactive", async () => {
     const props = createVnPropsV1();
     render(<button type="button">打开叙事</button>);
     const opener = screen.getByRole("button", { name: "打开叙事" });
@@ -371,11 +427,223 @@ describe("VnLayerV1 focus return", () => {
     rendered.rerender(<VnLayerV1 {...props} active />);
     expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
 
+    const openerFocus = vi.spyOn(opener, "focus");
     rendered.rerender(<VnLayerV1 {...props} active={false} />);
-    expect(opener).toHaveFocus();
+    await waitFor(() => {
+      expect(opener).toHaveFocus();
+      expect(openerFocus).toHaveBeenCalledWith({ preventScroll: true });
+    });
   });
 
-  it("restores the exact previously focused HTMLElement when unmounted while active", () => {
+  it("restores the first still-enabled logical successor when the opener becomes disabled", async () => {
+    const props = createVnPropsV1();
+    const controls = render(
+      <>
+        <button key="opener" type="button">
+          打开叙事
+        </button>
+        <button key="hidden" type="button" hidden>
+          隐藏后继
+        </button>
+        <div key="inert" inert>
+          <button type="button">惰性后继</button>
+        </div>
+        <button key="disconnected" type="button">
+          已断开后继
+        </button>
+        <button key="disabled" type="button" disabled>
+          禁用后继
+        </button>
+        <button key="available" type="button">
+          可用后继
+        </button>
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "打开叙事" });
+    const successor = screen.getByRole("button", { name: "可用后继" });
+    opener.focus();
+
+    const rendered = render(<VnLayerV1 {...props} />);
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+
+    opener.setAttribute("disabled", "");
+    controls.rerender(
+      <>
+        <button key="opener" type="button" disabled>
+          打开叙事
+        </button>
+        <button key="hidden" type="button" hidden>
+          隐藏后继
+        </button>
+        <div key="inert" inert>
+          <button type="button">惰性后继</button>
+        </div>
+        <button key="disabled" type="button" disabled>
+          禁用后继
+        </button>
+        <button key="available" type="button">
+          可用后继
+        </button>
+      </>,
+    );
+    const successorFocus = vi.spyOn(successor, "focus");
+    rendered.unmount();
+
+    await waitFor(() => {
+      expect(successor).toHaveFocus();
+      expect(successorFocus).toHaveBeenCalledWith({ preventScroll: true });
+    });
+  });
+
+  it("captures the opener before an atomic active commit disables it and clears browser focus", async () => {
+    const props = createVnPropsV1();
+    const rendered = render(
+      <StrictMode>
+        <AtomicNarrativeFocusProbeV1 active={false} openerDisabled={false} vnProps={props} />
+      </StrictMode>,
+    );
+    const opener = screen.getByRole("button", { name: "打开叙事" });
+    opener.focus();
+
+    rendered.rerender(
+      <StrictMode>
+        <AtomicNarrativeFocusProbeV1 active openerDisabled vnProps={props} />
+      </StrictMode>,
+    );
+    expect(opener).toBeDisabled();
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+
+    const successor = screen.getByRole("button", { name: "可用后继" });
+    const successorFocus = vi.spyOn(successor, "focus");
+    rendered.rerender(
+      <StrictMode>
+        <AtomicNarrativeFocusProbeV1 active={false} openerDisabled vnProps={props} />
+      </StrictMode>,
+    );
+
+    await waitFor(() => {
+      expect(successor).toHaveFocus();
+      expect(successorFocus).toHaveBeenCalledWith({ preventScroll: true });
+    });
+  });
+
+  it("resolves the logical successor from live DOM after the external controls are replaced", async () => {
+    const props = createVnPropsV1();
+    const controls = render(
+      <div key="opening-controls">
+        <button type="button">打开叙事</button>
+        <button type="button">可用后继</button>
+      </div>,
+    );
+    const originalOpener = screen.getByRole("button", { name: "打开叙事" });
+    originalOpener.focus();
+
+    const rendered = render(<VnLayerV1 {...props} />);
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+
+    controls.rerender(
+      <div key="replacement-controls">
+        <button type="button" disabled>
+          打开叙事
+        </button>
+        <button type="button">可用后继</button>
+      </div>,
+    );
+    expect(originalOpener.isConnected).toBe(false);
+    const liveSuccessor = screen.getByRole("button", { name: "可用后继" });
+    const successorFocus = vi.spyOn(liveSuccessor, "focus");
+
+    rendered.unmount();
+
+    await waitFor(() => {
+      expect(liveSuccessor).toHaveFocus();
+      expect(successorFocus).toHaveBeenCalledWith({ preventScroll: true });
+    });
+  });
+
+  it("does not skip the successor that shifts into the opener ordinal after removal", async () => {
+    const props = createVnPropsV1();
+    const controls = render(
+      <>
+        <button key="opener" type="button">
+          打开叙事
+        </button>
+        <button key="successor" type="button">
+          可用后继
+        </button>
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "打开叙事" });
+    opener.focus();
+
+    const rendered = render(<VnLayerV1 {...props} />);
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+
+    controls.rerender(
+      <button key="successor" type="button">
+        可用后继
+      </button>,
+    );
+    expect(opener.isConnected).toBe(false);
+    const liveSuccessor = screen.getByRole("button", { name: "可用后继" });
+    const successorFocus = vi.spyOn(liveSuccessor, "focus");
+
+    rendered.unmount();
+
+    await waitFor(() => {
+      expect(liveSuccessor).toHaveFocus();
+      expect(successorFocus).toHaveBeenCalledWith({ preventScroll: true });
+    });
+  });
+
+  it("rechecks transient inert successors after the closing commit", async () => {
+    const props = createVnPropsV1();
+    render(
+      <>
+        <button type="button">打开叙事</button>
+        <div data-testid="transient-inert-successor" inert>
+          <button type="button">HUD 后继</button>
+        </div>
+        <button type="button">较晚后继</button>
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "打开叙事" });
+    const hudSuccessor = screen.getByRole("button", { name: "HUD 后继", hidden: true });
+    const laterSuccessor = screen.getByRole("button", { name: "较晚后继" });
+    opener.focus();
+
+    const rendered = render(<VnLayerV1 {...props} />);
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+
+    opener.setAttribute("disabled", "");
+    const transientInertScope = screen.getByTestId("transient-inert-successor");
+    queueMicrotask(() => transientInertScope.removeAttribute("inert"));
+    rendered.unmount();
+
+    await waitFor(() => expect(hudSuccessor).toHaveFocus());
+    expect(laterSuccessor).not.toHaveFocus();
+  });
+
+  it("uses the captured ordinal when a connected opener leaves the live candidate set", async () => {
+    const props = createVnPropsV1();
+    render(
+      <>
+        <button type="button">打开叙事</button>
+        <button type="button">可用后继</button>
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "打开叙事" });
+    const successor = screen.getByRole("button", { name: "可用后继" });
+    opener.focus();
+
+    const rendered = render(<VnLayerV1 {...props} />);
+    opener.tabIndex = -1;
+    rendered.unmount();
+
+    await waitFor(() => expect(successor).toHaveFocus());
+  });
+
+  it("restores the exact previously focused HTMLElement when unmounted while active", async () => {
     const props = createVnPropsV1();
     render(<button type="button">打开叙事</button>);
     const opener = screen.getByRole("button", { name: "打开叙事" });
@@ -385,10 +653,61 @@ describe("VnLayerV1 focus return", () => {
     expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
     rendered.unmount();
 
-    expect(opener).toHaveFocus();
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 
-  it("does not steal focus from a higher blocking surface while becoming inactive", () => {
+  it("ignores StrictMode replay cleanup while Narrative remains active", async () => {
+    const props = createVnPropsV1();
+    render(<button type="button">打开叙事</button>);
+    const opener = screen.getByRole("button", { name: "打开叙事" });
+    opener.focus();
+
+    const rendered = render(
+      <StrictMode>
+        <VnLayerV1 {...props} />
+      </StrictMode>,
+    );
+    await new Promise<void>((complete) => queueMicrotask(complete));
+
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+    rendered.unmount();
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("ignores focus captured by an abandoned Suspense render", async () => {
+    const props = createVnPropsV1();
+    render(
+      <>
+        <button type="button">候选 A</button>
+        <button type="button">候选 B</button>
+      </>,
+    );
+    const candidateA = screen.getByRole("button", { name: "候选 A" });
+    const candidateB = screen.getByRole("button", { name: "候选 B" });
+    const tree = (active: boolean, suspend: boolean) => (
+      <Suspense fallback={<p>挂起</p>}>
+        <VnLayerV1 {...props} active={active} />
+        <AbandonedNarrativeRenderProbeV1 suspend={suspend} />
+      </Suspense>
+    );
+    const rendered = render(tree(false, false));
+    candidateA.focus();
+
+    act(() => {
+      startTransition(() => rendered.rerender(tree(true, true)));
+    });
+    expect(screen.queryByText("挂起")).not.toBeInTheDocument();
+    candidateB.focus();
+
+    rendered.rerender(tree(true, false));
+    expect(screen.getByRole("button", { name: "谨慎询问" })).toHaveFocus();
+    rendered.rerender(tree(false, false));
+
+    await waitFor(() => expect(candidateB).toHaveFocus());
+    expect(candidateA).not.toHaveFocus();
+  });
+
+  it("does not steal focus from a higher blocking surface while becoming inactive", async () => {
     const props = createVnPropsV1();
     render(
       <>
@@ -406,9 +725,11 @@ describe("VnLayerV1 focus return", () => {
     systemControl.focus();
     rendered.unmount();
 
-    expect(systemControl).toHaveFocus();
-    expect(opener).not.toHaveFocus();
-    expect(openerFocus).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(systemControl).toHaveFocus();
+      expect(opener).not.toHaveFocus();
+      expect(openerFocus).not.toHaveBeenCalled();
+    });
   });
 });
 

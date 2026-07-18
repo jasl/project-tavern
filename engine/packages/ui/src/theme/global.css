@@ -18,21 +18,32 @@
 }
 
 body {
-  min-inline-size: 20rem;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   min-block-size: 100dvh;
   margin: 0;
+  overflow-wrap: anywhere;
   background: var(--silly-color-canvas);
 }
 
 :where(button, input, progress, select, textarea) {
+  max-inline-size: 100%;
+  min-inline-size: 0;
   color: inherit;
   font: inherit;
+}
+
+:where(button) {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .silly-button,
 .silly-icon-button {
   min-block-size: var(--silly-target-min-size);
   min-inline-size: var(--silly-target-min-size);
+  max-inline-size: 100%;
   border: 1px solid var(--silly-color-border);
   border-radius: var(--silly-radius-control);
   color: var(--silly-color-accent-text);

@@ -126,6 +126,7 @@ export interface E2ePresentationRuntimeV1 {
   readonly resolvedGame: E2eResolvedGameV1;
   readonly application: E2eGameApplicationPortV1;
   readonly capabilitySession: RuntimeCapabilitySessionOverlayV1;
+  readonly navigation: GameHostV1["navigation"];
   readonly playerUi: ReturnType<typeof createPlayerUiPortsV1>;
   readonly contentPreference: ContentPreferencePortV1;
   readonly uiState: ReadonlyViewSourceV1<E2ePresentationUiStateV1>;
@@ -609,6 +610,7 @@ export async function createE2ePresentationRuntimeV1(
       resolvedGame: input.resolved,
       application,
       capabilitySession,
+      navigation: input.host.navigation,
       playerUi,
       contentPreference,
       uiState,

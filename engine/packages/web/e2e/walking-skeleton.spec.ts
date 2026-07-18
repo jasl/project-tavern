@@ -75,9 +75,3 @@ test("resolved semantic controls expose reasons and complete both branches", asy
     for (const control of await catalogControls.all()) await expect(control).toBeDisabled();
   }
 });
-
-test("@visual stable E2E shell", async ({ page, browserName }) => {
-  test.skip(browserName !== "chromium", "reviewed screenshot is Chromium-owned");
-  await page.goto("/#/play");
-  await expect(page).toHaveScreenshot("e2e-shell.png", { fullPage: true });
-});

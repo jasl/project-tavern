@@ -6,9 +6,12 @@
   display: grid;
   overflow: hidden;
   inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   min-block-size: 100%;
   block-size: 100dvh;
   place-items: center;
+  overflow-wrap: anywhere;
   color: var(--silly-color-text);
   background: var(--silly-color-canvas);
 }
@@ -17,6 +20,7 @@
   position: absolute;
   z-index: 0;
   inset: 0;
+  min-inline-size: 0;
   overflow: hidden;
   pointer-events: none;
   user-select: none;
@@ -26,13 +30,48 @@
   position: absolute;
   z-index: calc(var(--silly-stage-z-system) + 10);
   inset: 0;
+  min-inline-size: 0;
   overflow: hidden;
   pointer-events: none;
 }
 
+.game-shell [data-stage-layer="hud"] {
+  align-content: start;
+  row-gap: var(--silly-space-2);
+}
+
+.game-shell [data-stage-layer="hud"] > [data-semantic-action-catalog="true"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--silly-space-2);
+  justify-self: center;
+  justify-content: center;
+  inline-size: fit-content;
+  max-inline-size: min(100%, 48rem);
+  min-inline-size: 0;
+  margin-block-start: calc(var(--silly-target-min-size) + var(--silly-space-2));
+}
+
+.game-shell [data-semantic-action-catalog="true"] > * {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.game-shell [data-stage-layer="system"] > [data-system-dialog-host-content="true"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--silly-space-2);
+  align-items: flex-start;
+  justify-content: flex-end;
+  inline-size: fit-content;
+  max-inline-size: min(100%, 56rem);
+  min-inline-size: 0;
+}
+
 .game-shell__top-card {
   display: grid;
-  inline-size: min(100%, 72rem);
+  justify-self: end;
+  inline-size: min(100%, 56rem);
   min-block-size: var(--silly-target-min-size);
   grid-template-columns: minmax(0, 1fr) minmax(min-content, auto) minmax(0, 1fr);
   gap: var(--silly-space-2);
@@ -60,8 +99,11 @@
 .game-shell__action {
   min-block-size: var(--silly-target-min-size);
   min-inline-size: var(--silly-target-min-size);
+  max-inline-size: 100%;
   padding-block: var(--silly-space-2);
   padding-inline: var(--silly-space-3);
+  overflow-wrap: anywhere;
+  white-space: normal;
   border: 1px solid var(--silly-color-border);
   border-radius: var(--silly-radius-control);
   color: var(--silly-color-accent-text);

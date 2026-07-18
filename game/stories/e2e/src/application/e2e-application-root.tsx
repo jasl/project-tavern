@@ -7,6 +7,7 @@ import {
   DiagnosticExportButtonV1,
   GameShell,
   OverlayHostV1,
+  RuntimeFailureDialogV1,
   SaveOverlayV1,
   SettingsLauncherV1,
   StageSceneHostV1,
@@ -322,6 +323,37 @@ function createSystemLayerV1(
   runtime: E2ePresentationRuntimeV1,
   publication: E2eRuntimePresentationPublicationV1,
 ): ReactElement {
+  const applicationTextV1 = (
+    textId: (typeof e2eApplicationTextIdsV1)[keyof typeof e2eApplicationTextIdsV1],
+  ) => runtime.presentationRead.text(textId).text;
+  const diagnosticExport = (
+    <DiagnosticExportButtonV1
+      diagnostics={runtime.playerUi.diagnostics}
+      sessionStatus={publication.semantic.status}
+      label={applicationTextV1(e2eApplicationTextIdsV1.exportDebugBundle)}
+      pendingText={applicationTextV1(e2eApplicationTextIdsV1.exportingDebugBundle)}
+      completedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExported)}
+      failedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExportFailed)}
+    />
+  );
+  if (publication.semantic.status === "fault_paused") {
+    return (
+      <RuntimeFailureDialogV1
+        title="界面暂时无法继续"
+        description="你可以重新加载应用，或先导出诊断信息。"
+        retryLabel="重试界面"
+        reloadApplicationLabel="重新加载应用"
+        requestExitLabel="退出游戏"
+        inputRouter={runtime.input}
+        actions={Object.freeze({
+          retry: null,
+          reloadApplication: () => runtime.navigation.reloadApplication(),
+          requestExit: null,
+        })}
+        diagnosticExport={diagnosticExport}
+      />
+    );
+  }
   const SystemRenderer = requireRendererV1(
     runtime.contributions,
     "system",
@@ -338,9 +370,6 @@ function createSystemLayerV1(
       presentation={runtime.presentationRead}
     />
   );
-  const applicationTextV1 = (
-    textId: (typeof e2eApplicationTextIdsV1)[keyof typeof e2eApplicationTextIdsV1],
-  ) => runtime.presentationRead.text(textId).text;
   return (
     <SystemDialogHostV1
       store={runtime.systemDialogSession}
@@ -382,14 +411,7 @@ function createSystemLayerV1(
         {applicationTextV1(e2eApplicationTextIdsV1.save)}
       </Button>
       <SettingsLauncherV1 label={applicationTextV1(e2eApplicationTextIdsV1.settings)} />
-      <DiagnosticExportButtonV1
-        diagnostics={runtime.playerUi.diagnostics}
-        sessionStatus={publication.semantic.status}
-        label={applicationTextV1(e2eApplicationTextIdsV1.exportDebugBundle)}
-        pendingText={applicationTextV1(e2eApplicationTextIdsV1.exportingDebugBundle)}
-        completedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExported)}
-        failedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExportFailed)}
-      />
+      {diagnosticExport}
     </SystemDialogHostV1>
   );
 }

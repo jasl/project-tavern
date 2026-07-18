@@ -46,6 +46,8 @@ const closedDevDockStateV1 = Object.freeze({
   rightOpen: false,
 }) satisfies DevDockOpenStateV1;
 
+const portraitDevDockMediaQueryV1 = "(aspect-ratio < 4 / 3)";
+
 function openDevDockStateV1(side: DevDockSideV1): DevDockOpenStateV1 {
   return Object.freeze({ leftOpen: side === "left", rightOpen: side === "right" });
 }
@@ -100,13 +102,30 @@ export function createDevDockContributionSetV1(
 }
 
 function focusableElementsV1(scope: HTMLElement): readonly HTMLElement[] {
+  const scopeBounds = scope.getBoundingClientRect();
+  const layoutIsMeasured =
+    scopeBounds.width > 0 || scopeBounds.height > 0 || scope.getClientRects().length > 0;
+
   return [
     ...scope.querySelectorAll<HTMLElement>(
       "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex='-1'])",
     ),
-  ].filter(
-    (element) => !element.hasAttribute("inert") && element.getAttribute("aria-hidden") !== "true",
-  );
+  ].filter((element) => {
+    if (!element.isConnected) return false;
+    if (element.closest("[hidden], [inert], [aria-hidden='true']") !== null) return false;
+
+    const view = element.ownerDocument.defaultView;
+    const style = view?.getComputedStyle(element);
+    if (style?.display === "none" || style?.visibility === "hidden") return false;
+
+    if (!layoutIsMeasured) return true;
+    const bounds = element.getBoundingClientRect();
+    return bounds.width > 0 && bounds.height > 0 && element.getClientRects().length > 0;
+  });
+}
+
+function focusWithoutScrollingV1(element: HTMLElement): void {
+  element.focus({ preventScroll: true });
 }
 
 function trapTabV1(event: KeyboardEvent<HTMLElement>): void {
@@ -114,19 +133,38 @@ function trapTabV1(event: KeyboardEvent<HTMLElement>): void {
   const controls = focusableElementsV1(event.currentTarget);
   if (controls.length === 0) {
     event.preventDefault();
-    event.currentTarget.focus();
+    focusWithoutScrollingV1(event.currentTarget);
     return;
   }
-  const first = controls[0];
-  const last = controls[controls.length - 1];
-  if (first === undefined || last === undefined) return;
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
+  const activeIndex = controls.findIndex(
+    (control) => control === event.currentTarget.ownerDocument.activeElement,
+  );
+  const nextIndex = event.shiftKey
+    ? activeIndex <= 0
+      ? controls.length - 1
+      : activeIndex - 1
+    : activeIndex < 0 || activeIndex === controls.length - 1
+      ? 0
+      : activeIndex + 1;
+  const next = controls[nextIndex];
+  if (next === undefined) return;
+  event.preventDefault();
+  focusWithoutScrollingV1(next);
+}
+
+function usePortraitDevDockLayoutV1(): boolean {
+  const [matches, setMatches] = useState(false);
+
+  useLayoutEffect(() => {
+    if (typeof window.matchMedia !== "function") return undefined;
+    const query = window.matchMedia(portraitDevDockMediaQueryV1);
+    const publish = (): void => setMatches(query.matches);
+    publish();
+    query.addEventListener("change", publish);
+    return () => query.removeEventListener("change", publish);
+  }, []);
+
+  return matches;
 }
 
 function DevDockRailV1(props: {
@@ -134,7 +172,6 @@ function DevDockRailV1(props: {
   readonly panels: readonly DevDockPanelV1[];
   readonly cheatsEnabled: boolean;
   readonly selectedPanelId: string | null;
-  readonly railRef: (element: HTMLElement | null) => void;
   onSelect(panelId: string): void;
   onClose(): void;
 }): ReactElement {
@@ -149,7 +186,6 @@ function DevDockRailV1(props: {
 
   return (
     <aside
-      ref={props.railRef}
       id={`sillymaker-dev-dock-${props.side}`}
       className={styles["dev-dock__rail"]}
       data-side={props.side}
@@ -158,9 +194,6 @@ function DevDockRailV1(props: {
       tabIndex={-1}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
-      onKeyDownCapture={(event) => {
-        trapTabV1(event);
-      }}
     >
       <header className={styles["dev-dock__header"]}>
         <h2>{label}</h2>
@@ -218,7 +251,8 @@ export function DevDockV1(props: DevDockPropsV1): ReactElement | null {
   const [selectedRight, setSelectedRight] = useState<string | null>(rightPanels[0]?.id ?? null);
   const leftLauncherRef = useRef<HTMLButtonElement>(null);
   const rightLauncherRef = useRef<HTMLButtonElement>(null);
-  const railRef = useRef<HTMLElement | null>(null);
+  const focusScopeRef = useRef<HTMLDivElement | null>(null);
+  const portraitLayout = usePortraitDevDockLayoutV1();
   const { target, surface } = useDevDockPortalTargetV1();
   const openSide: DevDockSideV1 | null = props.openState.leftOpen
     ? "left"
@@ -232,7 +266,9 @@ export function DevDockV1(props: DevDockPropsV1): ReactElement | null {
   );
   const restoreLauncherFocus = useCallback((side: DevDockSideV1): void => {
     const launcher = side === "left" ? leftLauncherRef.current : rightLauncherRef.current;
-    queueMicrotask(() => launcher?.isConnected === true && launcher.focus());
+    queueMicrotask(() => {
+      if (launcher?.isConnected === true) focusWithoutScrollingV1(launcher);
+    });
   }, []);
   const closeRail = useCallback((): void => {
     if (openSide === null) return;
@@ -269,9 +305,18 @@ export function DevDockV1(props: DevDockPropsV1): ReactElement | null {
 
   useLayoutEffect(() => {
     if (openSide === null) return;
-    const scope = railRef.current;
-    (scope === null ? null : (focusableElementsV1(scope)[0] ?? scope))?.focus();
+    const scope = focusScopeRef.current;
+    if (scope !== null) focusWithoutScrollingV1(focusableElementsV1(scope)[0] ?? scope);
   }, [openSide, target]);
+
+  useLayoutEffect(() => {
+    const removeFromTabOrder = portraitLayout && openSide !== null;
+    for (const launcher of [leftLauncherRef.current, rightLauncherRef.current]) {
+      if (launcher === null) continue;
+      if (removeFromTabOrder) launcher.setAttribute("tabindex", "-1");
+      else launcher.removeAttribute("tabindex");
+    }
+  }, [openSide, portraitLayout, target]);
 
   useLayoutEffect(() => {
     if (selectedLeft !== null && leftPanels.some((panel) => panel.id === selectedLeft)) return;
@@ -293,6 +338,7 @@ export function DevDockV1(props: DevDockPropsV1): ReactElement | null {
       data-devdock-surface={surface}
       data-devdock-escape-owner={openSide === null ? undefined : "true"}
       data-devdock-open={openSide === null ? undefined : "true"}
+      data-devdock-portrait={portraitLayout ? "true" : undefined}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
       onKeyDownCapture={(event) => {
@@ -309,17 +355,32 @@ export function DevDockV1(props: DevDockPropsV1): ReactElement | null {
         onOpen={(side) => publishOpenState(openDevDockStateV1(side))}
       />
       {openSide === null ? null : (
-        <DevDockRailV1
-          side={openSide}
-          panels={activePanels}
-          cheatsEnabled={capabilities.debugTools && capabilities.cheats}
-          selectedPanelId={selectedPanelId}
-          railRef={(element) => {
-            railRef.current = element;
+        <div
+          ref={focusScopeRef}
+          className={styles["dev-dock__focus-scope"]}
+          role={portraitLayout ? "dialog" : undefined}
+          aria-label={
+            portraitLayout
+              ? openSide === "left"
+                ? "左侧开发工具面板"
+                : "右侧开发工具面板"
+              : undefined
+          }
+          aria-modal={portraitLayout ? true : undefined}
+          tabIndex={-1}
+          onKeyDownCapture={(event) => {
+            trapTabV1(event);
           }}
-          onSelect={openSide === "left" ? setSelectedLeft : setSelectedRight}
-          onClose={closeRail}
-        />
+        >
+          <DevDockRailV1
+            side={openSide}
+            panels={activePanels}
+            cheatsEnabled={capabilities.debugTools && capabilities.cheats}
+            selectedPanelId={selectedPanelId}
+            onSelect={openSide === "left" ? setSelectedLeft : setSelectedRight}
+            onClose={closeRail}
+          />
+        </div>
       )}
     </div>,
     target,
