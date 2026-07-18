@@ -23,8 +23,8 @@
 
 | Production root | Presentation digest                                                       | Asset Pack evidence           | Source graph manifest digest                                              |
 | --------------- | ------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------- |
-| E2E             | `sha256:6a24a65ea908f224031747013d2a06d56ba509ea3e753f9c08a649c054209b03` | source/resolved `[]`          | `sha256:818e66bbe2da79447d303e673c5847782ed0ee6ad61a9eeac3a818e239738c2c` |
-| PoC             | `sha256:5eece36bc37f901b2b1f5d76a3c6dd18085b8d22eac2d250fcc8a38f7e8a1e20` | approved/source/resolved `[]` | `sha256:dcc3ae3af166ada4d28348a15205827916b908994c13ae3ba4e5338b897ae9ec` |
+| E2E             | `sha256:6a24a65ea908f224031747013d2a06d56ba509ea3e753f9c08a649c054209b03` | source/resolved `[]`          | `sha256:da1efc057b0c4eac903cae5e1cfa32f703d3cb415fdef95a22c9038acf5a08b9` |
+| PoC             | `sha256:5eece36bc37f901b2b1f5d76a3c6dd18085b8d22eac2d250fcc8a38f7e8a1e20` | approved/source/resolved `[]` | `sha256:458fd32b390091aef1c4b958c884c50a5e760e6b163cb49b4a0d463b672c8eda` |
 
 当前已批准 PoC Asset Pack 为空，因此没有 per-pack digest；基线捕获的是默认生产 Story 自然解析出的代码原生 fallback，不是测试注入或第二个 Artifact。
 
