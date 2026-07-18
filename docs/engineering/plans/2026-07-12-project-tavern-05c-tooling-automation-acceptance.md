@@ -1724,6 +1724,7 @@ git commit -m "test(ui): prove atomic semantic browser parity"
 - Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.ts`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
+- Modify: `.prettierignore`
 - Modify: `package.json`
 
 **Authorized pre-Task 8 owner repair:** live checkpoint inspection found that the Task 3
@@ -1744,6 +1745,14 @@ here: if the exact opener is no longer focusable, restore focus to the first sti
 successor captured outside the closing Narrative scope. Keep the original exact-opener behavior
 when it remains focusable; do not introduce a Story selector, new prop, route assumption, or
 Gameplay-dependent focus rule.
+
+**Authorized Task 8 formatting-owner repair:** the tracked `environment.v1.json` is deliberately
+encoded and strict-decoded as compact byte-exact canonical JSON by the visual runner, while the
+root Prettier check otherwise rewrites that same file to noncanonical indented bytes. The unique
+specification-preserving repair is owned here: add only the exact
+`engine/packages/web/e2e/__screenshots__/chromium/environment.v1.json` path to `.prettierignore`,
+and lock that exact exclusion in the runner test. Do not ignore the screenshot directory, other
+JSON, or any source file, and do not weaken or redefine the canonical environment decoder.
 
 **Interfaces:**
 
@@ -2039,7 +2048,7 @@ Expected: exactly the three agent-reviewed Chromium PNG baselines over the defau
 - [ ] **Step 7: Commit global accessibility and visual evidence**
 
 ```bash
-git add -- engine/packages/web/e2e/accessibility.spec.ts engine/packages/web/e2e/responsive.spec.ts engine/packages/web/e2e/reduced-motion.spec.ts engine/packages/web/e2e/visual-regression.spec.ts engine/packages/web/e2e/walking-skeleton.spec.ts engine/packages/web/e2e/__screenshots__/e2e-shell.png engine/packages/web/e2e/__screenshots__/chromium/environment.v1.json engine/packages/web/e2e/__screenshots__/chromium/poc-stage-standard.png engine/packages/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png engine/packages/web/e2e/__screenshots__/chromium/e2e-narrative.png engine/packages/web/playwright.ui.config.ts engine/packages/ui/src/shell/game-shell.tsx engine/packages/ui/src/shell/game-shell.module.css engine/packages/ui/src/theme/global.css engine/packages/ui/src/debug/DevDock.tsx engine/packages/ui/src/debug/DevDock.module.css engine/packages/ui/src/narrative/vn-layer.tsx engine/packages/ui/src/narrative/vn-layer.test.tsx game/stories/e2e/src/application/create-e2e-presentation-runtime.ts game/stories/e2e/src/application/e2e-application-root.tsx game/stories/e2e/src/application/e2e-application-root.test.tsx scripts/ui/run-visual-regression.mts scripts/ui/run-visual-regression.test.ts docs/engineering/checkpoints/phase5c-visual-baselines.md package.json
+git add -- engine/packages/web/e2e/accessibility.spec.ts engine/packages/web/e2e/responsive.spec.ts engine/packages/web/e2e/reduced-motion.spec.ts engine/packages/web/e2e/visual-regression.spec.ts engine/packages/web/e2e/walking-skeleton.spec.ts engine/packages/web/e2e/__screenshots__/e2e-shell.png engine/packages/web/e2e/__screenshots__/chromium/environment.v1.json engine/packages/web/e2e/__screenshots__/chromium/poc-stage-standard.png engine/packages/web/e2e/__screenshots__/chromium/poc-devdock-overlay.png engine/packages/web/e2e/__screenshots__/chromium/e2e-narrative.png engine/packages/web/playwright.ui.config.ts engine/packages/ui/src/shell/game-shell.tsx engine/packages/ui/src/shell/game-shell.module.css engine/packages/ui/src/theme/global.css engine/packages/ui/src/debug/DevDock.tsx engine/packages/ui/src/debug/DevDock.module.css engine/packages/ui/src/narrative/vn-layer.tsx engine/packages/ui/src/narrative/vn-layer.test.tsx game/stories/e2e/src/application/create-e2e-presentation-runtime.ts game/stories/e2e/src/application/e2e-application-root.tsx game/stories/e2e/src/application/e2e-application-root.test.tsx scripts/ui/run-visual-regression.mts scripts/ui/run-visual-regression.test.ts docs/engineering/checkpoints/phase5c-visual-baselines.md .prettierignore package.json
 git diff --cached --name-only
 git diff --cached --check
 git commit -m "test(ui): enforce global accessible presentation"
