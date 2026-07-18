@@ -589,7 +589,7 @@ describe("PoC balance", () => {
       menuRecipeLimit: 2,
       menuPortionsPerRecipeLimit: 99,
       dailyPreparationLimit: 2,
-      openingFee: 2,
+      openingFee: 1,
       levyAmount: 140,
       levyDue: { day: 7, phase: "afternoon" },
       obligationForecast: {

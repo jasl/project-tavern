@@ -243,7 +243,7 @@ export const pocBalanceV1: DeepReadonly<StoryBalanceV1> = deepFreezePocValueV1(
     menuRecipeLimit: 2,
     menuPortionsPerRecipeLimit: 99,
     dailyPreparationLimit: 2,
-    openingFee: 2,
+    openingFee: 1,
     levyAmount: 140,
     levyDue: { day: 7, phase: "afternoon" },
     obligationForecast: {

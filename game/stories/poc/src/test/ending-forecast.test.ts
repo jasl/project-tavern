@@ -211,15 +211,15 @@ describe("PoC obligation forecast and endings", () => {
       committedPlan: true,
     });
     const preview = committed.queries.previewTavernPlan(committed.plan);
-    expect(preview).toMatchObject({ allowed: true, cashDelta: { min: 3, max: 3 } });
+    expect(preview).toMatchObject({ allowed: true, cashDelta: { min: 4, max: 4 } });
     expect(committed.queries.getObligationForecast()).toEqual({
       kind: "committed_plan_conservative",
       currentCash: 70,
       levyAmount: 140,
       currentGap: 70,
       reasonId: "reason.obligation.levy_forecast",
-      projectedCashAfterOpening: { min: 73, max: 73 },
-      projectedCashAfterLevy: { min: -67, max: -67 },
+      projectedCashAfterOpening: { min: 74, max: 74 },
+      projectedCashAfterLevy: { min: -66, max: -66 },
       recommendations: [
         { textId: pocTextIdsV1.obligationRecommendationCommittedPlanReview, actionId: null },
       ],
