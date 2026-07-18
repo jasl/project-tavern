@@ -24,7 +24,7 @@ export const phase2RuntimeCommandsV1 = Object.freeze([
   frozenCommandV1("pnpm", ["--filter", "@project-tavern/story-e2e", "verify:fixtures"]),
   frozenCommandV1("pnpm", ["--filter", "@project-tavern/story-e2e", "verify:golden"]),
   frozenCommandV1("pnpm", ["verify:determinism"]),
-  frozenCommandV1("pnpm", ["verify:semantic"]),
+  frozenCommandV1("pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]),
   frozenCommandV1("pnpm", ["typecheck"]),
   frozenCommandV1("pnpm", ["test"]),
   frozenCommandV1("pnpm", ["build:e2e"]),

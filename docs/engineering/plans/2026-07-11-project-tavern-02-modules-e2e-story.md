@@ -2798,7 +2798,7 @@ Exact scripts：
 }
 ```
 
-verify-semantic.test.mjs freezes the delegated command，requires first-failure exit and rejects browser、regenerate、update、release or write commands。Phase 5 extends this same gate with DOM parity；it does not create a second semantic verifier。
+verify-semantic.test.mjs freezes the delegated command，requires first-failure exit and rejects browser、regenerate、update、release or write commands。Phase 5 extends this same root gate with DOM parity；it does not create a second semantic verifier。The cumulative Phase 2 gate calls the E2E Story headless leaf directly so that the later root browser extension is never nested before its required builds。
 
 - [ ] **Step 6: Run semantic, property, and boundary verification**
 
@@ -3088,7 +3088,7 @@ const expected = [
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:fixtures"]],
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:golden"]],
   ["pnpm", ["verify:determinism"]],
-  ["pnpm", ["verify:semantic"]],
+  ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]],
   ["pnpm", ["typecheck"]],
   ["pnpm", ["test"]],
   ["pnpm", ["build:e2e"]],

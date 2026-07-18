@@ -20,7 +20,7 @@ const expectedPhase2RuntimeCommandsV1 = Object.freeze([
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:fixtures"]],
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:golden"]],
   ["pnpm", ["verify:determinism"]],
-  ["pnpm", ["verify:semantic"]],
+  ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]],
   ["pnpm", ["typecheck"]],
   ["pnpm", ["test"]],
   ["pnpm", ["build:e2e"]],
@@ -39,6 +39,12 @@ test("freezes the exact read-only Phase 2 runtime command list", () => {
   }
   const tokens = phase2RuntimeCommandsV1.flat(2);
   assert(!tokens.some((token) => /regenerate|update:|release:prepare/u.test(token)));
+  assert.equal(
+    phase2RuntimeCommandsV1.some(
+      ([command, args]) => command === "pnpm" && args.length === 1 && args[0] === "verify:semantic",
+    ),
+    false,
+  );
 });
 
 test("stops at the first failed command and never enables a shell", () => {
