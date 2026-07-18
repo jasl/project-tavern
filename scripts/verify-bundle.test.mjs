@@ -63,40 +63,26 @@ test("removes the legacy dual-root files and Developer export", async () => {
   assert.deepEqual(webManifest.exports, { ".": "./src/index.ts" });
 });
 
-test("pins the closed Vite config and rejects caller build overrides", async (t) => {
+test("pins the closed Story × Host wrapper and rejects caller build overrides", async (t) => {
   const rootManifest = JSON.parse(await readFile(join(repositoryRoot, "package.json"), "utf8"));
   assert.equal(
     rootManifest.scripts["build:e2e"],
-    "vite build --config ./vite.config.ts --mode e2e-web",
+    "node --experimental-strip-types scripts/release/build-artifact.mts --story e2e --host web --out-dir dist/e2e",
+  );
+  assert.equal(
+    rootManifest.scripts["build:poc"],
+    "node --experimental-strip-types scripts/release/build-artifact.mts --story poc --host web --out-dir dist/poc",
   );
   assert.equal(rootManifest.scripts["build:player"], undefined);
   assert.equal(rootManifest.scripts["build:developer"], undefined);
+  assert.equal(rootManifest.scripts["build:e2e-player"], undefined);
+  assert.doesNotMatch(rootManifest.scripts["build:e2e"], /vite build|--mode/u);
+  assert.doesNotMatch(rootManifest.scripts["build:poc"], /vite build|--mode/u);
 
-  const unknownMode = spawnSync(
-    "pnpm",
-    ["exec", "vite", "build", "--config", "./vite.config.ts", "--mode", "unsupported-web"],
-    { cwd: repositoryRoot, encoding: "utf8" },
-  );
-  assert.notEqual(unknownMode.status, 0);
-  assert.match(
-    `${unknownMode.stdout}${unknownMode.stderr}`,
-    /unsupported Project Tavern build mode: unsupported-web/u,
-  );
-
-  const callerRoot = spawnSync("pnpm", ["build:e2e", "game/stories/e2e"], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-  });
-  assert.notEqual(callerRoot.status, 0);
-  assert.match(
-    `${callerRoot.stdout}${callerRoot.stderr}`,
-    /caller-supplied application root is forbidden/u,
-  );
-
-  const forbiddenOutDir = join(tmpdir(), `tavern-forbidden-artifact-${process.pid}`);
-  t.after(() => rm(forbiddenOutDir, { recursive: true, force: true }));
-  await rm(forbiddenOutDir, { recursive: true, force: true });
-  const callerOutDir = spawnSync(
+  const directViteOutDir = join(tmpdir(), `tavern-direct-vite-${process.pid}`);
+  t.after(() => rm(directViteOutDir, { recursive: true, force: true }));
+  await rm(directViteOutDir, { recursive: true, force: true });
+  const directVite = spawnSync(
     "pnpm",
     [
       "exec",
@@ -107,27 +93,70 @@ test("pins the closed Vite config and rejects caller build overrides", async (t)
       "--mode",
       "e2e-web",
       "--outDir",
+      directViteOutDir,
+    ],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  assert.notEqual(directVite.status, 0);
+  assert.match(`${directVite.stdout}${directVite.stderr}`, /release\.invalid_build_request/u);
+  await assertMissing(directViteOutDir);
+
+  const unknownStory = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "scripts/release/build-artifact.mts",
+      "--story",
+      "demo",
+      "--host",
+      "web",
+      "--out-dir",
+      "dist/poc",
+    ],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  assert.notEqual(unknownStory.status, 0);
+  assert.match(`${unknownStory.stdout}${unknownStory.stderr}`, /release\.invalid_build_request/u);
+
+  const callerRoot = spawnSync("pnpm", ["build:e2e", "game/stories/e2e"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+  assert.notEqual(callerRoot.status, 0);
+  assert.match(`${callerRoot.stdout}${callerRoot.stderr}`, /release\.invalid_build_request/u);
+
+  const forbiddenOutDir = join(tmpdir(), `tavern-forbidden-artifact-${process.pid}`);
+  t.after(() => rm(forbiddenOutDir, { recursive: true, force: true }));
+  await rm(forbiddenOutDir, { recursive: true, force: true });
+  const callerOutDir = spawnSync(
+    "node",
+    [
+      "--experimental-strip-types",
+      "scripts/release/build-artifact.mts",
+      "--story",
+      "e2e",
+      "--host",
+      "web",
+      "--outDir",
       forbiddenOutDir,
     ],
     { cwd: repositoryRoot, encoding: "utf8" },
   );
   assert.notEqual(callerOutDir.status, 0);
-  assert.match(
-    `${callerOutDir.stdout}${callerOutDir.stderr}`,
-    /caller-supplied output directory is forbidden/u,
-  );
+  assert.match(`${callerOutDir.stdout}${callerOutDir.stderr}`, /release\.invalid_build_request/u);
   await assertMissing(forbiddenOutDir);
 
   const retainedOutput = spawnSync(
-    "pnpm",
+    "node",
     [
-      "exec",
-      "vite",
-      "build",
-      "--config",
-      "./vite.config.ts",
-      "--mode",
-      "e2e-web",
+      "--experimental-strip-types",
+      "scripts/release/build-artifact.mts",
+      "--story",
+      "e2e",
+      "--host",
+      "web",
+      "--out-dir",
+      "dist/e2e",
       "--emptyOutDir=false",
     ],
     { cwd: repositoryRoot, encoding: "utf8" },
@@ -135,6 +164,6 @@ test("pins the closed Vite config and rejects caller build overrides", async (t)
   assert.notEqual(retainedOutput.status, 0);
   assert.match(
     `${retainedOutput.stdout}${retainedOutput.stderr}`,
-    /Story Artifact build invariants were overridden/u,
+    /release\.invalid_build_request/u,
   );
 });

@@ -1,31 +1,19 @@
 import { createRequire } from "node:module";
-import { basename, dirname, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import type { Plugin, UserConfig } from "vite";
 
+import {
+  resolveArtifactBuildConfigByApplicationIdV1,
+  type ArtifactApplicationIdV1,
+  type ArtifactBuildConfigV1,
+  // @ts-expect-error -- Node's strip-types runtime intentionally loads the tracked .mts source.
+} from "./scripts/release/build-config.mts";
+
 const repositoryRoot = import.meta.dirname;
-
 const requireFromConfigV1 = createRequire(import.meta.url);
-
-const applicationRoots = Object.freeze({
-  "e2e-web": Object.freeze({
-    entry: "game/stories/e2e/src/application/entry.tsx",
-    htmlEntry: "game/stories/e2e/index.html",
-    outDir: resolve(repositoryRoot, "dist/e2e"),
-    identityModule: "scripts/build-e2e-identity.mjs",
-    collectIdentityExport: "collectE2eBuildIdentityV1",
-    createIdentityPluginExport: "createE2eBuildIdentityVirtualPluginV1",
-  }),
-  "poc-web": Object.freeze({
-    entry: "game/stories/poc/src/application/entry.tsx",
-    htmlEntry: "game/stories/poc/index.html",
-    outDir: resolve(repositoryRoot, "dist/poc"),
-    identityModule: "scripts/build-poc-identity.mjs",
-    collectIdentityExport: "collectPocBuildIdentityV1",
-    createIdentityPluginExport: "createPocBuildIdentityVirtualPluginV1",
-  }),
-});
+const internalViteApplicationModesV1 = new Set<ArtifactApplicationIdV1>(["e2e-web", "poc-web"]);
 
 interface SelectedBuildIdentityModuleV1 {
   collect(root: string): Promise<unknown>;
@@ -33,7 +21,7 @@ interface SelectedBuildIdentityModuleV1 {
 }
 
 interface SourceGraphInputV1 {
-  readonly applicationId: keyof typeof applicationRoots;
+  readonly applicationId: ArtifactApplicationIdV1;
   readonly entry: string;
   readonly htmlEntry: string;
   readonly repositoryRoot: string;
@@ -44,7 +32,7 @@ interface SourceGraphModuleV1 {
 }
 
 function loadSelectedBuildIdentityModuleV1(
-  application: (typeof applicationRoots)[keyof typeof applicationRoots],
+  application: ArtifactBuildConfigV1,
 ): SelectedBuildIdentityModuleV1 {
   const loaded: unknown = requireFromConfigV1(resolve(repositoryRoot, application.identityModule));
   if (typeof loaded !== "object" || loaded === null) {
@@ -78,48 +66,47 @@ function loadSourceGraphModuleV1(): SourceGraphModuleV1 {
   });
 }
 
-function rejectCallerBuildRootV1(argv: readonly string[]) {
-  const buildIndex = argv.indexOf("build");
-  if (buildIndex < 0) return;
-  const optionsWithValues = new Set([
-    "--base",
-    "--config",
-    "--configLoader",
-    "--logLevel",
-    "--mode",
-    "--outDir",
-    "-c",
-    "-l",
-    "-m",
-  ]);
-  for (let index = buildIndex + 1; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument === undefined) continue;
-    if (optionsWithValues.has(argument)) {
-      index += 1;
-      continue;
-    }
-    if (argument === "--") continue;
-    if (argument.startsWith("-")) continue;
-    throw new TypeError(`caller-supplied application root is forbidden: ${argument}`);
+function rejectDirectViteBuildV1(argv: readonly string[]): void {
+  const entry = argv[1];
+  if (entry === undefined || !["vite", "vite.js"].includes(basename(entry))) return;
+  if (argv.slice(2).includes("build")) {
+    throw new TypeError(
+      "release.invalid_build_request: direct Vite builds are forbidden; use the Story x Host builder",
+    );
   }
 }
 
-export default defineConfig(async ({ mode }) => {
-  rejectCallerBuildRootV1(process.argv.slice(2));
-  const application = applicationRoots[mode as keyof typeof applicationRoots];
-  if (application === undefined) {
+function parseInternalViteModeV1(mode: string): ArtifactApplicationIdV1 {
+  if (!internalViteApplicationModesV1.has(mode as ArtifactApplicationIdV1)) {
     throw new TypeError(`unsupported Project Tavern build mode: ${mode}`);
   }
-  const html = resolve(repositoryRoot, application.htmlEntry);
-  const storyRoot = dirname(html);
+  return mode as ArtifactApplicationIdV1;
+}
+
+export async function collectProjectTavernBuildIdentityV1(
+  applicationId: ArtifactApplicationIdV1,
+): Promise<unknown> {
+  const application = resolveArtifactBuildConfigByApplicationIdV1(applicationId);
+  return await loadSelectedBuildIdentityModuleV1(application).collect(repositoryRoot);
+}
+
+export async function createProjectTavernViteConfigV1(input: {
+  readonly applicationId: ArtifactApplicationIdV1;
+  readonly initialBuildIdentity?: unknown;
+}): Promise<UserConfig> {
+  const application = resolveArtifactBuildConfigByApplicationIdV1(input.applicationId);
+  const html = resolve(repositoryRoot, application.applicationHtml);
+  const storyRoot = resolve(repositoryRoot, application.storyRoot);
+  const applicationOutDir = resolve(repositoryRoot, application.outDir);
   const htmlName = basename(html);
   const identity = loadSelectedBuildIdentityModuleV1(application);
   const sourceGraph = loadSourceGraphModuleV1();
-  const initialBuildIdentity = await identity.collect(repositoryRoot);
+  const initialBuildIdentity =
+    input.initialBuildIdentity ?? (await identity.collect(repositoryRoot));
+
   return {
     root: storyRoot,
-    base: "./",
+    base: application.base,
     publicDir: false,
     plugins: [
       identity.createPlugin({
@@ -134,7 +121,7 @@ export default defineConfig(async ({ mode }) => {
           if (resolve(config.root) !== storyRoot) {
             throw new TypeError(`caller-supplied application root is forbidden: ${config.root}`);
           }
-          if (actualOutDir !== application.outDir) {
+          if (actualOutDir !== applicationOutDir) {
             throw new TypeError(`caller-supplied output directory is forbidden: ${actualOutDir}`);
           }
           if (config.publicDir !== "") {
@@ -142,9 +129,9 @@ export default defineConfig(async ({ mode }) => {
           }
           if (
             config.command === "build" &&
-            (config.base !== "./" ||
+            (config.base !== application.base ||
               config.build.emptyOutDir !== true ||
-              config.build.sourcemap !== false)
+              config.build.sourcemap !== application.sourcemap)
           ) {
             throw new TypeError("Story Artifact build invariants were overridden");
           }
@@ -158,24 +145,30 @@ export default defineConfig(async ({ mode }) => {
             output.fileName.endsWith(htmlName),
           );
           if (htmlEntry === undefined) {
-            throw new TypeError(`missing ${mode} HTML output`);
+            throw new TypeError(`missing ${application.applicationId} HTML output`);
           }
           const [, output] = htmlEntry;
           output.fileName = "index.html";
         },
       },
       sourceGraph.collect({
-        applicationId: mode as keyof typeof applicationRoots,
+        applicationId: application.applicationId,
         repositoryRoot,
-        htmlEntry: application.htmlEntry,
-        entry: application.entry,
+        htmlEntry: application.applicationHtml,
+        entry: application.applicationEntry,
       }),
     ],
     build: {
-      outDir: application.outDir,
+      outDir: applicationOutDir,
       emptyOutDir: true,
-      sourcemap: false,
+      sourcemap: application.sourcemap,
       rollupOptions: { input: html },
     },
   } satisfies UserConfig;
+}
+
+export default defineConfig(async ({ mode }) => {
+  rejectDirectViteBuildV1(process.argv);
+  const applicationId = parseInternalViteModeV1(mode);
+  return await createProjectTavernViteConfigV1({ applicationId });
 });
