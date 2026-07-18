@@ -1944,6 +1944,14 @@ only in the mandatory Phase 6 entry checkpoint.
 - Modify: `game/stories/poc/package.json`
 - Modify: `package.json`
 
+**Owner-authorized Phase 6 `N = 0` repair extension:** the original Task 10 Files remain the owner boundary for evaluator
+defects. Before the first calibration step, one separate repair may additionally create
+`scripts/run-poc-balance-remote.mjs`/`.test.mjs`, modify the balance-lab and delivery authority documents, GOAL/Roadmap and
+Phase 6 plan, and add only the Story `calibrate:balance:remote` alias. It may add explicit `1..64` worker scheduling, strict
+remote evidence admission/local selected-candidate replay and a Story-local exact-half-integer evidence codec. It must preserve
+all balance values/thresholds/strategies/direct expectations, provisional report/qualifier, golden, Save, command/tooling
+fixtures, root package manifest and lockfile, and commits only with `Balance-Calibration-Repair: true`.
+
 **Interfaces:**
 
 - Consumes: the six frozen strategy definitions, reference-seed literal envelopes, the closed `compilePocStrategyForSeedV1` decision API, fixed smoke seeds plus the complete seeds 1–1000 release range, exact `PocBalanceMetricsV1`/Pareto definitions and finite calibration procedure in `docs/poc/balance-v0.md`, resolved SemanticGamePort, and immutable Program materialization.
@@ -2036,7 +2044,7 @@ it("chooses one deterministic strictly improving calibration neighbor", () => {
 
 Also assert all three ending counts sum to 1000, `paidCount=stableCount+dangerCount`, every frozen threshold passes at its exact boundary and contributes its specified deficit one unit outside it, even-sample median behavior is exact, `freeAp` counts only AP surrendered by legal phase advances, all six Pareto counts use the four-component comparison, and same inputs serialize to identical sorted metrics twice. Re-admit every structured-clone shard, require ending/sample/count identities, reject malformed/range-mismatched messages, and resolve a worker only after both one admitted message and exit 0; one synthetic reversed two-shard value proves stable merge/gap handling without a second expensive real seed.
 
-`scripts/verify-poc-balance.test.mjs` freezes all five root/Story aliases below, proves default CLI mode calls the complete 1–1000 runner and exact threshold/counterfactual assertion once, proves both smoke aliases reach the same Story Vitest leaf, proves `--calibrate [--iteration=0..12]` selects from only validated immutable neighbors without writing, and admits only the additional Task-10-only `--qualify-provisional` exact-report mode. Every other argument fails. The test injects bounded fixture evaluations; it never launches the full corpus.
+`scripts/verify-poc-balance.test.mjs` freezes all five original root/Story aliases below, proves default CLI mode calls the complete 1–1000 runner and exact threshold/counterfactual assertion once, proves both smoke aliases reach the same Story Vitest leaf, proves `--calibrate [--iteration=0..12]` selects from only validated immutable neighbors without writing, and admits only the additional Task-10-only `--qualify-provisional` exact-report mode. Every other argument fails. The Phase 6 owner repair extends strict/qualify/calibrate with an exact trailing `--workers=1..64` grammar while smoke rejects it; default remains 16 and worker count never enters semantic evidence. The test injects bounded fixture evaluations; it never launches the full corpus.
 
 - [ ] **Step 2: Run and confirm the missing metrics/scenario implementation**
 
@@ -2095,7 +2103,14 @@ Install one fast Story gate, one root delegate for convenient direct smoke, and 
 }
 ```
 
-In default/main mode `scripts/verify-poc-balance.mjs` directly imports the balance runner, executes exactly seeds 1–1000, evaluates the full frozen threshold/counterfactual contract, emits one canonical report containing `deficit` plus the exact metrics/counterfactual evaluation, and exits nonzero on any failure. It is not a wrapper that invokes Vitest or the Story alias. Worker mode remains the structured shard entry. `--calibrate [--iteration=0..12]` is a separate read-only mode: it evaluates the current full corpus and valid neighboring immutable Programs in frozen order, emits canonical baseline/candidate/selection evidence, enforces the explicit external iteration index, and never edits either authoritative balance file or a fixture.
+In default/main mode `scripts/verify-poc-balance.mjs` directly imports the balance runner, executes exactly seeds 1–1000, evaluates the full frozen threshold/counterfactual contract, emits one canonical report containing `deficit` plus the exact metrics/counterfactual evaluation, and exits nonzero on any failure. It is not a wrapper that invokes Vitest or the Story alias. Worker mode remains the structured shard entry. `--calibrate [--iteration=0..12] [--workers=1..64]` is a separate read-only mode: it evaluates the current full corpus and valid neighboring immutable Programs in frozen order, emits canonical baseline/candidate/selection evidence, enforces the explicit external iteration index, and never edits either authoritative balance file or a fixture. The Story-local canonical codec preserves Base bytes for integer evidence and additionally admits only exact safe half-integer medians.
+
+The Phase 6 repair's `calibrate:balance:remote` controller is separate from this platform-neutral evaluator. It uploads only an
+exact clean archive, requires exact source/tree/archive/lock/materialization/package closure and Node/pnpm evidence, runs a
+fresh remote offline frozen install, then strictly admits the complete result and recomputes selection locally. `N = 0` also
+replays current evaluation locally; every round fully replays the selected candidate locally. It emits only the same semantic
+stdout and writes a separate canonical attestation without host/IP/path/time/scheduling metadata. It never runs a writer,
+build, Vite, Playwright, server, Artifact or remote smoke.
 
 Task 10 also installs the temporary, unaliased `--qualify-provisional` mode. It runs that same complete corpus but exits 0 only when the entire report—every metric, counterfactual and `deficit=49`—equals the reviewed 2026-07-15 provisional evidence; any drift or additional failure remains red. The strict default mode continues to reject that report. Phase 6 final calibration removes this mode and its frozen report literal in the same exact commit that makes the default full gate pass. No other argument is admitted.
 
@@ -2762,6 +2777,7 @@ the deterministic one-field selection:
 
 ```bash
 pnpm --silent --filter @project-tavern/story-poc calibrate:balance --iteration=N > /tmp/project-tavern-balance-step-K.txt
+# Or use calibrate:balance:remote with explicit operator-only host/root/workers/attestation args.
 shasum -a 256 /tmp/project-tavern-balance-step-K.txt
 ```
 
@@ -2805,6 +2821,12 @@ Every placeholder above is replaced with the exact canonical evidence value. The
 captured selector stdout. A valid step commit changes the named field from its `Before` trailer in its parent tree to its
 `After` trailer in its own tree, strictly decreases deficit, has index exactly one greater than its accepted predecessor,
 and touches only the step allowlist.
+
+A remote-assisted step additionally records exact source archive, before evaluation, locally replayed after evaluation and
+remote attestation SHA-256 trailers. The host, private IP, remote path and elapsed time remain operator transport state and are
+never trailers. At `N = 0` the controller requires a full local current-evaluation byte match; every iteration re-admits the
+complete canonical remote evidence, recomputes selection locally and fully evaluates the selected candidate locally before any byte is
+applied.
 
 ### Clean-commit sandbox
 
@@ -2868,8 +2890,9 @@ the final-parent balance bytes must equal the accepted Phase 5C balance bytes be
 ### Historical step and repair replay
 
 For every historical step `K`, set the already-applied count `N = K - 1`, create the clean sandbox at that step's parent,
-run `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N`, and require canonical stdout SHA-256 plus decoded
-field/before/after/beforeDeficit/afterDeficit to equal all seven trailers. Apply the returned candidate afresh to the
+run the complete local selector, or rebuild the exact archive and run the verified remote selector with its required local
+current/selected replay. Require canonical stdout SHA-256 plus decoded field/before/after/beforeDeficit/afterDeficit to equal
+all seven semantic trailers and, when present, require all four remote proof trailers. Apply the returned candidate afresh to the
 authoritative balance document/code and exact direct literals; do not copy the commit's files. Compare the complete rebuilt
 patch, including whitespace and binary bytes:
 

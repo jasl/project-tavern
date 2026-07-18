@@ -4,7 +4,7 @@
 
 **Goal:** Close the deferred release balance and its provisional technical baselines, then produce reproducible local `poc × web` and `e2e × web` Artifacts, fully verify the exact PoC bytes—including default-off runtime capabilities and persistent Cheat integrity—and hand one platform-neutral manifest-bound Artifact to the separate final-human-review or future remote-distribution tracks.
 
-**Architecture:** The production builder accepts only `(story, host)` from the closed set `{ poc × web, e2e × web }`; there is no Player, Developer or Headless flavor. `pnpm verify` builds each Story/Host once for all inspect-only browser/bundle/artifact gates, while local release reproducibility performs two isolated PoC builds. Phase 6 performs no CI, upload, hosting, workflow or remote smoke work; future distribution consumes these exact bytes without rebuilding.
+**Architecture:** The production builder accepts only `(story, host)` from the closed set `{ poc × web, e2e × web }`; there is no Player, Developer or Headless flavor. `pnpm verify` builds each Story/Host once for all inspect-only browser/bundle/artifact gates, while local release reproducibility performs two isolated PoC builds. Phase 6 performs no CI, upload, hosting, workflow, Artifact deployment or remote smoke work; future distribution consumes these exact bytes without rebuilding. Before Artifact work, an owner-authorized auxiliary compute executor may evaluate balance neighbors from an exact clean archive, but only local replay can accept its result.
 
 **Tech Stack:** Existing Project Tavern workspace and materialization checkpoint, Vite 8.1.4 production build, TypeScript 7.0.2, Playwright 1.61.1, exact local Node/pnpm inputs, HashRouter, relative assets and local filesystem Artifacts.
 
@@ -28,7 +28,7 @@
 - `pnpm test:scripts` recursively discovers every `scripts/**/*.test.mjs` and `scripts/**/*.test.ts` exactly once.
 - PoC release bundles include `LICENSE.md`, `NOTICE`, all three project legal texts, `TRADEMARKS.md`, and the repository's non-exhaustive `THIRD_PARTY_NOTICES.md` statement. They do not synthesize a dependency/vendor license inventory.
 - E2E Web bytes are local integration evidence; PoC bytes are the handoff Artifact. Neither is uploaded by this phase.
-- `.github/workflows/**`, GitHub Actions, GitHub Pages, Cloudflare, remote credentials, upload, deployment, remote smoke and remote rollback are forbidden scope and belong to the deferred distribution track.
+- `.github/workflows/**`, GitHub Actions, GitHub Pages, Cloudflare, hosting credentials, upload, Artifact deployment, remote smoke and remote rollback are forbidden scope and belong to the deferred distribution track. The balance-lab auxiliary executor is a bounded compute workspace, not an Artifact deployment or distribution adapter.
 - A dirty-worktree build is always `provenanceMode="development"` and never release-eligible. Only a clean exact `HEAD` or a `git archive` of it may produce `provenanceMode="clean_commit"`; formal release evidence is generated after the relevant task commit.
 - Every task uses a focused failing test, confirms the intended red, implements the minimum behavior, runs the focused suite plus current `pnpm verify`, reviews staged scope, and commits.
 - Every expected red must match its named test and stable diagnostic code. Every task follows the global resume contract and accepts only the exact declared staged paths.
@@ -57,11 +57,39 @@ its clean verification pass, every Artifact/release command in this plan is forb
 - Preserve byte-for-byte: `game/stories/poc/src/content/balance.ts`, both direct-expectation tests,
   `game/stories/poc/src/test/fixtures/commands/**`, `game/stories/poc/src/tooling-fixtures.ts` and `pnpm-lock.yaml`
 
+**Task 10 owner-repair Files admitted before the first step:**
+
+- Modify: `game/stories/poc/src/testing/balance-metrics.ts`
+- Modify: `game/stories/poc/src/testing/balance-calibration.ts`
+- Modify: `game/stories/poc/src/test/balance-1000-seeds.test.ts`
+- Modify: `scripts/verify-poc-balance.mjs` and `scripts/verify-poc-balance.test.mjs`
+- Create: `scripts/run-poc-balance-remote.mjs` and `scripts/run-poc-balance-remote.test.mjs`
+- Modify: `game/stories/poc/package.json`
+- Modify authority only: `docs/engineering/GOAL.md`, the Roadmap, the delivery-boundaries and balance-lab designs,
+  this plan, the Phase 4B plan and `docs/poc/balance-v0.md`
+- Preserve byte-for-byte: every balance value/threshold/strategy/direct expectation, provisional qualifier/report,
+  golden, Save, command/tooling fixture, root package manifest and `pnpm-lock.yaml`
+
 If live calibration exposes an evaluator, runner, counterfactual or selector defect, stop this entry and repair the Task 10
 owner in its own focused commit and gates before restarting from a clean checkpoint. Such a repair never shares a calibration
 step or final freeze commit, never changes thresholds or strategies, and is committed with
 `--trailer "Balance-Calibration-Repair: true"`. When `N > 0`, it is accepted only after the repaired evaluator replays the
 entire historical step chain byte-for-byte.
+
+The owner-authorized `N = 0` repair may add explicit `1..64` worker scheduling, the exact-half-integer Story evidence codec and
+the proof-preserving remote orchestration above. Its expected reds are the old 16-worker ceiling, Base integer-only encoding of
+a legal `.5` median, and the missing remote controller/alias. Focused green requires the Story balance leaf, both balance Node
+test files, `verify:commands`, typecheck, targeted lint/format, `git diff --check`, unchanged protected data/lock bytes and two
+smoke runs. Commit only the exact repair list with `fix(story-poc): enable verified remote calibration` and only the repair
+trailer. The clean repair commit is accepted only after its current local full report matches the same-commit 64-worker remote
+report/evaluation byte-for-byte and the remote toolchain/source attestation passes; no calibration index is consumed.
+
+The remote controller takes an explicit iteration, SSH transport target, HOME-relative remote root, `1..64` worker count and
+local attestation output. Transport host/path never enters canonical evidence or attestation. It archives clean `HEAD`, verifies
+source commit/tree/archive/lock/materialization/package closure and exact Node/pnpm on both sides, then runs fresh remote and
+local sandboxes from that same archive with offline frozen installs. At `N = 0` it fully evaluates the current point locally; every round strictly admits the
+remote run, recomputes the selector locally and fully evaluates the selected point locally. Any baseline, selection or selected
+evaluation mismatch is a hard stop before applying bytes.
 
 ### Clean sandbox, entry discovery and recovery
 
@@ -113,9 +141,10 @@ unclassified or multiply classified pre-final commit invalidates recovery. For e
 `HEAD`, use the explicit first-parent diff `git diff "<commit>^1" "<commit>" -- <protected paths>` and require no protected
 change; this keeps final the last protected-path-touching commit without misclassifying ordinary Artifact commits.
 
-For each historical step `K`, let `N = K - 1`, create its parent sandbox, run
-`pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N`, and require canonical stdout SHA-256 and all
-decoded selection values to equal its seven trailers. Apply the candidate afresh to code, document and direct literals, then
+For each historical step `K`, let `N = K - 1`, create its parent sandbox and run the local selector, or rebuild the exact source
+archive and run the verified remote selector plus required local current/selected replay. Require canonical stdout SHA-256 and all
+decoded selection values to equal its seven semantic trailers; a remote-assisted step also requires its four proof trailers.
+Apply the candidate afresh to code, document and direct literals, then
 require its entire binary patch to equal the historical commit:
 
 ```bash
@@ -154,15 +183,21 @@ cmp /tmp/project-tavern-step.live.patch /tmp/project-tavern-step.replayed.patch
 
 ### Produce one calibration-step commit
 
-The Story-local selector is read-only. With `N` accepted step commits and `K = N + 1`, capture the canonical evidence:
+The Story-local selector is read-only. With `N` accepted step commits and `K = N + 1`, capture the canonical evidence locally,
+or use the authorized remote controller with operator-supplied transport values:
 
 ```bash
 pnpm --silent --filter @project-tavern/story-poc calibrate:balance --iteration=N > /tmp/project-tavern-balance-step-K.txt
+# Or, without committing the host/path values:
+pnpm --silent --filter @project-tavern/story-poc calibrate:balance:remote --iteration=N [--prior-after-sha256=sha256:<previous-local-after>] --host=<authorized-target> --remote-root=Workspace --workers=64 --attestation-out=/tmp/project-tavern-balance-step-K.attestation.json > /tmp/project-tavern-balance-step-K.txt
 shasum -a 256 /tmp/project-tavern-balance-step-K.txt
 ```
 
+Omit `--prior-after-sha256` only for `N = 0`; for every later iteration it is required immediately after
+`--iteration=N` and must equal the preceding accepted step's locally replayed after-evaluation digest.
+
 Apply exactly the returned field to `balance.ts`, the authoritative document and any directly affected literal expectation.
-Never lower a threshold, change the six strategies/seed set, accept a partial candidate set, tune from golden output or apply
+Never lower a threshold, change the six strategies/seed set, accept a noncanonical partial candidate set, tune from golden output or apply
 more than one candidate. Golden, Save and qualifier bytes intentionally stay stale/provisional between step commits, so only
 run the step-safe gates:
 
@@ -197,6 +232,11 @@ pnpm verify:materialization
 
 Replace every placeholder with the canonical evidence value. A step commit is a resumable calibration point, not a final
 balance checkpoint; expected stale golden/Save/root gates are repaired only by the final commit.
+
+For a remote-assisted step, append
+`Balance-Calibration-Source-Archive-SHA256`, `Balance-Calibration-Before-Evaluation-SHA256`,
+`Balance-Calibration-After-Evaluation-SHA256`, and `Balance-Calibration-Remote-Attestation-SHA256` from the verified
+controller outputs. Never add SSH host, private IP, remote root or elapsed time as a trailer.
 
 ### Produce the final balance-freeze commit
 

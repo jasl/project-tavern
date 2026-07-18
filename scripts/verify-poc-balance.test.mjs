@@ -54,44 +54,34 @@ test("stops smoke on failure without enabling a shell", () => {
 test("builds a complete report through injected deterministic ports", async () => {
   const calls = [];
   const values = Object.freeze({ levy: 140 });
-  const program = Object.freeze({ kind: "program" });
   const metrics = Object.freeze({ kind: "metrics" });
   const counterfactuals = Object.freeze({ kind: "counterfactuals" });
-  const report = await buildPocBalanceFullReportV1(async () => ({
-    calibration: {
-      pocBalanceCalibrationValuesV1() {
-        calls.push("values");
-        return values;
+  const report = await buildPocBalanceFullReportV1(
+    async () => ({
+      calibration: {
+        pocBalanceCalibrationValuesV1() {
+          calls.push("values");
+          return values;
+        },
+        calculatePocBalanceDeficitV1(evaluation) {
+          calls.push(["deficit", evaluation]);
+          return 0;
+        },
       },
-      createPocBalanceCalibrationProgramV1(received) {
-        calls.push(["program", received]);
-        return program;
+      metrics: {
+        async evaluatePocBalanceCalibrationValuesV1(input) {
+          calls.push(["evaluate", input]);
+          return Object.freeze({ metrics, counterfactuals });
+        },
       },
-      calculatePocBalanceDeficitV1(evaluation) {
-        calls.push(["deficit", evaluation]);
-        return 0;
-      },
-    },
-    counterfactuals: {
-      async evaluatePocFacilityCounterfactualChecksV1(received) {
-        calls.push(["counterfactuals", received]);
-        return counterfactuals;
-      },
-    },
-    metrics: {
-      async runPocBalanceCorpusV1(input) {
-        calls.push(["metrics", input]);
-        return metrics;
-      },
-    },
-  }));
+    }),
+    64,
+  );
   assert.equal(report.deficit, 0);
   assert.deepEqual(report.evaluation, { metrics, counterfactuals });
   assert.deepEqual(calls, [
     "values",
-    ["program", values],
-    ["metrics", { firstSeed: 1, lastSeed: 1000, calibrationValues: values }],
-    ["counterfactuals", program],
+    ["evaluate", { values, workerCount: 64 }],
     ["deficit", { metrics, counterfactuals }],
   ]);
 });
@@ -130,35 +120,32 @@ test("runs the default CLI through the complete report ports exactly once", asyn
   const calls = [];
   const output = [];
   const values = Object.freeze({ levy: 140 });
-  const program = Object.freeze({ kind: "program" });
   const status = await runPocBalanceCliV1({
     args: [],
     loadRuntime: async () => ({
-      base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
+      base: {
+        canonicalJsonBytes() {
+          throw new TypeError("Base integer-only codec must not encode balance evidence");
+        },
+      },
       calibration: {
+        canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
         pocBalanceCalibrationValuesV1() {
           calls.push("values");
           return values;
-        },
-        createPocBalanceCalibrationProgramV1(received) {
-          calls.push(["program", received]);
-          return program;
         },
         calculatePocBalanceDeficitV1(received) {
           calls.push(["deficit", received]);
           return 0;
         },
       },
-      counterfactuals: {
-        async evaluatePocFacilityCounterfactualChecksV1(received) {
-          calls.push(["counterfactuals", received]);
-          return Object.freeze({ comfortableBedRecovery: true });
-        },
-      },
       metrics: {
-        async runPocBalanceCorpusV1(received) {
-          calls.push(["metrics", received]);
-          return Object.freeze({ firstSeed: 1, lastSeed: 1000 });
+        async evaluatePocBalanceCalibrationValuesV1(received) {
+          calls.push(["evaluate", received]);
+          return Object.freeze({
+            metrics: Object.freeze({ firstSeed: 1, lastSeed: 1000 }),
+            counterfactuals: Object.freeze({ comfortableBedRecovery: true }),
+          });
         },
       },
     }),
@@ -168,21 +155,69 @@ test("runs the default CLI through the complete report ports exactly once", asyn
   });
 
   assert.equal(status, 0);
-  assert.equal(calls.filter((call) => Array.isArray(call) && call[0] === "metrics").length, 1);
+  assert.equal(calls.filter((call) => Array.isArray(call) && call[0] === "evaluate").length, 1);
+  assert.deepEqual(
+    calls.find((call) => Array.isArray(call) && call[0] === "evaluate"),
+    ["evaluate", { values, workerCount: 16 }],
+  );
   assert.match(output.join(""), /^PoC balance report /u);
+});
+
+test("routes an explicit strict worker count without adding scheduling to report bytes", async () => {
+  const metricInputs = [];
+  const output = [];
+  const status = await runPocBalanceCliV1({
+    args: ["--workers=64"],
+    loadRuntime: async () => ({
+      base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
+      calibration: {
+        canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
+        pocBalanceCalibrationValuesV1() {
+          return Object.freeze({ levy: 140 });
+        },
+        calculatePocBalanceDeficitV1() {
+          return 0;
+        },
+      },
+      metrics: {
+        async evaluatePocBalanceCalibrationValuesV1(input) {
+          metricInputs.push(input);
+          return Object.freeze({
+            metrics: Object.freeze({ firstSeed: 1, lastSeed: 1000 }),
+            counterfactuals: Object.freeze({ comfortableBedRecovery: true }),
+          });
+        },
+      },
+    }),
+    writeStdout(value) {
+      output.push(value);
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.deepEqual(metricInputs, [{ values: { levy: 140 }, workerCount: 64 }]);
+  assert(!output.join("").includes("worker"));
 });
 
 test("runs calibration through one injected read-only selection port", async () => {
   const values = Object.freeze({ levy: 140 });
   const selection = Object.freeze({ kind: "candidate", field: "levy", afterValue: 138 });
-  const calibration = Object.freeze({ step: Object.freeze({ candidates: [] }), selection });
+  const calibration = Object.freeze({
+    step: Object.freeze({ candidates: [], medianPaidAfterTaxCash: 5.5 }),
+    selection,
+  });
   const calls = [];
   const output = [];
   const status = await runPocBalanceCliV1({
-    args: ["--calibrate", "--iteration=7"],
+    args: ["--calibrate", "--iteration=7", "--workers=32"],
     loadRuntime: async () => ({
-      base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
+      base: {
+        canonicalJsonBytes() {
+          throw new TypeError("Base integer-only codec must not encode balance evidence");
+        },
+      },
       calibration: {
+        canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
         pocBalanceCalibrationValuesV1() {
           return values;
         },
@@ -200,35 +235,53 @@ test("runs calibration through one injected read-only selection port", async () 
   });
 
   assert.equal(status, 0);
-  assert.deepEqual(calls, [{ iteration: 7, values }]);
+  assert.deepEqual(calls, [{ iteration: 7, values, workerCount: 32 }]);
   assert.equal(output.join(""), `PoC balance calibration ${JSON.stringify(calibration)}\n`);
+
+  const defaultIterationCalls = [];
+  const defaultIterationStatus = await runPocBalanceCliV1({
+    args: ["--calibrate", "--workers=64"],
+    loadRuntime: async () => ({
+      base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
+      calibration: {
+        canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
+        pocBalanceCalibrationValuesV1() {
+          return values;
+        },
+      },
+      metrics: {
+        async runPocBalanceCalibrationStepV1(input) {
+          defaultIterationCalls.push(input);
+          return calibration;
+        },
+      },
+    }),
+    writeStdout() {},
+  });
+  assert.equal(defaultIterationStatus, 0);
+  assert.deepEqual(defaultIterationCalls, [{ iteration: 0, values, workerCount: 64 }]);
 });
 
 test("qualifies the provisional CLI without weakening the default full gate", async () => {
   const output = [];
+  const metricInputs = [];
   const status = await runPocBalanceCliV1({
-    args: ["--qualify-provisional"],
+    args: ["--qualify-provisional", "--workers=63"],
     loadRuntime: async () => ({
       base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
       calibration: {
+        canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
         pocBalanceCalibrationValuesV1() {
           return Object.freeze({ levy: 140 });
-        },
-        createPocBalanceCalibrationProgramV1() {
-          return Object.freeze({ kind: "program" });
         },
         calculatePocBalanceDeficitV1() {
           return pocProvisionalBalanceReportV1.deficit;
         },
       },
-      counterfactuals: {
-        async evaluatePocFacilityCounterfactualChecksV1() {
-          return pocProvisionalBalanceReportV1.evaluation.counterfactuals;
-        },
-      },
       metrics: {
-        async runPocBalanceCorpusV1() {
-          return pocProvisionalBalanceReportV1.evaluation.metrics;
+        async evaluatePocBalanceCalibrationValuesV1(input) {
+          metricInputs.push(input);
+          return pocProvisionalBalanceReportV1.evaluation;
         },
       },
     }),
@@ -238,27 +291,40 @@ test("qualifies the provisional CLI without weakening the default full gate", as
   });
 
   assert.equal(status, 0);
+  assert.equal(metricInputs[0]?.workerCount, 63);
   assert.match(output.join(""), /^PoC balance report /u);
 });
 
 test("rejects unsupported CLI arguments before loading runtime", async () => {
-  let loaded = false;
-  await assert.rejects(
-    () =>
-      runPocBalanceCliV1({
-        args: ["--unknown"],
-        loadRuntime: async () => {
-          loaded = true;
-          throw new TypeError("must not load");
-        },
-      }),
-    /usage: verify-poc-balance/u,
-  );
-  assert.equal(loaded, false);
-  await assert.rejects(
-    () => runPocBalanceCliV1({ args: ["--calibrate", "--iteration=13"] }),
-    /usage: verify-poc-balance/u,
-  );
+  const invalidArgs = [
+    ["--unknown"],
+    ["--workers=0"],
+    ["--workers=65"],
+    ["--workers=01"],
+    ["--workers=16", "--workers=16"],
+    ["--smoke", "--workers=16"],
+    ["--qualify-provisional", "--workers=16", "--workers=16"],
+    ["--workers=16", "--qualify-provisional"],
+    ["--calibrate", "--iteration=13"],
+    ["--calibrate", "--workers=16", "--iteration=7"],
+    ["--calibrate", "--iteration=7", "--workers=16", "--workers=16"],
+    ["--calibrate", "--iteration=7", "--unknown"],
+  ];
+  for (const args of invalidArgs) {
+    let loaded = false;
+    await assert.rejects(
+      () =>
+        runPocBalanceCliV1({
+          args,
+          loadRuntime: async () => {
+            loaded = true;
+            throw new TypeError("must not load");
+          },
+        }),
+      /usage: verify-poc-balance/u,
+    );
+    assert.equal(loaded, false, args.join(" "));
+  }
 });
 
 test("maps stable root and Story aliases without changing full-gate meaning", async () => {

@@ -9,8 +9,10 @@ import { describe, expect, it } from "vitest";
 
 import { parseSafeInteger } from "../gameplay/index.js";
 import {
+  admitPocBalanceCalibrationRunV1,
   calibrationCandidateFixtureV1,
   calculatePocBalanceDeficitV1,
+  canonicalPocBalanceEvidenceBytesV1,
   createPocBalanceCalibrationProgramV1,
   enumeratePocBalanceCalibrationNeighborsV1,
   evaluatePocBalanceCalibrationStepV1,
@@ -18,8 +20,10 @@ import {
   selectPocBalanceCalibrationStepV1,
 } from "../testing/balance-calibration.js";
 import {
+  evaluatePocBalanceCalibrationValuesV1,
   mergePocBalanceCorpusShardRangeV1,
   medianPaidAfterTaxCashV1,
+  partitionPocBalanceSeedRangeV1,
   parsePocBalanceCorpusShardV1,
   runPocBalanceCorpusShardV1,
   runPocBalanceCorpusWorkersForRangeV1,
@@ -72,6 +76,58 @@ describe("PoC deterministic balance lab", () => {
     expect(medianPaidAfterTaxCashV1([10, 1, 9, 2])).toBe(5.5);
     expect(medianPaidAfterTaxCashV1([3])).toBe(3);
     expect(medianPaidAfterTaxCashV1([])).toBeNull();
+  });
+
+  it("canonicalizes integer balance evidence byte-identically to Base and exact halves as x.5", () => {
+    const integerOnly = {
+      "\u{10000}": [0, 1, true, null, "\u{1f37a}"],
+      "\ue000": { z: -12, a: "tavern" },
+    };
+    expect(canonicalPocBalanceEvidenceBytesV1(integerOnly)).toEqual(
+      canonicalJsonBytes(integerOnly),
+    );
+    expect(new TextDecoder().decode(canonicalPocBalanceEvidenceBytesV1({ positive: 7.5 }))).toBe(
+      '{"positive":7.5}',
+    );
+  });
+
+  it("rejects non-canonical balance evidence without invoking accessors", () => {
+    let getterCalled = false;
+    const getter = {};
+    Object.defineProperty(getter, "value", {
+      enumerable: true,
+      get() {
+        getterCalled = true;
+        return 1;
+      },
+    });
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    const customObject = Object.create(null) as Record<string, unknown>;
+    customObject.value = 1;
+    const sparse = [1];
+    sparse.length = 3;
+    sparse[2] = 3;
+
+    for (const value of [
+      0.25,
+      -0.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      -0,
+      Number.MAX_SAFE_INTEGER + 1,
+      getter,
+      sparse,
+      Object.assign([1], { extra: 2 }),
+      Object.setPrototypeOf([1], null),
+      customObject,
+      cycle,
+      "\ud800",
+      { ["\udfff"]: 1 },
+    ]) {
+      expect(() => canonicalPocBalanceEvidenceBytesV1(value)).toThrow();
+    }
+    expect(getterCalled).toBe(false);
   });
 
   it("freezes every complete-corpus threshold boundary and ending invariant", () => {
@@ -290,6 +346,75 @@ describe("PoC deterministic balance lab", () => {
     );
   }, 120_000);
 
+  it("partitions the complete corpus into frozen contiguous worker ranges", () => {
+    const ranges = partitionPocBalanceSeedRangeV1({
+      firstSeed: 1,
+      lastSeed: 1000,
+      workerCount: 64,
+    });
+
+    expect(ranges).toHaveLength(64);
+    expect(Object.isFrozen(ranges)).toBe(true);
+    expect(ranges[0]).toEqual({ firstSeed: 1, lastSeed: 16 });
+    expect(ranges[39]).toEqual({ firstSeed: 625, lastSeed: 640 });
+    expect(ranges[40]).toEqual({ firstSeed: 641, lastSeed: 655 });
+    expect(ranges[63]).toEqual({ firstSeed: 986, lastSeed: 1000 });
+    expect(
+      ranges.slice(0, 40).every(({ firstSeed, lastSeed }) => lastSeed - firstSeed === 15),
+    ).toBe(true);
+    expect(ranges.slice(40).every(({ firstSeed, lastSeed }) => lastSeed - firstSeed === 14)).toBe(
+      true,
+    );
+    for (const [index, range] of ranges.entries()) {
+      expect(Object.isFrozen(range)).toBe(true);
+      if (index > 0) expect(range.firstSeed).toBe((ranges[index - 1]?.lastSeed ?? 0) + 1);
+    }
+
+    expect(partitionPocBalanceSeedRangeV1({ firstSeed: 1, lastSeed: 1, workerCount: 64 })).toEqual([
+      { firstSeed: 1, lastSeed: 1 },
+    ]);
+    for (const workerCount of [0, 65, 1.5]) {
+      expect(() =>
+        partitionPocBalanceSeedRangeV1({ firstSeed: 1, lastSeed: 1000, workerCount }),
+      ).toThrow(/invalid PoC balance worker range/u);
+    }
+  });
+
+  it("evaluates one requested calibration point through the shared explicit-worker ports", async () => {
+    const fixture = calibrationCandidateFixtureV1();
+    const values = fixture.values;
+    const program = Object.freeze({ kind: "program" });
+    const metrics = fixture.evaluation.metrics;
+    const counterfactuals = fixture.evaluation.counterfactuals;
+    const calls: unknown[] = [];
+
+    const evaluation = await evaluatePocBalanceCalibrationValuesV1(
+      { values, workerCount: 64 },
+      {
+        createProgram(received) {
+          calls.push(["program", received]);
+          return program as never;
+        },
+        async runCorpus(received) {
+          calls.push(["metrics", received]);
+          return metrics;
+        },
+        async evaluateCounterfactuals(received) {
+          calls.push(["counterfactuals", received]);
+          return counterfactuals;
+        },
+      },
+    );
+
+    expect(evaluation).toEqual({ metrics, counterfactuals });
+    expect(Object.isFrozen(evaluation)).toBe(true);
+    expect(calls).toEqual([
+      ["program", values],
+      ["metrics", { firstSeed: 1, lastSeed: 1000, workerCount: 64, calibrationValues: values }],
+      ["counterfactuals", program],
+    ]);
+  });
+
   it("re-admits worker shards and waits for a clean worker exit", async () => {
     const strategyMetrics = Object.freeze({
       stableCount: 1,
@@ -480,6 +605,76 @@ describe("PoC deterministic balance lab", () => {
       kind: "balance_contract_unsatisfied",
       reason: "iteration_limit",
     });
+  }, 30_000);
+
+  it("re-admits a canonical remote calibration run against the requested point", () => {
+    const step = calibrationCandidateFixtureV1();
+    const selection = selectPocBalanceCalibrationStepV1(step);
+    const admitted = admitPocBalanceCalibrationRunV1(
+      { step, selection: { ...selection } },
+      { iteration: step.iteration, values: step.values },
+    );
+
+    expect(canonicalPocBalanceEvidenceBytesV1(admitted)).toEqual(
+      canonicalPocBalanceEvidenceBytesV1({ step, selection }),
+    );
+    expect(admitted.selection).toEqual(selection);
+    expect(Object.isFrozen(admitted)).toBe(true);
+    expect(Object.isFrozen(admitted.step)).toBe(true);
+    expect(Object.isFrozen(admitted.step.values)).toBe(true);
+    expect(Object.isFrozen(admitted.step.candidates)).toBe(true);
+    expect(Object.isFrozen(admitted.selection)).toBe(true);
+  }, 30_000);
+
+  it("rejects mismatched, partial, out-of-order, and forged remote calibration runs", () => {
+    const step = calibrationCandidateFixtureV1();
+    const selection = selectPocBalanceCalibrationStepV1(step);
+    if (selection.kind !== "candidate") throw new TypeError("expected calibration candidate");
+    const [first, second] = step.candidates;
+    if (first === undefined || second === undefined) {
+      throw new TypeError("missing calibration evidence fixtures");
+    }
+    const expected = { iteration: step.iteration, values: step.values };
+    const admit = (value: unknown) => admitPocBalanceCalibrationRunV1(value, expected);
+
+    expect(() =>
+      admitPocBalanceCalibrationRunV1(
+        { step, selection },
+        { iteration: parseNonNegativeSafeInteger(1), values: step.values },
+      ),
+    ).toThrow();
+    expect(() =>
+      admitPocBalanceCalibrationRunV1(
+        { step, selection },
+        {
+          iteration: step.iteration,
+          values: { ...step.values, levy: parseNonNegativeSafeInteger(138) },
+        },
+      ),
+    ).toThrow();
+    expect(() => admit({ step, selection, extra: true })).toThrow();
+    expect(() =>
+      admit({
+        step: { ...step, candidates: [{ ...first, evaluation: step.evaluation }] },
+        selection,
+      }),
+    ).toThrow();
+    expect(() => admit({ step: { ...step, candidates: [second] }, selection })).toThrow();
+    expect(() =>
+      admit({
+        step,
+        selection: { kind: "candidate", field: selection.field },
+      }),
+    ).toThrow();
+    expect(() =>
+      admit({
+        step,
+        selection: {
+          ...selection,
+          afterDeficit: parseNonNegativeSafeInteger(selection.afterDeficit + 1),
+        },
+      }),
+    ).toThrow();
   }, 30_000);
 
   it("evaluates the current point and only the canonical prefix through the first zero deficit", async () => {

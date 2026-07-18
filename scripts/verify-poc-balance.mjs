@@ -155,15 +155,24 @@ async function loadPocBalanceRuntimeV1() {
   return { base, calibration, counterfactuals, metrics };
 }
 
-export async function buildPocBalanceFullReportV1(loadRuntime = loadPocBalanceRuntimeV1) {
-  const { calibration, counterfactuals, metrics } = await loadRuntime();
+function parsePocBalanceWorkerCountV1(value) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 64) {
+    throw new TypeError("invalid PoC balance worker count");
+  }
+  return value;
+}
+
+export async function buildPocBalanceFullReportV1(
+  loadRuntime = loadPocBalanceRuntimeV1,
+  workerCount = 16,
+) {
+  const admittedWorkerCount = parsePocBalanceWorkerCountV1(workerCount);
+  const { calibration, metrics } = await loadRuntime();
   const values = calibration.pocBalanceCalibrationValuesV1();
-  const program = calibration.createPocBalanceCalibrationProgramV1(values);
-  const [balanceMetrics, checks] = await Promise.all([
-    metrics.runPocBalanceCorpusV1({ firstSeed: 1, lastSeed: 1000, calibrationValues: values }),
-    counterfactuals.evaluatePocFacilityCounterfactualChecksV1(program),
-  ]);
-  const evaluation = Object.freeze({ metrics: balanceMetrics, counterfactuals: checks });
+  const evaluation = await metrics.evaluatePocBalanceCalibrationValuesV1({
+    values,
+    workerCount: admittedWorkerCount,
+  });
   return Object.freeze({
     deficit: calibration.calculatePocBalanceDeficitV1(evaluation),
     evaluation,
@@ -209,47 +218,82 @@ export async function runPocBalanceCliV1({
   writeStdout = (value) => process.stdout.write(value),
 }) {
   if (!Array.isArray(args)) throw new TypeError("PoC balance CLI args must be an array");
-  const [mode, ...extra] = args;
-  const calibrationIterationMatch =
-    mode === "--calibrate" && extra.length === 1 ? /^--iteration=(\d{1,2})$/u.exec(extra[0]) : null;
-  const calibrationIteration =
-    calibrationIterationMatch === null ? 0 : Number(calibrationIterationMatch[1]);
-  if (
-    (extra.length > 0 && calibrationIterationMatch === null) ||
-    calibrationIteration > 12 ||
-    (mode !== undefined &&
-      mode !== "--smoke" &&
-      mode !== "--calibrate" &&
-      mode !== "--qualify-provisional")
-  ) {
+  const usage = () => {
     throw new TypeError(
-      "usage: verify-poc-balance.mjs [--smoke|--calibrate [--iteration=0..12]|--qualify-provisional]",
+      "usage: verify-poc-balance.mjs [--workers=1..64|--smoke|--calibrate [--iteration=0..12] [--workers=1..64]|--qualify-provisional [--workers=1..64]]",
     );
+  };
+  if (args.some((argument) => typeof argument !== "string")) usage();
+  const workerMatchV1 = (argument) =>
+    typeof argument === "string" ? /^--workers=([1-9]|[1-5][0-9]|6[0-4])$/u.exec(argument) : null;
+  const iterationMatchV1 = (argument) =>
+    typeof argument === "string" ? /^--iteration=(0|[1-9]|1[0-2])$/u.exec(argument) : null;
+
+  let mode = "strict";
+  let calibrationIteration = 0;
+  let workerCount = 16;
+  let index = 0;
+  const first = args[0];
+  if (first === "--smoke") {
+    mode = "smoke";
+    index = 1;
+  } else if (first === "--calibrate") {
+    mode = "calibrate";
+    index = 1;
+    const iterationMatch = iterationMatchV1(args[index]);
+    if (iterationMatch !== null) {
+      calibrationIteration = Number(iterationMatch[1]);
+      index += 1;
+    }
+    const workerMatch = workerMatchV1(args[index]);
+    if (workerMatch !== null) {
+      workerCount = Number(workerMatch[1]);
+      index += 1;
+    }
+  } else if (first === "--qualify-provisional") {
+    mode = "qualify";
+    index = 1;
+    const workerMatch = workerMatchV1(args[index]);
+    if (workerMatch !== null) {
+      workerCount = Number(workerMatch[1]);
+      index += 1;
+    }
+  } else if (first !== undefined) {
+    const workerMatch = workerMatchV1(first);
+    if (workerMatch === null) usage();
+    workerCount = Number(workerMatch[1]);
+    index = 1;
   }
-  if (mode === "--smoke") {
+  if (index !== args.length) usage();
+  workerCount = parsePocBalanceWorkerCountV1(workerCount);
+
+  if (mode === "smoke") {
     runPocBalanceSmokeVerificationV1(root, spawn);
     return 0;
   }
 
   const runtime = await loadRuntime();
-  if (mode === "--calibrate") {
+  if (mode === "calibrate") {
     const calibration = await runtime.metrics.runPocBalanceCalibrationStepV1({
       iteration: calibrationIteration,
       values: runtime.calibration.pocBalanceCalibrationValuesV1(),
+      workerCount,
     });
     writeStdout(
       `PoC balance calibration ${new TextDecoder().decode(
-        runtime.base.canonicalJsonBytes(calibration),
+        runtime.calibration.canonicalPocBalanceEvidenceBytesV1(calibration),
       )}\n`,
     );
     return calibration.selection.kind === "balance_contract_unsatisfied" ? 1 : 0;
   }
 
-  const report = await buildPocBalanceFullReportV1(async () => runtime);
+  const report = await buildPocBalanceFullReportV1(async () => runtime, workerCount);
   writeStdout(
-    `PoC balance report ${new TextDecoder().decode(runtime.base.canonicalJsonBytes(report))}\n`,
+    `PoC balance report ${new TextDecoder().decode(
+      runtime.calibration.canonicalPocBalanceEvidenceBytesV1(report),
+    )}\n`,
   );
-  if (mode === "--qualify-provisional") {
+  if (mode === "qualify") {
     assertPocProvisionalBalanceReportV1(report);
   } else {
     assertPocBalanceFullReportV1(report);

@@ -23,6 +23,7 @@
     "verify:balance": "node ../../../scripts/verify-poc-balance.mjs",
     "verify:balance:smoke": "vitest run src/test/balance-1000-seeds.test.ts",
     "calibrate:balance": "node ../../../scripts/verify-poc-balance.mjs --calibrate",
+    "calibrate:balance:remote": "node ../../../scripts/run-poc-balance-remote.mjs",
     "update:rule-source-digests": "node --experimental-strip-types scripts/update-rule-source-digests.mts"
   },
   "dependencies": {

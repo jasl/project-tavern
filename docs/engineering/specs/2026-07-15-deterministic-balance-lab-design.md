@@ -128,11 +128,18 @@ step commit 使用 Git 推荐的 `Key: value` trailers：
 - `Balance-Calibration-After-Deficit: <afterDeficit>`
 - `Balance-Calibration-Evidence-SHA256: sha256:<digest>`
 
+当该 step 使用 §4.2 的辅助执行器时，还必须包含：
+
+- `Balance-Calibration-Source-Archive-SHA256: sha256:<digest>`
+- `Balance-Calibration-Before-Evaluation-SHA256: sha256:<digest>`
+- `Balance-Calibration-After-Evaluation-SHA256: sha256:<digest>`
+- `Balance-Calibration-Remote-Attestation-SHA256: sha256:<digest>`
+
 Step diff allowlist 只有 `docs/poc/balance-v0.md`、`game/stories/poc/src/content/balance.ts`，以及确有直接 literal
 变化时的 `game/stories/poc/src/test/daily-gates.test.ts`/
 `game/stories/poc/src/test/ending-forecast.test.ts`。但 allowlist/scalar validation 只是一层快速拒绝：恢复器必须在每个
-step parent sandbox 重跑 `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N`，校验 canonical
-evidence SHA-256 和全部 trailer 值，重新应用候选到文档/代码/直接 literals，并要求重建的完整
+step parent sandbox 重跑本机完整 selector，或按 §4.2 重建 exact archive 后运行辅助 selector 与本机 current/selected
+replay，校验 canonical evidence SHA-256 和该执行方式要求的全部 trailer 值，重新应用候选到文档/代码/直接 literals，并要求重建的完整
 `git diff --binary` 与历史 step byte-for-byte 相同。中间 step 有意让 golden/Save/完整 phase gate 保持 stale/red，
 不是最终冻结 checkpoint。
 
@@ -181,6 +188,85 @@ counterfactual。可以缓存同一 schema 自己产生的 immutable validated i
 admission 和完整 report 证明语义/字节等价；不得用抽样、代理评分、解析近似、复用 mutable Session 或跳过候选来
 换取速度。通用 Balance Lab 抽取仍等第二个消费者，性能压力本身不构成提前创建引擎 package 的理由。
 
+### 4.2 可验证的辅助计算执行器
+
+物理主机不是 balance 语义或校准权威。所有者授权的辅助执行器可以承担 canonical 邻居证据的并行评估，但必须保持
+本机为唯一 controller 和 commit authority，并满足以下 proof-preserving 合同：
+
+这里的 complete canonical evidence 与本机 selector 完全同义：若没有候选达到零缺口，必须包含完整合法邻居集；若
+存在零缺口，必须按 canonical 顺序恰好结束于首个零缺口候选，因为 deficit 不可能低于零。其他短前缀、跳项、重排、
+重复或首零之后继续追加都不是合法 evidence。
+
+- evaluator 接受显式 `workerCount`，合法范围为 `1..64`，本机默认仍为 `16`；worker 数只改变连续 seed shard 的调度，
+  不进入 metrics、candidate、selection 或 canonical semantic stdout；
+- 输入必须是 clean `HEAD` 的 exact `git archive`，并在两端校验 source commit/tree、archive SHA-256、`pnpm-lock.yaml`
+  SHA-256、tracked materialization/package closure digest、Node `v26.5.0` 和 pnpm `11.11.0`；
+- 执行器只在其专用 HOME-relative workspace 解包源码。允许一次显式联网 provisioning 填充 exact toolchain 与 frozen
+  package store；每次 evidence run 必须从 fresh archive 开始，以 `pnpm install --offline --frozen-lockfile` 建立依赖；
+- 执行器不得接收本机 ignored attestation、`dist/**`、secret 或 runtime preference，不得运行 writer、Vite、Playwright、
+  WebHost、server、Artifact build、remote smoke、upload 或 distribution；
+- 首轮 `N = 0` 时，本机完整 current evaluation 必须与执行器 evidence 的 current evaluation byte-identical；本机随后
+  对 complete canonical remote evidence 重新 admission、重算 selector，并只完整复算被选 candidate，要求该 evaluation 也逐字节一致；
+- 后续轮次可以用上一 calibration-step commit 已记录的本机 selected-candidate evaluation digest 作为本轮 before digest，
+  但每轮选中 candidate 仍必须在本机完整复算；任一 mismatch 均禁止应用候选或提交 step；
+- semantic stdout 继续只有 canonical calibration value。分离的 execution attestation 记录 source/toolchain/package
+  identity、platform/arch、available parallelism、worker count、iteration 与 before/after/evidence digests；不得记录 SSH
+  address、private IP、绝对路径、时间、耗时、主机名或 shard 完成顺序。
+
+远端运行和本机 current/selected replay 都必须读取同一 frozen archive 的独立 source sandbox；长时间运行期间不得
+重新读取可能变化的 live source tree。启动时 clean/non-detached/`main` 检查只授权归档，不能替代该 TOCTOU 边界。
+本机 sandbox 复用 Phase 0 store 并执行 recovery-only offline frozen install；所有本地/远端临时 sandbox 都在进程
+结束时清理或保留为 ignored/operator workspace，绝不进入 Git execution state。
+
+本 Goal 的 Linux x64 provisioning inputs 冻结为 Node archive
+`node-v26.5.0-linux-x64.tar.xz`（SHA-256
+`9f619528f1db5ddc41dccf54211066fb42228d69a156733c69cb9d6cc92e358c`）与 pnpm release asset
+`pnpm-linux-x64.tar.gz` v11.11.0（SHA-256
+`df4699e897012ab14df2cc6eaa942910e830eb7fcaa420a2a1421a9461fd9108`）。它们安装在专用
+`$HOME/Workspace/project-tavern-worker/**` 下，不修改用户全局 Node/pnpm；package store 只由 tracked frozen lockfile
+填充。正式 run 不下载这些 bytes，也不使用 remote host 已有的其他版本。
+
+分离 attestation 的精确 v1 形状为：
+
+```ts
+interface PocBalanceRemoteExecutionAttestationV1 {
+  readonly schemaRevision: 1;
+  readonly contractId: "project-tavern.poc-balance-remote-execution.v1";
+  readonly sourceCommit: string;
+  readonly sourceTree: string;
+  readonly sourceArchiveSha256: string;
+  readonly pnpmLockSha256: string;
+  readonly materializationDigest: string;
+  readonly packageClosureDigest: string;
+  readonly nodeVersion: "v26.5.0";
+  readonly nodeArchiveSha256: string;
+  readonly pnpmVersion: "11.11.0";
+  readonly pnpmArchiveSha256: string;
+  readonly platform: "linux";
+  readonly arch: "x64";
+  readonly availableParallelism: PositiveSafeInteger;
+  readonly workerCount: PositiveSafeInteger;
+  readonly iteration: NonNegativeSafeInteger;
+  readonly firstSeed: 1;
+  readonly lastSeed: 1000;
+  readonly evidenceSha256: string;
+  readonly beforeEvaluationSha256: string;
+  readonly afterEvaluationSha256: string | null;
+}
+```
+
+所有 digest string 都使用 lowercase `sha256:<64-hex>`；commit/tree 是当前仓库 Git object format 的 lowercase exact
+object ID。对象以 Story-local evidence codec canonicalize，写入调用者显式指定的本机临时路径且不进入 Git。
+
+每个远端辅助的 step 在原七个 trailers 之外还记录 exact source archive、before evaluation、after evaluation 和 remote
+attestation 的 SHA-256。历史 replay 可以在任一满足同一输入/输出证明的执行器上完成；是否为原物理主机不参与验收。
+若辅助执行器不可用，本机完整 selector 仍是语义等价的 fallback，不构成设计阻塞。
+
+Balance evidence codec 接受 Base 已允许的 safe integer；中位数域还允许非负 exact half-integer。Base Canonical JSON
+保持整数限定；Story-local evidence codec 只额外接受 `.5`，并以唯一十进制 JSON number 编码，整数 evidence 必须与 Base bytes
+byte-identical。它拒绝 quarter value、非有限数、`-0`、unsafe value、sparse/decorated array、getter、cycle 与 custom
+prototype。`.5` 可由 binary64 精确表示，因此该 codec 不引入 Decimal、舍入政策或新的 gameplay 数值表示。
+
 ## 5. 与其他基础设施的边界
 
 Balance Lab 不是 StateStore、数据库、ECS、Analytics、telemetry、自动难度或 runtime live tuning。它读取通过公开
@@ -190,8 +276,9 @@ Story test adapter 构造的独立 Simulation run，不提供通用 State path/q
 若未来出现独立的真实小数/舍入需求，按 Typed StateStore v2 数值审查合同另行比较 Decimal、定点整数与 codec，
 不能在 balance runner 内隐式切换。
 
-Balance Lab 不使用 LLM、网络、远端 worker、数据库、IndexedDB、Prisma、SQL、随机搜索服务或外部 telemetry。
-Phase 6 校准必须在 materialized offline toolchain 上可复现。
+Balance Lab 不使用 LLM、数据库、IndexedDB、Prisma、SQL、随机搜索服务或外部 telemetry。除 §4.2 的所有者授权辅助
+计算执行器外，它不访问网络或远端服务；Phase 6 校准必须由精确 source/toolchain/package inputs 与 canonical output
+证明可复现，不能把某台物理主机或 host-local scheduling 当成语义输入。
 
 ## 6. Post-Goal 抽取门槛
 

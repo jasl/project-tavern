@@ -272,9 +272,9 @@ conservativeTaxAfter = currentCash
 本节定义两级只读 gate，二者职责不可互换：
 
 - Story `pnpm --filter @project-tavern/story-poc verify:balance:smoke` 是 Phase 4B/5 的快速合同 gate。它用当前默认 Program 固定运行 seed 1 的六策略顺序/worker 等价与真实 worker structured admission，再用反向输入的 synthetic seeds 1–2 shards 证明排序/合并/间隙和 ending/sample 不变量而不重复昂贵 Simulation；seed 17 另行执行真实 `war_clue` committed-attempt → D6 plan 分支。它还覆盖设施 counterfactual、指标/Pareto/中位数、完整阈值边界、账本不变量、校准邻居排序与不可变 Program materialization。Root `pnpm verify:balance:smoke` 只是调用这一 Story leaf 的便捷别名。它必须快速、确定、无写入，但不对 1,000 个种子的总体阈值作抽样推断。
-- Root/Story `pnpm verify:balance` 是唯一完整 release gate。其 CLI 直接运行 seeds 1–1000、全部六策略、D4 压力、设施 counterfactual 和本节所有总体阈值，最终只输出一个包含 `deficit` 与精确 metrics/counterfactual evaluation 的 canonical report；它不通过 Vitest、`test:story` 或 smoke alias 间接运行。普通 Phase 4B/5、unit 与 full local verification 不得意外包含这条长 corpus。
+- Root/Story `pnpm verify:balance` 是唯一完整 release gate。其 CLI 直接运行 seeds 1–1000、全部六策略、D4 压力、设施 counterfactual 和本节所有总体阈值，最终只输出一个包含 `deficit` 与精确 metrics/counterfactual evaluation 的 canonical report；它不通过 Vitest、`test:story` 或 smoke alias 间接运行。普通 Phase 4B/5、unit 与 full local verification 不得意外包含这条长 corpus。完整 evaluator 可显式接收 `--workers=1..64`，本机默认 16；worker count 只划分连续 seed ranges，不进入 canonical report/evidence。
 
-`pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N` 复用完整 corpus，但只读地枚举和评估 §14.4 的合法邻居，输出 canonical baseline/candidate/selection evidence；`N` 只能来自 accepted Phase 5C checkpoint 后 first-parent ancestry 中已验证且严格连续的 calibration-step commit 数，不来自聊天、shell 或本地文件。它显式表示已应用的变化数，调用时不插入独立 `--`，也不修改 balance、fixture、golden、Save 或任何计划文件。Task 10 另有无 package alias 的 `node scripts/verify-poc-balance.mjs --qualify-provisional`：它只在完整 reproduction range `1..1000` 的所有 metrics/counterfactual 与下述 2026-07-15 provisional report 精确相等时返回 0；默认 `verify:balance` 仍对同一 deficit 返回非零。该临时 qualifier 只在 Phase 6 final balance-freeze commit 中移除。Phase 4B/5 可在 strict full gate 保持“已记录且仅阈值失败”的状态下继续，但 smoke、schema、命令、算法、确定性、不变量、counterfactual、Pareto 与 provenance 失败一律不能 defer。
+`pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N` 复用完整 corpus，但只读地枚举和评估 §14.4 的合法邻居，输出 canonical baseline/candidate/selection evidence；可验证辅助执行使用 `calibrate:balance:remote --iteration=N [--prior-after-sha256=sha256:<previous-local-after>] --host=... --remote-root=... --workers=... --attestation-out=...`，但 semantic evidence 与本机命令保持同一形状。`N = 0` 禁止 prior digest；`N > 0` 必须在 iteration 后紧接上一 accepted step 的本机 after-evaluation digest。`N` 只能来自 accepted Phase 5C checkpoint 后 first-parent ancestry 中已验证且严格连续的 calibration-step commit 数，不来自聊天、shell 或本地文件。它显式表示已应用的变化数，调用时不插入独立 `--`，也不修改 balance、fixture、golden、Save 或任何计划文件。Task 10 另有无 package alias 的 `node scripts/verify-poc-balance.mjs --qualify-provisional`：它只在完整 reproduction range `1..1000` 的所有 metrics/counterfactual 与下述 2026-07-15 provisional report 精确相等时返回 0；默认 `verify:balance` 仍对同一 deficit 返回非零。该临时 qualifier 只在 Phase 6 final balance-freeze commit 中移除。Phase 4B/5 可在 strict full gate 保持“已记录且仅阈值失败”的状态下继续，但 smoke、schema、命令、算法、确定性、不变量、counterfactual、Pareto 与 provenance 失败一律不能 defer。
 
 ### 14.1 `PocBalanceMetricsV1` 的精确统计形状
 
@@ -403,6 +403,25 @@ target_commit="<clean-commit-sha>"
 ```
 
 执行者先选择 Phase 0 materialized PATH（当前 checkpoint 为 `/opt/homebrew/bin`），live 与 subshell 的 Node/pnpm 断言通过且匹配 accepted materialization identity 后才可产证据。该 install 不访问 registry、不改变 live tree/lockfile。每个历史 step 都必须在其 parent sandbox 以当时已应用步数 `N` 重跑 `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N`，校验 canonical evidence SHA-256 与所有 field/before/after/deficit/index trailers，重新把候选应用到 `balance-v0.md`、`balance.ts` 和精确 direct literals，并要求重建的完整 `git diff --binary` 与历史 commit byte-for-byte 相同；只验 path/scalar 不足以恢复。每轮新候选仍只改一个既有数值并独立提交，step 不含 qualifier、golden 或 Save。
+
+项目所有者授权的辅助计算执行器可以代替本机运行 canonical 邻居枚举，但不能代替本机验收：无零缺口候选时 evidence
+必须包含完整合法集；一旦达到零缺口则必须恰好结束于 canonical 顺序的首个零缺口候选。编排器只上传 clean
+`git archive HEAD`，在两端校验 source commit/tree/archive、lock、tracked materialization/package closure 与 exact
+Node/pnpm；远端 evidence run 从 fresh archive 执行 offline frozen install，并显式使用 `1..64` workers。它不得复制
+本机 ignored attestation，不运行 writer/build/Vite/Playwright/server/Artifact/remote smoke，也不得把 SSH host、private
+IP、路径、时间或调度顺序写入 semantic evidence/attestation。`N = 0` 首轮必须本机完整复算 current point；每轮都由
+本机从同一 frozen archive 的独立 sandbox 严格 admission complete canonical remote candidates、重算 selector，并完整复算选中 candidate。两处 evaluation 都必须与
+remote bytes 相同；后续轮次的 before digest 可由上一轮本机 after digest 链接。失败分别以稳定 mismatch 停止，绝不
+应用候选。
+
+使用辅助执行器的 step 除原七个 trailers 外还必须记录
+`Balance-Calibration-Source-Archive-SHA256`、`Balance-Calibration-Before-Evaluation-SHA256`、
+`Balance-Calibration-After-Evaluation-SHA256` 与 `Balance-Calibration-Remote-Attestation-SHA256`。历史 replay 可在
+任何满足相同 exact-input/canonical-output 合同的执行器上重建，不绑定原物理主机。
+
+balance evidence codec 接受 Base 已允许的 safe integer；中位数只额外允许非负 exact half-integer。Story-local
+canonical codec 以唯一 `.5` 十进制 JSON number 编码后一种，且整数 evidence 与 Base Canonical JSON byte-identical；它不改变 Gameplay 的
+SafeInteger 金额或引入 Decimal/舍入政策。
 
 若 `Balance-Calibration-Repair: true` 出现在 `N > 0`，必须从 Phase 5C sandbox overlay repaired evaluator，并从 `--iteration=0` 顺序重放全部旧 steps；每轮 evidence/trailers/full binary patch 全等才能继续。任一差异产生 `balance_calibration_history_invalidated` 权威设计停点，禁止自动 rewrite、rollback 或重选历史；`N = 0` 可在 owner repair gates 通过后继续。Dirty step/final 也必须从 clean-`HEAD` sandbox 重算 selector 或 writer/removals，并要求完整 binary patch 与 live dirty patch 精确相同；混合或范围外 dirty bytes 必须停止。
 

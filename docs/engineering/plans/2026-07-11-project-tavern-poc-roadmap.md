@@ -25,12 +25,12 @@
 - SemanticGamePort exposes only player-visible information and legal actions. Automation does not receive DebugTools and legal Automation never modifies RunIntegrity.
 - Debug/Cheat/Automation default to disabled. Successful rule-bypassing mutations persist RunIntegrity; read-only tooling and structurally invalid, `validation_failed`, or faulted debug operations do not.
 - Every `Story × Host` has one Artifact. Tooling may be present and lazily loaded in that Artifact; bundle absence is not a security mechanism.
-- The first Goal covers only local engineering delivery and a feedback-ready PoC Artifact. Asset generation/approval runs first in its independent track; human playtesting runs only after this Goal; CI, hosting and remote smoke are deferred to a separate future distribution task.
+- The first Goal covers engineering delivery and a feedback-ready local PoC Artifact. Asset generation/approval runs first in its independent track; human playtesting runs only after this Goal; CI, hosting, Artifact deployment and remote smoke are deferred to a separate future distribution task. An owner-authorized Phase 6 balance compute executor may evaluate exact archived source under a proof-preserving contract, but it never receives or serves an Artifact and is not distribution.
 - Every behavior task uses TDD: focused failing test, an expected failure matching the named test and stable diagnostic code, minimal implementation, focused pass, phase gate, current `pnpm verify`, exact staged-diff review and the task commit.
 - Verification never rewrites tracked fixtures, golden files, screenshots or lockfiles. Writers stay explicit and outside `pnpm verify`.
 - Technical fixtures/golden/screenshots are reviewed by the execution agent under the delivery-boundaries evidence contract; this is not asset approval and introduces no human pause.
 - The current Goal defers full 1..1000 balance calibration to the start of Phase 6, before any release/Artifact work. Phase 4B freezes deterministic balance infrastructure, a fast smoke corpus and provisional golden/Save baselines; Phase 5 consumes those exact bytes read-only. Phase 6 then calibrates the frozen thresholds, synchronizes authoritative balance data/documentation, regenerates and technically reviews every affected golden/Save/digest byte, and only then begins Artifact work. This changes no phase order and does not weaken the final balance contract.
-- No mainline task creates `.github/workflows/**`, calls a remote API, publishes, pushes, deploys, checks hosting credentials or changes repository settings.
+- No mainline task creates `.github/workflows/**`, calls a hosted product API, publishes, pushes, deploys an Artifact, checks hosting credentials or changes repository settings. The sole bounded remote side effect is the authorized Phase 6 balance compute workspace described by the balance-lab specification; it cannot build, serve, smoke or distribute the game.
 
 ---
 
@@ -83,6 +83,7 @@ pnpm --filter @project-tavern/story-poc verify:balance:smoke  fast fixed-seed Po
 pnpm verify:balance:smoke    root delegate for the same fast balance smoke
 pnpm verify:balance          PoC 1..1000-seed thresholds
 pnpm --filter @project-tavern/story-poc calibrate:balance  read-only full-corpus neighbor selection
+pnpm --filter @project-tavern/story-poc calibrate:balance:remote  verified auxiliary full-corpus selection plus local replay
 pnpm verify:assets           runtime manifest paths, media bytes, hashes and dimensions
 pnpm verify:semantic         SemanticGamePort and DOM/action parity
 pnpm verify:ui               RTL, responsive, Input and accessibility checks
@@ -238,7 +239,7 @@ Stop if tooling creates another Artifact/Session, Automation can cheat, semantic
 
 **Produces:** a passed frozen 1..1000 balance contract, synchronized authoritative PoC balance, regenerated and technically reviewed final golden/Save/digest bytes, closed `{ story, host }` builder, `dist/e2e` and `dist/poc`, deterministic manifests, nested-base smoke, complete local verification orchestration and local runbooks.
 
-Before Phase 6 plan Task 1 or any release/Artifact implementation or build, establish the balance-freeze checkpoint. Run the frozen seeds 1..1000 × six strategies and counterfactuals, apply only the deterministic finite calibration procedure, update `docs/poc/balance-v0.md` and `game/stories/poc/src/content/balance.ts` together, then regenerate affected golden/Save/digest outputs through the existing explicit writers. Repeat the Phase 4B full diff/hash technical review and exact-staging contracts, prove reference command bytes unchanged, run `pnpm verify:balance` twice with byte-identical passing metrics, run read-only golden/fixture gates, and commit the clean final bytes. If no improving legal neighbor exists, stop before Artifact work; never lower a threshold, alter the six strategies, or relabel provisional bytes as final.
+Before Phase 6 plan Task 1 or any release/Artifact implementation or build, establish the balance-freeze checkpoint. Run the frozen seeds 1..1000 × six strategies and counterfactuals, apply only the deterministic finite calibration procedure, update `docs/poc/balance-v0.md` and `game/stories/poc/src/content/balance.ts` together, then regenerate affected golden/Save/digest outputs through the existing explicit writers. Neighbor enumeration may run on an owner-authorized 1..64-worker auxiliary executor from an exact clean archive, but the local controller must byte-match the initial current point, re-admit all evidence/recompute the selector, and fully replay every selected candidate before applying it. Repeat the Phase 4B full diff/hash technical review and exact-staging contracts, prove reference command bytes unchanged, run local `pnpm verify:balance` twice with byte-identical passing metrics, run read-only golden/fixture gates, and commit the clean final bytes. If no improving legal neighbor exists, stop before Artifact work; never lower a threshold, alter the six strategies, or relabel provisional bytes as final.
 
 - [ ] Build and inspect both Story Artifacts; release-process only PoC.
 - [ ] Prove two clean PoC builds are byte-identical and the final manifest identifies their exact local inputs.

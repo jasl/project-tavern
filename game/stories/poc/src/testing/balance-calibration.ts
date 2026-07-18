@@ -139,6 +139,16 @@ export type PocBalanceCalibrationSelectionV1 =
       readonly candidates: readonly PocBalanceCalibrationCandidateV1[];
     };
 
+export interface PocBalanceCalibrationRunV1 {
+  readonly step: PocBalanceCalibrationStepInputV1;
+  readonly selection: PocBalanceCalibrationSelectionV1;
+}
+
+export interface PocBalanceCalibrationRunExpectationV1 {
+  readonly iteration: NonNegativeSafeInteger;
+  readonly values: DeepReadonly<PocBalanceCalibrationValuesV1>;
+}
+
 const calibrationIterationLimitV1 = parseNonNegativeSafeInteger(12);
 const booleanFailurePenaltyV1 = parseNonNegativeSafeInteger(1001);
 const unitStepV1 = parsePositiveSafeInteger(1);
@@ -169,6 +179,181 @@ function failCalibrationEvaluationV1(detail: string): never {
 
 function failCalibrationEvidenceV1(detail: string): never {
   throw new TypeError(`invalid PoC balance calibration evidence: ${detail}`);
+}
+
+function failPocBalanceEvidenceV1(detail: string, path: string): never {
+  throw new TypeError(`invalid PoC balance evidence: ${detail} at ${path || "/"}`);
+}
+
+function balanceEvidencePointerSegmentV1(value: string): string {
+  return value.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function assertValidBalanceEvidenceStringV1(value: string, path: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (index + 1 >= value.length || next < 0xdc00 || next > 0xdfff) {
+        failPocBalanceEvidenceV1("string contains a lone surrogate", path);
+      }
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      failPocBalanceEvidenceV1("string contains a lone surrogate", path);
+    }
+  }
+}
+
+function compareBalanceEvidenceCodePointsV1(left: string, right: string): number {
+  const leftPoints = Array.from(left, (value) => value.codePointAt(0) ?? 0);
+  const rightPoints = Array.from(right, (value) => value.codePointAt(0) ?? 0);
+  const length = Math.min(leftPoints.length, rightPoints.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftPoints[index] ?? 0) - (rightPoints[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return leftPoints.length - rightPoints.length;
+}
+
+function balanceEvidenceUtf8V1(value: string): Uint8Array {
+  const bytes: number[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const first = value.charCodeAt(index);
+    let codePoint = first;
+    if (first >= 0xd800 && first <= 0xdbff) {
+      const second = value.charCodeAt(index + 1);
+      codePoint = 0x1_0000 + ((first - 0xd800) << 10) + (second - 0xdc00);
+      index += 1;
+    }
+    if (codePoint <= 0x7f) bytes.push(codePoint);
+    else if (codePoint <= 0x7ff) {
+      bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+    } else if (codePoint <= 0xffff) {
+      bytes.push(
+        0xe0 | (codePoint >> 12),
+        0x80 | ((codePoint >> 6) & 0x3f),
+        0x80 | (codePoint & 0x3f),
+      );
+    } else {
+      bytes.push(
+        0xf0 | (codePoint >> 18),
+        0x80 | ((codePoint >> 12) & 0x3f),
+        0x80 | ((codePoint >> 6) & 0x3f),
+        0x80 | (codePoint & 0x3f),
+      );
+    }
+  }
+  return Uint8Array.from(bytes);
+}
+
+/** Canonical balance-evidence JSON, extended only for exactly representable safe half-integers. */
+export function canonicalPocBalanceEvidenceBytesV1(value: unknown): Uint8Array {
+  const active = new Set<object>();
+
+  const encode = (current: unknown, path: string): string => {
+    if (current === null) return "null";
+    if (typeof current === "boolean") return current ? "true" : "false";
+    if (typeof current === "string") {
+      assertValidBalanceEvidenceStringV1(current, path);
+      return JSON.stringify(current);
+    }
+    if (typeof current === "number") {
+      if (!Number.isFinite(current)) {
+        return failPocBalanceEvidenceV1("number must be finite", path);
+      }
+      if (Object.is(current, -0)) {
+        return failPocBalanceEvidenceV1("number must not be negative zero", path);
+      }
+      if (Number.isSafeInteger(current)) return String(current);
+      if (current < 0 || !Number.isSafeInteger(current * 2)) {
+        return failPocBalanceEvidenceV1(
+          "number must be a safe integer or non-negative exact safe half-integer",
+          path,
+        );
+      }
+      return String(current);
+    }
+    if (
+      typeof current === "undefined" ||
+      typeof current === "symbol" ||
+      typeof current === "bigint"
+    ) {
+      return failPocBalanceEvidenceV1("unsupported value", path);
+    }
+    if (typeof current === "function") {
+      return failPocBalanceEvidenceV1("functions are forbidden", path);
+    }
+
+    const object = current as object;
+    if (active.has(object)) return failPocBalanceEvidenceV1("cyclic value", path);
+    active.add(object);
+    try {
+      if (Array.isArray(object)) {
+        if (
+          Object.getPrototypeOf(object) !== Array.prototype ||
+          Object.getOwnPropertySymbols(object).length !== 0
+        ) {
+          return failPocBalanceEvidenceV1("array must be a plain dense array", path);
+        }
+        const descriptors = Object.getOwnPropertyDescriptors(object);
+        const keys = Object.keys(descriptors).filter((key) => key !== "length");
+        if (keys.length !== object.length || keys.some((key, index) => key !== String(index))) {
+          return failPocBalanceEvidenceV1("array must be dense and undecorated", path);
+        }
+        const values: string[] = [];
+        for (let index = 0; index < object.length; index += 1) {
+          const descriptor = descriptors[String(index)];
+          if (
+            descriptor === undefined ||
+            descriptor.get !== undefined ||
+            descriptor.set !== undefined ||
+            !("value" in descriptor) ||
+            descriptor.enumerable !== true
+          ) {
+            return failPocBalanceEvidenceV1(
+              "array must contain enumerable data elements",
+              `${path}/${String(index)}`,
+            );
+          }
+          values.push(encode(descriptor.value, `${path}/${String(index)}`));
+        }
+        return `[${values.join(",")}]`;
+      }
+
+      if (
+        Object.getPrototypeOf(object) !== Object.prototype ||
+        Object.getOwnPropertySymbols(object).length !== 0
+      ) {
+        return failPocBalanceEvidenceV1("object must be a plain string-keyed data object", path);
+      }
+      const descriptors = Object.getOwnPropertyDescriptors(object);
+      const keys = Object.keys(descriptors).sort(compareBalanceEvidenceCodePointsV1);
+      const members: string[] = [];
+      for (const key of keys) {
+        assertValidBalanceEvidenceStringV1(key, path);
+        const propertyPath = `${path}/${balanceEvidencePointerSegmentV1(key)}`;
+        const descriptor = descriptors[key];
+        if (
+          descriptor === undefined ||
+          descriptor.get !== undefined ||
+          descriptor.set !== undefined ||
+          !("value" in descriptor) ||
+          descriptor.enumerable !== true
+        ) {
+          return failPocBalanceEvidenceV1(
+            "object fields must be enumerable data fields",
+            propertyPath,
+          );
+        }
+        members.push(`${JSON.stringify(key)}:${encode(descriptor.value, propertyPath)}`);
+      }
+      return `{${members.join(",")}}`;
+    } finally {
+      active.delete(object);
+    }
+  };
+
+  return balanceEvidenceUtf8V1(encode(value, ""));
 }
 
 function exactCalibrationRecordV1(
@@ -950,6 +1135,48 @@ export function selectPocBalanceCalibrationStepV1(
     metrics: parsedInput.evaluation.metrics,
     candidates: frozenCandidates,
   });
+}
+
+function balanceEvidenceBytesEqualV1(left: Uint8Array, right: Uint8Array): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+/** Re-admits an untrusted calibration result and independently derives its claimed selection. */
+export function admitPocBalanceCalibrationRunV1(
+  value: unknown,
+  expected: PocBalanceCalibrationRunExpectationV1,
+): DeepReadonly<PocBalanceCalibrationRunV1> {
+  canonicalPocBalanceEvidenceBytesV1(value);
+  const run = exactCalibrationRecordV1(
+    value,
+    ["step", "selection"],
+    "calibration run",
+    failCalibrationEvidenceV1,
+  );
+  const expectedIteration = (() => {
+    try {
+      return parseNonNegativeSafeInteger(expected.iteration);
+    } catch {
+      return failCalibrationEvidenceV1("expected iteration must be a NonNegativeSafeInteger");
+    }
+  })();
+  const expectedValues = parsePocBalanceCalibrationValuesV1(expected.values);
+  const step = parsePocBalanceCalibrationStepInputV1(run.step);
+  if (step.iteration !== expectedIteration) {
+    return failCalibrationEvidenceV1("calibration run iteration does not match the request");
+  }
+  if (pocBalanceCalibrationFieldsV1.some((field) => step.values[field] !== expectedValues[field])) {
+    return failCalibrationEvidenceV1("calibration run values do not match the request");
+  }
+
+  const derivedSelection = selectPocBalanceCalibrationStepV1(step);
+  const suppliedBytes = canonicalPocBalanceEvidenceBytesV1(run.selection);
+  const derivedBytes = canonicalPocBalanceEvidenceBytesV1(derivedSelection);
+  if (!balanceEvidenceBytesEqualV1(suppliedBytes, derivedBytes)) {
+    return failCalibrationEvidenceV1("calibration run selection does not match local selection");
+  }
+
+  return deepFreezePocValueV1({ step, selection: derivedSelection });
 }
 
 function fixtureStrategyMetricsV1(

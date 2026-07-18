@@ -15,6 +15,7 @@ import {
   pocBalanceCalibrationValuesV1,
   selectPocBalanceCalibrationStepV1,
   type PocBalanceCalibrationSelectionV1,
+  type PocBalanceCalibrationEvaluationV1,
   type PocBalanceCalibrationStepInputV1,
   type PocBalanceMetricsV1,
   type PocBalanceCalibrationValuesV1,
@@ -46,7 +47,30 @@ export interface PocParetoVectorV1 {
 export interface RunPocBalanceCorpusInputV1 {
   readonly firstSeed: 1;
   readonly lastSeed: 1000;
+  readonly workerCount?: number;
   readonly calibrationValues?: DeepReadonly<PocBalanceCalibrationValuesV1>;
+}
+
+export interface PocBalanceSeedRangeV1 {
+  readonly firstSeed: number;
+  readonly lastSeed: number;
+}
+
+export interface EvaluatePocBalanceCalibrationValuesInputV1 {
+  readonly values: DeepReadonly<PocBalanceCalibrationValuesV1>;
+  readonly workerCount?: number;
+}
+
+export interface EvaluatePocBalanceCalibrationValuesPortsV1 {
+  readonly createProgram: (
+    values: DeepReadonly<PocBalanceCalibrationValuesV1>,
+  ) => DeepReadonly<PocSimulationProgramV1>;
+  readonly runCorpus: (
+    input: DeepReadonly<RunPocBalanceCorpusInputV1>,
+  ) => Promise<DeepReadonly<PocBalanceMetricsV1>>;
+  readonly evaluateCounterfactuals: (
+    program: DeepReadonly<PocSimulationProgramV1>,
+  ) => Promise<DeepReadonly<PocBalanceCalibrationEvaluationV1["counterfactuals"]>>;
 }
 
 export interface PocBalanceCorpusShardV1 {
@@ -739,10 +763,26 @@ export async function runPocBalanceCorpusWorkersForRangeV1(input: {
   readonly workerCount: number;
   readonly calibrationValues?: DeepReadonly<PocBalanceCalibrationValuesV1>;
 }): Promise<readonly PocBalanceCorpusShardV1[]> {
+  const ranges = partitionPocBalanceSeedRangeV1(input);
+  const { Worker } = (await import(nodeWorkerThreadsSpecifierV1)) as NodeWorkerThreadsV1;
+  return Object.freeze(
+    await Promise.all(
+      ranges.map(({ firstSeed, lastSeed }) =>
+        runPocBalanceShardWorkerV1(Worker, firstSeed, lastSeed, input.calibrationValues),
+      ),
+    ),
+  );
+}
+
+export function partitionPocBalanceSeedRangeV1(input: {
+  readonly firstSeed: number;
+  readonly lastSeed: number;
+  readonly workerCount: number;
+}): readonly PocBalanceSeedRangeV1[] {
   if (
     !Number.isSafeInteger(input.workerCount) ||
     input.workerCount < 1 ||
-    input.workerCount > 16 ||
+    input.workerCount > 64 ||
     !Number.isSafeInteger(input.firstSeed) ||
     !Number.isSafeInteger(input.lastSeed) ||
     input.firstSeed < 1 ||
@@ -751,20 +791,19 @@ export async function runPocBalanceCorpusWorkersForRangeV1(input: {
   ) {
     throw new TypeError("invalid PoC balance worker range");
   }
-  const { Worker } = (await import(nodeWorkerThreadsSpecifierV1)) as NodeWorkerThreadsV1;
   const seedCount = input.lastSeed - input.firstSeed + 1;
   const workerCount = Math.min(input.workerCount, seedCount);
   const baseSize = Math.floor(seedCount / workerCount);
   const remainder = seedCount % workerCount;
   let firstSeed = input.firstSeed;
-  const workers: Promise<PocBalanceCorpusShardV1>[] = [];
+  const ranges: PocBalanceSeedRangeV1[] = [];
   for (let index = 0; index < workerCount; index += 1) {
     const size = baseSize + (index < remainder ? 1 : 0);
     const lastSeed = firstSeed + size - 1;
-    workers.push(runPocBalanceShardWorkerV1(Worker, firstSeed, lastSeed, input.calibrationValues));
+    ranges.push(Object.freeze({ firstSeed, lastSeed }));
     firstSeed = lastSeed + 1;
   }
-  return Object.freeze(await Promise.all(workers));
+  return Object.freeze(ranges);
 }
 
 export async function runPocBalanceCorpusV1(
@@ -776,7 +815,7 @@ export async function runPocBalanceCorpusV1(
   const shards = await runPocBalanceCorpusWorkersForRangeV1({
     firstSeed: 1,
     lastSeed: 1000,
-    workerCount: 16,
+    workerCount: input.workerCount ?? 16,
     ...(input.calibrationValues === undefined
       ? {}
       : { calibrationValues: input.calibrationValues }),
@@ -784,9 +823,36 @@ export async function runPocBalanceCorpusV1(
   return mergePocBalanceCorpusShardsV1(shards);
 }
 
+const pocBalanceCalibrationValuesPortsV1 = Object.freeze({
+  createProgram: createPocBalanceCalibrationProgramV1,
+  runCorpus: runPocBalanceCorpusV1,
+  evaluateCounterfactuals: evaluatePocFacilityCounterfactualChecksV1,
+}) satisfies EvaluatePocBalanceCalibrationValuesPortsV1;
+
+/** Evaluates exactly one immutable calibration point without enumerating its neighbors. */
+export async function evaluatePocBalanceCalibrationValuesV1(
+  input: DeepReadonly<EvaluatePocBalanceCalibrationValuesInputV1>,
+  ports: EvaluatePocBalanceCalibrationValuesPortsV1 = pocBalanceCalibrationValuesPortsV1,
+): Promise<DeepReadonly<PocBalanceCalibrationEvaluationV1>> {
+  const workerCount = input.workerCount ?? 16;
+  partitionPocBalanceSeedRangeV1({ firstSeed: 1, lastSeed: 1, workerCount });
+  const program = ports.createProgram(input.values);
+  const [metrics, counterfactuals] = await Promise.all([
+    ports.runCorpus({
+      firstSeed: 1,
+      lastSeed: 1000,
+      workerCount,
+      calibrationValues: input.values,
+    }),
+    ports.evaluateCounterfactuals(program),
+  ]);
+  return deepFreezePocValueV1({ metrics, counterfactuals });
+}
+
 export async function runPocBalanceCalibrationStepV1(input: {
   readonly iteration: NonNegativeSafeInteger;
   readonly values?: DeepReadonly<PocBalanceCalibrationValuesV1>;
+  readonly workerCount?: number;
 }): Promise<
   DeepReadonly<{
     readonly step: PocBalanceCalibrationStepInputV1;
@@ -798,15 +864,10 @@ export async function runPocBalanceCalibrationStepV1(input: {
     values: input.values ?? pocBalanceCalibrationValuesV1(),
     evaluationPort: {
       async evaluate(point) {
-        const [metrics, counterfactuals] = await Promise.all([
-          runPocBalanceCorpusV1({
-            firstSeed: 1,
-            lastSeed: 1000,
-            calibrationValues: point.values,
-          }),
-          evaluatePocFacilityCounterfactualChecksV1(point.program),
-        ]);
-        return deepFreezePocValueV1({ metrics, counterfactuals });
+        return evaluatePocBalanceCalibrationValuesV1({
+          values: point.values,
+          workerCount: input.workerCount ?? 16,
+        });
       },
     },
   });
