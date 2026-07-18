@@ -46,7 +46,8 @@ its clean verification pass, every Artifact/release command in this plan is forb
 - Modify: `docs/poc/balance-v0.md`
 - Modify: `game/stories/poc/src/content/balance.ts`
 - Modify only when the selected field changes its direct literal expectations: `game/stories/poc/src/test/daily-gates.test.ts`
-- Modify only when the selected field is `levy`: `game/stories/poc/src/test/ending-forecast.test.ts`
+- Modify only when the selected field changes its direct literal or mechanically derived exact expectations:
+  `game/stories/poc/src/test/ending-forecast.test.ts`
 
 **Final balance-freeze Files:**
 
