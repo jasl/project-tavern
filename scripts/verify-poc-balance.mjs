@@ -3,92 +3,12 @@
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isDeepStrictEqual } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 
 export const pocBalanceSmokeVerificationCommandV1 = Object.freeze([
   "pnpm",
   Object.freeze(["--filter", "@project-tavern/story-poc", "verify:balance:smoke"]),
 ]);
-
-function deepFreezeEvidenceV1(value) {
-  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return value;
-  for (const nested of Object.values(value)) deepFreezeEvidenceV1(nested);
-  return Object.freeze(value);
-}
-
-export const pocProvisionalBalanceReportV1 = deepFreezeEvidenceV1({
-  deficit: 49,
-  evaluation: {
-    metrics: {
-      firstSeed: 1,
-      lastSeed: 1000,
-      strategies: {
-        "strategy.cash_first": {
-          paidCount: 1000,
-          stableCount: 1000,
-          dangerCount: 0,
-          arrearsCount: 0,
-          medianPaidAfterTaxCash: 131,
-        },
-        "strategy.relationship_first": {
-          paidCount: 1000,
-          stableCount: 970,
-          dangerCount: 30,
-          arrearsCount: 0,
-          medianPaidAfterTaxCash: 44,
-        },
-        "strategy.investigation_first": {
-          paidCount: 1000,
-          stableCount: 909,
-          dangerCount: 91,
-          arrearsCount: 0,
-          medianPaidAfterTaxCash: 55,
-        },
-        "strategy.full_delegation": {
-          paidCount: 801,
-          stableCount: 90,
-          dangerCount: 711,
-          arrearsCount: 199,
-          medianPaidAfterTaxCash: 14,
-        },
-        "strategy.two_closures_recovery": {
-          paidCount: 970,
-          stableCount: 562,
-          dangerCount: 408,
-          arrearsCount: 30,
-          medianPaidAfterTaxCash: 24,
-        },
-        "strategy.explicit_failure": {
-          paidCount: 0,
-          stableCount: 0,
-          dangerCount: 0,
-          arrearsCount: 1000,
-          medianPaidAfterTaxCash: null,
-        },
-      },
-      d4CashPressure: {
-        cashFirstPaidCount: 1000,
-        relationshipFirstPaidCount: 994,
-        investigationFirstPaidCount: 999,
-      },
-      strictDominanceCountByStrategy: {
-        "strategy.cash_first": 0,
-        "strategy.relationship_first": 0,
-        "strategy.investigation_first": 0,
-        "strategy.full_delegation": 0,
-        "strategy.two_closures_recovery": 0,
-        "strategy.explicit_failure": 0,
-      },
-      maximumStrictDominance: 0,
-    },
-    counterfactuals: {
-      comfortableBedRecovery: true,
-      investigationColdStorageShelfLife: true,
-      fullDelegationColdStorageShelfLife: true,
-    },
-  },
-});
 
 export function runPocBalanceSmokeVerificationV1(root, spawn = spawnSync) {
   const [command, args] = pocBalanceSmokeVerificationCommandV1;
@@ -124,13 +44,6 @@ export function assertPocBalanceFullReportV1(report) {
   }
   if (report.deficit !== 0) {
     throw new TypeError(`balance_contract_unsatisfied deficit=${report.deficit}`);
-  }
-  return report;
-}
-
-export function assertPocProvisionalBalanceReportV1(report) {
-  if (!isDeepStrictEqual(report, pocProvisionalBalanceReportV1)) {
-    throw new TypeError("PoC provisional balance report does not match the reviewed baseline");
   }
   return report;
 }
@@ -231,7 +144,7 @@ export async function runPocBalanceCliV1({
   if (!Array.isArray(args)) throw new TypeError("PoC balance CLI args must be an array");
   const usage = () => {
     throw new TypeError(
-      "usage: verify-poc-balance.mjs [--workers=1..64|--smoke|--calibrate [--iteration=0..12] [--workers=1..64]|--qualify-provisional [--workers=1..64]]",
+      "usage: verify-poc-balance.mjs [--workers=1..64|--smoke|--calibrate [--iteration=0..12] [--workers=1..64]]",
     );
   };
   if (args.some((argument) => typeof argument !== "string")) usage();
@@ -256,14 +169,6 @@ export async function runPocBalanceCliV1({
       calibrationIteration = Number(iterationMatch[1]);
       index += 1;
     }
-    const workerMatch = workerMatchV1(args[index]);
-    if (workerMatch !== null) {
-      workerCount = Number(workerMatch[1]);
-      index += 1;
-    }
-  } else if (first === "--qualify-provisional") {
-    mode = "qualify";
-    index = 1;
     const workerMatch = workerMatchV1(args[index]);
     if (workerMatch !== null) {
       workerCount = Number(workerMatch[1]);
@@ -308,11 +213,7 @@ export async function runPocBalanceCliV1({
       runtime.calibration.canonicalPocBalanceEvidenceBytesV1(report),
     )}\n`,
   );
-  if (mode === "qualify") {
-    assertPocProvisionalBalanceReportV1(report);
-  } else {
-    assertPocBalanceFullReportV1(report);
-  }
+  assertPocBalanceFullReportV1(report);
   return 0;
 }
 

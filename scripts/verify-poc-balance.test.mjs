@@ -6,10 +6,8 @@ import test from "node:test";
 
 import {
   assertPocBalanceFullReportV1,
-  assertPocProvisionalBalanceReportV1,
   buildPocBalanceFullReportV1,
   pocBalanceSmokeVerificationCommandV1,
-  pocProvisionalBalanceReportV1,
   runPocBalanceCliV1,
   runPocBalanceSmokeVerificationV1,
 } from "./verify-poc-balance.mjs";
@@ -96,27 +94,6 @@ test("rejects a nonzero frozen-threshold deficit", () => {
   assert.throws(
     () => assertPocBalanceFullReportV1({ deficit: 49, evaluation: {} }),
     /balance_contract_unsatisfied deficit=49/u,
-  );
-});
-
-test("qualifies only the exact reviewed provisional report", () => {
-  assert.equal(
-    assertPocProvisionalBalanceReportV1(pocProvisionalBalanceReportV1),
-    pocProvisionalBalanceReportV1,
-  );
-  assert.throws(
-    () => assertPocBalanceFullReportV1(pocProvisionalBalanceReportV1),
-    /balance_contract_unsatisfied deficit=49/u,
-  );
-  assert(Object.isFrozen(pocProvisionalBalanceReportV1));
-  assert(Object.isFrozen(pocProvisionalBalanceReportV1.evaluation.metrics.strategies));
-  assert.throws(
-    () =>
-      assertPocProvisionalBalanceReportV1({
-        ...pocProvisionalBalanceReportV1,
-        deficit: 48,
-      }),
-    /does not match the reviewed baseline/u,
   );
 });
 
@@ -387,42 +364,6 @@ test("runs calibration through one injected read-only selection port", async () 
   assert.deepEqual(defaultIterationCalls, [{ iteration: 0, values, workerCount: 64 }]);
 });
 
-test("qualifies the provisional CLI without weakening the default full gate", async () => {
-  const output = [];
-  const metricInputs = [];
-  const status = await runPocBalanceCliV1({
-    args: ["--qualify-provisional", "--workers=63"],
-    loadRuntime: async () => ({
-      base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
-      calibration: {
-        admitPocBalanceFullReportV1(report) {
-          return report;
-        },
-        canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
-        pocBalanceCalibrationValuesV1() {
-          return Object.freeze({ levy: 140 });
-        },
-        calculatePocBalanceDeficitV1() {
-          return pocProvisionalBalanceReportV1.deficit;
-        },
-      },
-      metrics: {
-        async evaluatePocBalanceCalibrationValuesV1(input) {
-          metricInputs.push(input);
-          return pocProvisionalBalanceReportV1.evaluation;
-        },
-      },
-    }),
-    writeStdout(value) {
-      output.push(value);
-    },
-  });
-
-  assert.equal(status, 0);
-  assert.equal(metricInputs[0]?.workerCount, 63);
-  assert.match(output.join(""), /^PoC balance report /u);
-});
-
 test("rejects unsupported CLI arguments before loading runtime", async () => {
   const invalidArgs = [
     ["--unknown"],
@@ -431,8 +372,6 @@ test("rejects unsupported CLI arguments before loading runtime", async () => {
     ["--workers=01"],
     ["--workers=16", "--workers=16"],
     ["--smoke", "--workers=16"],
-    ["--qualify-provisional", "--workers=16", "--workers=16"],
-    ["--workers=16", "--qualify-provisional"],
     ["--calibrate", "--iteration=13"],
     ["--calibrate", "--workers=16", "--iteration=7"],
     ["--calibrate", "--iteration=7", "--workers=16", "--workers=16"],

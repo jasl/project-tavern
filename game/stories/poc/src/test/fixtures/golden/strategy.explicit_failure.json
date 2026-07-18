@@ -391,7 +391,7 @@
       },
       "order": 8,
       "phase": "evening",
-      "postStateDigest": "sha256:c9aaf1afb7b00c1b28be7b4e63574df2c727a079aa8f27b2a013e7699df87ff1",
+      "postStateDigest": "sha256:5b3f2c3fc5477cd0ceea58a07b8a9c7e7e46ffb55748f05fff304051586eb045",
       "preStateDigest": "sha256:16df6c722efe3e5fb243408bfd11c8dfd0c15952701d5e3003f0d02cde268f1f",
       "rngDraws": []
     },
@@ -419,8 +419,8 @@
       },
       "order": 9,
       "phase": "evening",
-      "postStateDigest": "sha256:7ebdff1e54efba8dddad3f16880c6c9467d7e0262b7639d3defd233317e31cae",
-      "preStateDigest": "sha256:c9aaf1afb7b00c1b28be7b4e63574df2c727a079aa8f27b2a013e7699df87ff1",
+      "postStateDigest": "sha256:d61322a6e3266d1ec256f38fd3ea4ad168f20694f5812699827165a28c74e9b0",
+      "preStateDigest": "sha256:5b3f2c3fc5477cd0ceea58a07b8a9c7e7e46ffb55748f05fff304051586eb045",
       "rngDraws": []
     },
     {
@@ -442,8 +442,8 @@
       },
       "order": 10,
       "phase": "evening",
-      "postStateDigest": "sha256:71990899bd2f0fe3a95f0d25c083c8532674150be67498032f7e4f2ec2cbab08",
-      "preStateDigest": "sha256:7ebdff1e54efba8dddad3f16880c6c9467d7e0262b7639d3defd233317e31cae",
+      "postStateDigest": "sha256:72391138d9889cc3b5bb4454c55a8bd31fc5396e49523af5ff0753249052999a",
+      "preStateDigest": "sha256:d61322a6e3266d1ec256f38fd3ea4ad168f20694f5812699827165a28c74e9b0",
       "rngDraws": []
     },
     {
@@ -465,8 +465,8 @@
       },
       "order": 11,
       "phase": "morning",
-      "postStateDigest": "sha256:b03066edc9ea3e83250856ff948784e6572c0013a000293dd4863fceb633a09a",
-      "preStateDigest": "sha256:71990899bd2f0fe3a95f0d25c083c8532674150be67498032f7e4f2ec2cbab08",
+      "postStateDigest": "sha256:7985ec97e1b94096cd3abefef8e7542974ad2b4ae66b604af70b10ef7f797e29",
+      "preStateDigest": "sha256:72391138d9889cc3b5bb4454c55a8bd31fc5396e49523af5ff0753249052999a",
       "rngDraws": []
     },
     {
@@ -504,8 +504,8 @@
       },
       "order": 12,
       "phase": "morning",
-      "postStateDigest": "sha256:381a3105ff733abe2d6c37b137c86e6a3e647bf10c5a3d956393d839a5edabfe",
-      "preStateDigest": "sha256:b03066edc9ea3e83250856ff948784e6572c0013a000293dd4863fceb633a09a",
+      "postStateDigest": "sha256:af10e7483ebdcfdd41f9f82eb3fcd2cd7e66f4bc1c7f0bdbe8ef68563c7d7458",
+      "preStateDigest": "sha256:7985ec97e1b94096cd3abefef8e7542974ad2b4ae66b604af70b10ef7f797e29",
       "rngDraws": []
     },
     {
@@ -523,8 +523,8 @@
       },
       "order": 13,
       "phase": "morning",
-      "postStateDigest": "sha256:1b1c58db64721655fcadcf91964385a3471e5b330dc8103d0ef5bd49addec02b",
-      "preStateDigest": "sha256:381a3105ff733abe2d6c37b137c86e6a3e647bf10c5a3d956393d839a5edabfe",
+      "postStateDigest": "sha256:2016c40fd35297b741a3978a109db5569d7de3b87876b51e16fa7efa759e5b8d",
+      "preStateDigest": "sha256:af10e7483ebdcfdd41f9f82eb3fcd2cd7e66f4bc1c7f0bdbe8ef68563c7d7458",
       "rngDraws": []
     },
     {
@@ -540,8 +540,8 @@
       },
       "order": 14,
       "phase": "morning",
-      "postStateDigest": "sha256:068b1e938d13e801fddc20b31434c728fba3d484e8fdccd751ea21ff29de6ddf",
-      "preStateDigest": "sha256:1b1c58db64721655fcadcf91964385a3471e5b330dc8103d0ef5bd49addec02b",
+      "postStateDigest": "sha256:552e6b2fd96aaceabf8a346dd3a6c617c2348248d607f02b847aa132ab055819",
+      "preStateDigest": "sha256:2016c40fd35297b741a3978a109db5569d7de3b87876b51e16fa7efa759e5b8d",
       "rngDraws": []
     },
     {
@@ -571,8 +571,8 @@
       },
       "order": 15,
       "phase": "afternoon",
-      "postStateDigest": "sha256:7ca9352253fea750faad7de0183e15dac53b849f41eba56678a6c54c59550f9d",
-      "preStateDigest": "sha256:068b1e938d13e801fddc20b31434c728fba3d484e8fdccd751ea21ff29de6ddf",
+      "postStateDigest": "sha256:ed940de5bd5ed40cecf1d6a891705e17679dd68d5e9ee4e6281d98ad59e9876e",
+      "preStateDigest": "sha256:552e6b2fd96aaceabf8a346dd3a6c617c2348248d607f02b847aa132ab055819",
       "rngDraws": []
     },
     {
@@ -588,8 +588,8 @@
       },
       "order": 16,
       "phase": "afternoon",
-      "postStateDigest": "sha256:a3e67b8d455c2b5cab0c9d707329035b3651b8cb57d362de9b5def688e5bee61",
-      "preStateDigest": "sha256:7ca9352253fea750faad7de0183e15dac53b849f41eba56678a6c54c59550f9d",
+      "postStateDigest": "sha256:5704a03cddd1f531f4eee6ec1cdb5ff9d573b16bb6af8174b54b9734a668ecf9",
+      "preStateDigest": "sha256:ed940de5bd5ed40cecf1d6a891705e17679dd68d5e9ee4e6281d98ad59e9876e",
       "rngDraws": []
     },
     {
@@ -614,8 +614,8 @@
       },
       "order": 17,
       "phase": "evening",
-      "postStateDigest": "sha256:d6d211aa0baa69b41664e2a890358fb92085f9d70a6795f1a4f2891d89704b95",
-      "preStateDigest": "sha256:a3e67b8d455c2b5cab0c9d707329035b3651b8cb57d362de9b5def688e5bee61",
+      "postStateDigest": "sha256:b013091fc2aaef92941903a07836cde74ad62128a3e6484ac852d96094bfa287",
+      "preStateDigest": "sha256:5704a03cddd1f531f4eee6ec1cdb5ff9d573b16bb6af8174b54b9734a668ecf9",
       "rngDraws": []
     },
     {
@@ -640,8 +640,8 @@
       },
       "order": 18,
       "phase": "evening",
-      "postStateDigest": "sha256:fbd0cabbf3481d03a574db1b8bd9ce69a8a285bb1e2914a14d09b51b0195fcb0",
-      "preStateDigest": "sha256:d6d211aa0baa69b41664e2a890358fb92085f9d70a6795f1a4f2891d89704b95",
+      "postStateDigest": "sha256:27c1b053cf7289c71ae6899489cc424ac0a98e1056c4b733f60645992c494916",
+      "preStateDigest": "sha256:b013091fc2aaef92941903a07836cde74ad62128a3e6484ac852d96094bfa287",
       "rngDraws": []
     },
     {
@@ -660,8 +660,8 @@
       },
       "order": 19,
       "phase": "evening",
-      "postStateDigest": "sha256:e709b255709e664cdd4728395a22c2fc077b543a80527623161ee3e635c712ed",
-      "preStateDigest": "sha256:fbd0cabbf3481d03a574db1b8bd9ce69a8a285bb1e2914a14d09b51b0195fcb0",
+      "postStateDigest": "sha256:aba0d0cb9c5fa8c52b85b378c59469cabba8a4306e945fc82a26590fb8912374",
+      "preStateDigest": "sha256:27c1b053cf7289c71ae6899489cc424ac0a98e1056c4b733f60645992c494916",
       "rngDraws": []
     },
     {
@@ -677,8 +677,8 @@
       },
       "order": 20,
       "phase": "morning",
-      "postStateDigest": "sha256:2c6c75c8fafb356947443a846e42f999387174e086a14267951c1170db36eb1d",
-      "preStateDigest": "sha256:e709b255709e664cdd4728395a22c2fc077b543a80527623161ee3e635c712ed",
+      "postStateDigest": "sha256:e5cd3304fb1b17517a27e74c7df6d013c41804397ef7c83ab4107edf8ebe8a55",
+      "preStateDigest": "sha256:aba0d0cb9c5fa8c52b85b378c59469cabba8a4306e945fc82a26590fb8912374",
       "rngDraws": []
     },
     {
@@ -699,8 +699,8 @@
       },
       "order": 21,
       "phase": "afternoon",
-      "postStateDigest": "sha256:dd6473a92c612a1e76172ff1f1f19090bcb07f3fb8fdd138356821699b9d2829",
-      "preStateDigest": "sha256:2c6c75c8fafb356947443a846e42f999387174e086a14267951c1170db36eb1d",
+      "postStateDigest": "sha256:de33c8a31857d82c20deea2f5325312d9f9795bfff0a7018818fb1b2043eca13",
+      "preStateDigest": "sha256:e5cd3304fb1b17517a27e74c7df6d013c41804397ef7c83ab4107edf8ebe8a55",
       "rngDraws": []
     },
     {
@@ -717,8 +717,8 @@
       },
       "order": 22,
       "phase": "afternoon",
-      "postStateDigest": "sha256:5875aa96a882457000dd9ef421734a7fe789cf43d8d1c86dfcacc3d9dd717cca",
-      "preStateDigest": "sha256:dd6473a92c612a1e76172ff1f1f19090bcb07f3fb8fdd138356821699b9d2829",
+      "postStateDigest": "sha256:856d6328d98a951ea881cb7cc25c256c54ecbc5849e0575ba773b9fb72f6c30e",
+      "preStateDigest": "sha256:de33c8a31857d82c20deea2f5325312d9f9795bfff0a7018818fb1b2043eca13",
       "rngDraws": []
     },
     {
@@ -738,8 +738,8 @@
       },
       "order": 23,
       "phase": "evening",
-      "postStateDigest": "sha256:5240fde953cdbd46d14939d6f0b5b136be6c2eb40f63c4b91b6630c785757468",
-      "preStateDigest": "sha256:5875aa96a882457000dd9ef421734a7fe789cf43d8d1c86dfcacc3d9dd717cca",
+      "postStateDigest": "sha256:66a87cf7b56cfa7f4be293adf4a72c690f691f9c4e43e8309dfb95713e8bcd69",
+      "preStateDigest": "sha256:856d6328d98a951ea881cb7cc25c256c54ecbc5849e0575ba773b9fb72f6c30e",
       "rngDraws": []
     },
     {
@@ -755,8 +755,8 @@
       },
       "order": 24,
       "phase": "morning",
-      "postStateDigest": "sha256:09d449d5ac0ffcdd9b77a26289ec12b3a31436d051924a92fc1a8b7edb97e029",
-      "preStateDigest": "sha256:5240fde953cdbd46d14939d6f0b5b136be6c2eb40f63c4b91b6630c785757468",
+      "postStateDigest": "sha256:5543e1b9dcb9b5cf0f44507b8199bd490a86ab762d09bd0fed9a6cb7a3c6586a",
+      "preStateDigest": "sha256:66a87cf7b56cfa7f4be293adf4a72c690f691f9c4e43e8309dfb95713e8bcd69",
       "rngDraws": []
     },
     {
@@ -780,8 +780,8 @@
       },
       "order": 25,
       "phase": "morning",
-      "postStateDigest": "sha256:f9117809d5e36fc1aa03fb9fa05992d33033eac383cd39d849e1704f73024aaf",
-      "preStateDigest": "sha256:09d449d5ac0ffcdd9b77a26289ec12b3a31436d051924a92fc1a8b7edb97e029",
+      "postStateDigest": "sha256:83e14dc102949b266dece974b370f9d87e84c429cab494c4e99cc65da93d1a75",
+      "preStateDigest": "sha256:5543e1b9dcb9b5cf0f44507b8199bd490a86ab762d09bd0fed9a6cb7a3c6586a",
       "rngDraws": []
     },
     {
@@ -797,8 +797,8 @@
       },
       "order": 26,
       "phase": "morning",
-      "postStateDigest": "sha256:cad8fa4c7165ddc8016c56a648389135adbb8d5ae2fb5f456fd0be35c6b65b95",
-      "preStateDigest": "sha256:f9117809d5e36fc1aa03fb9fa05992d33033eac383cd39d849e1704f73024aaf",
+      "postStateDigest": "sha256:76506537375ed7c9399e14fbfe3ec5e3aa3c69a0e0ca6ed18e5dc5a7c7ad4afa",
+      "preStateDigest": "sha256:83e14dc102949b266dece974b370f9d87e84c429cab494c4e99cc65da93d1a75",
       "rngDraws": []
     },
     {
@@ -819,8 +819,8 @@
       },
       "order": 27,
       "phase": "afternoon",
-      "postStateDigest": "sha256:def510bc0751482b9d102a855e105ec32e8e208d416606be6ae8b0265d578bfc",
-      "preStateDigest": "sha256:cad8fa4c7165ddc8016c56a648389135adbb8d5ae2fb5f456fd0be35c6b65b95",
+      "postStateDigest": "sha256:678b6b8abcc250116a8cc48f3c26edc76576dd43bab107d09e03c13f9924df10",
+      "preStateDigest": "sha256:76506537375ed7c9399e14fbfe3ec5e3aa3c69a0e0ca6ed18e5dc5a7c7ad4afa",
       "rngDraws": []
     },
     {
@@ -837,8 +837,8 @@
       },
       "order": 28,
       "phase": "afternoon",
-      "postStateDigest": "sha256:4bbb55b647c7a11a4a11b0408ddbc0632deaf7e248c0a89be8165d2f419dd7da",
-      "preStateDigest": "sha256:def510bc0751482b9d102a855e105ec32e8e208d416606be6ae8b0265d578bfc",
+      "postStateDigest": "sha256:8547049638160885dcff67faca9ec48059479065497db028e565af0668de3b4f",
+      "preStateDigest": "sha256:678b6b8abcc250116a8cc48f3c26edc76576dd43bab107d09e03c13f9924df10",
       "rngDraws": []
     },
     {
@@ -857,8 +857,8 @@
       },
       "order": 29,
       "phase": "evening",
-      "postStateDigest": "sha256:0e0954b7479e76b7bb914d08074692407573ca4b46571b3731094e7170d2b7a9",
-      "preStateDigest": "sha256:4bbb55b647c7a11a4a11b0408ddbc0632deaf7e248c0a89be8165d2f419dd7da",
+      "postStateDigest": "sha256:bbf2630e7640888a37cd2818791aa16b683340d404f177edd60b67dc490352e3",
+      "preStateDigest": "sha256:8547049638160885dcff67faca9ec48059479065497db028e565af0668de3b4f",
       "rngDraws": []
     },
     {
@@ -874,8 +874,8 @@
       },
       "order": 30,
       "phase": "morning",
-      "postStateDigest": "sha256:baf753d04a1a23876baad446e4791db1d807e685ec7d6267ed0b2db3fe89b54c",
-      "preStateDigest": "sha256:0e0954b7479e76b7bb914d08074692407573ca4b46571b3731094e7170d2b7a9",
+      "postStateDigest": "sha256:cabe8d7b011e0dfde33448ea0d1c5f9e1856f8c28bfa3bdd8541a34ea78ccb46",
+      "preStateDigest": "sha256:bbf2630e7640888a37cd2818791aa16b683340d404f177edd60b67dc490352e3",
       "rngDraws": []
     },
     {
@@ -891,8 +891,8 @@
       },
       "order": 31,
       "phase": "afternoon",
-      "postStateDigest": "sha256:b79491a116d6aacb37c2ea61fee4c454d6b84d8dad648bc853a3ab1816062690",
-      "preStateDigest": "sha256:baf753d04a1a23876baad446e4791db1d807e685ec7d6267ed0b2db3fe89b54c",
+      "postStateDigest": "sha256:fe6f0b9c7fc94c49ed112df6f638e280592d769ccd9f0df1379304591a3293c3",
+      "preStateDigest": "sha256:cabe8d7b011e0dfde33448ea0d1c5f9e1856f8c28bfa3bdd8541a34ea78ccb46",
       "rngDraws": []
     },
     {
@@ -908,8 +908,8 @@
       },
       "order": 32,
       "phase": "afternoon",
-      "postStateDigest": "sha256:43ad3aa421581324e2288e1d62ef1a3d044396c7f193b3eae5fbb193a6a890fa",
-      "preStateDigest": "sha256:b79491a116d6aacb37c2ea61fee4c454d6b84d8dad648bc853a3ab1816062690",
+      "postStateDigest": "sha256:f2ea6e71c3ab82294555d353198b47fde5eccb65430f7d35f8f5b9b7f77f1dde",
+      "preStateDigest": "sha256:fe6f0b9c7fc94c49ed112df6f638e280592d769ccd9f0df1379304591a3293c3",
       "rngDraws": []
     },
     {
@@ -931,8 +931,8 @@
       },
       "order": 33,
       "phase": "afternoon",
-      "postStateDigest": "sha256:0cd4c462de531bd2de658236a2c796d277cad7eebf5aa84455015c95d70734ed",
-      "preStateDigest": "sha256:43ad3aa421581324e2288e1d62ef1a3d044396c7f193b3eae5fbb193a6a890fa",
+      "postStateDigest": "sha256:25608e77fc031293d40947633ee447230fcbf6ebad7f13968e1f96f4374bdd8a",
+      "preStateDigest": "sha256:f2ea6e71c3ab82294555d353198b47fde5eccb65430f7d35f8f5b9b7f77f1dde",
       "rngDraws": []
     },
     {
@@ -953,8 +953,8 @@
       },
       "order": 34,
       "phase": "afternoon",
-      "postStateDigest": "sha256:7a624ce5f68887b7c2bc34b6d0a16540b80cd061bb521de1db9bd161ce414244",
-      "preStateDigest": "sha256:0cd4c462de531bd2de658236a2c796d277cad7eebf5aa84455015c95d70734ed",
+      "postStateDigest": "sha256:935161e87bd0c540941493a841994de999b379928838397c2ba29b596e15d297",
+      "preStateDigest": "sha256:25608e77fc031293d40947633ee447230fcbf6ebad7f13968e1f96f4374bdd8a",
       "rngDraws": []
     },
     {
@@ -971,8 +971,8 @@
       },
       "order": 35,
       "phase": "afternoon",
-      "postStateDigest": "sha256:d6ffccc5801ccf33d40cb7e11fb72828144e0469f4fb0af5fe129be0536f085d",
-      "preStateDigest": "sha256:7a624ce5f68887b7c2bc34b6d0a16540b80cd061bb521de1db9bd161ce414244",
+      "postStateDigest": "sha256:6a5fc3c33b393fa543440b184ecbefdfd833bd010b83b5a31218400684a259d0",
+      "preStateDigest": "sha256:935161e87bd0c540941493a841994de999b379928838397c2ba29b596e15d297",
       "rngDraws": []
     },
     {
@@ -991,8 +991,8 @@
       },
       "order": 36,
       "phase": "evening",
-      "postStateDigest": "sha256:1ee16363a9dfdb3b49cd7ee34247e292aaf25fc243f13dba7adf317e778adaf5",
-      "preStateDigest": "sha256:d6ffccc5801ccf33d40cb7e11fb72828144e0469f4fb0af5fe129be0536f085d",
+      "postStateDigest": "sha256:1fb73ecda8394810d5049792dd43e666200db235fea7194003cd8f8d63355550",
+      "preStateDigest": "sha256:6a5fc3c33b393fa543440b184ecbefdfd833bd010b83b5a31218400684a259d0",
       "rngDraws": []
     },
     {
@@ -1008,8 +1008,8 @@
       },
       "order": 37,
       "phase": "morning",
-      "postStateDigest": "sha256:536385662bdd25bafb4f9a00bf2ef2480c2b0de56d9524d5789e5a46f5202f93",
-      "preStateDigest": "sha256:1ee16363a9dfdb3b49cd7ee34247e292aaf25fc243f13dba7adf317e778adaf5",
+      "postStateDigest": "sha256:06b4c8dd9fc8057732053881d799ac592dc698d8ba2f04c9c5660dc8fe94b036",
+      "preStateDigest": "sha256:1fb73ecda8394810d5049792dd43e666200db235fea7194003cd8f8d63355550",
       "rngDraws": []
     },
     {
@@ -1030,8 +1030,8 @@
       },
       "order": 38,
       "phase": "afternoon",
-      "postStateDigest": "sha256:d98b7f26f3de671d75ee687223b759b5d952e5d850994b77872bc2611d23a77d",
-      "preStateDigest": "sha256:536385662bdd25bafb4f9a00bf2ef2480c2b0de56d9524d5789e5a46f5202f93",
+      "postStateDigest": "sha256:a1082a6098b92d3dd3d1c895fbf2732618f024abd00a0bc5a64072a4a6337e58",
+      "preStateDigest": "sha256:06b4c8dd9fc8057732053881d799ac592dc698d8ba2f04c9c5660dc8fe94b036",
       "rngDraws": []
     },
     {
@@ -1048,8 +1048,8 @@
       },
       "order": 39,
       "phase": "afternoon",
-      "postStateDigest": "sha256:855376d66ab7f1a11ed640b5db9c6fe459429b36645c1dceeb6cba27a14da1c5",
-      "preStateDigest": "sha256:d98b7f26f3de671d75ee687223b759b5d952e5d850994b77872bc2611d23a77d",
+      "postStateDigest": "sha256:7c1daeaef630691f928b1ca1cfbe62891cbe5348298b15484ca2b54fb7b93fac",
+      "preStateDigest": "sha256:a1082a6098b92d3dd3d1c895fbf2732618f024abd00a0bc5a64072a4a6337e58",
       "rngDraws": []
     },
     {
@@ -1068,8 +1068,8 @@
       },
       "order": 40,
       "phase": "evening",
-      "postStateDigest": "sha256:a85eadf3d0f92c4921caa5fcca58666c15ac16489148e8e16b02f87d4aa193b0",
-      "preStateDigest": "sha256:855376d66ab7f1a11ed640b5db9c6fe459429b36645c1dceeb6cba27a14da1c5",
+      "postStateDigest": "sha256:3b7e5e6a0ec40995c4423bf949e4d584b1d02b4f0b94dd61b4fc27a2b5eb061c",
+      "preStateDigest": "sha256:7c1daeaef630691f928b1ca1cfbe62891cbe5348298b15484ca2b54fb7b93fac",
       "rngDraws": []
     },
     {
@@ -1085,8 +1085,8 @@
       },
       "order": 41,
       "phase": "morning",
-      "postStateDigest": "sha256:82a8705fcc530023bfafa333d6684ec11ea9eb62bc1a99ad00491c180558d7cf",
-      "preStateDigest": "sha256:a85eadf3d0f92c4921caa5fcca58666c15ac16489148e8e16b02f87d4aa193b0",
+      "postStateDigest": "sha256:391acc07315c9b41094596cb24ff66e43caa3044d733da49141619c7142aec57",
+      "preStateDigest": "sha256:3b7e5e6a0ec40995c4423bf949e4d584b1d02b4f0b94dd61b4fc27a2b5eb061c",
       "rngDraws": []
     },
     {
@@ -1102,8 +1102,8 @@
       },
       "order": 42,
       "phase": "morning",
-      "postStateDigest": "sha256:dafce4ca8346e9d4f4bf880803b4b3ffd22f4c073bfea90eea1843ff0c0a7794",
-      "preStateDigest": "sha256:82a8705fcc530023bfafa333d6684ec11ea9eb62bc1a99ad00491c180558d7cf",
+      "postStateDigest": "sha256:6abd3c51addc38cec5aa920b4f8addbdd9b7f17a9783b35d2b1fafc43fe6359b",
+      "preStateDigest": "sha256:391acc07315c9b41094596cb24ff66e43caa3044d733da49141619c7142aec57",
       "rngDraws": []
     },
     {
@@ -1119,8 +1119,8 @@
       },
       "order": 43,
       "phase": "afternoon",
-      "postStateDigest": "sha256:5d857b1871d91beaa13742d93d16690330a0454cf9fb6f494bf189f61333fcdb",
-      "preStateDigest": "sha256:dafce4ca8346e9d4f4bf880803b4b3ffd22f4c073bfea90eea1843ff0c0a7794",
+      "postStateDigest": "sha256:850f5c792bb3e9105cf260ad43d634a398308e182c1df1745f42dfe0c99be236",
+      "preStateDigest": "sha256:6abd3c51addc38cec5aa920b4f8addbdd9b7f17a9783b35d2b1fafc43fe6359b",
       "rngDraws": []
     }
   ],
@@ -1150,7 +1150,7 @@
           "valuationDelta": 0
         },
         {
-          "cashDelta": -2,
+          "cashDelta": -1,
           "category": "opening_fee",
           "entryId": "ledger:9:1",
           "reasonId": "reason.ledger.opening_fee",
@@ -1194,7 +1194,7 @@
           },
           "appliedModifiers": [],
           "cash": {
-            "after": 98,
+            "after": 99,
             "before": 42
           },
           "day": 1,
@@ -1293,7 +1293,7 @@
           "valuationDelta": 0
         },
         {
-          "cashDelta": -2,
+          "cashDelta": -1,
           "category": "opening_fee",
           "entryId": "ledger:18:1",
           "reasonId": "reason.ledger.opening_fee",
@@ -1337,8 +1337,8 @@
           },
           "appliedModifiers": [],
           "cash": {
-            "after": 125,
-            "before": 76
+            "after": 127,
+            "before": 77
           },
           "day": 2,
           "discardedPortions": [],
@@ -1495,10 +1495,10 @@
     "completedAtSequence": 44,
     "endingId": "ending.failed_arrears",
     "levy": {
-      "availableCash": 113,
+      "availableCash": 115,
       "kind": "arrears",
       "levyAmount": 140,
-      "shortfall": 27
+      "shortfall": 25
     },
     "reasonIds": [
       "reason.ending.arrears"
