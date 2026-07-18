@@ -23,7 +23,10 @@ import {
 } from "../patch-surfaces.js";
 
 import type { PocFacilityCounterfactualChecksV1 } from "./counterfactual-scenarios.js";
-import type { PocReferenceStrategyIdV1 } from "./reference-strategy-definitions.js";
+import {
+  pocReferenceStrategyIdsV1,
+  type PocReferenceStrategyIdV1,
+} from "./reference-strategy-definitions.js";
 
 export const pocBalanceCalibrationFieldsV1 = Object.freeze([
   "levy",
@@ -144,6 +147,291 @@ const levyStepV1 = parsePositiveSafeInteger(2);
 const calibrationFieldIndexV1 = new Map<PocBalanceCalibrationFieldV1, number>(
   pocBalanceCalibrationFieldsV1.map((field, index) => [field, index] as const),
 );
+const balanceCorpusSizeV1 = 1000;
+const d4CashPressureKeysV1 = Object.freeze([
+  "cashFirstPaidCount",
+  "relationshipFirstPaidCount",
+  "investigationFirstPaidCount",
+] as const);
+const counterfactualKeysV1 = Object.freeze([
+  "comfortableBedRecovery",
+  "investigationColdStorageShelfLife",
+  "fullDelegationColdStorageShelfLife",
+] as const);
+
+function failCalibrationValuesV1(detail: string): never {
+  throw new TypeError(`invalid PoC balance calibration values: ${detail}`);
+}
+
+function failCalibrationEvaluationV1(detail: string): never {
+  throw new TypeError(`invalid PoC balance calibration evaluation: ${detail}`);
+}
+
+function failCalibrationEvidenceV1(detail: string): never {
+  throw new TypeError(`invalid PoC balance calibration evidence: ${detail}`);
+}
+
+function exactCalibrationRecordV1(
+  value: unknown,
+  expectedKeys: readonly string[],
+  label: string,
+  fail: (detail: string) => never,
+): Readonly<Record<string, unknown>> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return fail(`${label} must be a data object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (
+    (prototype !== Object.prototype && prototype !== null) ||
+    Object.getOwnPropertySymbols(value).length !== 0
+  ) {
+    return fail(`${label} must be a plain string-keyed data object`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const actualKeys = Object.keys(descriptors).toSorted();
+  const canonicalKeys = [...expectedKeys].toSorted();
+  if (
+    actualKeys.length !== canonicalKeys.length ||
+    actualKeys.some((key, index) => key !== canonicalKeys[index]) ||
+    Object.values(descriptors).some(
+      (descriptor) =>
+        descriptor.get !== undefined ||
+        descriptor.set !== undefined ||
+        !("value" in descriptor) ||
+        descriptor.enumerable !== true,
+    )
+  ) {
+    return fail(`${label} has unexpected or hidden fields`);
+  }
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function denseCalibrationArrayV1(value: unknown, label: string): readonly unknown[] {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    Object.getOwnPropertySymbols(value).length !== 0
+  ) {
+    return failCalibrationEvidenceV1(`${label} must be a plain dense array`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Object.keys(descriptors).filter((key) => key !== "length");
+  if (
+    keys.length !== value.length ||
+    keys.some((key, index) => key !== String(index)) ||
+    keys.some((key) => {
+      const descriptor = descriptors[key];
+      return (
+        descriptor === undefined ||
+        descriptor.get !== undefined ||
+        descriptor.set !== undefined ||
+        !("value" in descriptor) ||
+        descriptor.enumerable !== true
+      );
+    })
+  ) {
+    return failCalibrationEvidenceV1(`${label} must be a plain dense array`);
+  }
+  return value;
+}
+
+function parseCalibrationCountV1(value: unknown, label: string): NonNegativeSafeInteger {
+  let parsed: NonNegativeSafeInteger;
+  try {
+    parsed = parseNonNegativeSafeInteger(value);
+  } catch {
+    return failCalibrationEvaluationV1(`${label} must be a NonNegativeSafeInteger`);
+  }
+  if (parsed > balanceCorpusSizeV1) {
+    return failCalibrationEvaluationV1(`${label} exceeds the complete corpus size`);
+  }
+  return parsed;
+}
+
+function parseCalibrationMedianV1(
+  value: unknown,
+  paidCount: NonNegativeSafeInteger,
+  label: string,
+): number | null {
+  if (value === null) {
+    if (paidCount !== 0) {
+      return failCalibrationEvaluationV1(`${label} is null despite paid samples`);
+    }
+    return null;
+  }
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    Object.is(value, -0) ||
+    value < 0 ||
+    (!Number.isSafeInteger(value) && !Number.isSafeInteger(value - 0.5)) ||
+    paidCount === 0
+  ) {
+    return failCalibrationEvaluationV1(
+      `${label} must be a finite non-negative integer or half-integer backed by paid samples`,
+    );
+  }
+  return value;
+}
+
+function parseStrategyBalanceMetricsV1(
+  value: unknown,
+  strategyId: PocReferenceStrategyIdV1,
+): PocStrategyBalanceMetricsV1 {
+  const metrics = exactCalibrationRecordV1(
+    value,
+    ["paidCount", "stableCount", "dangerCount", "arrearsCount", "medianPaidAfterTaxCash"],
+    `${strategyId} metrics`,
+    failCalibrationEvaluationV1,
+  );
+  const paidCount = parseCalibrationCountV1(metrics.paidCount, `${strategyId}.paidCount`);
+  const stableCount = parseCalibrationCountV1(metrics.stableCount, `${strategyId}.stableCount`);
+  const dangerCount = parseCalibrationCountV1(metrics.dangerCount, `${strategyId}.dangerCount`);
+  const arrearsCount = parseCalibrationCountV1(metrics.arrearsCount, `${strategyId}.arrearsCount`);
+  if (BigInt(stableCount) + BigInt(dangerCount) + BigInt(arrearsCount) !== 1000n) {
+    return failCalibrationEvaluationV1(`${strategyId} ending counts do not equal 1000`);
+  }
+  if (BigInt(stableCount) + BigInt(dangerCount) !== BigInt(paidCount)) {
+    return failCalibrationEvaluationV1(`${strategyId} paidCount does not equal paid endings`);
+  }
+  return Object.freeze({
+    paidCount,
+    stableCount,
+    dangerCount,
+    arrearsCount,
+    medianPaidAfterTaxCash: parseCalibrationMedianV1(
+      metrics.medianPaidAfterTaxCash,
+      paidCount,
+      `${strategyId}.medianPaidAfterTaxCash`,
+    ),
+  });
+}
+
+function parsePocBalanceMetricsV1(value: unknown): PocBalanceMetricsV1 {
+  const metrics = exactCalibrationRecordV1(
+    value,
+    [
+      "firstSeed",
+      "lastSeed",
+      "strategies",
+      "d4CashPressure",
+      "strictDominanceCountByStrategy",
+      "maximumStrictDominance",
+    ],
+    "metrics",
+    failCalibrationEvaluationV1,
+  );
+  if (metrics.firstSeed !== 1 || metrics.lastSeed !== 1000) {
+    return failCalibrationEvaluationV1("metrics must cover seeds 1..1000");
+  }
+
+  const strategyValues = exactCalibrationRecordV1(
+    metrics.strategies,
+    pocReferenceStrategyIdsV1,
+    "strategy metrics",
+    failCalibrationEvaluationV1,
+  );
+  const strategies = Object.freeze(
+    Object.fromEntries(
+      pocReferenceStrategyIdsV1.map((strategyId) => [
+        strategyId,
+        parseStrategyBalanceMetricsV1(strategyValues[strategyId], strategyId),
+      ]),
+    ) as unknown as Readonly<Record<PocReferenceStrategyIdV1, PocStrategyBalanceMetricsV1>>,
+  );
+
+  const pressureValue = exactCalibrationRecordV1(
+    metrics.d4CashPressure,
+    d4CashPressureKeysV1,
+    "D4 cash-pressure metrics",
+    failCalibrationEvaluationV1,
+  );
+  const d4CashPressure = Object.freeze({
+    cashFirstPaidCount: parseCalibrationCountV1(
+      pressureValue.cashFirstPaidCount,
+      "d4CashPressure.cashFirstPaidCount",
+    ),
+    relationshipFirstPaidCount: parseCalibrationCountV1(
+      pressureValue.relationshipFirstPaidCount,
+      "d4CashPressure.relationshipFirstPaidCount",
+    ),
+    investigationFirstPaidCount: parseCalibrationCountV1(
+      pressureValue.investigationFirstPaidCount,
+      "d4CashPressure.investigationFirstPaidCount",
+    ),
+  });
+
+  const dominanceValue = exactCalibrationRecordV1(
+    metrics.strictDominanceCountByStrategy,
+    pocReferenceStrategyIdsV1,
+    "strict-dominance metrics",
+    failCalibrationEvaluationV1,
+  );
+  const strictDominanceCountByStrategy = Object.freeze(
+    Object.fromEntries(
+      pocReferenceStrategyIdsV1.map((strategyId) => [
+        strategyId,
+        parseCalibrationCountV1(
+          dominanceValue[strategyId],
+          `strictDominanceCountByStrategy.${strategyId}`,
+        ),
+      ]),
+    ) as unknown as Readonly<Record<PocReferenceStrategyIdV1, NonNegativeSafeInteger>>,
+  );
+  const dominanceTotal = Object.values(strictDominanceCountByStrategy).reduce(
+    (total, count) => total + BigInt(count),
+    0n,
+  );
+  if (dominanceTotal > 1000n) {
+    return failCalibrationEvaluationV1("strict-dominance counts exceed the corpus size");
+  }
+  const maximumStrictDominance = parseCalibrationCountV1(
+    metrics.maximumStrictDominance,
+    "maximumStrictDominance",
+  );
+  if (maximumStrictDominance !== Math.max(...Object.values(strictDominanceCountByStrategy))) {
+    return failCalibrationEvaluationV1(
+      "maximumStrictDominance does not equal the maximum strategy count",
+    );
+  }
+
+  return Object.freeze({
+    firstSeed: 1,
+    lastSeed: 1000,
+    strategies,
+    d4CashPressure,
+    strictDominanceCountByStrategy,
+    maximumStrictDominance,
+  });
+}
+
+function parsePocBalanceCalibrationEvaluationV1(value: unknown): PocBalanceCalibrationEvaluationV1 {
+  const evaluation = exactCalibrationRecordV1(
+    value,
+    ["metrics", "counterfactuals"],
+    "evaluation",
+    failCalibrationEvaluationV1,
+  );
+  const counterfactualValue = exactCalibrationRecordV1(
+    evaluation.counterfactuals,
+    counterfactualKeysV1,
+    "counterfactual checks",
+    failCalibrationEvaluationV1,
+  );
+  const counterfactuals = Object.fromEntries(
+    counterfactualKeysV1.map((key) => {
+      const check = counterfactualValue[key];
+      if (typeof check !== "boolean") {
+        return failCalibrationEvaluationV1(`${key} counterfactual must be boolean`);
+      }
+      return [key, check] as const;
+    }),
+  ) as unknown as PocBalanceCounterfactualChecksV1;
+  return deepFreezePocValueV1({
+    metrics: parsePocBalanceMetricsV1(evaluation.metrics),
+    counterfactuals,
+  });
+}
 
 function defaultPocCalibrationProgramV1(): DeepReadonly<PocSimulationProgramV1> {
   const { slots } = pocSimulationPatchSurfaceV1;
@@ -214,12 +502,21 @@ export function pocBalanceCalibrationValuesV1(): PocBalanceCalibrationValuesV1 {
 function parsePocBalanceCalibrationValuesV1(
   valuesValue: DeepReadonly<PocBalanceCalibrationValuesV1>,
 ): PocBalanceCalibrationValuesV1 {
+  const values = exactCalibrationRecordV1(
+    valuesValue,
+    pocBalanceCalibrationFieldsV1,
+    "calibration values",
+    failCalibrationValuesV1,
+  );
   return deepFreezePocValueV1(
     Object.fromEntries(
-      pocBalanceCalibrationFieldsV1.map((field) => [
-        field,
-        parseNonNegativeSafeInteger(valuesValue[field]),
-      ]),
+      pocBalanceCalibrationFieldsV1.map((field) => {
+        try {
+          return [field, parseNonNegativeSafeInteger(values[field])] as const;
+        } catch {
+          return failCalibrationValuesV1(`${field} must be a NonNegativeSafeInteger`);
+        }
+      }),
     ) as unknown as PocBalanceCalibrationValuesV1,
   );
 }
@@ -416,7 +713,7 @@ async function evaluatePocBalanceCalibrationPointV1(
     throw new TypeError("PoC balance calibration requires an async evaluation port");
   }
   const evaluation = await evaluationPort.evaluate(point);
-  return deepFreezePocValueV1(evaluation);
+  return parsePocBalanceCalibrationEvaluationV1(evaluation);
 }
 
 /**
@@ -505,6 +802,75 @@ function sameCalibrationNeighborV1(
   );
 }
 
+function parsePocBalanceCalibrationEvaluatedNeighborV1(
+  value: unknown,
+): PocBalanceCalibrationEvaluatedNeighborV1 {
+  const candidate = exactCalibrationRecordV1(
+    value,
+    ["field", "direction", "step", "beforeValue", "afterValue", "evaluation"],
+    "evaluated neighbor",
+    failCalibrationEvidenceV1,
+  );
+  const field = candidate.field;
+  if (
+    typeof field !== "string" ||
+    !calibrationFieldIndexV1.has(field as PocBalanceCalibrationFieldV1)
+  ) {
+    return failCalibrationEvidenceV1("evaluated neighbor has an unknown field");
+  }
+  const direction = candidate.direction;
+  if (direction !== "decrease" && direction !== "increase") {
+    return failCalibrationEvidenceV1("evaluated neighbor has an invalid direction");
+  }
+  let step: PositiveSafeInteger;
+  let beforeValue: NonNegativeSafeInteger;
+  let afterValue: NonNegativeSafeInteger;
+  try {
+    step = parsePositiveSafeInteger(candidate.step);
+    beforeValue = parseNonNegativeSafeInteger(candidate.beforeValue);
+    afterValue = parseNonNegativeSafeInteger(candidate.afterValue);
+  } catch {
+    return failCalibrationEvidenceV1(
+      "evaluated neighbor scalar fields must be positive/non-negative safe integers",
+    );
+  }
+  return Object.freeze({
+    field: field as PocBalanceCalibrationFieldV1,
+    direction,
+    step,
+    beforeValue,
+    afterValue,
+    evaluation: parsePocBalanceCalibrationEvaluationV1(candidate.evaluation),
+  });
+}
+
+function parsePocBalanceCalibrationStepInputV1(value: unknown): PocBalanceCalibrationStepInputV1 {
+  const input = exactCalibrationRecordV1(
+    value,
+    ["iteration", "values", "evaluation", "candidates"],
+    "selector input",
+    failCalibrationEvidenceV1,
+  );
+  let iteration: NonNegativeSafeInteger;
+  try {
+    iteration = parseNonNegativeSafeInteger(input.iteration);
+  } catch {
+    return failCalibrationEvidenceV1("iteration must be a NonNegativeSafeInteger");
+  }
+  return Object.freeze({
+    iteration,
+    values: parsePocBalanceCalibrationValuesV1(
+      input.values as DeepReadonly<PocBalanceCalibrationValuesV1>,
+    ),
+    evaluation: parsePocBalanceCalibrationEvaluationV1(input.evaluation),
+    candidates: Object.freeze(
+      denseCalibrationArrayV1(input.candidates, "evaluated neighbors").map((candidate) =>
+        parsePocBalanceCalibrationEvaluatedNeighborV1(candidate),
+      ),
+    ),
+  });
+}
+
 function validatePocBalanceCalibrationEvidenceV1(
   currentValues: PocBalanceCalibrationValuesV1,
   beforeDeficit: NonNegativeSafeInteger,
@@ -553,13 +919,14 @@ function validatePocBalanceCalibrationEvidenceV1(
 export function selectPocBalanceCalibrationStepV1(
   input: PocBalanceCalibrationStepInputV1,
 ): PocBalanceCalibrationSelectionV1 {
-  const iteration = parseNonNegativeSafeInteger(input.iteration);
-  const current = createPocBalanceCalibrationPointV1(input.values);
-  const beforeDeficit = calculatePocBalanceDeficitV1(input.evaluation);
+  const parsedInput = parsePocBalanceCalibrationStepInputV1(input);
+  const { iteration } = parsedInput;
+  const current = createPocBalanceCalibrationPointV1(parsedInput.values);
+  const beforeDeficit = calculatePocBalanceDeficitV1(parsedInput.evaluation);
   const evidence = validatePocBalanceCalibrationEvidenceV1(
     current.values,
     beforeDeficit,
-    input.candidates,
+    parsedInput.candidates,
   );
   if (beforeDeficit === 0) {
     throw new TypeError("PoC balance calibration current point already satisfies the contract");
@@ -570,7 +937,7 @@ export function selectPocBalanceCalibrationStepV1(
     return Object.freeze({
       kind: "balance_contract_unsatisfied",
       reason: "iteration_limit",
-      metrics: input.evaluation.metrics,
+      metrics: parsedInput.evaluation.metrics,
       candidates: frozenCandidates,
     });
   }
@@ -580,7 +947,7 @@ export function selectPocBalanceCalibrationStepV1(
   return Object.freeze({
     kind: "balance_contract_unsatisfied",
     reason: "no_improving_neighbor",
-    metrics: input.evaluation.metrics,
+    metrics: parsedInput.evaluation.metrics,
     candidates: frozenCandidates,
   });
 }
@@ -601,7 +968,7 @@ function fixtureStrategyMetricsV1(
 
 function calibrationMetricsFixtureV1(corePaidCount: number): PocBalanceMetricsV1 {
   const dominanceCounts = Object.freeze({
-    "strategy.cash_first": parseNonNegativeSafeInteger(0),
+    "strategy.cash_first": parseNonNegativeSafeInteger(800),
     "strategy.relationship_first": parseNonNegativeSafeInteger(0),
     "strategy.investigation_first": parseNonNegativeSafeInteger(0),
     "strategy.full_delegation": parseNonNegativeSafeInteger(0),

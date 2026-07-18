@@ -541,6 +541,244 @@ describe("PoC deterministic balance lab", () => {
     ).toThrow(/duplicate PoC balance calibration candidate/u);
   }, 30_000);
 
+  it("rejects forged calibration evaluations before selecting a neighbor", () => {
+    const fixture = calibrationCandidateFixtureV1();
+    const first = fixture.candidates[0];
+    if (first === undefined) throw new TypeError("missing calibration evidence fixture");
+    const passing = first.evaluation;
+    const selectWithEvaluation = (evaluation: typeof passing) =>
+      selectPocBalanceCalibrationStepV1({
+        ...fixture,
+        candidates: [{ ...first, evaluation }],
+      });
+    const cashFirst = passing.metrics.strategies["strategy.cash_first"];
+    const explicitFailure = passing.metrics.strategies["strategy.explicit_failure"];
+
+    const forgedEvaluations = [
+      {
+        label: "closed corpus range",
+        evaluation: {
+          ...passing,
+          metrics: { ...passing.metrics, firstSeed: 2 },
+        },
+      },
+      {
+        label: "ending identities",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            strategies: {
+              ...passing.metrics.strategies,
+              "strategy.cash_first": {
+                ...cashFirst,
+                stableCount: parseNonNegativeSafeInteger(0),
+                dangerCount: parseNonNegativeSafeInteger(0),
+                arrearsCount: parseNonNegativeSafeInteger(0),
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "strategy keys",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            strategies: {
+              ...passing.metrics.strategies,
+              "strategy.undeclared": cashFirst,
+            },
+          },
+        },
+      },
+      {
+        label: "paid sample identity",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            strategies: {
+              ...passing.metrics.strategies,
+              "strategy.explicit_failure": {
+                ...explicitFailure,
+                paidCount: parseNonNegativeSafeInteger(0),
+                stableCount: parseNonNegativeSafeInteger(0),
+                dangerCount: parseNonNegativeSafeInteger(0),
+                arrearsCount: parseNonNegativeSafeInteger(1000),
+                medianPaidAfterTaxCash: 1,
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "median sample domain",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            strategies: {
+              ...passing.metrics.strategies,
+              "strategy.cash_first": {
+                ...cashFirst,
+                medianPaidAfterTaxCash: 0.25,
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "integer pressure counts",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            d4CashPressure: {
+              ...passing.metrics.d4CashPressure,
+              cashFirstPaidCount: 750.5,
+            },
+          },
+        },
+      },
+      {
+        label: "pressure count range",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            d4CashPressure: {
+              ...passing.metrics.d4CashPressure,
+              cashFirstPaidCount: 1001,
+            },
+          },
+        },
+      },
+      {
+        label: "derived dominance maximum",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            strictDominanceCountByStrategy: {
+              ...passing.metrics.strictDominanceCountByStrategy,
+              "strategy.cash_first": parseNonNegativeSafeInteger(1),
+            },
+            maximumStrictDominance: parseNonNegativeSafeInteger(0),
+          },
+        },
+      },
+      {
+        label: "dominance count identity",
+        evaluation: {
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            strictDominanceCountByStrategy: {
+              ...passing.metrics.strictDominanceCountByStrategy,
+              "strategy.cash_first": parseNonNegativeSafeInteger(1000),
+              "strategy.relationship_first": parseNonNegativeSafeInteger(1),
+            },
+            maximumStrictDominance: parseNonNegativeSafeInteger(1000),
+          },
+        },
+      },
+      {
+        label: "boolean counterfactuals",
+        evaluation: {
+          ...passing,
+          counterfactuals: {
+            ...passing.counterfactuals,
+            comfortableBedRecovery: "true",
+          },
+        },
+      },
+      {
+        label: "exact threshold input shape",
+        evaluation: { ...passing, undeclaredThresholdInput: true },
+      },
+    ] as unknown as readonly { readonly label: string; readonly evaluation: typeof passing }[];
+
+    for (const { label, evaluation } of forgedEvaluations) {
+      expect(() => selectWithEvaluation(evaluation), label).toThrow(
+        /invalid PoC balance calibration evaluation/u,
+      );
+    }
+    for (const medianPaidAfterTaxCash of [5.5, Number.MAX_SAFE_INTEGER]) {
+      expect(
+        selectWithEvaluation({
+          ...passing,
+          metrics: {
+            ...passing.metrics,
+            strategies: {
+              ...passing.metrics.strategies,
+              "strategy.cash_first": {
+                ...cashFirst,
+                medianPaidAfterTaxCash,
+              },
+            },
+          },
+        }),
+      ).toMatchObject({ kind: "candidate", field: first.field });
+    }
+    expect(() =>
+      selectPocBalanceCalibrationStepV1({
+        ...fixture,
+        evaluation: forgedEvaluations[0]!.evaluation,
+      }),
+    ).toThrow(/invalid PoC balance calibration evaluation/u);
+    expect(() =>
+      selectPocBalanceCalibrationStepV1({
+        ...fixture,
+        values: { ...fixture.values, undeclaredCalibrationField: 1 },
+      } as typeof fixture),
+    ).toThrow(/invalid PoC balance calibration values/u);
+  }, 30_000);
+
+  it("rejects forged calibration evaluation-port results before selection", async () => {
+    const fixture = calibrationCandidateFixtureV1();
+    const first = fixture.candidates[0];
+    if (first === undefined) throw new TypeError("missing calibration evidence fixture");
+    const invalidEvaluation = {
+      ...first.evaluation,
+      metrics: {
+        ...first.evaluation.metrics,
+        d4CashPressure: {
+          ...first.evaluation.metrics.d4CashPressure,
+          cashFirstPaidCount: 750.5,
+        },
+      },
+    } as typeof first.evaluation;
+
+    await expect(
+      evaluatePocBalanceCalibrationStepV1({
+        iteration: fixture.iteration,
+        values: fixture.values,
+        evaluationPort: {
+          async evaluate() {
+            return invalidEvaluation;
+          },
+        },
+      }),
+    ).rejects.toThrow(/invalid PoC balance calibration evaluation/u);
+
+    let calls = 0;
+    await expect(
+      evaluatePocBalanceCalibrationStepV1({
+        iteration: fixture.iteration,
+        values: fixture.values,
+        evaluationPort: {
+          async evaluate() {
+            calls += 1;
+            return calls === 1 ? fixture.evaluation : invalidEvaluation;
+          },
+        },
+      }),
+    ).rejects.toThrow(/invalid PoC balance calibration evaluation/u);
+    expect(calls).toBe(2);
+  }, 30_000);
+
   it("materializes the first real calibration neighbor as an immutable Program", () => {
     const values = pocBalanceCalibrationValuesV1();
     const firstNeighbor = enumeratePocBalanceCalibrationNeighborsV1(values)[0];
