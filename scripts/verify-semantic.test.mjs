@@ -9,9 +9,10 @@ import { runSemanticVerificationV1, semanticVerificationCommandsV1 } from "./ver
 const expectedSemanticVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]],
   ["pnpm", ["--filter", "@project-tavern/story-poc", "verify:semantic"]],
+  ["pnpm", ["test:e2e:ui", "--project=chromium", "--grep", "@semantic-parity"]],
 ]);
 
-test("freezes the exact read-only semantic delegation", () => {
+test("freezes the headless then atomic browser semantic delegation", () => {
   assert.deepEqual(semanticVerificationCommandsV1, expectedSemanticVerificationCommandsV1);
   assert(Object.isFrozen(semanticVerificationCommandsV1));
   for (const command of semanticVerificationCommandsV1) {
@@ -22,7 +23,7 @@ test("freezes the exact read-only semantic delegation", () => {
   const commandText = semanticVerificationCommandsV1.flat(2).join(" ");
   assert.doesNotMatch(
     commandText,
-    /playwright|browser|chromium|webkit|test:e2e|regenerate|update|release|write/iu,
+    /build:|webkit|debug|cheat|regenerate|update|release|write|snapshot/iu,
   );
 });
 
@@ -30,20 +31,33 @@ test("stops on the first failure and never enables a shell", () => {
   const calls = [];
   const injectedSpawnSync = (command, args, options) => {
     calls.push([command, args, options]);
-    return { status: 1 };
+    return { status: calls.length === 3 ? 1 : 0, signal: null };
   };
 
   assert.throws(
     () => runSemanticVerificationV1("/repo/project-tavern", injectedSpawnSync),
-    /pnpm --filter @project-tavern\/story-e2e verify:semantic failed/u,
+    /pnpm test:e2e:ui --project=chromium --grep @semantic-parity failed/u,
   );
   assert.deepEqual(
     calls.map(([command, args]) => [command, args]),
-    expectedSemanticVerificationCommandsV1.slice(0, 1),
+    expectedSemanticVerificationCommandsV1,
   );
-  assert.equal(calls[0]?.[2]?.cwd, "/repo/project-tavern");
-  assert.equal(calls[0]?.[2]?.shell, false);
-  assert.equal(calls[0]?.[2]?.stdio, "inherit");
+  for (const [, , options] of calls) {
+    assert.equal(options.cwd, "/repo/project-tavern");
+    assert.equal(options.shell, false);
+    assert.equal(options.stdio, "inherit");
+  }
+});
+
+test("treats a terminated semantic child as failure", () => {
+  assert.throws(
+    () =>
+      runSemanticVerificationV1("/repo/project-tavern", () => ({
+        status: null,
+        signal: "SIGTERM",
+      })),
+    /pnpm --filter @project-tavern\/story-e2e verify:semantic failed/u,
+  );
 });
 
 test("maps the public and Story semantic scripts exactly", async () => {

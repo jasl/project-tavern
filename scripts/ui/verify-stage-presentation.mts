@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
+import { lstatSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 function frozenCommandV1(command: string, args: readonly string[]) {
@@ -21,6 +22,46 @@ type StagePresentationSpawnV1 = (
     readonly stdio: "inherit";
   },
 ) => StagePresentationSpawnResultV1;
+
+const stagePresentationRootEntriesV1 = Object.freeze([
+  "dist/e2e/index.html",
+  "dist/poc/index.html",
+]);
+
+function stagePresentationRootErrorV1(path: string): TypeError & {
+  readonly code: "ui.story_presentation_root_missing";
+  readonly path: string;
+} {
+  const error = new TypeError(`Prebuilt Story root is missing or invalid: ${path}`) as TypeError & {
+    readonly code: "ui.story_presentation_root_missing";
+    readonly path: string;
+  };
+  Object.defineProperties(error, {
+    code: { enumerable: true, value: "ui.story_presentation_root_missing" },
+    path: { enumerable: true, value: path },
+  });
+  return error;
+}
+
+export function assertStagePresentationRootsV1(root: string): void {
+  for (const path of stagePresentationRootEntriesV1) {
+    let stat;
+    try {
+      stat = lstatSync(join(root, path));
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error.code === "ENOENT" || error.code === "ENOTDIR")
+      ) {
+        throw stagePresentationRootErrorV1(path);
+      }
+      throw error;
+    }
+    if (stat.isSymbolicLink() || !stat.isFile()) throw stagePresentationRootErrorV1(path);
+  }
+}
 
 export const stagePresentationVerificationCommandsV1 = Object.freeze([
   frozenCommandV1("pnpm", [
@@ -61,8 +102,6 @@ export const stagePresentationVerificationCommandsV1 = Object.freeze([
     "src/presentation",
     "src/application",
   ]),
-  frozenCommandV1("pnpm", ["build:e2e"]),
-  frozenCommandV1("pnpm", ["build:poc"]),
   frozenCommandV1("pnpm", ["test:e2e:interaction"]),
   frozenCommandV1("pnpm", ["verify:stories"]),
   frozenCommandV1("pnpm", ["verify:assets"]),
@@ -75,6 +114,7 @@ export function runStagePresentationVerificationV1(
   root: string,
   spawn: StagePresentationSpawnV1 = spawnSync,
 ): void {
+  assertStagePresentationRootsV1(root);
   for (const [command, args] of stagePresentationVerificationCommandsV1) {
     const result = spawn(command, args, {
       cwd: root,

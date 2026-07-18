@@ -10,6 +10,7 @@ function frozenCommandV1(command: string, args: readonly string[]) {
 export const semanticVerificationCommandsV1 = Object.freeze([
   frozenCommandV1("pnpm", ["--filter", "@project-tavern/story-e2e", "verify:semantic"]),
   frozenCommandV1("pnpm", ["--filter", "@project-tavern/story-poc", "verify:semantic"]),
+  frozenCommandV1("pnpm", ["test:e2e:ui", "--project=chromium", "--grep", "@semantic-parity"]),
 ]);
 
 export function runSemanticVerificationV1(root: string, spawn: typeof spawnSync = spawnSync): void {
@@ -19,7 +20,7 @@ export function runSemanticVerificationV1(root: string, spawn: typeof spawnSync 
       shell: false,
       stdio: "inherit",
     });
-    if (result.status !== 0) {
+    if (result.status !== 0 || result.signal !== null) {
       throw new TypeError(`${command} ${args.join(" ")} failed`);
     }
   }

@@ -8,25 +8,29 @@ import { classifyVitestProjectV1 } from "./classify-vitest-project.mjs";
 import { workspacePackages } from "./workspace-policy.mjs";
 
 export const coreVerificationCommandsV1 = Object.freeze([
+  ["pnpm", ["verify:materialization"]],
+  ["pnpm", ["test:scripts"]],
   ["pnpm", ["format:check"]],
   ["pnpm", ["verify:docs"]],
   ["pnpm", ["lint"]],
-  ["pnpm", ["verify:boundaries"]],
   ["pnpm", ["verify:cycles"]],
   ["pnpm", ["verify:public-exports"]],
   ["pnpm", ["verify:stories"]],
   ["pnpm", ["verify:fixtures"]],
   ["pnpm", ["verify:golden"]],
   ["pnpm", ["verify:determinism"]],
-  ["pnpm", ["verify:phase5b"]],
-  ["pnpm", ["verify:semantic"]],
-  ["pnpm", ["test:scripts"]],
+  ["pnpm", ["verify:phase4"]],
   ["pnpm", ["typecheck"]],
   ["pnpm", ["test:unit"]],
   ["pnpm", ["test:contract"]],
   ["pnpm", ["test:property"]],
   ["pnpm", ["build"]],
+  ["pnpm", ["build:poc"]],
   ["pnpm", ["build:e2e"]],
+  ["pnpm", ["verify:semantic"]],
+  ["pnpm", ["verify:ui"]],
+  ["pnpm", ["verify:assets"]],
+  ["pnpm", ["verify:boundaries"]],
   ["pnpm", ["verify:bundle"]],
   ["pnpm", ["verify:artifact"]],
   ["pnpm", ["test:e2e:smoke"]],
@@ -126,22 +130,46 @@ function verifyVitestDiscovery(root) {
   assertVitestOwnershipV1(discoverVitestTestsV1(root), listings);
 }
 
-export function runCoreVerificationV1(root) {
-  const before = trackedSnapshot(root);
+export function runCoreCommandSequenceV1(
+  root,
+  spawn = spawnSync,
+  verifyDiscovery = verifyVitestDiscovery,
+  afterMaterialization = () => {},
+) {
+  for (const [index, [command, args]] of coreVerificationCommandsV1.entries()) {
+    const result = spawn(command, args, {
+      cwd: root,
+      shell: false,
+      stdio: "inherit",
+    });
+    if (result.status !== 0 || result.signal !== null) {
+      throw new TypeError(`${command} ${args.join(" ")} failed`);
+    }
+    if (index === 0) afterMaterialization();
+    if (index === 1) verifyDiscovery(root);
+  }
+}
+
+export function runCoreVerificationV1(root, ports = {}) {
+  const {
+    snapshot = trackedSnapshot,
+    spawn = spawnSync,
+    verifyDiscovery = verifyVitestDiscovery,
+  } = ports;
+  let before = null;
   let failure = null;
   try {
-    verifyVitestDiscovery(root);
-    for (const [command, args] of coreVerificationCommandsV1) {
-      const result = spawnSync(command, args, { cwd: root, stdio: "inherit" });
-      if (result.status !== 0) {
-        failure = `${command} ${args.join(" ")} failed`;
-        break;
-      }
-    }
+    runCoreCommandSequenceV1(root, spawn, verifyDiscovery, () => {
+      before = snapshot(root);
+    });
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
   } finally {
-    const mutations = changedTrackedPathsV1(before, trackedSnapshot(root));
-    if (mutations.length > 0)
-      failure = `verification changed tracked files: ${mutations.join(", ")}`;
+    if (before !== null) {
+      const mutations = changedTrackedPathsV1(before, snapshot(root));
+      if (mutations.length > 0)
+        failure = `verification changed tracked files: ${mutations.join(", ")}`;
+    }
   }
   if (failure !== null) throw new TypeError(failure);
 }
