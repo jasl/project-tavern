@@ -1479,6 +1479,11 @@ git commit -m "test(web): add two root browser harness"
 - Create: `engine/packages/web/e2e/semantic-publication-parity.spec.ts`
 - Create: `engine/packages/web/e2e/poc-primary-flow.spec.ts`
 - Create: `engine/packages/web/e2e/e2e-primary-flow.spec.ts`
+- Modify: `engine/packages/web/e2e/walking-skeleton.spec.ts`
+- Modify: `engine/packages/web/e2e/interaction/e2e-interaction.spec.ts`
+- Modify: `engine/packages/web/e2e/interaction/interaction-accessibility.spec.ts`
+- Modify: `engine/packages/web/e2e/interaction/interaction-input.spec.ts`
+- Modify: `engine/packages/web/e2e/interaction/poc-stage.spec.ts`
 - Modify: `game/stories/poc/src/application/poc-application-root.tsx`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
 
@@ -1651,6 +1656,8 @@ Both Story roots already consume one `RuntimePresentationPublicationV1`. Put its
 
 This modifies the existing single `role="application"` Story root; it does not wrap `GameShell` in another `main`, because Phase 5A `GameStageV1` already owns the one `role="main"` landmark. The E2E spelling retains `applicationId="e2e-web"` and its existing accessible application name. Do not add a `publication` prop to frozen `GameShellPropsV1`. The root continues deriving `layers` from the one 5B publication and passes the existing `runtime.input`. `data-semantic-disabled-reasons` is the ordered comma-separated stable reason-code list from that same descriptor. Rendering may duplicate a Gameplay action across Stage and explicit-control lists, but every publication action must have at least one zero-requirement DOM entry, and no DOM Gameplay control may reference an ID absent from the publication. No component calls `availableActions()` during render or creates another Queries object.
 
+Because those intentional duplicates need the same meaningful localized accessible names, scope the retained walking-skeleton and Phase 5B Interaction locators to their authored HUD group, System layer, Narrative dialog, or Scene Interaction layer instead of relying on a whole-page partial-name match. This is a test-only locator repair: it changes no Interaction matrix, input behavior, Gameplay assertion, smoke ownership, or production surface beyond the two Story roots already named above.
+
 - [ ] **Step 5: Implement complete primary flows at the application level**
 
 `poc-primary-flow.spec.ts` performs new game → initial VN → life policy → one currently available action → Quick Save → Manual Save → reload/recovery using only role/name controls and public persistence UI. `e2e-primary-flow.spec.ts` completes the E2E cross-owner command, paused/resumed workflow, Narrative branch/rejoin, and terminal state once through DOM and once through Automation. Before every dispatch, capture `before.revision` and subscribe with `const idle = waitForIdle(before.revision)`; dispatch only after that promise exists, then await `idle` and assert its next complete publication. No post-dispatch waiter, sleep, or coordinate click is allowed.
@@ -1684,7 +1691,7 @@ Expected: all commands exit 0; one publication drives GameView/NarrativeView/act
 - [ ] **Step 8: Commit publication and primary-flow evidence**
 
 ```bash
-git add -- engine/packages/web/e2e/automation-bridge.spec.ts engine/packages/web/e2e/semantic-publication-parity.spec.ts engine/packages/web/e2e/poc-primary-flow.spec.ts engine/packages/web/e2e/e2e-primary-flow.spec.ts game/stories/poc/src/application/poc-application-root.tsx game/stories/e2e/src/application/e2e-application-root.tsx
+git add -- engine/packages/web/e2e/automation-bridge.spec.ts engine/packages/web/e2e/semantic-publication-parity.spec.ts engine/packages/web/e2e/poc-primary-flow.spec.ts engine/packages/web/e2e/e2e-primary-flow.spec.ts engine/packages/web/e2e/walking-skeleton.spec.ts engine/packages/web/e2e/interaction/e2e-interaction.spec.ts engine/packages/web/e2e/interaction/interaction-accessibility.spec.ts engine/packages/web/e2e/interaction/interaction-input.spec.ts engine/packages/web/e2e/interaction/poc-stage.spec.ts game/stories/poc/src/application/poc-application-root.tsx game/stories/e2e/src/application/e2e-application-root.tsx
 git diff --cached --check
 git commit -m "test(ui): prove atomic semantic browser parity"
 ```
