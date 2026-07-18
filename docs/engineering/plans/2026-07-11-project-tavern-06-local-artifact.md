@@ -4,7 +4,7 @@
 
 **Goal:** Close the deferred release balance and its provisional technical baselines, then produce reproducible local `poc × web` and `e2e × web` Artifacts, fully verify the exact PoC bytes—including default-off runtime capabilities and persistent Cheat integrity—and hand one platform-neutral manifest-bound Artifact to the separate final-human-review or future remote-distribution tracks.
 
-**Architecture:** The production builder accepts only `(story, host)` from the closed set `{ poc × web, e2e × web }`; there is no Player, Developer or Headless flavor. `pnpm verify` builds each Story/Host once for all inspect-only browser/bundle/artifact gates, while local release reproducibility performs two isolated PoC builds. Phase 6 performs no CI, upload, hosting, workflow, Artifact deployment or remote smoke work; future distribution consumes these exact bytes without rebuilding. Before Artifact work, an owner-authorized auxiliary compute executor may evaluate balance current/neighbor points from an exact clean archive; the local controller accepts its canonical aggregate evidence only after strict canonical/schema/admission, complete-neighbor-prefix, selector and digest-chain verification.
+**Architecture:** The production builder accepts only `(story, host)` from the closed set `{ poc × web, e2e × web }`; there is no Player, Developer or Headless flavor. `pnpm verify` builds each Story/Host once for all inspect-only browser/bundle/artifact gates, while local release reproducibility performs two isolated PoC builds. Phase 6 performs no CI, upload, hosting, workflow, Artifact deployment or remote smoke work; future distribution consumes these exact bytes without rebuilding. Before Artifact work, an owner-authorized auxiliary compute executor may evaluate balance current/neighbor points and default strict full reports from an exact clean archive. The local controller admits calibration aggregate evidence through canonical/schema/complete-neighbor-prefix/selector/digest-chain verification and admits strict reports through the Story full-report schema/codec/derived-deficit contract. The executor never receives an Artifact and is not deployment, smoke or distribution.
 
 **Tech Stack:** Existing Project Tavern workspace and materialization checkpoint, Vite 8.1.4 production build, TypeScript 7.0.2, Playwright 1.61.1, exact local Node/pnpm inputs, HashRouter, relative assets and local filesystem Artifacts.
 
@@ -116,21 +116,128 @@ require all evidence/trailers/full binary patches to replay. Exact-stage only th
 documents; commit `fix(story-poc): accept verified remote calibration evidence` with only
 `Balance-Calibration-Repair: true`, then require clean-tree materialization.
 
-The remote controller takes an explicit iteration, SSH transport target, HOME-relative remote root, `1..64` worker count and
-local attestation output. Transport host/path never enters canonical evidence or attestation. It archives clean `HEAD`, verifies
-source commit/tree/archive/lock/materialization/package closure and exact Node/pnpm on both sides, then runs the remote
-computation from a fresh archive with an offline frozen install. The returned canonical aggregate value contains current
-evaluation, every canonical legal neighbor evaluation or the exact prefix ending at the first zero deficit, and the claimed
-selection. The local admission layer re-encodes those semantic bytes, checks their exact schema/iteration/current values,
-validates the complete-neighbor/prefix rule, independently recomputes deficit and selection, and derives evidence/before/after
-digests without running the full corpus locally. At `N > 0`, before digest must equal the preceding accepted step's after
-digest. Any framing, identity, admission, prefix, selection, attestation or digest-chain mismatch is a hard stop before applying bytes.
+Before final freeze, a second executable-owner repair adds strict full-report admission and finalization orchestration. Its
+Files are exactly these 13 paths—no changed-subset or package extension is allowed:
+
+- `game/stories/poc/src/testing/balance-calibration.ts`
+- `game/stories/poc/src/test/balance-1000-seeds.test.ts`
+- `scripts/verify-poc-balance.mjs`
+- `scripts/verify-poc-balance.test.mjs`
+- `scripts/run-poc-balance-remote.mjs`
+- `scripts/run-poc-balance-remote.test.mjs`
+- `docs/engineering/GOAL.md`
+- `docs/engineering/plans/2026-07-11-project-tavern-poc-roadmap.md`
+- `docs/engineering/specs/2026-07-12-local-engineering-delivery-boundaries-design.md`
+- `docs/engineering/specs/2026-07-15-deterministic-balance-lab-design.md`
+- `docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md`
+- `docs/engineering/plans/2026-07-11-project-tavern-06-local-artifact.md`
+- `docs/poc/balance-v0.md`
+
+It preserves every balance value/threshold/strategy/direct expectation, calibration evaluator/runner/selector/evidence bytes,
+provisional report/qualifier, golden, Save, command/tooling fixture, package manifest and lock byte. Expected RED proves the
+old remote grammar has no independent `--strict` mode/result/attestation contracts, the Story has no complete full-report
+admission, and default strict can emit before that admission. GREEN adds only additive Story full-report admission,
+default-strict admission hardening, the mutually exclusive remote strict orchestration and an admitted-report injection
+sentinel: remote strict invokes archived `scripts/verify-poc-balance.mjs --workers=<workers>` exactly once without
+calibration/qualifier flags; the local controller re-encodes and Story-full-admits its report and derives zero deficit; candidate
+`runPocBalanceCliV1({ args: [] })` uses one injected parent-admitted evaluation while the real full-corpus evaluator/import is
+never called and emits parent-identical stdout.
+
+The named RED/GREEN tests are `parses strict report mode only through its independent direct argument order`,
+`uses an independent strict remote runner invocation without changing calibration argv`,
+`loads strict full-report admission from the same frozen archive without calibration ports`,
+`strictly admits one canonical passing report and publishes its independent attestation`,
+`strict mode rejects wrong framing, status, identity, admission, and deficit without attesting`,
+`requires Story full-report admission before strict output`,
+`admits only a canonical complete full balance report with a derived deficit`, and
+`rejects malformed full balance reports before threshold acceptance`. A valid RED is the missing strict grammar/export or
+`full-report admission is unavailable`; unrelated environment/syntax failure is not accepted.
+
+Run these focused gates without running a local full corpus:
+
+```bash
+node --test scripts/run-poc-balance-remote.test.mjs scripts/verify-poc-balance.test.mjs
+pnpm exec vitest run game/stories/poc/src/test/balance-1000-seeds.test.ts
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
+pnpm --filter @project-tavern/story-poc verify:commands
+pnpm exec vitest run game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts
+pnpm typecheck
+pnpm verify:docs
+git diff --check
+git diff --exit-code -- pnpm-lock.yaml game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts
+```
+
+Then run the repaired controller in calibration mode outside every historical step's original parent exact archive. Require
+the original archive commit/tree/SHA-256, canonical calibration evidence, old calibration attestation bytes, every trailer and
+the rebuilt full binary patch to remain byte-identical; the additive `balance-calibration.ts` change may not alter existing
+codec/admission/selector output. Any difference is `balance_calibration_history_invalidated`. Exact-stage all and only the 13
+paths above, require the staged path count and sorted set to equal that list, then commit:
+
+```bash
+git add -- \
+  game/stories/poc/src/testing/balance-calibration.ts \
+  game/stories/poc/src/test/balance-1000-seeds.test.ts \
+  scripts/verify-poc-balance.mjs \
+  scripts/verify-poc-balance.test.mjs \
+  scripts/run-poc-balance-remote.mjs \
+  scripts/run-poc-balance-remote.test.mjs \
+  docs/engineering/GOAL.md \
+  docs/engineering/plans/2026-07-11-project-tavern-poc-roadmap.md \
+  docs/engineering/specs/2026-07-12-local-engineering-delivery-boundaries-design.md \
+  docs/engineering/specs/2026-07-15-deterministic-balance-lab-design.md \
+  docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md \
+  docs/engineering/plans/2026-07-11-project-tavern-06-local-artifact.md \
+  docs/poc/balance-v0.md
+test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = "13"
+printf '%s\n' \
+  docs/engineering/GOAL.md \
+  docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md \
+  docs/engineering/plans/2026-07-11-project-tavern-06-local-artifact.md \
+  docs/engineering/plans/2026-07-11-project-tavern-poc-roadmap.md \
+  docs/engineering/specs/2026-07-12-local-engineering-delivery-boundaries-design.md \
+  docs/engineering/specs/2026-07-15-deterministic-balance-lab-design.md \
+  docs/poc/balance-v0.md \
+  game/stories/poc/src/test/balance-1000-seeds.test.ts \
+  game/stories/poc/src/testing/balance-calibration.ts \
+  scripts/run-poc-balance-remote.mjs \
+  scripts/run-poc-balance-remote.test.mjs \
+  scripts/verify-poc-balance.mjs \
+  scripts/verify-poc-balance.test.mjs > /tmp/project-tavern-strict-repair.expected-paths
+git diff --cached --name-only | LC_ALL=C sort > /tmp/project-tavern-strict-repair.actual-paths
+cmp /tmp/project-tavern-strict-repair.expected-paths /tmp/project-tavern-strict-repair.actual-paths
+git diff --cached --name-status
+git diff --cached --check
+git commit -m "fix(story-poc): attest remote strict balance verification" \
+  --trailer "Balance-Calibration-Repair: true"
+```
+
+Postcommit acceptance requires clean-tree materialization. This repair consumes no calibration index and does not replace or
+weaken the existing provenance-finalization authority repair.
+
+The remote controller has two mutually exclusive direct grammars. Calibration takes explicit iteration, optional required
+prior-after digest, SSH transport target, HOME-relative remote root, `1..64` worker count and local attestation output. Strict
+uses exact order `--strict --host=... --remote-root=Workspace --workers=1..64
+--attestation-out=<absolute-local-path>` and rejects iteration/prior arguments; it has no package alias. Transport host/path
+never enters canonical evidence or attestation. Both modes archive clean `HEAD`, verify source
+commit/tree/archive/lock/materialization/package closure and exact Node/pnpm on both sides, then run from a fresh archive with
+an offline frozen install. Calibration returns current evaluation, every canonical legal neighbor evaluation or the exact
+prefix ending at first zero deficit, and claimed selection; local admission re-encodes it, checks schema/iteration/current
+values, validates complete-neighbor/prefix, independently recomputes deficit/selection and derives evidence/before/after
+digests. Strict remote result uses `project-tavern.poc-balance-remote-strict-result.v1`, returns exactly one passing
+`PoC balance report <canonical-json>\n`, and local admission from the same frozen archive requires exact Story full-report
+schema/codec bytes and derived zero deficit before stdout or attestation is published. Its independent execution attestation
+uses `project-tavern.poc-balance-remote-strict-execution.v1` and the exact balance-lab field set including `seedCount`,
+`reportSha256` and `evaluationSha256`. Neither mode runs the full corpus locally. At `N > 0`, calibration before digest must
+equal the preceding accepted step's after digest. Any framing, identity, admission, prefix, selection, report, attestation or
+digest-chain mismatch is a hard stop.
 
 ### Clean sandbox, entry discovery and recovery
 
-Every historical audit and dirty recovery evaluates committed bytes in this exact detached sandbox. `target_commit` is
-`HEAD`, a step parent, the final parent or final itself according to the replay; never use the dirty root as committed-HEAD
-evidence:
+Every historical audit and dirty recovery rebuilds its local selector, writer, patch or admitted-candidate evidence in this
+exact detached sandbox. `target_commit` is `HEAD`, a step parent, the final parent or final itself according to the replay;
+never use the dirty root as committed-HEAD evidence. Final-parent/final full-corpus strict is the explicit exception and runs
+only through the corresponding exact archive on the auxiliary executor:
 
 ```bash
 test "$(node --version)" = "v26.5.0"
@@ -148,7 +255,7 @@ target_commit="<clean-commit-sha>"
   git -C "$repo" worktree add --detach "$sandbox" "$target_commit"
   cd "$sandbox"
   pnpm install --offline --frozen-lockfile --store-dir "$store"
-  # Run the required strict gate, selector, writer, or patch replay here.
+  # Run the required selector, writer, patch replay, or admitted candidate check here.
 )
 ```
 
@@ -170,8 +277,10 @@ git diff --name-only "<commit>^1" "<commit>" -- docs/poc/balance-v0.md game/stor
 
 Every commit through `${audit_tip}` must be exactly one continuous-index step, one explicit closed repair carrying
 `Balance-Calibration-Repair: true`, or the unique final. A repair has no step/final trailer and is either a Task 10 executable
-owner repair following its Files/staging/gates and touching at least one listed non-authority-document
-executable/test/package path, or the nonempty authority-only calibration/finalization repair above. Neither alters
+owner repair following its explicitly selected Files/staging/gates and touching at least one listed non-authority-document
+executable/test/package path—including the exact-13 strict-finalization subtype above—or the nonempty authority-only
+calibration/finalization repair above. The exact-13 subtype must match all 13 paths exactly and cannot inherit the broader first
+owner-repair package/metrics allowlist. Neither alters
 threshold/strategy/accepted balance/direct expectations/golden/Save or removes the provisional report/assertion/CLI
 branch/tests. Final is the last classified commit after the last step/repair and has `Steps = N`. Any unclassified or multiply
 classified pre-final commit invalidates recovery. For every later Phase 6 task commit from final to `HEAD`, use the explicit
@@ -199,22 +308,27 @@ every old step sequentially from `--iteration=0`; every evidence digest/trailer 
 identical before continuing. A controller-only orchestration repair that changes only remote admission/verification must instead
 run the repaired controller as an admission layer outside each historical step's original parent exact archive. Preserve that
 archive's original commit/tree/SHA-256 and trailers; never overlay the controller repair into the archive whose identity it is
-auditing. For an authority-only calibration/finalization
+auditing. The exact-13 strict-finalization repair follows this same outside-archive replay in calibration mode and additionally
+requires old canonical calibration evidence, old calibration attestation bytes, every trailer and full patch to remain
+byte-identical; the additive Story full-report admission may not change existing calibration codec/admission/selector output.
+For an authority-only calibration/finalization
 repair, prove its parent-to-commit patch has an empty executable/import-closure projection and replay each old step at its original parent/exact archive so its
 remote source-archive proof remains meaningful. `N = 0` may continue after owner gates. Any mismatch at `N > 0` is
 `balance_calibration_history_invalidated`, an authoritative-design stop: do not auto-rewrite, rollback or select a new
 history.
 
-After all audits pass, classify the live tree only from clean-`HEAD` sandbox evidence:
+After all audits pass, classify the live tree from clean committed-source evidence:
 
-- clean without final and sandbox strict pass: enter the live-candidate plus final-parent replay procedure below;
-- clean without final, sandbox threshold-only red and `N < 12`: run
+- clean without final and an admitted zero-deficit current evaluation: run remote strict once from the exact final-parent
+  archive and enter the live-candidate plus final-parent replay procedure only if its local full admission passes;
+- clean without final, admitted current evaluation has only a threshold deficit and `N < 12`: run
   `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N` for step `N+1`;
 - `N = 12` still red or selector returns `balance_contract_unsatisfied`: stop before Artifact work;
-- dirty only inside step allowlist and sandbox strict is threshold-only red: rebuild the candidate in the sandbox and require
+- dirty only inside step allowlist and clean-`HEAD` calibration evidence is threshold-only red: rebuild the candidate in the sandbox and require
   complete `git diff --binary` equality with the live patch before committing;
-- dirty only inside final allowlist and sandbox strict passes: rerun final writers/removals in the sandbox and require complete
-  binary-patch equality with the live patch before committing;
+- dirty only inside final allowlist and the exact final-parent remote strict report/attestation is already admitted or has been
+  reconstructed from the same clean parent: rerun final writers/removals plus parent-report candidate admission in the sandbox,
+  require real full-corpus evaluator/import zero calls and complete binary-patch/closure equality before committing;
 - mixed/out-of-range paths, invalid history or unexplained bytes: stop as unknown dirty state.
 
 The pending-step comparison is literal and includes every optional direct-expectation byte:
@@ -284,11 +398,27 @@ controller outputs. Never add SSH host, private IP, remote root or elapsed time 
 
 ### Produce the final balance-freeze commit
 
-First prove the committed final parent passes all frozen thresholds in its clean sandbox. If no final exists and the live
-root is clean, non-detached `main` at that parent, exit the sandbox and run the sequence below in the live root to materialize
-the candidate bytes that will actually be staged. A classified pending dirty final already provides those live bytes; an
-existing historical final does not rewrite them. Independently create a second final-parent sandbox, run the same sequence,
-and require full-patch equality.
+First prove the committed final parent from its exact clean archive. In a clean attached-`main` controller checkout at
+`final_parent`, run remote default strict exactly once; the controller must locally re-encode and Story-full-admit the returned
+report, derive zero deficit, write the independent canonical strict attestation outside the repository, and forward the exact
+canonical stdout:
+
+```bash
+node scripts/run-poc-balance-remote.mjs --strict \
+  --host=<authorized-target> \
+  --remote-root=Workspace \
+  --workers=64 \
+  --attestation-out=/tmp/project-tavern-balance.parent.attestation.json \
+  > /tmp/project-tavern-balance.parent.txt
+```
+
+Preserve both parent files until final postcommit verification. If they are lost after the live candidate becomes dirty,
+reconstruct them only from the same exact final parent in another verified clean attached-`main` controller checkout; never
+run parent strict from dirty candidate bytes or substitute a fixture/cached evaluation. If no final exists and the live root is
+clean, non-detached `main` at that parent, then run the sequence below in the live root to materialize the candidate bytes that
+will actually be staged. A classified pending dirty final already provides those live bytes; an existing historical final does
+not rewrite them. Independently create a final-parent sandbox, run the same writer/removal sequence, and require full-patch
+equality; that sandbox does not rerun the full corpus.
 
 The sequence first projects the final parent's complete live Save fixture provenance. Before any writer, the existing focused
 test `matches the complete reviewed live provenance tuple` must fail only because the frozen
@@ -344,17 +474,65 @@ else
 fi
 ```
 
-If final already exists, skip creation after exact replay audit. Otherwise exit the sandbox, return to the still-dirty live
-`main` candidate with `HEAD = final_parent`, run strict twice on those exact live bytes and use that hash for the trailer.
-Then stage its closed allowlist and prove every exclusion:
+If final already exists, skip creation after exact replay audit. Otherwise exit the sandbox and return to the still-dirty live
+`main` candidate with `HEAD = final_parent`. Do not run a full corpus on dirty bytes. Parse and Story-full-admit the actual
+parent report, then inject only its admitted evaluation through candidate `runPocBalanceCliV1({ args: [] })`; the custom loader
+imports no real full-corpus evaluator, its injected metrics provider is called exactly once with candidate values and returns
+that evaluation, candidate Story admission derives the report again, and candidate stdout must equal parent stdout byte for
+byte. The complete final patch must already equal the independent writer/removal replay; additionally require an empty diff on
+protected balance/evaluator/codec/strategy/direct-expectation paths. Those guards plus exact planned provisional removals in
+the verify CLI/tests prove default strict semantics without evaluating the corpus:
 
 ```bash
 test "$(git symbolic-ref --quiet --short HEAD)" = "main"
 test "$(git rev-parse HEAD)" = "$final_parent"
-pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-a.txt
-pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-b.txt
-cmp /tmp/project-tavern-balance.candidate-a.txt /tmp/project-tavern-balance.candidate-b.txt
-shasum -a 256 /tmp/project-tavern-balance.candidate-a.txt
+PARENT_REPORT=/tmp/project-tavern-balance.parent.txt node --experimental-strip-types --input-type=module <<'NODE' > /tmp/project-tavern-balance.candidate.txt
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { registerHooks } from "node:module";
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    try {
+      return nextResolve(specifier, context);
+    } catch (error) {
+      if (specifier.endsWith(".js")) return nextResolve(`${specifier.slice(0, -3)}.ts`, context);
+      throw error;
+    }
+  },
+});
+const calibration = await import("./game/stories/poc/src/testing/balance-calibration.ts");
+const { runPocBalanceCliV1 } = await import("./scripts/verify-poc-balance.mjs");
+
+const prefix = "PoC balance report ";
+const parentStdout = await readFile(process.env.PARENT_REPORT, "utf8");
+assert(parentStdout.startsWith(prefix));
+assert(parentStdout.endsWith("\n"));
+assert(!parentStdout.slice(0, -1).includes("\n"));
+const parentReport = calibration.admitPocBalanceFullReportV1(
+  JSON.parse(parentStdout.slice(prefix.length, -1)),
+);
+let injectedProviderCalls = 0;
+const status = await runPocBalanceCliV1({
+  args: [],
+  loadRuntime: async () => ({
+    calibration,
+    metrics: {
+      async evaluatePocBalanceCalibrationValuesV1({ values }) {
+        injectedProviderCalls += 1;
+        assert.deepEqual(values, calibration.pocBalanceCalibrationValuesV1());
+        return parentReport.evaluation;
+      },
+    },
+  }),
+  writeStdout: (value) => process.stdout.write(value),
+});
+assert.equal(status, 0);
+assert.equal(injectedProviderCalls, 1);
+NODE
+cmp /tmp/project-tavern-balance.parent.txt /tmp/project-tavern-balance.candidate.txt
+git diff --exit-code -- game/stories/poc/src/content/balance.ts game/stories/poc/src/testing/balance-metrics.ts game/stories/poc/src/testing/balance-calibration.ts game/stories/poc/src/testing/counterfactual-scenarios.ts game/stories/poc/src/testing/compile-reference-strategy.ts game/stories/poc/src/testing/run-reference-strategy.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/package.json package.json pnpm-lock.yaml
+shasum -a 256 /tmp/project-tavern-balance.parent.txt
 git add -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
 git diff --cached --name-status
 git diff --cached --check
@@ -368,18 +546,32 @@ final_commit="$(git rev-parse HEAD)"
 final_parent="$(git rev-parse HEAD^1)"
 ```
 
-After final is committed, create another clean sandbox at that final commit. Strict balance must run twice after the commit,
-produce byte-identical stdout and exactly match its trailer digest; then run the remaining full gates:
+After final is committed and the live `main` tree is clean at that exact commit, run remote default strict twice from two fresh
+exact final archives. The two canonical stdout files and two canonical strict attestations must respectively be
+byte-identical, and stdout must exactly match the trailer digest. These are two independent executions, not a cached replay:
 
 ```bash
-pnpm --silent verify:balance > /tmp/project-tavern-balance.final-a.txt
-pnpm --silent verify:balance > /tmp/project-tavern-balance.final-b.txt
+node scripts/run-poc-balance-remote.mjs --strict \
+  --host=<authorized-target> \
+  --remote-root=Workspace \
+  --workers=64 \
+  --attestation-out=/tmp/project-tavern-balance.final-a.attestation.json \
+  > /tmp/project-tavern-balance.final-a.txt
+node scripts/run-poc-balance-remote.mjs --strict \
+  --host=<authorized-target> \
+  --remote-root=Workspace \
+  --workers=64 \
+  --attestation-out=/tmp/project-tavern-balance.final-b.attestation.json \
+  > /tmp/project-tavern-balance.final-b.txt
 cmp /tmp/project-tavern-balance.final-a.txt /tmp/project-tavern-balance.final-b.txt
+cmp /tmp/project-tavern-balance.final-a.attestation.json /tmp/project-tavern-balance.final-b.attestation.json
 test "sha256:$(shasum -a 256 /tmp/project-tavern-balance.final-a.txt | awk '{print $1}')" = "$(git show -s --format='%(trailers:key=Balance-Calibration-Report-SHA256,valueonly)' "$final_commit")"
 ```
 
-Exit the sandbox and return to clean non-detached live `main` with `HEAD = final_commit` for ignored-attestation and
-cumulative gates; the sandbox does not synthesize or copy `.project-tavern/goal-materialization.json`:
+The strict attestations remain external evidence and are not added as a final trailer: because they bind final
+commit/tree/archive, committing their digest into that same final commit would create an identity cycle. Keep only the report
+digest trailer. Remain on clean non-detached live `main` with `HEAD = final_commit` for the independent ignored materialization
+attestation and cumulative local gates; no strict attestation is copied into the repository:
 
 ```bash
 test "$(git symbolic-ref --quiet --short HEAD)" = "main"
@@ -393,6 +585,9 @@ pnpm verify:phase5c
 pnpm verify
 test -z "$(git status --porcelain=v1)"
 ```
+
+These local materialization/phase/root gates remain mandatory but do not rerun or replace the exact-final-archive remote
+full-corpus evidence above.
 
 Task 1 may start only from that replayed clean final commit. It must remain the last protected-path-touching commit, and its
 accepted bytes/report digest remain inputs to `pnpm verify:release`, reproducibility and the Roadmap Definition of Done.

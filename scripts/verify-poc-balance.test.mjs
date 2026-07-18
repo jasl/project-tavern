@@ -87,10 +87,14 @@ test("builds a complete report through injected deterministic ports", async () =
 });
 
 test("rejects a nonzero frozen-threshold deficit", () => {
-  const passing = { deficit: 0 };
+  const passing = { deficit: 0, evaluation: {} };
   assert.equal(assertPocBalanceFullReportV1(passing), passing);
   assert.throws(
-    () => assertPocBalanceFullReportV1({ deficit: 49 }),
+    () => assertPocBalanceFullReportV1({ deficit: 0, evaluation: null }),
+    /invalid PoC balance full report/u,
+  );
+  assert.throws(
+    () => assertPocBalanceFullReportV1({ deficit: 49, evaluation: {} }),
     /balance_contract_unsatisfied deficit=49/u,
   );
 });
@@ -129,6 +133,10 @@ test("runs the default CLI through the complete report ports exactly once", asyn
         },
       },
       calibration: {
+        admitPocBalanceFullReportV1(report) {
+          calls.push(["admit", report]);
+          return report;
+        },
         canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
         pocBalanceCalibrationValuesV1() {
           calls.push("values");
@@ -160,10 +168,21 @@ test("runs the default CLI through the complete report ports exactly once", asyn
     calls.find((call) => Array.isArray(call) && call[0] === "evaluate"),
     ["evaluate", { values, workerCount: 16 }],
   );
+  assert.deepEqual(calls.at(-1), [
+    "admit",
+    {
+      deficit: 0,
+      evaluation: {
+        metrics: { firstSeed: 1, lastSeed: 1000 },
+        counterfactuals: { comfortableBedRecovery: true },
+      },
+    },
+  ]);
   assert.match(output.join(""), /^PoC balance report /u);
 });
 
 test("routes an explicit strict worker count without adding scheduling to report bytes", async () => {
+  const admittedReports = [];
   const metricInputs = [];
   const output = [];
   const status = await runPocBalanceCliV1({
@@ -171,6 +190,10 @@ test("routes an explicit strict worker count without adding scheduling to report
     loadRuntime: async () => ({
       base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
       calibration: {
+        admitPocBalanceFullReportV1(report) {
+          admittedReports.push(report);
+          return report;
+        },
         canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
         pocBalanceCalibrationValuesV1() {
           return Object.freeze({ levy: 140 });
@@ -195,8 +218,110 @@ test("routes an explicit strict worker count without adding scheduling to report
   });
 
   assert.equal(status, 0);
+  assert.equal(admittedReports.length, 1);
   assert.deepEqual(metricInputs, [{ values: { levy: 140 }, workerCount: 64 }]);
   assert(!output.join("").includes("worker"));
+});
+
+test("requires Story full-report admission before strict output", async () => {
+  const output = [];
+  const runtimeWithoutAdmission = {
+    base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
+    calibration: {
+      canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
+      pocBalanceCalibrationValuesV1() {
+        return Object.freeze({ levy: 140 });
+      },
+      calculatePocBalanceDeficitV1() {
+        return 0;
+      },
+    },
+    metrics: {
+      async evaluatePocBalanceCalibrationValuesV1() {
+        return Object.freeze({
+          metrics: Object.freeze({ firstSeed: 1, lastSeed: 1000 }),
+          counterfactuals: Object.freeze({ comfortableBedRecovery: true }),
+        });
+      },
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      runPocBalanceCliV1({
+        args: [],
+        loadRuntime: async () => runtimeWithoutAdmission,
+        writeStdout(value) {
+          output.push(value);
+        },
+      }),
+    /full-report admission is unavailable/u,
+  );
+  assert.deepEqual(output, []);
+
+  await assert.rejects(
+    () =>
+      runPocBalanceCliV1({
+        args: [],
+        loadRuntime: async () => ({
+          ...runtimeWithoutAdmission,
+          calibration: {
+            ...runtimeWithoutAdmission.calibration,
+            admitPocBalanceFullReportV1() {
+              throw new TypeError("Story full-report admission rejected the evidence");
+            },
+          },
+        }),
+        writeStdout(value) {
+          output.push(value);
+        },
+      }),
+    /admission rejected the evidence/u,
+  );
+  assert.deepEqual(output, []);
+});
+
+test("applies the strict zero-deficit threshold to the admitted report", async () => {
+  const calls = [];
+  await assert.rejects(
+    () =>
+      runPocBalanceCliV1({
+        args: [],
+        loadRuntime: async () => ({
+          base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
+          calibration: {
+            admitPocBalanceFullReportV1(report) {
+              calls.push(["admit", report.deficit]);
+              return { deficit: 1, evaluation: {} };
+            },
+            canonicalPocBalanceEvidenceBytesV1(report) {
+              calls.push(["encode", report.deficit]);
+              return fixtureCanonicalJsonBytesV1(report);
+            },
+            pocBalanceCalibrationValuesV1() {
+              return Object.freeze({ levy: 140 });
+            },
+            calculatePocBalanceDeficitV1() {
+              return 0;
+            },
+          },
+          metrics: {
+            async evaluatePocBalanceCalibrationValuesV1() {
+              return Object.freeze({
+                metrics: Object.freeze({}),
+                counterfactuals: Object.freeze({}),
+              });
+            },
+          },
+        }),
+        writeStdout() {},
+      }),
+    /balance_contract_unsatisfied deficit=1/u,
+  );
+  assert.deepEqual(calls, [
+    ["admit", 0],
+    ["encode", 1],
+  ]);
 });
 
 test("runs calibration through one injected read-only selection port", async () => {
@@ -270,6 +395,9 @@ test("qualifies the provisional CLI without weakening the default full gate", as
     loadRuntime: async () => ({
       base: { canonicalJsonBytes: fixtureCanonicalJsonBytesV1 },
       calibration: {
+        admitPocBalanceFullReportV1(report) {
+          return report;
+        },
         canonicalPocBalanceEvidenceBytesV1: fixtureCanonicalJsonBytesV1,
         pocBalanceCalibrationValuesV1() {
           return Object.freeze({ levy: 140 });

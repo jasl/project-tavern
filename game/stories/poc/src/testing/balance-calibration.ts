@@ -81,6 +81,11 @@ export interface PocBalanceCalibrationEvaluationV1 {
   readonly counterfactuals: PocBalanceCounterfactualChecksV1;
 }
 
+export interface PocBalanceFullReportV1 {
+  readonly deficit: NonNegativeSafeInteger;
+  readonly evaluation: PocBalanceCalibrationEvaluationV1;
+}
+
 export interface PocBalanceCalibrationPointV1 {
   readonly values: DeepReadonly<PocBalanceCalibrationValuesV1>;
   readonly program: DeepReadonly<PocSimulationProgramV1>;
@@ -179,6 +184,10 @@ function failCalibrationEvaluationV1(detail: string): never {
 
 function failCalibrationEvidenceV1(detail: string): never {
   throw new TypeError(`invalid PoC balance calibration evidence: ${detail}`);
+}
+
+function failPocBalanceFullReportV1(detail: string): never {
+  throw new TypeError(`invalid PoC balance full report: ${detail}`);
 }
 
 function failPocBalanceEvidenceV1(detail: string, path: string): never {
@@ -811,6 +820,29 @@ export function calculatePocBalanceDeficitV1(
     counterfactuals.investigationColdStorageShelfLife ? 0 : booleanFailurePenaltyV1,
     counterfactuals.fullDelegationColdStorageShelfLife ? 0 : booleanFailurePenaltyV1,
   ]);
+}
+
+/** Re-admits an untrusted canonical full report and derives its claimed deficit locally. */
+export function admitPocBalanceFullReportV1(value: unknown): DeepReadonly<PocBalanceFullReportV1> {
+  canonicalPocBalanceEvidenceBytesV1(value);
+  const report = exactCalibrationRecordV1(
+    value,
+    ["deficit", "evaluation"],
+    "full report",
+    failPocBalanceFullReportV1,
+  );
+  let claimedDeficit: NonNegativeSafeInteger;
+  try {
+    claimedDeficit = parseNonNegativeSafeInteger(report.deficit);
+  } catch {
+    return failPocBalanceFullReportV1("deficit must be a NonNegativeSafeInteger");
+  }
+  const evaluation = parsePocBalanceCalibrationEvaluationV1(report.evaluation);
+  const derivedDeficit = calculatePocBalanceDeficitV1(evaluation);
+  if (claimedDeficit !== derivedDeficit) {
+    return failPocBalanceFullReportV1("claimed deficit does not match the admitted evaluation");
+  }
+  return deepFreezePocValueV1({ deficit: derivedDeficit, evaluation });
 }
 
 function neighborAfterValueV1(

@@ -139,6 +139,121 @@ function validArgsV1(overrides = {}) {
   ];
 }
 
+function validStrictArgsV1(overrides = {}) {
+  const values = {
+    host: "calibrator@10.0.0.110",
+    remoteRoot: "Workspace",
+    workers: "64",
+    attestationOut: "/private/tmp/balance-strict-attestation.json",
+    ...overrides,
+  };
+  return [
+    "--strict",
+    `--host=${values.host}`,
+    `--remote-root=${values.remoteRoot}`,
+    `--workers=${values.workers}`,
+    `--attestation-out=${values.attestationOut}`,
+  ];
+}
+
+function strictReportFixtureV1(overrides = {}) {
+  return Object.freeze({
+    deficit: 0,
+    evaluation: Object.freeze({
+      metrics: Object.freeze({ firstSeed: 1, lastSeed: 1000, paidCount: 1000 }),
+      counterfactuals: Object.freeze({ coldStorage: true }),
+    }),
+    ...overrides,
+  });
+}
+
+function strictSemanticStdoutV1(report) {
+  return `PoC balance report ${new TextDecoder().decode(encodeEvidenceV1(report))}\n`;
+}
+
+function strictRemoteEnvelopeV1(source, options, semanticStdout, overrides = {}) {
+  return {
+    schemaRevision: 1,
+    contractId: "project-tavern.poc-balance-remote-strict-result.v1",
+    sourceCommit: source.sourceCommit,
+    sourceTree: source.sourceTree,
+    sourceArchiveSha256: source.sourceArchiveSha256,
+    pnpmLockSha256: source.pnpmLockSha256,
+    materializationDigest: source.materializationDigest,
+    packageClosureDigest: source.packageClosureDigest,
+    nodeVersion: "v26.5.0",
+    nodeArchiveSha256,
+    pnpmVersion: "11.11.0",
+    pnpmArchiveSha256,
+    platform: "linux",
+    arch: "x64",
+    availableParallelism: 64,
+    workerCount: options.workers,
+    firstSeed: 1,
+    lastSeed: 1000,
+    semanticExitStatus: 0,
+    semanticStdout,
+    ...overrides,
+  };
+}
+
+function strictControllerFixtureV1({
+  options = parsePocBalanceRemoteArgumentsV1(validStrictArgsV1()),
+  source = sourceFixtureV1(),
+  report = strictReportFixtureV1(),
+  envelopeOverrides,
+  semanticOverride,
+  remoteStatus = 0,
+  admitReport = (value) => value,
+} = {}) {
+  const semanticStdout = semanticOverride ?? strictSemanticStdoutV1(report);
+  const envelope = strictRemoteEnvelopeV1(source, options, semanticStdout, {
+    semanticExitStatus: remoteStatus,
+    ...envelopeOverrides,
+  });
+  const writes = [];
+  let sourceCleanups = 0;
+  let runtimeCleanups = 0;
+  const ports = {
+    async inspectSource() {
+      return source;
+    },
+    async runRemote() {
+      return {
+        status: remoteStatus,
+        stdout: `${new TextDecoder().decode(encodeEvidenceV1(envelope))}\n`,
+      };
+    },
+    async loadRuntime() {
+      return {
+        encodeEvidence: encodeEvidenceV1,
+        admitFullReport(value) {
+          return admitReport(value);
+        },
+        async cleanup() {
+          runtimeCleanups += 1;
+        },
+      };
+    },
+    async writeAttestation(path, bytes) {
+      writes.push({ path, bytes: new Uint8Array(bytes) });
+    },
+    async cleanupSource(received) {
+      assert.equal(received, source);
+      sourceCleanups += 1;
+    },
+  };
+  return {
+    options,
+    source,
+    report,
+    envelope,
+    writes,
+    ports,
+    cleanupCounts: () => ({ source: sourceCleanups, runtime: runtimeCleanups }),
+  };
+}
+
 function controllerFixtureV1({
   options = parsePocBalanceRemoteArgumentsV1(validArgsV1()),
   source = sourceFixtureV1(),
@@ -222,6 +337,39 @@ test("parses only the fixed direct argument order and a strict SSH target", () =
       "--attestation-out=/tmp/a.json",
     ],
     [...validArgsV1(), "--unknown=true"],
+  ];
+  for (const args of invalid) {
+    assert.throws(() => parsePocBalanceRemoteArgumentsV1(args), /usage: run-poc-balance-remote/u);
+  }
+});
+
+test("parses strict report mode only through its independent direct argument order", () => {
+  assert.deepEqual(parsePocBalanceRemoteArgumentsV1(validStrictArgsV1()), {
+    mode: "strict",
+    host: "calibrator@10.0.0.110",
+    remoteRoot: "Workspace",
+    workers: 64,
+    attestationOut: "/private/tmp/balance-strict-attestation.json",
+  });
+
+  const invalid = [
+    ["--strict"],
+    validStrictArgsV1({ workers: "0" }),
+    validStrictArgsV1({ workers: "65" }),
+    validStrictArgsV1({ host: "10.0.0.999" }),
+    validStrictArgsV1({ remoteRoot: "Workspace/other" }),
+    validStrictArgsV1({ attestationOut: "relative.json" }),
+    ["--strict", "--iteration=0", ...validStrictArgsV1().slice(1)],
+    ["--strict", `--prior-after-sha256=${digest("1")}`, ...validStrictArgsV1().slice(1)],
+    ["--strict", ...validStrictArgsV1()],
+    [...validStrictArgsV1(), "--unknown=true"],
+    [
+      "--strict",
+      "--remote-root=Workspace",
+      "--host=10.0.0.110",
+      "--workers=64",
+      "--attestation-out=/tmp/a.json",
+    ],
   ];
   for (const args of invalid) {
     assert.throws(() => parsePocBalanceRemoteArgumentsV1(args), /usage: run-poc-balance-remote/u);
@@ -427,6 +575,69 @@ test("uses shell-free scp/ssh argv and the preprovisioned HOME-relative toolchai
   );
 });
 
+test("uses an independent strict remote runner invocation without changing calibration argv", async () => {
+  const source = sourceFixtureV1();
+  const strictOptions = parsePocBalanceRemoteArgumentsV1(validStrictArgsV1());
+  const strictCalls = [];
+  await runPocBalanceRemoteTransportV1({
+    source,
+    options: strictOptions,
+    createTransferId: () => "strict-transfer-123",
+    writeStderr() {},
+    async runCommand(command, args, commandOptions) {
+      strictCalls.push({ command, args, options: commandOptions });
+      if (command === "scp") return { status: 0, stdout: "", stderr: "" };
+      return { status: 0, stdout: `${JSON.stringify({ ok: true })}\n`, stderr: "" };
+    },
+  });
+  const strictExecution = strictCalls[2];
+  assert.equal(strictExecution.command, "ssh");
+  assert(strictExecution.args.includes("--strict=true"));
+  assert(!strictExecution.args.some((argument) => argument.startsWith("--iteration=")));
+  assert(
+    strictExecution.options.input.includes(
+      '["scripts/verify-poc-balance.mjs", "--workers=" + values["--workers="]]',
+    ),
+  );
+
+  const calibrationOptions = parsePocBalanceRemoteArgumentsV1(validArgsV1());
+  const calibrationCalls = [];
+  await runPocBalanceRemoteTransportV1({
+    source,
+    options: calibrationOptions,
+    createTransferId: () => "calibration-transfer-123",
+    writeStderr() {},
+    async runCommand(command, args, commandOptions) {
+      calibrationCalls.push({ command, args, options: commandOptions });
+      if (command === "scp") return { status: 0, stdout: "", stderr: "" };
+      return { status: 0, stdout: `${JSON.stringify({ ok: true })}\n`, stderr: "" };
+    },
+  });
+  const calibrationExecution = calibrationCalls[2];
+  assert(calibrationExecution.args.includes("--iteration=0"));
+  assert(!calibrationExecution.args.includes("--strict=true"));
+
+  let strictStatusOneCall = 0;
+  await assert.rejects(
+    () =>
+      runPocBalanceRemoteTransportV1({
+        source,
+        options: strictOptions,
+        createTransferId: () => "strict-status-one-123",
+        writeStderr() {},
+        async runCommand() {
+          strictStatusOneCall += 1;
+          return {
+            status: strictStatusOneCall === 3 ? 1 : 0,
+            stdout: "",
+            stderr: "",
+          };
+        },
+      }),
+    /balance_remote_execution_failed.*status=1/u,
+  );
+});
+
 test("loads local admission ports only after extracting the same frozen archive and installing offline", async () => {
   const source = sourceFixtureV1();
   const options = parsePocBalanceRemoteArgumentsV1(validArgsV1());
@@ -498,6 +709,58 @@ test("loads local admission ports only after extracting the same frozen archive 
   assert.equal("evaluateValues" in runtime, false);
   await runtime.cleanup();
   assert.deepEqual(removals, ["/tmp/frozen-replay/.git", "/tmp/frozen-replay"]);
+});
+
+test("loads strict full-report admission from the same frozen archive without calibration ports", async () => {
+  const source = sourceFixtureV1();
+  const options = parsePocBalanceRemoteArgumentsV1(validStrictArgsV1());
+  const admitted = [];
+  const runtime = await loadPocBalanceFrozenReplayRuntimeV1({
+    source,
+    root: "/repo/project-tavern",
+    options,
+    async runCommand(command, args, commandOptions) {
+      if (command === "git" && args[0] === "get-tar-commit-id") {
+        return { status: 0, stdout: `${source.sourceCommit}\n`, stderr: "" };
+      }
+      if (command === "git" && args[0] === "write-tree") {
+        return { status: 0, stdout: `${source.sourceTree}\n`, stderr: "" };
+      }
+      if (command === "pnpm" && args[0] === "store") {
+        return { status: 0, stdout: "/store/pnpm-v11\n", stderr: "" };
+      }
+      assert.equal(commandOptions.shell, false);
+      return { status: 0, stdout: "", stderr: "" };
+    },
+    async hashFile() {
+      return source.sourceArchiveSha256;
+    },
+    async readArchive() {
+      return new TextEncoder().encode("fixture tar bytes");
+    },
+    async createTemporaryDirectory() {
+      return "/tmp/frozen-strict-replay";
+    },
+    async removeTemporaryDirectory() {},
+    async removePath() {},
+    async loadRuntimeModules(input) {
+      assert.equal(input.temporaryDirectory, "/tmp/frozen-strict-replay");
+      assert.equal(input.source, source);
+      return {
+        canonicalPocBalanceEvidenceBytesV1: encodeEvidenceV1,
+        admitPocBalanceFullReportV1(value) {
+          admitted.push(value);
+          return value;
+        },
+      };
+    },
+  });
+  const report = strictReportFixtureV1();
+  assert.deepEqual(runtime.admitFullReport(report), report);
+  assert.deepEqual(admitted, [report]);
+  assert.equal("currentValues" in runtime, false);
+  assert.equal("admitRemoteRun" in runtime, false);
+  await runtime.cleanup();
 });
 
 test("surfaces bounded remote nonzero diagnostics and never treats stdout as evidence", async () => {
@@ -593,6 +856,154 @@ test("admits remote evidence and derives both evaluation digests from its canoni
   assert.match(attestation.afterEvaluationSha256, /^sha256:[0-9a-f]{64}$/u);
   assert.match(attestation.evidenceSha256, /^sha256:[0-9a-f]{64}$/u);
   assert(!/host|10\.0\.0\.110|Workspace|private|tmp|time|elapsed|shard/u.test(attestationText));
+});
+
+test("strictly admits one canonical passing report and publishes its independent attestation", async () => {
+  const fixture = strictControllerFixtureV1();
+  const stdout = [];
+  const status = await runPocBalanceRemoteCliV1({
+    args: validStrictArgsV1(),
+    ports: fixture.ports,
+    writeStdout(value) {
+      stdout.push(value);
+    },
+  });
+  assert.equal(status, 0);
+  assert.equal(stdout.join(""), strictSemanticStdoutV1(fixture.report));
+  assert.equal(fixture.writes.length, 1);
+  assert.equal(fixture.writes[0].path, "/private/tmp/balance-strict-attestation.json");
+  const attestationText = new TextDecoder().decode(fixture.writes[0].bytes);
+  const attestation = JSON.parse(attestationText);
+  assert.deepEqual(Object.keys(attestation).toSorted(), [
+    "arch",
+    "availableParallelism",
+    "contractId",
+    "evaluationSha256",
+    "firstSeed",
+    "lastSeed",
+    "materializationDigest",
+    "nodeArchiveSha256",
+    "nodeVersion",
+    "packageClosureDigest",
+    "platform",
+    "pnpmArchiveSha256",
+    "pnpmLockSha256",
+    "pnpmVersion",
+    "reportSha256",
+    "schemaRevision",
+    "seedCount",
+    "sourceArchiveSha256",
+    "sourceCommit",
+    "sourceTree",
+    "workerCount",
+  ]);
+  assert.equal(attestation.contractId, "project-tavern.poc-balance-remote-strict-execution.v1");
+  const reportHash = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(strictSemanticStdoutV1(fixture.report)),
+  );
+  assert.equal(attestation.reportSha256, `sha256:${Buffer.from(reportHash).toString("hex")}`);
+  const evaluationHash = await crypto.subtle.digest(
+    "SHA-256",
+    encodeEvidenceV1(fixture.report.evaluation),
+  );
+  assert.equal(
+    attestation.evaluationSha256,
+    `sha256:${Buffer.from(evaluationHash).toString("hex")}`,
+  );
+  assert.equal(attestation.seedCount, 1000);
+  assert(!/host|10\.0\.0\.110|Workspace|private|tmp|time|elapsed|shard/u.test(attestationText));
+  assert.deepEqual(fixture.cleanupCounts(), { source: 1, runtime: 1 });
+});
+
+test("strict mode rejects wrong framing, status, identity, admission, and deficit without attesting", async () => {
+  const report = strictReportFixtureV1();
+  const cases = [
+    {
+      fixture: strictControllerFixtureV1({
+        semanticOverride: "PoC balance calibration {}\n",
+      }),
+      expected: /balance_remote_strict_report_framing/u,
+      runtimeCleanups: 1,
+    },
+    {
+      fixture: strictControllerFixtureV1({
+        semanticOverride: `${strictSemanticStdoutV1(report)}extra\n`,
+      }),
+      expected: /balance_remote_strict_report_framing/u,
+      runtimeCleanups: 1,
+    },
+    {
+      fixture: strictControllerFixtureV1({
+        report,
+        semanticOverride: `PoC balance report ${JSON.stringify({
+          evaluation: report.evaluation,
+          deficit: report.deficit,
+        })}\n`,
+      }),
+      expected: /balance_remote_strict_report_noncanonical/u,
+      runtimeCleanups: 1,
+    },
+    {
+      fixture: strictControllerFixtureV1({ remoteStatus: 1 }),
+      expected: /balance_remote_strict_exit_semantics_mismatch/u,
+      runtimeCleanups: 0,
+    },
+    {
+      fixture: strictControllerFixtureV1({
+        envelopeOverrides: { sourceCommit: "9".repeat(40) },
+      }),
+      expected: /balance_remote_source_mismatch/u,
+      runtimeCleanups: 0,
+    },
+    {
+      fixture: strictControllerFixtureV1({
+        envelopeOverrides: { contractId: "project-tavern.poc-balance-remote-result.v1" },
+      }),
+      expected: /balance_remote_strict_result_contract_mismatch/u,
+      runtimeCleanups: 0,
+    },
+    {
+      fixture: strictControllerFixtureV1({
+        admitReport() {
+          throw new TypeError("full report schema differs");
+        },
+      }),
+      expected: /balance_remote_strict_report_invalid.*full report schema differs/u,
+      runtimeCleanups: 1,
+    },
+    {
+      fixture: strictControllerFixtureV1({
+        admitReport(value) {
+          return {
+            ...value,
+            evaluation: {
+              ...value.evaluation,
+              metrics: { ...value.evaluation.metrics, paidCount: 999 },
+            },
+          };
+        },
+      }),
+      expected: /balance_remote_strict_report_invalid.*differs from canonical remote bytes/u,
+      runtimeCleanups: 1,
+    },
+    {
+      fixture: strictControllerFixtureV1({
+        report: strictReportFixtureV1({ deficit: 1 }),
+      }),
+      expected: /balance_remote_strict_report_unsatisfied/u,
+      runtimeCleanups: 1,
+    },
+  ];
+
+  for (const { fixture, expected, runtimeCleanups } of cases) {
+    await assert.rejects(
+      () => runPocBalanceRemoteCliV1({ args: validStrictArgsV1(), ports: fixture.ports }),
+      expected,
+    );
+    assert.equal(fixture.writes.length, 0);
+    assert.deepEqual(fixture.cleanupCounts(), { source: 1, runtime: runtimeCleanups });
+  }
 });
 
 test("publishes attestation bytes once without following or replacing the target", async () => {

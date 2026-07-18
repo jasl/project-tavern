@@ -1952,10 +1952,20 @@ remote aggregate-evidence admission/local selector verification and a Story-loca
 all balance values/thresholds/strategies/direct expectations, provisional report/qualifier, golden, Save, command/tooling
 fixtures, root package manifest and lockfile, and commits only with `Balance-Calibration-Repair: true`.
 
+**Owner-authorized Phase 6 strict-finalization repair extension:** after the remote calibration controller repair and before
+final freeze, a second executable-owner repair may modify exactly
+`game/stories/poc/src/testing/balance-calibration.ts`,
+`game/stories/poc/src/test/balance-1000-seeds.test.ts`, both balance Node scripts/tests, both remote controller scripts/tests,
+and the seven calibration/finalization authority documents—13 paths total. It adds additive Story full-report admission,
+default-strict admission hardening, mutually exclusive remote strict result/attestation contracts and parent-report candidate
+injection evidence. It changes no balance/threshold/strategy/direct expectation, calibration semantic output, provisional,
+golden, Save, command/tooling, manifest or lock byte, creates no package alias, and commits only with
+`Balance-Calibration-Repair: true` under the exact contract in the deferred closure.
+
 **Interfaces:**
 
 - Consumes: the six frozen strategy definitions, reference-seed literal envelopes, the closed `compilePocStrategyForSeedV1` decision API, fixed smoke seeds plus the complete seeds 1–1000 release range, exact `PocBalanceMetricsV1`/Pareto definitions and finite calibration procedure in `docs/poc/balance-v0.md`, resolved SemanticGamePort, and immutable Program materialization.
-- Produces: `PocBalanceMetricsV1`, `PocParetoVectorV1`, `PocCounterfactualProvenanceV1`, `PocCounterfactualScenarioV1`, `createPocCounterfactualScenarioV1`, `PocBalanceCalibrationCandidateV1`, `selectPocBalanceCalibrationStepV1`, bed/cold-storage/D4-pressure counterfactuals, Story `verify:balance:smoke`, its root smoke delegate, strict Story/root `verify:balance`, and read-only Story `calibrate:balance`. The Vitest file is intentionally the fast contract/smoke leaf despite its historical `balance-1000-seeds.test.ts` name; only the CLI default mode executes the full corpus. No golden file exists when this task begins.
+- Produces: `PocBalanceMetricsV1`, `PocParetoVectorV1`, `PocCounterfactualProvenanceV1`, `PocCounterfactualScenarioV1`, `createPocCounterfactualScenarioV1`, `PocBalanceCalibrationCandidateV1`, `selectPocBalanceCalibrationStepV1`, additive `admitPocBalanceFullReportV1`, bed/cold-storage/D4-pressure counterfactuals, Story `verify:balance:smoke`, its root smoke delegate, strict Story/root `verify:balance`, and read-only Story `calibrate:balance`. The Phase 6 extension also produces independent `project-tavern.poc-balance-remote-strict-result.v1` and `project-tavern.poc-balance-remote-strict-execution.v1` contracts plus parent-report candidate injection evidence. The Vitest file is intentionally the fast contract/smoke leaf despite its historical `balance-1000-seeds.test.ts` name; only the CLI default mode executes the full corpus. No golden file exists when this task begins.
 
 - [ ] **Step 1: Write failing metric, compiler-branch, threshold, and counterfactual tests**
 
@@ -2044,7 +2054,7 @@ it("chooses one deterministic strictly improving calibration neighbor", () => {
 
 Also assert all three ending counts sum to 1000, `paidCount=stableCount+dangerCount`, every frozen threshold passes at its exact boundary and contributes its specified deficit one unit outside it, even-sample median behavior is exact, `freeAp` counts only AP surrendered by legal phase advances, all six Pareto counts use the four-component comparison, and same inputs serialize to identical sorted metrics twice. Re-admit every structured-clone shard, require ending/sample/count identities, reject malformed/range-mismatched messages, and resolve a worker only after both one admitted message and exit 0; one synthetic reversed two-shard value proves stable merge/gap handling without a second expensive real seed.
 
-`scripts/verify-poc-balance.test.mjs` freezes all five original root/Story aliases below, proves default CLI mode calls the complete 1–1000 runner and exact threshold/counterfactual assertion once, proves both smoke aliases reach the same Story Vitest leaf, proves `--calibrate [--iteration=0..12]` selects from only validated immutable neighbors without writing, and admits only the additional Task-10-only `--qualify-provisional` exact-report mode. Every other argument fails. The Phase 6 owner repair extends strict/qualify/calibrate with an exact trailing `--workers=1..64` grammar while smoke rejects it; default remains 16 and worker count never enters semantic evidence. The test injects bounded fixture evaluations; it never launches the full corpus.
+`scripts/verify-poc-balance.test.mjs` freezes all five original root/Story aliases below, proves default CLI mode calls the complete 1–1000 runner and exact threshold/counterfactual assertion once, proves both smoke aliases reach the same Story Vitest leaf, proves `--calibrate [--iteration=0..12]` selects from only validated immutable neighbors without writing, and admits only the additional Task-10-only `--qualify-provisional` exact-report mode. Every other argument fails. The Phase 6 owner repair extends strict/qualify/calibrate with an exact trailing `--workers=1..64` grammar while smoke rejects it; default remains 16 and worker count never enters semantic evidence. The strict-finalization repair additionally proves default CLI output is impossible without Story full-report admission, `--strict` remote grammar is disjoint from iteration/prior calibration grammar, the archived strict runner invokes only default `--workers`, strict result/attestation exact keys and digests reject malformed/noncanonical/nonzero evidence, and a candidate injected provider is called exactly once with the actual parent-admitted evaluation while no real full-corpus evaluator/import is reached and stdout remains parent-identical. The tests inject bounded fixture evaluations; they never launch the full corpus.
 
 - [ ] **Step 2: Run and confirm the missing metrics/scenario implementation**
 
@@ -2113,6 +2123,16 @@ the admitted current/selected evaluations and, after `N = 0`, chains each before
 it does not repeat the full corpus locally. It emits only the same semantic stdout and writes a separate canonical attestation
 without host/IP/path/time/scheduling metadata. It never runs a writer,
 build, Vite, Playwright, server, Artifact or remote smoke.
+
+The strict-finalization repair adds a mutually exclusive, unaliased direct controller mode with exact grammar
+`--strict --host=... --remote-root=Workspace --workers=1..64 --attestation-out=<absolute-path>` and rejects calibration
+iteration/prior arguments. It runs archived default `scripts/verify-poc-balance.mjs --workers=<workers>` exactly once, requires
+the independent `project-tavern.poc-balance-remote-strict-result.v1` envelope and a passing single-line canonical report, then
+loads `admitPocBalanceFullReportV1` plus the Story codec from the same frozen archive, re-encodes and full-admits the report and
+derives zero deficit locally. Only then does it forward stdout and write a canonical
+`project-tavern.poc-balance-remote-strict-execution.v1` attestation with the balance-lab exact field set, including
+`seedCount`, `reportSha256` and `evaluationSha256`. It does not alter either calibration v1 contract and never performs local
+full-corpus replay.
 
 Task 10 also installs the temporary, unaliased `--qualify-provisional` mode. It runs that same complete corpus but exits 0 only when the entire report—every metric, counterfactual and `deficit=49`—equals the reviewed 2026-07-15 provisional evidence; any drift or additional failure remains red. The strict default mode continues to reject that report. Phase 6 final calibration removes this mode and its frozen report literal in the same exact commit that makes the default full gate pass. No other argument is admitted.
 
@@ -2787,6 +2807,59 @@ Story admission but removes the metrics import and current/selected full-corpus 
 `fix(story-poc): accept verified remote calibration evidence` with only `Balance-Calibration-Repair: true` after the Phase 6
 owner gates and historical replay pass.
 
+The second strict-finalization executable-owner repair has an exact 13-path Files contract:
+
+```text
+game/stories/poc/src/testing/balance-calibration.ts
+game/stories/poc/src/test/balance-1000-seeds.test.ts
+scripts/verify-poc-balance.mjs
+scripts/verify-poc-balance.test.mjs
+scripts/run-poc-balance-remote.mjs
+scripts/run-poc-balance-remote.test.mjs
+docs/engineering/GOAL.md
+docs/engineering/plans/2026-07-11-project-tavern-poc-roadmap.md
+docs/engineering/specs/2026-07-12-local-engineering-delivery-boundaries-design.md
+docs/engineering/specs/2026-07-15-deterministic-balance-lab-design.md
+docs/engineering/plans/2026-07-11-project-tavern-04b-poc-story-golden.md
+docs/engineering/plans/2026-07-11-project-tavern-06-local-artifact.md
+docs/poc/balance-v0.md
+```
+
+Its stable expected REDs are the missing independent remote `--strict` grammar/result/attestation contracts, missing Story
+full-report admission and default strict output before admission. GREEN adds only additive full-report admission,
+default-strict admission hardening, strict remote orchestration and a no-corpus candidate sentinel: one injected provider
+returns the actual parent-admitted evaluation, the real full-corpus evaluator/import is never reached, and candidate stdout is
+parent-identical. The named tests are `parses strict report mode only through its independent direct argument order`,
+`uses an independent strict remote runner invocation without changing calibration argv`,
+`loads strict full-report admission from the same frozen archive without calibration ports`,
+`strictly admits one canonical passing report and publishes its independent attestation`,
+`strict mode rejects wrong framing, status, identity, admission, and deficit without attesting`,
+`requires Story full-report admission before strict output`, `admits only a canonical complete full balance report with a
+derived deficit`, and `rejects malformed full balance reports before threshold acceptance`; only missing strict grammar/export
+or `full-report admission is unavailable` is an accepted RED. It preserves calibration evaluator/runner/selector/codec output, every balance/threshold/strategy/direct
+expectation, provisional/golden/Save/command/tooling byte, package manifests and lockfile. Run:
+
+```bash
+node --test scripts/run-poc-balance-remote.test.mjs scripts/verify-poc-balance.test.mjs
+pnpm exec vitest run game/stories/poc/src/test/balance-1000-seeds.test.ts
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
+pnpm --filter @project-tavern/story-poc verify:balance:smoke
+pnpm --filter @project-tavern/story-poc verify:commands
+pnpm exec vitest run game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts
+pnpm typecheck
+pnpm verify:docs
+git diff --check
+git diff --exit-code -- pnpm-lock.yaml game/stories/poc/src/content/balance.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves game/stories/poc/src/test/fixtures/commands game/stories/poc/src/tooling-fixtures.ts
+```
+
+Then run the repaired controller in calibration mode outside every historical step's original parent exact archive and require
+original commit/tree/archive SHA-256, canonical calibration evidence, old calibration attestation bytes, all trailers and the
+rebuilt full binary patch to remain byte-identical. Any difference is `balance_calibration_history_invalidated`. Exact-stage
+all and only the 13 paths above, require staged path count/set equality, and commit
+`fix(story-poc): attest remote strict balance verification` with only `Balance-Calibration-Repair: true`. Postcommit
+materialization requires a clean tree. This consumes no calibration index and does not replace the provenance-finalization
+authority repair.
+
 ### Calibration-step commits
 
 For `N` already accepted step commits, let `K = N + 1`, run the selector with `--iteration=N`, and make a successful
@@ -2850,9 +2923,10 @@ current or selected-candidate replay is required.
 
 ### Clean-commit sandbox
 
-Every historical replay and every dirty recovery must evaluate committed bytes, never the dirty live root. Use this exact
-temporary detached-worktree shape; `target_commit` is `HEAD`, a step parent, the final parent or the final commit as required
-by the operation:
+Every historical replay and dirty recovery must rebuild local selector, writer, patch or admitted-candidate evidence from
+committed bytes, never the dirty live root. Use this exact temporary detached-worktree shape; `target_commit` is `HEAD`, a step
+parent, the final parent or the final commit as required by the operation. Final-parent/final full-corpus strict is the explicit
+exception and runs only from the corresponding exact archive through the auxiliary executor:
 
 ```bash
 test "$(node --version)" = "v26.5.0"
@@ -2870,7 +2944,7 @@ target_commit="<clean-commit-sha>"
   git -C "$repo" worktree add --detach "$sandbox" "$target_commit"
   cd "$sandbox"
   pnpm install --offline --frozen-lockfile --store-dir "$store"
-  # Run the required strict gate, selector, writer, or patch replay here.
+  # Run the required selector, writer, patch replay, or admitted candidate check here.
 )
 ```
 
@@ -2897,8 +2971,9 @@ Every commit in `${phase5c_checkpoint}..${audit_tip}`, whether or not it touches
 
 - a step with all seven step trailers, the exact step allowlist and the next uninterrupted index `1..N`;
 - a closed repair with `Balance-Calibration-Repair: true` and no step/final trailer: either the Task 10 executable-owner
-  Files/staging/gates contract with at least one listed non-authority-document executable/test/package path changed, or the
-  nonempty authority-only calibration/finalization contract above; neither changes threshold, strategy,
+  Files/staging/gates contract with at least one listed non-authority-document executable/test/package path changed—including
+  the strict-finalization subtype whose staged set must equal its exact 13 paths rather than inherit the broader Task 10
+  allowlist—or the nonempty authority-only calibration/finalization contract above; neither changes threshold, strategy,
   accepted balance value, direct expectation, golden or Save, or removes the provisional report/assertion/CLI branch/tests; or
 - the unique final with all final trailers and the exact final allowlist.
 
@@ -2936,7 +3011,10 @@ evaluator the clean replay baseline. Sequentially rerun every earlier step from
 historical step before committing that replayed candidate only inside the sandbox and advancing to the next. For an
 executable controller-only orchestration repair that changes admission/verification but not that semantic closure, invoke the
 repaired controller as an admission layer outside every historical step's original parent exact archive. The original archive
-commit/tree/SHA-256 and trailers stay authoritative; do not overlay the controller repair into the archive it is auditing. For an
+commit/tree/SHA-256 and trailers stay authoritative; do not overlay the controller repair into the archive it is auditing. The
+exact-13 strict-finalization repair follows that outside-archive path in calibration mode and additionally requires old
+canonical calibration evidence, old calibration attestation bytes, every trailer and rebuilt full patch to remain
+byte-identical; its additive Story full-report admission may not alter existing calibration codec/admission/selector output. For an
 authority-only calibration/finalization repair, prove its parent-to-commit patch has an empty projection onto the
 evaluator/runner/selector/remote-controller executable import closure, then rerun every historical step from its original
 parent/exact archive; never overlay unrelated authority bytes
@@ -2946,18 +3024,19 @@ automatically edit old commits, rewrite history, rollback or choose new candidat
 
 ### Dirty classification
 
-After ancestry and historical replay pass, classify the live tree using a clean `HEAD` sandbox for every committed-HEAD
-decision:
+After ancestry and historical replay pass, classify the live tree from clean committed-source evidence:
 
-- clean, no final, sandbox strict gate passes: start the live-candidate plus final-parent replay procedure below;
-- clean, no final, sandbox strict gate is threshold-only red and `N < 12`: run
+- clean, no final, and an admitted zero-deficit current evaluation: run remote strict once from the exact final-parent archive
+  and start the live-candidate plus final-parent replay procedure only after local full admission passes;
+- clean, no final, admitted current evaluation has only a threshold deficit and `N < 12`: run
   `pnpm --filter @project-tavern/story-poc calibrate:balance --iteration=N` and create step `N+1`;
 - clean with `N = 12` and strict red, or selector result `balance_contract_unsatisfied`: stop before Artifact work;
-- dirty paths wholly inside the step allowlist and sandbox strict is threshold-only red: rerun the selector at clean `HEAD`,
+- dirty paths wholly inside the step allowlist and clean-`HEAD` calibration evidence is threshold-only red: rerun the selector at clean `HEAD`,
   apply its candidate afresh in the sandbox, and require the sandbox `git diff --binary` to equal the complete live dirty
   binary patch before completing step `N+1`;
-- dirty paths wholly inside the final allowlist and sandbox strict passes: run the final writer/removal replay below at clean
-  `HEAD` and require its complete binary patch to equal the live dirty patch before finishing final;
+- dirty paths wholly inside the final allowlist and the exact final-parent remote strict report/attestation is admitted or
+  reconstructed from the same parent: run final writer/removal replay plus parent-report candidate admission at clean `HEAD`,
+  require real full-corpus evaluator/import zero calls and exact binary-patch/closure equality before finishing final;
 - mixed step/final paths, any path outside both allowlists, invalid ancestry or unexplained bytes: stop as unknown dirty
   state.
 
@@ -2972,11 +3051,27 @@ cmp /tmp/project-tavern-step.live.patch /tmp/project-tavern-step.replayed.patch
 
 ### Final balance-freeze commit and replay
 
-First prove strict balance at the committed final parent in a clean sandbox. If no final exists and the live root is clean,
-non-detached `main` at that parent, exit the sandbox and run the writer/removal sequence below in the live root to materialize
-the candidate bytes that will actually be staged. A classified pending dirty final already supplies those live candidate
-bytes; an existing historical final never rewrites the live root. In every branch, create a separate final-parent sandbox,
-rerun the same sequence independently, and compare its complete patch before any commit is accepted.
+First prove strict balance from the committed final parent's exact clean archive. In a clean attached-`main` controller checkout
+at `final_parent`, run remote default strict exactly once; local controller admission must re-encode and Story-full-admit the
+report, derive zero deficit, write the independent canonical strict attestation outside the repository and forward exact
+canonical stdout:
+
+```bash
+node scripts/run-poc-balance-remote.mjs --strict \
+  --host=<authorized-target> \
+  --remote-root=Workspace \
+  --workers=64 \
+  --attestation-out=/tmp/project-tavern-balance.parent.attestation.json \
+  > /tmp/project-tavern-balance.parent.txt
+```
+
+Preserve both parent evidence files until final postcommit verification. If they are lost after the candidate becomes dirty,
+reconstruct them only from the same exact parent in a verified clean attached-`main` controller checkout; never run parent
+strict from dirty bytes or substitute a fixture/cached evaluation. If no final exists and the live root is clean, non-detached
+`main` at that parent, run the writer/removal sequence below in the live root to materialize the candidate bytes that will
+actually be staged. A classified pending dirty final already supplies those live candidate bytes; an existing historical final
+never rewrites the live root. In every branch, create a separate final-parent sandbox, rerun the writer/removal sequence
+independently, and compare its complete patch before any commit is accepted; that sandbox does not run the full corpus.
 
 The sequence first projects the final parent's complete live Save fixture provenance. The existing focused test
 `matches the complete reviewed live provenance tuple` must be RED only because frozen `blocking.simulationDigest` is
@@ -3036,18 +3131,65 @@ else
 fi
 ```
 
-Before committing the replayed candidate, run strict twice on those exact candidate bytes, compare stdout and use its hash in
-the trailer. If final already exists, skip this creation block after its exact replay audit. Otherwise exit the sandbox,
-return to the still-dirty live `main` candidate at `HEAD = final_parent`, then stage only the final allowlist and prove all
-numeric/direct exclusions:
+Before committing the replayed candidate, do not run a full corpus on dirty bytes. If final already exists, skip this creation
+block after its exact replay audit. Otherwise exit the sandbox and return to the still-dirty live `main` candidate at
+`HEAD = final_parent`. Parse and Story-full-admit the actual parent report, then inject only its admitted evaluation through
+candidate `runPocBalanceCliV1({ args: [] })`; the custom loader imports no real full-corpus evaluator, its injected provider is
+called exactly once with candidate values, candidate Story admission derives the report again, and candidate stdout must equal
+parent stdout byte for byte. The complete final patch must already equal the independent writer/removal replay; additionally
+require an empty diff on protected balance/evaluator/codec/strategy/direct-expectation paths. Those guards plus the exact
+planned provisional removals in verify CLI/tests prove default strict semantics before staging:
 
 ```bash
 test "$(git symbolic-ref --quiet --short HEAD)" = "main"
 test "$(git rev-parse HEAD)" = "$final_parent"
-pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-a.txt
-pnpm --silent verify:balance > /tmp/project-tavern-balance.candidate-b.txt
-cmp /tmp/project-tavern-balance.candidate-a.txt /tmp/project-tavern-balance.candidate-b.txt
-shasum -a 256 /tmp/project-tavern-balance.candidate-a.txt
+PARENT_REPORT=/tmp/project-tavern-balance.parent.txt node --experimental-strip-types --input-type=module <<'NODE' > /tmp/project-tavern-balance.candidate.txt
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { registerHooks } from "node:module";
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    try {
+      return nextResolve(specifier, context);
+    } catch (error) {
+      if (specifier.endsWith(".js")) return nextResolve(`${specifier.slice(0, -3)}.ts`, context);
+      throw error;
+    }
+  },
+});
+const calibration = await import("./game/stories/poc/src/testing/balance-calibration.ts");
+const { runPocBalanceCliV1 } = await import("./scripts/verify-poc-balance.mjs");
+
+const prefix = "PoC balance report ";
+const parentStdout = await readFile(process.env.PARENT_REPORT, "utf8");
+assert(parentStdout.startsWith(prefix));
+assert(parentStdout.endsWith("\n"));
+assert(!parentStdout.slice(0, -1).includes("\n"));
+const parentReport = calibration.admitPocBalanceFullReportV1(
+  JSON.parse(parentStdout.slice(prefix.length, -1)),
+);
+let injectedProviderCalls = 0;
+const status = await runPocBalanceCliV1({
+  args: [],
+  loadRuntime: async () => ({
+    calibration,
+    metrics: {
+      async evaluatePocBalanceCalibrationValuesV1({ values }) {
+        injectedProviderCalls += 1;
+        assert.deepEqual(values, calibration.pocBalanceCalibrationValuesV1());
+        return parentReport.evaluation;
+      },
+    },
+  }),
+  writeStdout: (value) => process.stdout.write(value),
+});
+assert.equal(status, 0);
+assert.equal(injectedProviderCalls, 1);
+NODE
+cmp /tmp/project-tavern-balance.parent.txt /tmp/project-tavern-balance.candidate.txt
+git diff --exit-code -- game/stories/poc/src/content/balance.ts game/stories/poc/src/testing/balance-metrics.ts game/stories/poc/src/testing/balance-calibration.ts game/stories/poc/src/testing/counterfactual-scenarios.ts game/stories/poc/src/testing/compile-reference-strategy.ts game/stories/poc/src/testing/run-reference-strategy.ts game/stories/poc/src/test/daily-gates.test.ts game/stories/poc/src/test/ending-forecast.test.ts game/stories/poc/package.json package.json pnpm-lock.yaml
+shasum -a 256 /tmp/project-tavern-balance.parent.txt
 git add -- docs/poc/balance-v0.md scripts/verify-poc-balance.mjs scripts/verify-poc-balance.test.mjs game/stories/poc/src/testing/save-fixture-provenance.ts game/stories/poc/src/test/fixtures/golden game/stories/poc/src/test/fixtures/saves
 git diff --cached --name-status
 git diff --cached --check
@@ -3061,18 +3203,32 @@ final_commit="$(git rev-parse HEAD)"
 final_parent="$(git rev-parse HEAD^1)"
 ```
 
-After final exists, create a clean sandbox at the final commit and run strict balance twice after that commit; stdout must be
-byte-identical and its SHA-256 must equal the final trailer exactly:
+After final exists and live `main` is clean at that exact commit, run remote default strict twice from two fresh exact final
+archives. Canonical stdout and canonical strict attestation must each be byte-identical, and stdout SHA-256 must equal the final
+trailer exactly; the second execution cannot reuse the first result:
 
 ```bash
-pnpm --silent verify:balance > /tmp/project-tavern-balance.final-a.txt
-pnpm --silent verify:balance > /tmp/project-tavern-balance.final-b.txt
+node scripts/run-poc-balance-remote.mjs --strict \
+  --host=<authorized-target> \
+  --remote-root=Workspace \
+  --workers=64 \
+  --attestation-out=/tmp/project-tavern-balance.final-a.attestation.json \
+  > /tmp/project-tavern-balance.final-a.txt
+node scripts/run-poc-balance-remote.mjs --strict \
+  --host=<authorized-target> \
+  --remote-root=Workspace \
+  --workers=64 \
+  --attestation-out=/tmp/project-tavern-balance.final-b.attestation.json \
+  > /tmp/project-tavern-balance.final-b.txt
 cmp /tmp/project-tavern-balance.final-a.txt /tmp/project-tavern-balance.final-b.txt
+cmp /tmp/project-tavern-balance.final-a.attestation.json /tmp/project-tavern-balance.final-b.attestation.json
 test "sha256:$(shasum -a 256 /tmp/project-tavern-balance.final-a.txt | awk '{print $1}')" = "$(git show -s --format='%(trailers:key=Balance-Calibration-Report-SHA256,valueonly)' "$final_commit")"
 ```
 
-Exit that sandbox, then return to the clean non-detached live `main` with `HEAD = final_commit` for the attestation-bound and
-cumulative gates; the temporary sandbox never substitutes for the ignored live materialization attestation:
+Strict attestations remain external evidence and do not add a final trailer: they bind final commit/tree/archive, so committing
+their digest into the same final commit would create an identity cycle. Keep only the report digest trailer. Remain on clean
+non-detached live `main` with `HEAD = final_commit` for the separate ignored materialization attestation and cumulative local
+gates; no strict attestation is copied into the repository:
 
 ```bash
 test "$(git symbolic-ref --quiet --short HEAD)" = "main"
@@ -3086,6 +3242,8 @@ pnpm verify:phase5c
 pnpm verify
 test -z "$(git status --porcelain=v1)"
 ```
+
+These local gates remain mandatory but do not rerun or replace the exact-final-archive remote full-corpus evidence above.
 
 Only that replayed, clean final commit may enter Phase 6 Task 1. The later `pnpm verify:release`, reproducible Artifact and
 Roadmap Definition of Done continue to require the same unchanged final bytes.

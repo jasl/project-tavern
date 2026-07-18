@@ -16,7 +16,10 @@ const expectedPnpmArchiveSha256V1 =
   "sha256:df4699e897012ab14df2cc6eaa942910e830eb7fcaa420a2a1421a9461fd9108";
 const remoteContractIdV1 = "project-tavern.poc-balance-remote-execution.v1";
 const remoteResultContractIdV1 = "project-tavern.poc-balance-remote-result.v1";
+const strictRemoteContractIdV1 = "project-tavern.poc-balance-remote-strict-execution.v1";
+const strictRemoteResultContractIdV1 = "project-tavern.poc-balance-remote-strict-result.v1";
 const semanticPrefixV1 = "PoC balance calibration ";
+const strictSemanticPrefixV1 = "PoC balance report ";
 const maximumRemoteEnvelopeBytesV1 = 32 * 1024 * 1024;
 const maximumCommandStderrBytesV1 = 4 * 1024 * 1024;
 const decoderV1 = new TextDecoder("utf-8", { fatal: true });
@@ -29,7 +32,7 @@ function failV1(code, detail) {
 function usageV1() {
   return failV1(
     "usage: run-poc-balance-remote.mjs",
-    "--iteration=0..12 [--prior-after-sha256=sha256:<64-hex>] --host=<ssh-target> --remote-root=Workspace --workers=1..64 --attestation-out=<absolute-local-path>",
+    "(--iteration=0..12 [--prior-after-sha256=sha256:<64-hex>] | --strict) --host=<ssh-target> --remote-root=Workspace --workers=1..64 --attestation-out=<absolute-local-path>",
   );
 }
 
@@ -160,6 +163,37 @@ function parseSshTargetV1(value) {
 
 export function parsePocBalanceRemoteArgumentsV1(args) {
   if (!Array.isArray(args) || args.some((argument) => typeof argument !== "string")) usageV1();
+  if (args[0] === "--strict") {
+    const hostMatch = /^--host=(.+)$/u.exec(args[1] ?? "");
+    const rootMatch = /^--remote-root=(.+)$/u.exec(args[2] ?? "");
+    const workersMatch = /^--workers=([1-9]|[1-5][0-9]|6[0-4])$/u.exec(args[3] ?? "");
+    const attestationMatch = /^--attestation-out=(.+)$/u.exec(args[4] ?? "");
+    if (
+      hostMatch === null ||
+      rootMatch?.[1] !== "Workspace" ||
+      workersMatch === null ||
+      attestationMatch === null ||
+      args.length !== 5
+    ) {
+      usageV1();
+    }
+    const attestationOut = attestationMatch[1];
+    if (
+      !isAbsolute(attestationOut) ||
+      attestationOut.includes("\0") ||
+      attestationOut.includes("\n") ||
+      attestationOut.includes("\r")
+    ) {
+      usageV1();
+    }
+    return Object.freeze({
+      mode: "strict",
+      host: parseSshTargetV1(hostMatch[1]),
+      remoteRoot: "Workspace",
+      workers: Number(workersMatch[1]),
+      attestationOut,
+    });
+  }
   const iterationMatch = /^--iteration=(0|[1-9]|1[0-2])$/u.exec(args[0] ?? "");
   if (iterationMatch === null) usageV1();
   const iteration = Number(iterationMatch[1]);
@@ -555,10 +589,15 @@ import { lstat, mkdtemp, readFile, realpath, rm, unlink } from "node:fs/promises
 import { availableParallelism, homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
-const expectedKeys = [
+const commonExpectedKeys = [
   "--archive-relative=", "--source-commit=", "--source-tree=", "--archive-sha256=",
-  "--lock-sha256=", "--materialization-digest=", "--package-closure-digest=",
-  "--iteration=", "--workers="
+  "--lock-sha256=", "--materialization-digest=", "--package-closure-digest="
+];
+const strictMode = process.argv[commonExpectedKeys.length + 2] === "--strict=true";
+const expectedKeys = [
+  ...commonExpectedKeys,
+  strictMode ? "--strict=" : "--iteration=",
+  "--workers="
 ];
 if (process.argv.length !== expectedKeys.length + 2) throw new Error("remote argv invalid");
 const values = {};
@@ -576,7 +615,10 @@ if (!objectPattern.test(values["--source-commit="]) || !objectPattern.test(value
 for (const key of ["--archive-sha256=", "--lock-sha256=", "--materialization-digest=", "--package-closure-digest="]) {
   if (!digestPattern.test(values[key])) throw new Error("remote digest invalid");
 }
-if (!iterationPattern.test(values["--iteration="]) || !workersPattern.test(values["--workers="])) throw new Error("remote scalar invalid");
+if (
+  (strictMode ? values["--strict="] !== "true" : !iterationPattern.test(values["--iteration="])) ||
+  !workersPattern.test(values["--workers="])
+) throw new Error("remote scalar invalid");
 
 const home = await realpath(homedir());
 const root = join(home, "Workspace", "project-tavern-worker");
@@ -702,31 +744,62 @@ try {
   await rm(join(runDirectory, ".git"), { recursive: true, force: true });
   // pnpm install --offline --frozen-lockfile; this exact invocation creates no semantic evidence.
   checked(pnpmPath, ["--filter", "@project-tavern/story-poc...", "install", "--prod", "--offline", "--frozen-lockfile", "--store-dir", storePath], runDirectory);
-  const cli = await runCalibration(nodePath, ["scripts/verify-poc-balance.mjs", "--calibrate", "--iteration=" + values["--iteration="], "--workers=" + values["--workers="]], runDirectory);
-  if (cli.status !== 0 && cli.status !== 1) throw new Error("remote calibration failed status=" + String(cli.status));
-  const envelope = {
-    arch: process.arch,
-    availableParallelism: parallelism,
-    contractId: "project-tavern.poc-balance-remote-result.v1",
-    firstSeed: 1,
-    iteration: Number(values["--iteration="]),
-    lastSeed: 1000,
-    materializationDigest: values["--materialization-digest="],
-    nodeArchiveSha256: "sha256:9f619528f1db5ddc41dccf54211066fb42228d69a156733c69cb9d6cc92e358c",
-    nodeVersion: process.version,
-    packageClosureDigest: values["--package-closure-digest="],
-    platform: process.platform,
-    pnpmArchiveSha256: "sha256:df4699e897012ab14df2cc6eaa942910e830eb7fcaa420a2a1421a9461fd9108",
-    pnpmLockSha256: values["--lock-sha256="],
-    pnpmVersion: "11.11.0",
-    schemaRevision: 1,
-    semanticExitStatus: cli.status,
-    semanticStdout: cli.stdout,
-    sourceArchiveSha256: archiveDigest,
-    sourceCommit: values["--source-commit="],
-    sourceTree: values["--source-tree="],
-    workerCount: workers
-  };
+  const cliArgs = strictMode
+    ? ["scripts/verify-poc-balance.mjs", "--workers=" + values["--workers="]]
+    : ["scripts/verify-poc-balance.mjs", "--calibrate", "--iteration=" + values["--iteration="], "--workers=" + values["--workers="]];
+  const cli = await runCalibration(nodePath, cliArgs, runDirectory);
+  if (strictMode && cli.status !== 0) {
+    throw new Error("remote strict balance failed status=" + String(cli.status));
+  }
+  if (!strictMode && cli.status !== 0 && cli.status !== 1) {
+    throw new Error("remote calibration failed status=" + String(cli.status));
+  }
+  const envelope = strictMode
+    ? {
+        arch: process.arch,
+        availableParallelism: parallelism,
+        contractId: "project-tavern.poc-balance-remote-strict-result.v1",
+        firstSeed: 1,
+        lastSeed: 1000,
+        materializationDigest: values["--materialization-digest="],
+        nodeArchiveSha256: "sha256:9f619528f1db5ddc41dccf54211066fb42228d69a156733c69cb9d6cc92e358c",
+        nodeVersion: process.version,
+        packageClosureDigest: values["--package-closure-digest="],
+        platform: process.platform,
+        pnpmArchiveSha256: "sha256:df4699e897012ab14df2cc6eaa942910e830eb7fcaa420a2a1421a9461fd9108",
+        pnpmLockSha256: values["--lock-sha256="],
+        pnpmVersion: "11.11.0",
+        schemaRevision: 1,
+        semanticExitStatus: cli.status,
+        semanticStdout: cli.stdout,
+        sourceArchiveSha256: archiveDigest,
+        sourceCommit: values["--source-commit="],
+        sourceTree: values["--source-tree="],
+        workerCount: workers
+      }
+    : {
+        arch: process.arch,
+        availableParallelism: parallelism,
+        contractId: "project-tavern.poc-balance-remote-result.v1",
+        firstSeed: 1,
+        iteration: Number(values["--iteration="]),
+        lastSeed: 1000,
+        materializationDigest: values["--materialization-digest="],
+        nodeArchiveSha256: "sha256:9f619528f1db5ddc41dccf54211066fb42228d69a156733c69cb9d6cc92e358c",
+        nodeVersion: process.version,
+        packageClosureDigest: values["--package-closure-digest="],
+        platform: process.platform,
+        pnpmArchiveSha256: "sha256:df4699e897012ab14df2cc6eaa942910e830eb7fcaa420a2a1421a9461fd9108",
+        pnpmLockSha256: values["--lock-sha256="],
+        pnpmVersion: "11.11.0",
+        schemaRevision: 1,
+        semanticExitStatus: cli.status,
+        semanticStdout: cli.stdout,
+        sourceArchiveSha256: archiveDigest,
+        sourceCommit: values["--source-commit="],
+        sourceTree: values["--source-tree="],
+        workerCount: workers
+      };
   process.stdout.write(JSON.stringify(envelope) + "\n");
   process.exitCode = cli.status;
 } finally {
@@ -793,7 +866,9 @@ export async function runPocBalanceRemoteTransportV1({
       `--lock-sha256=${source.pnpmLockSha256}`,
       `--materialization-digest=${source.materializationDigest}`,
       `--package-closure-digest=${source.packageClosureDigest}`,
-      `--iteration=${String(options.iteration)}`,
+      ...(options.mode === "strict"
+        ? ["--strict=true"]
+        : [`--iteration=${String(options.iteration)}`]),
       `--workers=${String(options.workers)}`,
     ],
     {
@@ -805,12 +880,11 @@ export async function runPocBalanceRemoteTransportV1({
     },
   );
   if (execution.stderr && execution.stderrForwarded !== true) writeStderr(execution.stderr);
-  if (
-    execution.signal ||
-    execution.status === null ||
-    execution.status < 0 ||
-    execution.status > 1
-  ) {
+  const acceptedStatus =
+    options.mode === "strict"
+      ? execution.status === 0
+      : execution.status !== null && execution.status >= 0 && execution.status <= 1;
+  if (execution.signal || !acceptedStatus) {
     failV1(
       "balance_remote_execution_failed",
       `status=${String(execution.status)} signal=${String(execution.signal ?? "none")} stderr=${boundedDiagnosticV1(execution.stderr)}`,
@@ -918,6 +992,114 @@ function parseRemoteEnvelopeV1(text, source, options) {
   return Object.freeze(record);
 }
 
+function parseStrictRemoteEnvelopeV1(text, source, options) {
+  if (
+    typeof text !== "string" ||
+    encoderV1.encode(text).byteLength > maximumRemoteEnvelopeBytesV1
+  ) {
+    return failV1("balance_remote_strict_result_framing", "remote result exceeds its byte limit");
+  }
+  if (!text.endsWith("\n") || text.slice(0, -1).includes("\n") || text.includes("\r")) {
+    return failV1(
+      "balance_remote_strict_result_framing",
+      "remote result must be one canonical LF line",
+    );
+  }
+  const payloadText = text.slice(0, -1);
+  if (payloadText.charCodeAt(0) === 0xfeff) {
+    return failV1("balance_remote_strict_result_framing", "remote result must not contain a BOM");
+  }
+  let value;
+  try {
+    value = JSON.parse(payloadText);
+  } catch {
+    return failV1("balance_remote_strict_result_framing", "remote result is not JSON");
+  }
+  const record = assertPlainRecordV1(value, "strict remote result");
+  assertExactKeysV1(
+    record,
+    [
+      "schemaRevision",
+      "contractId",
+      "sourceCommit",
+      "sourceTree",
+      "sourceArchiveSha256",
+      "pnpmLockSha256",
+      "materializationDigest",
+      "packageClosureDigest",
+      "nodeVersion",
+      "nodeArchiveSha256",
+      "pnpmVersion",
+      "pnpmArchiveSha256",
+      "platform",
+      "arch",
+      "availableParallelism",
+      "workerCount",
+      "firstSeed",
+      "lastSeed",
+      "semanticExitStatus",
+      "semanticStdout",
+    ],
+    "strict remote result",
+  );
+  if (decoderV1.decode(canonicalControllerJsonBytesV1(record)) !== payloadText) {
+    failV1("balance_remote_strict_result_noncanonical", "remote result bytes are not canonical");
+  }
+  if (record.schemaRevision !== 1 || record.contractId !== strictRemoteResultContractIdV1) {
+    failV1(
+      "balance_remote_strict_result_contract_mismatch",
+      "strict remote result contract is unsupported",
+    );
+  }
+  for (const key of [
+    "sourceCommit",
+    "sourceTree",
+    "sourceArchiveSha256",
+    "pnpmLockSha256",
+    "materializationDigest",
+    "packageClosureDigest",
+  ]) {
+    if (record[key] !== source[key]) {
+      failV1("balance_remote_source_mismatch", `${key} differs from the local archive`);
+    }
+  }
+  if (
+    record.nodeVersion !== expectedNodeVersionV1 ||
+    record.nodeArchiveSha256 !== expectedNodeArchiveSha256V1 ||
+    record.pnpmVersion !== expectedPnpmVersionV1 ||
+    record.pnpmArchiveSha256 !== expectedPnpmArchiveSha256V1
+  ) {
+    failV1("balance_remote_toolchain_mismatch", "remote exact toolchain identity differs");
+  }
+  if (record.platform !== "linux" || record.arch !== "x64") {
+    failV1("balance_remote_platform_mismatch", "remote platform must be linux/x64");
+  }
+  if (
+    !Number.isSafeInteger(record.availableParallelism) ||
+    record.availableParallelism < options.workers
+  ) {
+    failV1(
+      "balance_remote_parallelism_insufficient",
+      "availableParallelism is below the requested worker count",
+    );
+  }
+  if (
+    record.workerCount !== options.workers ||
+    record.firstSeed !== 1 ||
+    record.lastSeed !== 1000 ||
+    record.semanticExitStatus !== 0 ||
+    typeof record.semanticStdout !== "string"
+  ) {
+    failV1(
+      record.semanticExitStatus !== 0
+        ? "balance_remote_strict_exit_semantics_mismatch"
+        : "balance_remote_strict_result_contract_mismatch",
+      "strict remote run inputs or exit status differ",
+    );
+  }
+  return Object.freeze(record);
+}
+
 function parseSemanticEvidenceV1(stdout, runtime, options) {
   if (
     typeof stdout !== "string" ||
@@ -965,6 +1147,72 @@ function parseSemanticEvidenceV1(stdout, runtime, options) {
       "balance_remote_evidence_invalid",
       error instanceof Error ? error.message : "Story admission rejected evidence",
     );
+  }
+  return Object.freeze({ admitted, canonicalBytes });
+}
+
+function parseStrictSemanticReportV1(stdout, runtime) {
+  if (
+    typeof stdout !== "string" ||
+    !stdout.startsWith(strictSemanticPrefixV1) ||
+    !stdout.endsWith("\n") ||
+    stdout.slice(0, -1).includes("\n") ||
+    stdout.includes("\r") ||
+    stdout.charCodeAt(0) === 0xfeff
+  ) {
+    return failV1(
+      "balance_remote_strict_report_framing",
+      "strict semantic stdout must be one report-prefixed canonical LF line",
+    );
+  }
+  const payloadText = stdout.slice(strictSemanticPrefixV1.length, -1);
+  let value;
+  try {
+    value = JSON.parse(payloadText);
+  } catch {
+    return failV1("balance_remote_strict_report_framing", "strict report payload is not JSON");
+  }
+  let canonicalBytes;
+  try {
+    canonicalBytes = runtime.encodeEvidence(value);
+  } catch (error) {
+    return failV1(
+      "balance_remote_strict_report_invalid",
+      error instanceof Error ? error.message : "Story codec rejected strict report",
+    );
+  }
+  if (!(canonicalBytes instanceof Uint8Array)) {
+    failV1("balance_remote_runtime_invalid", "Story report codec did not return bytes");
+  }
+  if (decoderV1.decode(canonicalBytes) !== payloadText) {
+    failV1("balance_remote_strict_report_noncanonical", "strict report payload is not canonical");
+  }
+  let admitted;
+  try {
+    admitted = runtime.admitFullReport(value);
+  } catch (error) {
+    return failV1(
+      "balance_remote_strict_report_invalid",
+      error instanceof Error ? error.message : "Story admission rejected strict report",
+    );
+  }
+  let admittedBytes;
+  try {
+    admittedBytes = runtime.encodeEvidence(admitted);
+  } catch (error) {
+    return failV1(
+      "balance_remote_strict_report_invalid",
+      error instanceof Error ? error.message : "Story codec rejected admitted strict report",
+    );
+  }
+  if (!(admittedBytes instanceof Uint8Array) || !isDeepStrictEqual(admittedBytes, canonicalBytes)) {
+    failV1(
+      "balance_remote_strict_report_invalid",
+      "admitted strict report differs from canonical remote bytes",
+    );
+  }
+  if (admitted?.deficit !== 0) {
+    failV1("balance_remote_strict_report_unsatisfied", "strict report deficit must equal zero");
   }
   return Object.freeze({ admitted, canonicalBytes });
 }
@@ -1165,6 +1413,20 @@ export async function loadPocBalanceFrozenReplayRuntimeV1({
       temporaryDirectory,
       source,
     });
+    if (options.mode === "strict") {
+      for (const name of ["canonicalPocBalanceEvidenceBytesV1", "admitPocBalanceFullReportV1"]) {
+        if (typeof calibration[name] !== "function") {
+          failV1("balance_remote_runtime_invalid", `missing runtime export ${name}`);
+        }
+      }
+      return Object.freeze({
+        encodeEvidence: calibration.canonicalPocBalanceEvidenceBytesV1,
+        admitFullReport: calibration.admitPocBalanceFullReportV1,
+        async cleanup() {
+          await removeTemporaryDirectory(temporaryDirectory);
+        },
+      });
+    }
     for (const name of [
       "canonicalPocBalanceEvidenceBytesV1",
       "pocBalanceCalibrationValuesV1",
@@ -1241,14 +1503,58 @@ export async function runPocBalanceRemoteCliV1({
     ) {
       failV1("balance_remote_execution_invalid", "transport returned an invalid result");
     }
-    const envelope = parseRemoteEnvelopeV1(remoteExecution.stdout, source, options);
+    const envelope =
+      options.mode === "strict"
+        ? parseStrictRemoteEnvelopeV1(remoteExecution.stdout, source, options)
+        : parseRemoteEnvelopeV1(remoteExecution.stdout, source, options);
     if (envelope.semanticExitStatus !== remoteExecution.status) {
       failV1(
-        "balance_remote_exit_semantics_mismatch",
+        options.mode === "strict"
+          ? "balance_remote_strict_exit_semantics_mismatch"
+          : "balance_remote_exit_semantics_mismatch",
         "SSH status differs from the reported semantic exit status",
       );
     }
     runtime = await ports.loadRuntime({ source, options });
+    if (options.mode === "strict") {
+      for (const name of ["encodeEvidence", "admitFullReport"]) {
+        if (typeof runtime?.[name] !== "function") {
+          failV1("balance_remote_runtime_invalid", `missing strict runtime port ${name}`);
+        }
+      }
+      const semantic = parseStrictSemanticReportV1(envelope.semanticStdout, runtime);
+      const reportSha256 = sha256BytesV1(encoderV1.encode(envelope.semanticStdout));
+      const evaluationSha256 = sha256BytesV1(
+        evidenceBytesV1(runtime, semantic.admitted.evaluation, "strict evaluation"),
+      );
+      const attestation = Object.freeze({
+        schemaRevision: 1,
+        contractId: strictRemoteContractIdV1,
+        sourceCommit: source.sourceCommit,
+        sourceTree: source.sourceTree,
+        sourceArchiveSha256: source.sourceArchiveSha256,
+        pnpmLockSha256: source.pnpmLockSha256,
+        materializationDigest: source.materializationDigest,
+        packageClosureDigest: source.packageClosureDigest,
+        nodeVersion: expectedNodeVersionV1,
+        nodeArchiveSha256: expectedNodeArchiveSha256V1,
+        pnpmVersion: expectedPnpmVersionV1,
+        pnpmArchiveSha256: expectedPnpmArchiveSha256V1,
+        platform: "linux",
+        arch: "x64",
+        availableParallelism: envelope.availableParallelism,
+        workerCount: options.workers,
+        firstSeed: 1,
+        lastSeed: 1000,
+        seedCount: 1000,
+        evaluationSha256,
+        reportSha256,
+      });
+      const attestationBytes = evidenceBytesV1(runtime, attestation, "strict attestation");
+      await ports.writeAttestation(options.attestationOut, attestationBytes);
+      writeStdout(envelope.semanticStdout);
+      return 0;
+    }
     for (const name of ["encodeEvidence", "currentValues", "admitRemoteRun"]) {
       if (typeof runtime?.[name] !== "function") {
         failV1("balance_remote_runtime_invalid", `missing runtime port ${name}`);

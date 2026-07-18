@@ -103,9 +103,20 @@ export function runPocBalanceSmokeVerificationV1(root, spawn = spawnSync) {
 }
 
 export function assertPocBalanceFullReportV1(report) {
+  const keys =
+    report !== null && typeof report === "object" && !Array.isArray(report)
+      ? Object.keys(report).toSorted()
+      : [];
   if (
     report === null ||
     typeof report !== "object" ||
+    Array.isArray(report) ||
+    keys.length !== 2 ||
+    keys[0] !== "deficit" ||
+    keys[1] !== "evaluation" ||
+    report.evaluation === null ||
+    typeof report.evaluation !== "object" ||
+    Array.isArray(report.evaluation) ||
     !Number.isSafeInteger(report.deficit) ||
     report.deficit < 0
   ) {
@@ -287,7 +298,11 @@ export async function runPocBalanceCliV1({
     return calibration.selection.kind === "balance_contract_unsatisfied" ? 1 : 0;
   }
 
-  const report = await buildPocBalanceFullReportV1(async () => runtime, workerCount);
+  const builtReport = await buildPocBalanceFullReportV1(async () => runtime, workerCount);
+  if (typeof runtime.calibration.admitPocBalanceFullReportV1 !== "function") {
+    throw new TypeError("PoC balance full-report admission is unavailable");
+  }
+  const report = runtime.calibration.admitPocBalanceFullReportV1(builtReport);
   writeStdout(
     `PoC balance report ${new TextDecoder().decode(
       runtime.calibration.canonicalPocBalanceEvidenceBytesV1(report),

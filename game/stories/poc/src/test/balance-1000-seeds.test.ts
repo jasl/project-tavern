@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseSafeInteger } from "../gameplay/index.js";
 import {
+  admitPocBalanceFullReportV1,
   admitPocBalanceCalibrationRunV1,
   calibrationCandidateFixtureV1,
   calculatePocBalanceDeficitV1,
@@ -625,6 +626,121 @@ describe("PoC deterministic balance lab", () => {
     expect(Object.isFrozen(admitted.step.candidates)).toBe(true);
     expect(Object.isFrozen(admitted.selection)).toBe(true);
   }, 30_000);
+
+  it("admits only a canonical complete full balance report with a derived deficit", () => {
+    const fixture = calibrationCandidateFixtureV1();
+    const evaluation = fixture.candidates[0]?.evaluation;
+    if (evaluation === undefined) throw new TypeError("missing passing balance evaluation");
+
+    const report = { deficit: 0, evaluation };
+    const admitted = admitPocBalanceFullReportV1(report);
+
+    expect(canonicalPocBalanceEvidenceBytesV1(admitted)).toEqual(
+      canonicalPocBalanceEvidenceBytesV1(report),
+    );
+    expect(admitted).toEqual(report);
+    expect(Object.isFrozen(admitted)).toBe(true);
+    expect(Object.isFrozen(admitted.evaluation)).toBe(true);
+    expect(Object.isFrozen(admitted.evaluation.metrics)).toBe(true);
+    expect(Object.isFrozen(admitted.evaluation.metrics.strategies)).toBe(true);
+    expect(Object.isFrozen(admitted.evaluation.counterfactuals)).toBe(true);
+  });
+
+  it("rejects malformed full balance reports before threshold acceptance", () => {
+    const fixture = calibrationCandidateFixtureV1();
+    const evaluation = fixture.candidates[0]?.evaluation;
+    if (evaluation === undefined) throw new TypeError("missing passing balance evaluation");
+    const cashFirst = evaluation.metrics.strategies["strategy.cash_first"];
+
+    const invalidReports = [
+      { label: "null report", report: null },
+      { label: "missing evaluation", report: { deficit: 0 } },
+      { label: "null evaluation", report: { deficit: 0, evaluation: null } },
+      { label: "extra report field", report: { deficit: 0, evaluation, extra: true } },
+      { label: "negative deficit", report: { deficit: -1, evaluation } },
+      { label: "fractional deficit", report: { deficit: 0.5, evaluation } },
+      {
+        label: "unsafe deficit",
+        report: { deficit: Number.MAX_SAFE_INTEGER + 1, evaluation },
+      },
+      {
+        label: "corpus range",
+        report: {
+          deficit: 0,
+          evaluation: {
+            ...evaluation,
+            metrics: { ...evaluation.metrics, firstSeed: 2 },
+          },
+        },
+      },
+      {
+        label: "ending count identity",
+        report: {
+          deficit: 0,
+          evaluation: {
+            ...evaluation,
+            metrics: {
+              ...evaluation.metrics,
+              strategies: {
+                ...evaluation.metrics.strategies,
+                "strategy.cash_first": { ...cashFirst, stableCount: 0 },
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "count range",
+        report: {
+          deficit: 0,
+          evaluation: {
+            ...evaluation,
+            metrics: {
+              ...evaluation.metrics,
+              d4CashPressure: {
+                ...evaluation.metrics.d4CashPressure,
+                cashFirstPaidCount: 1001,
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "median domain",
+        report: {
+          deficit: 0,
+          evaluation: {
+            ...evaluation,
+            metrics: {
+              ...evaluation.metrics,
+              strategies: {
+                ...evaluation.metrics.strategies,
+                "strategy.cash_first": { ...cashFirst, medianPaidAfterTaxCash: 0.25 },
+              },
+            },
+          },
+        },
+      },
+      {
+        label: "counterfactual domain",
+        report: {
+          deficit: 0,
+          evaluation: {
+            ...evaluation,
+            counterfactuals: {
+              ...evaluation.counterfactuals,
+              comfortableBedRecovery: "true",
+            },
+          },
+        },
+      },
+      { label: "claimed deficit", report: { deficit: 1, evaluation } },
+    ] as const;
+
+    for (const { label, report } of invalidReports) {
+      expect(() => admitPocBalanceFullReportV1(report), label).toThrow();
+    }
+  });
 
   it("rejects mismatched, partial, out-of-order, and forged remote calibration runs", () => {
     const step = calibrationCandidateFixtureV1();
