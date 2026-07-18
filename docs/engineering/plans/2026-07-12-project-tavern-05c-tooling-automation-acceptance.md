@@ -2167,12 +2167,13 @@ it("keeps Phase 5C inspect-only", () => {
 
 The renamed Phase 5A test keeps the exact original `uiRuntimeVerificationCommandsV1` leaf unchanged. Refactor `stagePresentationVerificationCommandsV1` by removing only its `build:e2e`/`build:poc` commands; it must require both roots already exist and retain every unit, Interaction, Story, asset, boundary, cycle, and type check in prior relative order. Package-script tests require the cumulative implementation aliases shown in Step 3 and forbid any UI leaf from invoking a cumulative phase. Script discovery asserts every `scripts/ui/**/*.test.ts|test.mjs` appears exactly once in `test:scripts`. Root verification begins with exactly one direct read-only `verify:materialization`, then contains exactly one `test:scripts`, one `build:poc`, one `build:e2e`, one inspect-only `verify:semantic`, one inspect-only `verify:ui`, and the remaining asset/boundary/bundle checks; it has no prepare/writer, direct Phase 5 aggregate, remote command, or recursive `pnpm verify` child.
 
-- [ ] **Step 2: Run script tests and confirm the final orchestration is absent**
+- [ ] **Step 2: Confirm the task-entry materialization result, then prove the final orchestration is absent**
 
-Run:
+Use the successful clean-worktree `pnpm verify:materialization` result captured at Task 9 entry.
+After Step 1 has created the intended RED bytes, do not rerun that clean-only gate against the
+dirty task worktree. Run:
 
 ```bash
-pnpm verify:materialization
 pnpm test:scripts
 node --test scripts/verify-semantic.test.mjs scripts/verify.test.mjs
 ```
@@ -2241,7 +2242,6 @@ Replace the direct cumulative Phase 5B root child with its existing Phase 4 prer
 Run:
 
 ```bash
-pnpm verify:materialization
 pnpm test:scripts
 pnpm build:poc
 pnpm build:e2e
@@ -2251,7 +2251,6 @@ pnpm verify:assets
 pnpm verify:boundaries
 pnpm verify:application-graphs
 pnpm verify:bundle
-pnpm verify
 git diff --check
 git status --short --branch
 ```
@@ -2265,6 +2264,9 @@ git add -- scripts/ui/verify-phase5c.mts scripts/ui/verify-phase5c.test.ts scrip
 git diff --cached --check
 git commit -m "test(ui): freeze complete phase five gate"
 ```
+
+The commit must leave a clean worktree. Run the complete Phase 5C Acceptance below on that clean
+HEAD; the task is not accepted until its direct materialization and root `pnpm verify` gates pass.
 
 ## Phase 5C Acceptance
 
