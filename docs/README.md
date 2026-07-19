@@ -40,6 +40,17 @@
 - [`poc/content-and-playtest.md`](poc/content-and-playtest.md)：固定七日场景、教学节奏与策略测试矩阵。
 - [`poc/reference-strategies.md`](poc/reference-strategies.md)：把六种 reference 策略展开为唯一命令序列的确定性 driver。
 
+## 本地运行手册
+
+- [`runbooks/local-verification.md`](runbooks/local-verification.md)：materialization、普通验证、clean release gate 与 exact Artifact 交接。
+- [`runbooks/runtime-capabilities.md`](runbooks/runtime-capabilities.md)：持久偏好、URL 会话覆盖、Debug/Cheat/Automation 权限和恢复普通状态。
+- [`runbooks/semantic-automation.md`](runbooks/semantic-automation.md)：同一 Artifact 的 SemanticGamePort 浏览器桥与无 sleep 自动化循环。
+- [`runbooks/story-hotfix-authoring.md`](runbooks/story-hotfix-authoring.md)：bootstrap PatchSurface、Hotfix identity、resolver 与 Save adoption 边界。
+- [`runbooks/save-data-recovery.md`](runbooks/save-data-recovery.md)：四槽 Save、显式恢复、compatibility/adoption、lease 与 fencing。
+- [`runbooks/dependency-upgrades.md`](runbooks/dependency-upgrades.md)：精确版本、frozen lockfile 和重新 materialize 的独立变更流程。
+- [`runbooks/debug-bundle-sharing.md`](runbooks/debug-bundle-sharing.md)：prepare/review/save、隐私审查和经同意分享 exact DebugBundle。
+- [`engineering/checkpoints/release-evidence-template.md`](engineering/checkpoints/release-evidence-template.md)：exact clean commit 的 Phase 6 证据记录模板；模板本身不构成验收。
+
 权威按领域划分并写在仓库根目录 `AGENTS.md`：运行时与 Story 架构规格负责技术边界，Contract Catalog 负责字段级 ABI，`docs/poc/` 负责七日玩法与数值，交付路线只负责轨道/实施顺序、验收与停止线，不改变上游合同。
 
 ## 研究
@@ -49,10 +60,10 @@
 
 ## 决策状态
 
-- **已确认并执行**：Phase 1 基础已完成并通过完整验证；首个玩家内容是七日网页 PoC Story。当前 live workspace 仍保留 Phase 1 的 Modules、Sandbox、Demo 和空 E2E 过渡 package；Phase 2 Task 4 才形成只含 E2E/PoC Story 的目标布局。Debug/Cheat/Automation 的目标形态是运行时能力；每个 `Story × Host` 目标上只有一个 Artifact。当前没有 AIGC 图片进入运行时 Asset Pack。
-- **当前实施结构**：Phase 2–6 已按现行架构完成编写和交叉复核；Phase 4 分为 Gameplay Simulation 与 Story/Golden，Phase 5 分为 UI Foundations、Stage/Character Presentation、Tooling/Acceptance。素材 handoff 和 Phase 0 是主 Goal 前的真实 gate；通过后主 Goal 从 Phase 2 开始。
-- **尚未通过**：PoC Gameplay、主观素材选择、最终人工试玩与远端发布；素材先行但独立，人工试玩后置，远端发布 deferred，这些都不会仅因工程 Goal 已启动或计划完成而自动视为通过。
-- **本轮可调**：所有经济数值、行动/体力强度、需求与委托效率。
+- **已确认并执行**：Phase 1 基础与 Phase 2–5C runtime/Story/UI/tooling 主线已经落地；workspace 只保留 E2E/PoC 两个独立 Story。Debug/Cheat/Automation 是同一 Artifact 的运行时能力，每个 `Story × Host` 只有一个 Artifact。当前没有 AIGC 图片进入运行时 Asset Pack。
+- **当前实施结构**：Phase 6 已建立冻结 balance evidence admission、统一 Story × Host builder、严格本地 Artifact、prebuilt browser acceptance 与 reproducibility；Goal 是否完成仍由 live Phase 6 Acceptance、Roadmap Definition of Done 和最终 clean tree 共同决定。
+- **尚未通过**：主观素材选择、Final Human Review 与 Remote Distribution；这些后续轨道不会由工程自动化或计划文字自动视为通过。
+- **当前 PoC 数值**：已经冻结为可复现工程基线，不代表正式平衡或最终玩法；在核心循环经过人工试玩并确认不会整体推翻前，不再继续参数搜索或数值打磨。
 - **等待试玩**：行动点与体力是否重复、经营步骤是否疲劳、预测信息量、三种营业模式是否都有用途。
 - **明确延后**：Unity、大规模正式美术、完整关系阶段、完整设施树、多周目、外部 Mod 管理器/安全沙箱、运行时 LLM、成人版本。
 - **许可已落盘**：SillyMaker 通用引擎使用 MIT；Project Tavern 游戏专用软件与原创内容允许非商业 Fork、Mod、汉化和改编；npm 依赖与 `vendor/**` 内容保留各自原始条款，不由项目验证器做自动许可裁决。

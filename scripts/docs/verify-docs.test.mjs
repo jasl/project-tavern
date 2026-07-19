@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { extractRootPnpmScriptsV1, verifyGoalDocumentsV1 } from "./verify-docs.mjs";
+import {
+  extractRootPnpmScriptsV1,
+  readRootPackageScriptsV1,
+  verifyGoalDocumentsV1,
+} from "./verify-docs.mjs";
 
 const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const manifest = JSON.parse(
@@ -14,13 +18,28 @@ const manifest = JSON.parse(
 );
 const banner =
   "> **执行合同：** 本计划受 [`Goal Execution Protocol v1`](../execution-protocol.md) 约束；不依赖任何外部 workflow skill 或 plugin。";
+const expectedRunbookPathsV1 = Object.freeze([
+  "docs/runbooks/debug-bundle-sharing.md",
+  "docs/runbooks/dependency-upgrades.md",
+  "docs/runbooks/local-verification.md",
+  "docs/runbooks/runtime-capabilities.md",
+  "docs/runbooks/save-data-recovery.md",
+  "docs/runbooks/semantic-automation.md",
+  "docs/runbooks/story-hotfix-authoring.md",
+]);
+const releaseEvidenceTemplatePathV1 = "docs/engineering/checkpoints/release-evidence-template.md";
+const finalHumanReviewPathV1 =
+  "docs/engineering/plans/2026-07-12-project-tavern-final-human-review.md";
+const remoteDistributionPathV1 =
+  "docs/engineering/plans/2026-07-12-project-tavern-remote-distribution-deferred.md";
 
 async function write(rootPath, path, contents) {
   await mkdir(dirname(join(rootPath, path)), { recursive: true });
   await writeFile(join(rootPath, path), contents);
 }
 
-async function fixture() {
+async function fixture(options = {}) {
+  const includeTask5 = options.includeTask5 ?? true;
   const directory = await mkdtemp(join(tmpdir(), "tavern-goal-docs-"));
   await write(directory, "docs/engineering/plan-set.v1.json", `${JSON.stringify(manifest)}\n`);
   await write(
@@ -66,7 +85,37 @@ async function fixture() {
   }
   await write(directory, "docs/engineering/README.md", "[Goal](GOAL.md)\n");
   await write(directory, "docs/engineering/checkpoints/README.md", "# Checkpoints\n");
-  await write(directory, "docs/README.md", "[Goal](engineering/GOAL.md)\n");
+  if (includeTask5) {
+    for (const path of expectedRunbookPathsV1) {
+      await write(directory, path, await readFile(join(root, path), "utf8"));
+    }
+    await write(
+      directory,
+      releaseEvidenceTemplatePathV1,
+      await readFile(join(root, releaseEvidenceTemplatePathV1), "utf8"),
+    );
+  }
+  const rootIndexLinks = includeTask5
+    ? [
+        ...expectedRunbookPathsV1,
+        releaseEvidenceTemplatePathV1,
+        finalHumanReviewPathV1,
+        remoteDistributionPathV1,
+      ].map((path) => `- [fixture](${path})`)
+    : [];
+  const docsIndexLinks = includeTask5
+    ? [
+        ...expectedRunbookPathsV1,
+        releaseEvidenceTemplatePathV1,
+        finalHumanReviewPathV1,
+        remoteDistributionPathV1,
+      ].map((path) => `- [fixture](${path.replace(/^docs\//u, "")})`)
+    : [];
+  await write(
+    directory,
+    "docs/README.md",
+    ["[Goal](engineering/GOAL.md)", ...docsIndexLinks].join("\n"),
+  );
   await write(
     directory,
     "README.md",
@@ -77,6 +126,7 @@ async function fixture() {
       "`pnpm verify:release` is the clean-worktree release gate.",
       "`pnpm verify:balance:freeze` is frozen-evidence admission only and does not run the full balance corpus.",
       "These commands do not use the network, push, or deploy.",
+      ...rootIndexLinks,
     ].join("\n"),
   );
   await write(directory, "AGENTS.md", "[Goal](docs/engineering/GOAL.md)\n");
@@ -93,23 +143,11 @@ async function fixture() {
     ].join("\n"),
   );
   await write(directory, "LICENSE.md", "# License\n");
-  await write(
-    directory,
-    "package.json",
-    `${JSON.stringify({
-      scripts: {
-        verify: "node scripts/verify.mjs",
-        "verify:balance:freeze":
-          "node --experimental-strip-types scripts/release/verify-balance-freeze.mts",
-        "verify:docs": "node scripts/docs/verify-docs.mjs",
-        "verify:release": "node scripts/verify-release.mjs",
-      },
-    })}\n`,
-  );
+  await write(directory, "package.json", await readFile(join(root, "package.json"), "utf8"));
   return directory;
 }
 
-test("extracts only root pnpm script invocations from operator prose", () => {
+test("extracts root pnpm scripts only from Markdown code", () => {
   assert.deepEqual(
     extractRootPnpmScriptsV1(
       [
@@ -120,14 +158,25 @@ test("extracts only root pnpm script invocations from operator prose", () => {
         "`pnpm install --offline --frozen-lockfile`",
         "`pnpm exec vitest run test.ts`",
         "`pnpm --filter @project-tavern/story-poc verify:commands`",
+        "Node/pnpm checkpoint prose is not a command.",
+        "```bash",
+        "pnpm verify",
+        "```",
       ].join("\n"),
     ),
     ["verify", "verify:balance:freeze", "verify:release"],
   );
+  assert.deepEqual(extractRootPnpmScriptsV1("`pnpm run publish`"), ["publish"]);
 });
 
 test("verifies the checked-in goal document contract", async () => {
   assert.deepEqual(await verifyGoalDocumentsV1(root), []);
+});
+
+test("accepts a complete synthetic Task 5 document contract", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  assert.deepEqual(await verifyGoalDocumentsV1(directory), []);
 });
 
 test("rejects a removed workflow skill reference", async (t) => {
@@ -338,10 +387,16 @@ test("rejects missing public verification scope documentation", async (t) => {
   );
 });
 
-test("does not require Task 5 runbooks before they exist", async (t) => {
-  const directory = await fixture();
+test("rejects a missing Task 5 runbook set", async (t) => {
+  const directory = await fixture({ includeTask5: false });
   t.after(() => rm(directory, { recursive: true, force: true }));
-  assert.deepEqual(await verifyGoalDocumentsV1(directory), []);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some(
+      (error) => error.includes("plan.runbook_missing") || error.includes("plan.runbook_inventory"),
+    ),
+    errors.join("\n"),
+  );
 });
 
 test("validates runbook commands only after the runbook directory exists", async (t) => {
@@ -354,6 +409,226 @@ test("validates runbook commands only after the runbook directory exists", async
       (error) =>
         error.includes("plan.command_unknown") && error.includes("docs/runbooks/example.md"),
     ),
+    errors.join("\n"),
+  );
+});
+
+test("contains the complete Phase 6 runbook inventory", async () => {
+  const runbooks = (await readdir(join(root, "docs/runbooks"), { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .map((entry) => `docs/runbooks/${entry.name}`)
+    .sort();
+  assert.deepEqual(runbooks, expectedRunbookPathsV1);
+  await readFile(join(root, releaseEvidenceTemplatePathV1), "utf8");
+});
+
+test("links every Phase 6 runbook and release template from the indexes", async () => {
+  const rootReadme = await readFile(join(root, "README.md"), "utf8");
+  const docsReadme = await readFile(join(root, "docs/README.md"), "utf8");
+  for (const path of expectedRunbookPathsV1) {
+    assert(rootReadme.includes(path), `README.md does not link ${path}`);
+    assert(
+      docsReadme.includes(path.replace(/^docs\//u, "")),
+      `docs/README.md does not link ${path}`,
+    );
+  }
+  assert(rootReadme.includes(releaseEvidenceTemplatePathV1));
+  assert(docsReadme.includes(releaseEvidenceTemplatePathV1.replace(/^docs\//u, "")));
+});
+
+test("mentions only existing pnpm scripts", async () => {
+  const scripts = await readRootPackageScriptsV1(root);
+  const commands = new Set();
+  for (const path of expectedRunbookPathsV1) {
+    const text = await readFile(join(root, path), "utf8");
+    for (const command of extractRootPnpmScriptsV1(text)) commands.add(command);
+  }
+  assert.deepEqual([...commands].filter((command) => !Object.hasOwn(scripts, command)).sort(), []);
+});
+
+test("contains capability and semantic automation stop lines", async () => {
+  const capabilities = await readFile(join(root, "docs/runbooks/runtime-capabilities.md"), "utf8");
+  assert(capabilities.includes("默认关闭"));
+  assert(capabilities.includes("RunIntegrity"));
+  const automation = await readFile(join(root, "docs/runbooks/semantic-automation.md"), "utf8");
+  assert(automation.includes("SemanticGamePort"));
+  assert(automation.includes("不得暴露 DebugTools"));
+});
+
+test("requires one real Markdown link for every runbook index target", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const readmePath = join(directory, "README.md");
+  const target = expectedRunbookPathsV1[0];
+  const readme = await readFile(readmePath, "utf8");
+  await writeFile(readmePath, readme.replace(`[fixture](${target})`, target));
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some(
+      (error) => error.includes("plan.runbook_index") && error.includes(`${target} link count 0`),
+    ),
+    errors.join("\n"),
+  );
+});
+
+test("rejects a duplicate runbook index link", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const readmePath = join(directory, "README.md");
+  const target = expectedRunbookPathsV1[0];
+  const readme = await readFile(readmePath, "utf8");
+  await writeFile(readmePath, `${readme}\n[duplicate](${target})\n`);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some(
+      (error) => error.includes("plan.runbook_index") && error.includes(`${target} link count 2`),
+    ),
+    errors.join("\n"),
+  );
+});
+
+test("rejects duplicate or reordered required runbook headings", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = expectedRunbookPathsV1[0];
+  const absolute = join(directory, path);
+  const text = await readFile(absolute, "utf8");
+  const reordered = text
+    .replace("## 前置条件", "## __TEMP__")
+    .replace("## 精确命令", "## 前置条件")
+    .replace("## __TEMP__", "## 精确命令");
+  await writeFile(absolute, `${reordered}\n## 停止条件\n`);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.filter((error) => error.includes("plan.runbook_structure") && error.includes(path))
+      .length >= 2,
+    errors.join("\n"),
+  );
+});
+
+test("rejects missing privacy lifecycle content", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = "docs/runbooks/debug-bundle-sharing.md";
+  const absolute = join(directory, path);
+  const text = await readFile(absolute, "utf8");
+  await writeFile(absolute, text.replaceAll("RuntimeCapabilities", "Runtime-Capabilities"));
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some(
+      (error) =>
+        error.includes("plan.runbook_content") &&
+        error.includes(path) &&
+        error.includes("RuntimeCapabilities"),
+    ),
+    errors.join("\n"),
+  );
+});
+
+test("freezes the release evidence command order", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const absolute = join(directory, releaseEvidenceTemplatePathV1);
+  const text = await readFile(absolute, "utf8");
+  const reordered = text
+    .replace("`pnpm build:poc`", "`pnpm build:temporary`")
+    .replace("`pnpm build:e2e`", "`pnpm build:poc`")
+    .replace("`pnpm build:temporary`", "`pnpm build:e2e`");
+  await writeFile(absolute, reordered);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some((error) => error.includes("plan.release_template_commands")),
+    errors.join("\n"),
+  );
+});
+
+test("rejects extra and semantic-duplicate release evidence commands", async (t) => {
+  for (const extra of ["pnpm typecheck", "pnpm run verify:docs"]) {
+    const directory = await fixture();
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const absolute = join(directory, releaseEvidenceTemplatePathV1);
+    const text = await readFile(absolute, "utf8");
+    const marker = "| `pnpm verify:docs`";
+    await writeFile(
+      absolute,
+      text.replace(
+        marker,
+        `| \`${extra}\`                          |      |          |\n${marker}`,
+      ),
+    );
+    const errors = await verifyGoalDocumentsV1(directory);
+    assert(
+      errors.some((error) => error.includes("plan.release_template_commands")),
+      `${extra}\n${errors.join("\n")}`,
+    );
+  }
+});
+
+test("rejects publish commands even though publish is a pnpm builtin", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const absolute = join(directory, expectedRunbookPathsV1[0]);
+  const text = await readFile(absolute, "utf8");
+  await writeFile(absolute, `${text}\n\`\`\`bash\npnpm publish\n\`\`\`\n`);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some(
+      (error) => error.includes("plan.command_forbidden") && error.includes("pnpm publish"),
+    ),
+    errors.join("\n"),
+  );
+});
+
+test("rejects an explicit pnpm run publish command", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const absolute = join(directory, expectedRunbookPathsV1[0]);
+  const text = await readFile(absolute, "utf8");
+  await writeFile(absolute, `${text}\n\`\`\`bash\npnpm run publish\n\`\`\`\n`);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some(
+      (error) => error.includes("plan.command_forbidden") && error.includes("pnpm publish"),
+    ),
+    errors.join("\n"),
+  );
+});
+
+test("reports a runbook directory with the wrong filesystem type", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const runbookDirectory = join(directory, "docs/runbooks");
+  await rm(runbookDirectory, { recursive: true });
+  await writeFile(runbookDirectory, "not a directory\n");
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some((error) => error.includes("plan.runbook_wrong_type")),
+    errors.join("\n"),
+  );
+});
+
+test("reports a runbook file with the wrong filesystem type", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const absolute = join(directory, expectedRunbookPathsV1[0]);
+  await rm(absolute);
+  await mkdir(absolute);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some((error) => error.includes("plan.runbook_wrong_type")),
+    errors.join("\n"),
+  );
+});
+
+test("reports a release template with the wrong filesystem type", async (t) => {
+  const directory = await fixture();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const absolute = join(directory, releaseEvidenceTemplatePathV1);
+  await rm(absolute);
+  await mkdir(absolute);
+  const errors = await verifyGoalDocumentsV1(directory);
+  assert(
+    errors.some((error) => error.includes("plan.release_template_wrong_type")),
     errors.join("\n"),
   );
 });

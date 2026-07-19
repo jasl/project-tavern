@@ -74,6 +74,165 @@ const expectedPublicVerificationScriptsV1 = Object.freeze({
   "verify:release": "node scripts/verify-release.mjs",
 });
 const operatorCommandDocumentsV1 = Object.freeze(["README.md", "CONTRIBUTING.md"]);
+const expectedRunbookPathsV1 = Object.freeze([
+  "docs/runbooks/debug-bundle-sharing.md",
+  "docs/runbooks/dependency-upgrades.md",
+  "docs/runbooks/local-verification.md",
+  "docs/runbooks/runtime-capabilities.md",
+  "docs/runbooks/save-data-recovery.md",
+  "docs/runbooks/semantic-automation.md",
+  "docs/runbooks/story-hotfix-authoring.md",
+]);
+const releaseEvidenceTemplatePathV1 = "docs/engineering/checkpoints/release-evidence-template.md";
+const requiredRunbookHeadingsV1 = Object.freeze([
+  "## 前置条件",
+  "## 精确命令",
+  "## 预期输出",
+  "## 失败证据",
+  "## 停止条件",
+  "## 权威边界",
+]);
+const prepareGoalScriptV1 = ["prepare", "goal"].join(":");
+const prepareGoalCommandFragmentV1 = `\`pnpm ${prepareGoalScriptV1}\``;
+const requiredRunbookFragmentsV1 = Object.freeze({
+  "docs/runbooks/debug-bundle-sharing.md": Object.freeze([
+    "隐私审查",
+    "明确同意",
+    "RunIntegrity",
+    "RuntimeCapabilities",
+    "20 MiB",
+    "不自动上传",
+    "prepare",
+    "review",
+    "save",
+    "discard",
+    "绝对路径",
+    "浏览器历史",
+    "任意 Host storage",
+    "未选择文件",
+    "未裁剪异常",
+  ]),
+  "docs/runbooks/dependency-upgrades.md": Object.freeze([
+    "精确版本",
+    "frozen lockfile",
+    prepareGoalCommandFragmentV1,
+    "`pnpm verify:materialization`",
+    "计划外依赖",
+    "直接评审",
+    "npm 依赖",
+    "`vendor/**`",
+  ]),
+  "docs/runbooks/local-verification.md": Object.freeze([
+    prepareGoalCommandFragmentV1,
+    "offline/read-only",
+    "build-input.json",
+    "artifact-manifest.json",
+    "sourceCommit",
+    "sourceTree",
+    "materializationDigest",
+    "ResolvedGame",
+    "application identity",
+    "不会 publish",
+  ]),
+  "docs/runbooks/runtime-capabilities.md": Object.freeze([
+    "默认关闭",
+    "persisted OR session-requested",
+    "不写回",
+    "同一 Artifact",
+    "read-only Debug",
+    "Cheat",
+    "RunIntegrity",
+    "普通能力状态",
+    "fresh",
+    "Host preference",
+    "session-requested",
+    "Save/Load",
+  ]),
+  "docs/runbooks/save-data-recovery.md": Object.freeze([
+    "auto.current",
+    "auto.previous",
+    "quick",
+    "manual",
+    "显式恢复候选",
+    "compare-and-swap",
+    "lease",
+    "fencing",
+    "bytes → Strict JSON → envelope Schema → state digest → compatibility/adoption → stable references → invariants",
+    "不得强行载入",
+  ]),
+  "docs/runbooks/semantic-automation.md": Object.freeze([
+    "SemanticGamePort",
+    "__SILLYMAKER_AUTOMATION_V1__",
+    "contractRevision",
+    'kind: "ok"',
+    "observe",
+    "availableActions",
+    "preview",
+    "dispatch",
+    "waitForIdle",
+    "capability_disabled",
+    "每次调用",
+    "player-visible",
+    "不得使用 sleep",
+    "不得使用坐标",
+    "不得暴露 DebugTools",
+  ]),
+  "docs/runbooks/story-hotfix-authoring.md": Object.freeze([
+    "bootstrap-only",
+    "同步确定性",
+    "requires",
+    "conflicts",
+    "supersedes",
+    "fresh registries",
+    "撤销写能力",
+    "PatchSet",
+    "部分 GameSession",
+  ]),
+});
+const requiredReleaseTemplateFragmentsV1 = Object.freeze([
+  "模板本身不构成验收证据",
+  "source commit",
+  "source tree",
+  "materialization digest",
+  "frozen balance",
+  "build-input.json",
+  "artifact-manifest.json",
+  "manifest digest",
+  "reproducible",
+  "Final Human Review",
+  "Remote Distribution",
+  "clean status before/after",
+]);
+const phase6AcceptanceCommandsV1 = Object.freeze([
+  "pnpm verify:materialization",
+  "pnpm install --offline --frozen-lockfile",
+  "pnpm test:scripts",
+  "pnpm verify:balance:freeze",
+  "pnpm build:poc",
+  "pnpm build:e2e",
+  "pnpm verify",
+  "pnpm verify:release",
+  "pnpm release:repro",
+  "pnpm test:e2e:prebuilt --project=chromium",
+  "pnpm verify:docs",
+  "git diff --check",
+  "git status --short --branch",
+]);
+const forbiddenRunbookCommandPatternsV1 = Object.freeze([
+  Object.freeze({
+    label: "pnpm publish",
+    pattern: /\bpnpm[ \t]+(?:run[ \t]+)?publish\b/gu,
+  }),
+  Object.freeze({
+    label: "npm publish",
+    pattern: /\bnpm[ \t]+(?:run[ \t]+)?publish\b/gu,
+  }),
+  Object.freeze({ label: "git push", pattern: /\bgit[ \t]+push\b/gu }),
+  Object.freeze({
+    label: "deployment command",
+    pattern: /\b(?:wrangler|vercel|netlify)[ \t]+(?:deploy|publish)\b/gu,
+  }),
+]);
 const publicVerificationDocumentationFragmentsV1 = Object.freeze([
   "`pnpm verify`",
   "ordinary non-release",
@@ -127,13 +286,60 @@ function withoutFencedCode(text) {
     .join("\n");
 }
 
+function markdownCodeFragmentsV1(text) {
+  const fragments = [];
+  let fenced = false;
+  for (const line of text.split("\n")) {
+    if (/^\s*```/u.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) {
+      fragments.push(line);
+      continue;
+    }
+    for (const match of line.matchAll(/`([^`\n]+)`/gu)) {
+      fragments.push(match[1]);
+    }
+  }
+  return fragments.join("\n");
+}
+
+function markdownSectionV1(text, heading) {
+  const marker = `${heading}\n`;
+  const headingIndex = text.indexOf(marker);
+  if (headingIndex < 0) return "";
+  const contentStart = headingIndex + marker.length;
+  const remainder = text.slice(contentStart);
+  const nextHeadingOffset = remainder.search(/^## /mu);
+  return nextHeadingOffset < 0 ? remainder : remainder.slice(0, nextHeadingOffset);
+}
+
+function markdownLinkTargetsV1(text) {
+  const targets = [];
+  const prose = withoutFencedCode(text);
+  const pattern = /!?\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/gu;
+  for (const match of prose.matchAll(pattern)) {
+    const encoded = match[1]?.replace(/^<|>$/gu, "").split("#", 1)[0];
+    if (!encoded) continue;
+    try {
+      targets.push(decodeURIComponent(encoded));
+    } catch {
+      // The existing link validator reports the stable invalid-link diagnostic.
+    }
+  }
+  return targets;
+}
+
 export function extractRootPnpmScriptsV1(text) {
   const commands = new Set();
-  for (const match of text.matchAll(/\bpnpm[ \t]+(?:run[ \t]+)?([^\s`"'|;&()[\]{}<>]+)/gu)) {
-    const token = match[1].replace(/[,.!?]+$/gu, "");
+  const code = markdownCodeFragmentsV1(text);
+  for (const match of code.matchAll(/\bpnpm[ \t]+(?:(run)[ \t]+)?([^\s`"'|;&()[\]{}<>]+)/gu)) {
+    const explicitRun = match[1] !== undefined;
+    const token = match[2].replace(/[,.!?]+$/gu, "");
     if (
       token.startsWith("-") ||
-      pnpmBuiltinsV1.has(token) ||
+      (!explicitRun && pnpmBuiltinsV1.has(token)) ||
       !/^[a-z0-9][a-z0-9:_-]*$/u.test(token)
     ) {
       continue;
@@ -157,7 +363,7 @@ export async function readRootPackageScriptsV1(root) {
   return packageJson.scripts;
 }
 
-async function existsWithoutSymlink(root, path) {
+async function pathStateWithoutSymlinkV1(root, path) {
   const logicalRoot = resolve(root);
   const absolute = resolve(logicalRoot, path);
   const logicalPrefix = `${logicalRoot}${sep}`;
@@ -169,10 +375,17 @@ async function existsWithoutSymlink(root, path) {
     const canonicalPrefix = `${canonicalRoot}${sep}`;
     const canonical = await realpath(absolute);
     if (canonical !== canonicalRoot && !canonical.startsWith(canonicalPrefix)) return "escape";
-    return "exists";
+    if (stat.isFile()) return "file";
+    if (stat.isDirectory()) return "directory";
+    return "other";
   } catch {
     return "missing";
   }
+}
+
+async function existsWithoutSymlink(root, path) {
+  const state = await pathStateWithoutSymlinkV1(root, path);
+  return state === "file" || state === "directory" ? "exists" : state;
 }
 
 async function markdownFiles(root) {
@@ -450,6 +663,142 @@ export async function verifyGoalDocumentsV1(root) {
     );
   }
 
+  const runbookDirectoryV1 = "docs/runbooks";
+  const runbookDirectoryStateV1 = await pathStateWithoutSymlinkV1(root, runbookDirectoryV1);
+  if (runbookDirectoryStateV1 !== "directory") {
+    errors.push(
+      diagnostic(
+        runbookDirectoryStateV1 === "file" || runbookDirectoryStateV1 === "other"
+          ? "runbook_wrong_type"
+          : `runbook_${runbookDirectoryStateV1}`,
+        runbookDirectoryV1,
+        1,
+        `complete Phase 6 runbook directory is required, found ${runbookDirectoryStateV1}`,
+      ),
+    );
+  } else {
+    const runbookEntries = await readdir(join(root, runbookDirectoryV1), { withFileTypes: true });
+    const actualRunbookPaths = runbookEntries
+      .map((entry) => `${runbookDirectoryV1}/${entry.name}`)
+      .sort();
+    if (
+      runbookEntries.some(
+        (entry) => entry.isSymbolicLink() || !entry.isFile() || !entry.name.endsWith(".md"),
+      ) ||
+      JSON.stringify(actualRunbookPaths) !== JSON.stringify(expectedRunbookPathsV1)
+    ) {
+      errors.push(
+        diagnostic(
+          "runbook_inventory",
+          runbookDirectoryV1,
+          1,
+          `found ${actualRunbookPaths.join(", ")}`,
+        ),
+      );
+    }
+  }
+
+  for (const path of expectedRunbookPathsV1) {
+    const state = await pathStateWithoutSymlinkV1(root, path);
+    if (state !== "file") {
+      const code =
+        state === "directory" || state === "other" ? "runbook_wrong_type" : `runbook_${state}`;
+      errors.push(diagnostic(code, path, 1, `required Phase 6 runbook file, found ${state}`));
+      continue;
+    }
+    const text = await readFile(join(root, path), "utf8");
+    let previousHeadingIndex = -1;
+    for (const heading of requiredRunbookHeadingsV1) {
+      const pattern = new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}$`, "gmu");
+      const matches = [...text.matchAll(pattern)];
+      if (matches.length !== 1) {
+        errors.push(
+          diagnostic("runbook_structure", path, 1, `${heading} count ${String(matches.length)}`),
+        );
+        continue;
+      }
+      const index = matches[0]?.index ?? -1;
+      if (index <= previousHeadingIndex) {
+        errors.push(
+          diagnostic("runbook_structure", path, lineOf(text, index), `out of order ${heading}`),
+        );
+      }
+      previousHeadingIndex = index;
+    }
+    for (const fragment of requiredRunbookFragmentsV1[path] ?? []) {
+      if (!text.includes(fragment)) {
+        errors.push(diagnostic("runbook_content", path, 1, `missing ${fragment}`));
+      }
+    }
+  }
+
+  const releaseTemplateStateV1 = await pathStateWithoutSymlinkV1(
+    root,
+    releaseEvidenceTemplatePathV1,
+  );
+  if (releaseTemplateStateV1 !== "file") {
+    errors.push(
+      diagnostic(
+        releaseTemplateStateV1 === "directory" || releaseTemplateStateV1 === "other"
+          ? "release_template_wrong_type"
+          : `release_template_${releaseTemplateStateV1}`,
+        releaseEvidenceTemplatePathV1,
+        1,
+        `required Phase 6 release evidence template file, found ${releaseTemplateStateV1}`,
+      ),
+    );
+  } else {
+    const template = await readFile(join(root, releaseEvidenceTemplatePathV1), "utf8");
+    for (const fragment of requiredReleaseTemplateFragmentsV1) {
+      if (!template.includes(fragment)) {
+        errors.push(
+          diagnostic("release_template_content", releaseEvidenceTemplatePathV1, 1, fragment),
+        );
+      }
+    }
+    const templateCommandLines = markdownCodeFragmentsV1(
+      markdownSectionV1(template, "## Gate evidence"),
+    )
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (JSON.stringify(templateCommandLines) !== JSON.stringify(phase6AcceptanceCommandsV1)) {
+      errors.push(
+        diagnostic(
+          "release_template_commands",
+          releaseEvidenceTemplatePathV1,
+          1,
+          `expected ${phase6AcceptanceCommandsV1.join(" -> ")}; found ${templateCommandLines.join(" -> ")}`,
+        ),
+      );
+    }
+  }
+
+  const indexExpectationsV1 = Object.freeze({
+    "README.md": [
+      ...expectedRunbookPathsV1,
+      releaseEvidenceTemplatePathV1,
+      expectedPlanPathsV1["final-human-review"],
+      expectedPlanPathsV1["remote-distribution"],
+    ],
+    "docs/README.md": [
+      ...expectedRunbookPathsV1.map((path) => path.replace(/^docs\//u, "")),
+      releaseEvidenceTemplatePathV1.replace(/^docs\//u, ""),
+      expectedPlanPathsV1["final-human-review"].replace(/^docs\//u, ""),
+      expectedPlanPathsV1["remote-distribution"].replace(/^docs\//u, ""),
+    ],
+  });
+  for (const [path, targets] of Object.entries(indexExpectationsV1)) {
+    const text = await readFile(join(root, path), "utf8");
+    const linkedTargets = markdownLinkTargetsV1(text);
+    for (const target of targets) {
+      const count = linkedTargets.filter((candidate) => candidate === target).length;
+      if (count !== 1) {
+        errors.push(diagnostic("runbook_index", path, 1, `${target} link count ${String(count)}`));
+      }
+    }
+  }
+
   let packageScripts;
   try {
     packageScripts = await readRootPackageScriptsV1(root);
@@ -473,12 +822,21 @@ export async function verifyGoalDocumentsV1(root) {
     const commandDocuments = [
       ...operatorCommandDocumentsV1,
       ...allMarkdown.filter((path) => path.startsWith("docs/runbooks/")),
+      ...(allMarkdown.includes(releaseEvidenceTemplatePathV1)
+        ? [releaseEvidenceTemplatePathV1]
+        : []),
     ];
     for (const path of commandDocuments) {
       const text = await readFile(join(root, path), "utf8");
       for (const command of extractRootPnpmScriptsV1(text)) {
         if (!Object.hasOwn(packageScripts, command)) {
           errors.push(diagnostic("command_unknown", path, 1, command));
+        }
+      }
+      const code = markdownCodeFragmentsV1(text);
+      for (const forbidden of forbiddenRunbookCommandPatternsV1) {
+        if ([...code.matchAll(forbidden.pattern)].length > 0) {
+          errors.push(diagnostic("command_forbidden", path, 1, forbidden.label));
         }
       }
     }
