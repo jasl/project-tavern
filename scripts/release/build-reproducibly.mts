@@ -385,11 +385,13 @@ export async function runNodeCommandV1(
       });
     });
     if (hasInput && stdin !== null) {
-      stdin.once("error", requestFailureV1);
+      stdin.once("error", () => {
+        // A successful consumer may close after reading only the prefix it needs; close owns status.
+      });
       try {
         stdin.end(command.input);
-      } catch (error) {
-        requestFailureV1(error);
+      } catch {
+        // Synchronous stream closure is governed by the same child exit-status contract.
       }
     }
   });

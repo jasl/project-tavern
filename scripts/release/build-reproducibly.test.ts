@@ -380,6 +380,41 @@ describe("runNodeCommandV1", () => {
     expect(child.stdin.end).toHaveBeenCalledWith(input);
   });
 
+  it("lets a successful input consumer close stdin early and settle by exit status", async () => {
+    const child = createFakeChildV1();
+    const command = {
+      ...createArchiveInstallInvocationV1({
+        cwd: "/tmp/archive-a",
+        frozenStoreDir: "/pnpm/store",
+        storeDir: "/pnpm/store",
+      }),
+      input: new Uint8Array([1, 2, 3]),
+    };
+    const commandPromise = runNodeCommandV1(command, {
+      outputLimitBytes: 1024,
+      spawn: vi.fn(() => child) as never,
+    });
+    let outcome: "pending" | "rejected" | "resolved" = "pending";
+    void commandPromise.then(
+      () => {
+        outcome = "resolved";
+      },
+      () => {
+        outcome = "rejected";
+      },
+    );
+
+    const earlyClose = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    child.stdin.emit("error", earlyClose);
+    await Promise.resolve();
+    expect(child.kill).not.toHaveBeenCalled();
+    expect(outcome).toBe("pending");
+    child.emit("close", 0, null);
+
+    await expect(commandPromise).resolves.toMatchObject({ exitCode: 0 });
+    expect(outcome).toBe("resolved");
+  });
+
   it("kills an invalid stdio child but rejects only after close", async () => {
     const validChild = createFakeChildV1();
     const child = Object.assign(new EventEmitter(), {
