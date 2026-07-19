@@ -36,7 +36,10 @@ export function scriptTestCommandsV1(discovered) {
     ]);
   }
   if (discovered.vitest.length > 0)
-    commands.push(["pnpm", ["exec", "vitest", "run", "--project", "scripts"]]);
+    commands.push([
+      "pnpm",
+      ["exec", "vitest", "run", "--project", "scripts", "--fileParallelism=false"],
+    ]);
   return commands;
 }
 

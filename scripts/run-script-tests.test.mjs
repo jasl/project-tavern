@@ -89,7 +89,7 @@ test("discovers every nested script test exactly once", async (t) => {
         "scripts/root.test.mjs",
       ],
     ],
-    ["pnpm", ["exec", "vitest", "run", "--project", "scripts"]],
+    ["pnpm", ["exec", "vitest", "run", "--project", "scripts", "--fileParallelism=false"]],
   ]);
 });
 
@@ -99,6 +99,12 @@ test("runs Node script tests with strip-only TypeScript support and serial file 
       "node",
       ["--experimental-strip-types", "--test", "--test-concurrency=1", "scripts/typed.test.mjs"],
     ],
+  ]);
+});
+
+test("runs Vitest script files serially to preserve fixed-port isolation", () => {
+  assert.deepEqual(scriptTestCommandsV1({ node: [], vitest: ["scripts/port.test.ts"] }), [
+    ["pnpm", ["exec", "vitest", "run", "--project", "scripts", "--fileParallelism=false"]],
   ]);
 });
 
