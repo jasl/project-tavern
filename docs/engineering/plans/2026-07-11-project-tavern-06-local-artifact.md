@@ -942,8 +942,11 @@ Expected: both isolated builds and the exact served `dist/poc` identify the new 
 - Create: `scripts/release/verify-balance-freeze.test.ts`
 - Modify: `scripts/verify.mjs`
 - Modify: `scripts/verify-release.mjs`
+- Modify: `scripts/verify-release.test.mjs`
 - Modify: `scripts/verify.test.mjs`
+- Modify: `scripts/verify-poc-story.test.mjs`
 - Modify: `scripts/run-script-tests.test.mjs`
+- Modify: `scripts/ui/verify-stage-presentation.test.ts`
 - Modify: `scripts/docs/verify-docs.mjs`
 - Modify: `scripts/docs/verify-docs.test.mjs`
 - Delete: root `playwright.config.ts`
@@ -1000,6 +1003,8 @@ expect(verificationSteps.some((step) => step.id.includes("developer"))).toBe(fal
 
 Extend recursive discovery tests against the live repository and injected omission/duplication fixtures. Assert every inspect-only step fails on missing output rather than rebuilding. Freeze the final Playwright config inventory to exactly `engine/packages/web/playwright.interaction.config.ts`, `engine/packages/web/playwright.ui.config.ts`, and `engine/packages/web/playwright.prebuilt.config.ts`; the obsolete root `playwright.config.ts` must be absent so plain `playwright test` cannot bypass explicit project/visual wrappers.
 
+Replace the three accepted legacy orchestration assertions in `scripts/verify-release.test.mjs`, `scripts/verify-poc-story.test.mjs`, and `scripts/ui/verify-stage-presentation.test.ts` in the same slice. They must prove the new direct-leaf and release-wrapper contracts rather than preserve the obsolete E2E double-build, `compareReleaseManifestsV1`, or transitive `verify:phase4` paths.
+
 Add focused frozen-evidence tests that reject missing external A/B files, unequal report or attestation bytes, malformed report or strict-attestation bytes, a nonzero/derived-mismatched deficit, a report/trailer mismatch, wrong final commit/tree/recomputed-archive/lock/materialization/package-closure/toolchain identity, incomplete or stale reviewed Save provenance, a nonancestor final, and any later protected-path change. Inject Git/filesystem/hash/admission ports in unit tests. Add a static import-closure assertion: this PolyForm Story-specific verifier may import the Story evidence codec/full-report admission and Save provenance projection, but it must not import `balance-metrics`, a counterfactual/reference-strategy runner, `scripts/verify-poc-balance.mjs` or `scripts/run-poc-balance-remote.mjs`, and must never call a worker, selector, remote transport or writer.
 
 - [ ] **Step 2: Run orchestrator tests and confirm failure**
@@ -1007,8 +1012,8 @@ Add focused frozen-evidence tests that reject missing external A/B files, unequa
 Run:
 
 ```bash
-pnpm exec vitest run scripts/release/verify-balance-freeze.test.ts
-node --test scripts/run-script-tests.test.mjs scripts/verify.test.mjs scripts/docs/verify-docs.test.mjs
+pnpm exec vitest run scripts/release/verify-balance-freeze.test.ts scripts/ui/verify-stage-presentation.test.ts
+node --test scripts/run-script-tests.test.mjs scripts/verify.test.mjs scripts/verify-release.test.mjs scripts/verify-poc-story.test.mjs scripts/docs/verify-docs.test.mjs
 ```
 
 Expected: FAIL because the frozen-evidence leaf, final two-build order and Phase 6 runbook inventory extensions are absent; the existing Goal/plan/link contract remains green before those new assertions.
@@ -1050,7 +1055,7 @@ Expected: all commands exit 0; PoC/E2E each build once per ordinary verify; trac
 - [ ] **Step 5: Commit the public verification contract**
 
 ```bash
-git add -- scripts/release/verify-balance-freeze.mts scripts/release/verify-balance-freeze.test.ts scripts/verify.mjs scripts/verify-release.mjs scripts/verify.test.mjs scripts/run-script-tests.test.mjs scripts/docs playwright.config.ts package.json README.md CONTRIBUTING.md
+git add -- scripts/release/verify-balance-freeze.mts scripts/release/verify-balance-freeze.test.ts scripts/verify.mjs scripts/verify-release.mjs scripts/verify-release.test.mjs scripts/verify.test.mjs scripts/verify-poc-story.test.mjs scripts/run-script-tests.test.mjs scripts/ui/verify-stage-presentation.test.ts scripts/docs playwright.config.ts package.json README.md CONTRIBUTING.md
 git diff --cached --check
 git commit -m "build: unify story host verification"
 ```
