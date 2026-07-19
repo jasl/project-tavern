@@ -379,6 +379,47 @@ describe("runNodeCommandV1", () => {
     );
     expect(child.stdin.end).toHaveBeenCalledWith(input);
   });
+
+  it("kills an invalid stdio child but rejects only after close", async () => {
+    const validChild = createFakeChildV1();
+    const child = Object.assign(new EventEmitter(), {
+      kill: validChild.kill,
+      stderr: validChild.stderr,
+      stdin: validChild.stdin,
+      stdout: null,
+    });
+    const command = createArchiveInstallInvocationV1({
+      cwd: "/tmp/archive-a",
+      frozenStoreDir: "/pnpm/store",
+      storeDir: "/pnpm/store",
+    });
+    const commandPromise = runNodeCommandV1(command, {
+      outputLimitBytes: 1024,
+      spawn: vi.fn(() => child) as never,
+    });
+    let outcome: "pending" | "rejected" | "resolved" = "pending";
+    void commandPromise.then(
+      () => {
+        outcome = "resolved";
+      },
+      () => {
+        outcome = "rejected";
+      },
+    );
+
+    await Promise.resolve();
+    expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(outcome).toBe("pending");
+    child.emit("error", new Error("child failed while closing"));
+    await Promise.resolve();
+    expect(outcome).toBe("pending");
+    child.emit("close", null, "SIGKILL");
+
+    await expect(commandPromise).rejects.toThrow(
+      /release\.invalid_repro_command: child stdio contract failed/u,
+    );
+    expect(outcome).toBe("rejected");
+  });
 });
 
 describe("archive byte and extraction authority", () => {

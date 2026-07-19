@@ -326,12 +326,21 @@ export async function runNodeCommandV1(
     const stdoutStream = child.stdout;
     const stderrStream = child.stderr;
     if (stdoutStream === null || stderrStream === null || (hasInput && stdin === null)) {
+      const failure = new TypeError("release.invalid_repro_command: child stdio contract failed");
+      let settled = false;
+      child.once("error", () => {
+        // The invalid stdio contract remains authoritative; close owns settlement.
+      });
+      child.once("close", () => {
+        if (settled) return;
+        settled = true;
+        rejectResult(failure);
+      });
       try {
         child.kill("SIGKILL");
       } catch {
         // The invalid stdio contract remains authoritative.
       }
-      rejectResult(new TypeError("release.invalid_repro_command: child stdio contract failed"));
       return;
     }
     const stdout: Buffer[] = [];
