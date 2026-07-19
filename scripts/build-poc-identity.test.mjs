@@ -299,6 +299,7 @@ void test("marks the production PoC entry as a real Vite self-accept boundary", 
   const { createServer } = await import(viteModuleSpecifier);
   const server = await createServer({
     configFile: join(repositoryRoot, "vite.config.ts"),
+    configLoader: "native",
     mode: "poc-web",
     logLevel: "silent",
     server: { middlewareMode: true },

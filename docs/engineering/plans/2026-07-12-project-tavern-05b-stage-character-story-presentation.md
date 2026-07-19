@@ -3175,6 +3175,30 @@ git commit -m "test(build): stabilize story artifact verification"
 
 Task 11 begins only from that clean, verified repair commit.
 
+#### Authorized Phase 6 owner repair: finish the native identity-test lifecycle
+
+The Phase 6 Task 2 clean candidate exposed that the earlier repair passed `configLoader: "native"`
+only to the direct `loadConfigFromFile` probes. Both tests still called `createServer` without the
+same option, so that second config load retained the default Rolldown config-bundler lifecycle and
+left the PoC test-file promise unresolved after all eleven preceding script tests had passed. This
+is the same test-owner defect with the same unique answer: pass `configLoader: "native"` to the real
+E2E and PoC `createServer` calls, keep awaiting `server.close()`, and preserve the production build
+loader unchanged. Do not add `--test-force-exit` or a private Rolldown shutdown call.
+
+**Files:**
+
+- Modify: `scripts/build-e2e-identity.test.mjs`
+- Modify: `scripts/build-poc-identity.test.mjs`
+- Modify: this Phase 5B plan.
+
+The qualifying RED is the clean Phase 6 candidate result in which
+`scripts/build-poc-identity.test.mjs` remains unresolved with
+`Promise resolution is still pending but the event loop has already resolved` after the preceding
+identity assertions pass. GREEN requires both identity files to exit naturally, followed by
+`pnpm test:scripts`, clean `pnpm verify` and `pnpm verify:materialization`. Exact-stage only these
+three Files and commit `test(build): release story identity resources` before resuming the unchanged
+Phase 6 Task 2 staged patch.
+
 #### Authorized post-Task 10 owner repair before Task 11: expose the real public acceptance paths
 
 The clean Task 10 Artifact and the first Task 11 production-DOM audit exposed an earlier-owner

@@ -310,6 +310,7 @@ void test("marks the production E2E entry as a real Vite self-accept boundary", 
   const { createServer } = await import(viteModuleSpecifier);
   const server = await createServer({
     configFile: join(repositoryRoot, "vite.config.ts"),
+    configLoader: "native",
     mode: "e2e-web",
     logLevel: "silent",
     server: { middlewareMode: true },
