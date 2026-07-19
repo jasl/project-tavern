@@ -327,6 +327,58 @@ describe("runNodeCommandV1", () => {
       expect(outcome).toBe("rejected");
     },
   );
+
+  it("does not open or end stdin for a command without input", async () => {
+    const child = createFakeChildV1();
+    const spawn = vi.fn(() => child) as never;
+    const command = createArchiveInstallInvocationV1({
+      cwd: "/tmp/archive-a",
+      frozenStoreDir: "/pnpm/store",
+      storeDir: "/pnpm/store",
+    });
+    const commandPromise = runNodeCommandV1(command, {
+      outputLimitBytes: 1024,
+      spawn,
+    });
+
+    child.emit("close", 0, null);
+
+    await expect(commandPromise).resolves.toMatchObject({ exitCode: 0 });
+    expect(spawn).toHaveBeenCalledWith(
+      "pnpm",
+      [...command.args],
+      expect.objectContaining({ stdio: ["ignore", "pipe", "pipe"] }),
+    );
+    expect(child.stdin.end).not.toHaveBeenCalled();
+  });
+
+  it("opens and ends stdin only when command input is present", async () => {
+    const child = createFakeChildV1();
+    const spawn = vi.fn(() => child) as never;
+    const input = new Uint8Array([1, 2, 3]);
+    const command = {
+      ...createArchiveInstallInvocationV1({
+        cwd: "/tmp/archive-a",
+        frozenStoreDir: "/pnpm/store",
+        storeDir: "/pnpm/store",
+      }),
+      input,
+    };
+    const commandPromise = runNodeCommandV1(command, {
+      outputLimitBytes: 1024,
+      spawn,
+    });
+
+    child.emit("close", 0, null);
+
+    await expect(commandPromise).resolves.toMatchObject({ exitCode: 0 });
+    expect(spawn).toHaveBeenCalledWith(
+      "pnpm",
+      [...command.args],
+      expect.objectContaining({ stdio: ["pipe", "pipe", "pipe"] }),
+    );
+    expect(child.stdin.end).toHaveBeenCalledWith(input);
+  });
 });
 
 describe("archive byte and extraction authority", () => {

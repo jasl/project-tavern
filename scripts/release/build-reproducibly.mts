@@ -315,12 +315,25 @@ export async function runNodeCommandV1(
       rejectResult(new TypeError("release.invalid_repro_command: shell commands are forbidden"));
       return;
     }
+    const hasInput = command.input !== undefined;
     const child = execution.spawn(command.executable, [...command.args], {
       cwd: command.cwd,
       env: { ...command.env },
       shell: false,
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: [hasInput ? "pipe" : "ignore", "pipe", "pipe"],
     });
+    const stdin = child.stdin;
+    const stdoutStream = child.stdout;
+    const stderrStream = child.stderr;
+    if (stdoutStream === null || stderrStream === null || (hasInput && stdin === null)) {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // The invalid stdio contract remains authoritative.
+      }
+      rejectResult(new TypeError("release.invalid_repro_command: child stdio contract failed"));
+      return;
+    }
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let outputBytes = 0;
@@ -346,8 +359,8 @@ export async function runNodeCommandV1(
       }
       target.push(chunk);
     };
-    child.stdout.on("data", (chunk: Buffer) => collectV1(stdout, chunk));
-    child.stderr.on("data", (chunk: Buffer) => collectV1(stderr, chunk));
+    stdoutStream.on("data", (chunk: Buffer) => collectV1(stdout, chunk));
+    stderrStream.on("data", (chunk: Buffer) => collectV1(stderr, chunk));
     child.once("error", requestFailureV1);
     child.once("close", (code, signal) => {
       if (closed) return;
@@ -362,11 +375,13 @@ export async function runNodeCommandV1(
         stdout: Buffer.concat(stdout),
       });
     });
-    child.stdin.once("error", requestFailureV1);
-    try {
-      child.stdin.end(command.input);
-    } catch (error) {
-      requestFailureV1(error);
+    if (hasInput && stdin !== null) {
+      stdin.once("error", requestFailureV1);
+      try {
+        stdin.end(command.input);
+      } catch (error) {
+        requestFailureV1(error);
+      }
     }
   });
 }
