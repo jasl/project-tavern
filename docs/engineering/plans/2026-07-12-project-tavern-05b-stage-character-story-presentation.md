@@ -2586,10 +2586,10 @@ Repair the unique project configuration without adding a dependency or a declara
 
 The accepted Task 9 application config removes that include and selects child-project-local
 `"types": ["vite/client"]`. Apply the same project-local type selection to the primary PoC
-`tsconfig.json`. Do not add a production triple-slash reference, import another package's
-`src/**`, create a Story-local duplicate CSS declaration, or change package/lock metadata. The
-root `tsconfig.check.json` remains unchanged, so E2E's deliberately narrow `ImportMeta.hot` ABI is
-not merged with Vite's ambient type in the root diagnostic program.
+`tsconfig.json`. For this PoC repair, do not add a production triple-slash reference, import
+another package's `src/**`, create a Story-local duplicate CSS declaration, or change package/lock
+metadata. The root `tsconfig.check.json` remains unchanged, so E2E's deliberately narrow
+`ImportMeta.hot` ABI is not merged with Vite's ambient type in the root diagnostic program.
 
 The qualifying RED is the clean post-Task 9 `pnpm verify:materialization` failure
 `external_precondition.offline_build_failed`, reproduced directly as CSS Module `TS2307`
@@ -2607,6 +2607,27 @@ git commit -m "fix(story-poc): type CSS modules in composite build"
 
 From the clean repair commit rerun `pnpm verify:materialization`, the complete Task 9 gate, and
 root `pnpm verify`. Task 10 may begin only when all pass and package/lock bytes remain unchanged.
+
+#### Authorized Phase 6 recurrence repair: type E2E application CSS loader inputs
+
+A Phase 6 clean-candidate build exposed the distinct E2E application consumer gap. Its project
+follows the public workspace source exports of `@sillymaker/ui` and `@sillymaker/web`, but those
+owners' project-local ambient CSS declarations are not in the consumer import closure. The E2E
+application deliberately retains its narrow `ImportMeta.hot` contract, so selecting all of
+`vite/client` would change that contract merely to admit loader-owned foreign CSS imports.
+
+Create only `game/stories/e2e/src/application/styles.d.ts` with the Story license header and the
+broad loader declaration `declare module "*.css";`. This E2E-only consumer adapter is the sole
+exception to the PoC prohibition above: it does not redefine CSS Module class-map exports, import
+another package's `src/**`, change runtime bytes, add a dependency, or change package/lock metadata.
+The UI owner continues to type-check its own CSS Modules with the stricter class-map declaration.
+
+The qualifying RED is a fresh-output `pnpm build` failure containing the UI CSS Module `TS2307`
+diagnostics and Web `styles.css` `TS2882`. After the repair, remove only disposable TypeScript
+outputs and prove a first cold `pnpm build`, then run `pnpm typecheck`, E2E HMR integration,
+boundaries, cycles, formatting and the root clean verification gate. Stage only this plan and the
+new declaration, then commit with `fix(story-e2e): type application CSS loader inputs` before
+resuming the interrupted Phase 6 task.
 
 #### Authorized pre-Task 10 owner repair: promote the PoC production game runtime
 
