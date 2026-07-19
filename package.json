@@ -27,7 +27,7 @@
     "verify:determinism": "pnpm --filter @project-tavern/story-e2e verify:determinism",
     "verify:assets": "node scripts/verify-assets.mjs",
     "verify:bundle": "node scripts/verify-bundle.mjs",
-    "verify:artifact": "node scripts/verify-artifact.mjs",
+    "verify:artifact": "node scripts/verify-artifact.mjs dist/poc",
     "verify:release": "node scripts/verify-release.mjs",
     "verify:ui-runtime": "node --experimental-strip-types scripts/ui/verify-ui-runtime.mts",
     "verify:ui": "node --experimental-strip-types scripts/ui/verify-ui.mts",
@@ -61,7 +61,8 @@
     "verify:ui-tooling": "node --experimental-strip-types scripts/ui/verify-phase5c.mts",
     "verify:phase5c": "pnpm verify:phase5b && pnpm verify:ui-tooling",
     "verify:application-graphs": "node --experimental-strip-types scripts/ui/verify-application-graphs.mts",
-    "release:prepare": "pnpm build:e2e && node scripts/prepare-artifact.mjs dist/e2e",
+    "artifact:manifest": "node --experimental-strip-types scripts/release/create-artifact-manifest.mts dist/poc",
+    "release:prepare": "node --experimental-strip-types scripts/release/build-artifact.mts --story poc --host web --out-dir dist/poc --require-clean",
     "regenerate:fixtures": "pnpm --filter @project-tavern/story-e2e regenerate:fixtures",
     "update:golden": "pnpm --filter @project-tavern/story-e2e update:golden",
     "verify": "node scripts/verify.mjs"

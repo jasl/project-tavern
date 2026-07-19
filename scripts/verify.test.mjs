@@ -26,20 +26,20 @@ const expectedCoreVerificationCommandsV1 = Object.freeze([
   ["pnpm", ["verify:fixtures"]],
   ["pnpm", ["verify:golden"]],
   ["pnpm", ["verify:determinism"]],
+  ["pnpm", ["build:poc"]],
   ["pnpm", ["verify:phase4"]],
   ["pnpm", ["typecheck"]],
   ["pnpm", ["test:unit"]],
   ["pnpm", ["test:contract"]],
   ["pnpm", ["test:property"]],
   ["pnpm", ["build"]],
-  ["pnpm", ["build:poc"]],
   ["pnpm", ["build:e2e"]],
   ["pnpm", ["verify:semantic"]],
   ["pnpm", ["verify:ui"]],
   ["pnpm", ["verify:assets"]],
   ["pnpm", ["verify:boundaries"]],
   ["pnpm", ["verify:bundle"]],
-  ["pnpm", ["verify:artifact"]],
+  ["pnpm", ["verify:artifact", "--", "--allow-development"]],
   ["pnpm", ["test:e2e:smoke"]],
 ]);
 
@@ -70,7 +70,8 @@ test("keeps the exact one-build root gate read-only", () => {
   assert.equal(childNames.includes("verify:phase5c"), false);
   assert(!childNames.includes("verify"));
   assert(
-    childNames.indexOf("build:poc") < childNames.indexOf("build:e2e") &&
+    childNames.indexOf("build:poc") < childNames.indexOf("verify:phase4") &&
+      childNames.indexOf("verify:phase4") < childNames.indexOf("build:e2e") &&
       childNames.indexOf("build:e2e") < childNames.indexOf("verify:semantic") &&
       childNames.indexOf("verify:semantic") < childNames.indexOf("verify:ui") &&
       childNames.indexOf("verify:ui") < childNames.indexOf("verify:assets") &&
@@ -187,7 +188,7 @@ test("the root entrypoint snapshots tracked bytes only after materialization", (
 test("appends the remaining release-independent checks", () => {
   assert.deepEqual(coreVerificationCommandsV1.slice(-3), [
     ["pnpm", ["verify:bundle"]],
-    ["pnpm", ["verify:artifact"]],
+    ["pnpm", ["verify:artifact", "--", "--allow-development"]],
     ["pnpm", ["test:e2e:smoke"]],
   ]);
   assert(!coreVerificationCommandsV1.flat(2).includes("build:player"));
