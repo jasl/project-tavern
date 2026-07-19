@@ -94,6 +94,7 @@ async function writeArtifactFixtureV1(
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(
     temporaryRootsV1.splice(0).map((root) => rm(root, { force: true, recursive: true })),
   );
@@ -228,6 +229,7 @@ describe("archive command contract", () => {
       GIT_NO_LAZY_FETCH: "1",
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
       PNPM_CONFIG_OFFLINE: "true",
+      XDG_DATA_HOME: "/tmp/archive-a/.project-tavern/repro-home/.local/share",
       npm_config_offline: "true",
     });
   });
@@ -564,6 +566,9 @@ describe("inspectReproducibleSourceV1", () => {
   }
 
   it("freezes a clean attached descendant only after materialization verification", async () => {
+    vi.stubEnv("XDG_CACHE_HOME", "");
+    vi.stubEnv("XDG_CONFIG_HOME", "");
+    vi.stubEnv("XDG_DATA_HOME", "");
     const ports = createInspectionPortsV1();
 
     await expect(inspectReproducibleSourceV1(ports)).resolves.toEqual({
@@ -577,12 +582,43 @@ describe("inspectReproducibleSourceV1", () => {
       executable: "pnpm",
       shell: false,
     });
+    expect(ports.runCommand.mock.calls[0]?.[0].env).not.toHaveProperty("XDG_CACHE_HOME");
+    expect(ports.runCommand.mock.calls[0]?.[0].env).not.toHaveProperty("XDG_CONFIG_HOME");
+    expect(ports.runCommand.mock.calls[0]?.[0].env).not.toHaveProperty("XDG_DATA_HOME");
+    expect(ports.runCommand.mock.calls[0]?.[0].env).not.toHaveProperty("GIT_CONFIG_GLOBAL");
+    expect(ports.runCommand.mock.calls[0]?.[0].env).not.toHaveProperty("GIT_CONFIG_NOSYSTEM");
+    expect(ports.runCommand.mock.calls[0]?.[0].env).not.toHaveProperty("GIT_CONFIG_SYSTEM");
+    const sourceGitCommand = ports.runCommand.mock.calls.find(
+      ([command]) =>
+        command.executable === "git" &&
+        command.args.join("\0") === "symbolic-ref\0--quiet\0--short\0HEAD",
+    )?.[0];
+    expect(sourceGitCommand?.env).toMatchObject({
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_CONFIG_SYSTEM: "/dev/null",
+    });
     expect(
       ports.runCommand.mock.calls.filter(
         ([command]) =>
           command.executable === "pnpm" && command.args[0] === "verify:materialization",
       ),
     ).toHaveLength(1);
+  });
+
+  it("preserves an explicit host XDG store identity without synthesizing one", async () => {
+    vi.stubEnv("XDG_CACHE_HOME", "/materialized/cache");
+    vi.stubEnv("XDG_CONFIG_HOME", "/materialized/config");
+    vi.stubEnv("XDG_DATA_HOME", "/materialized/data");
+    const ports = createInspectionPortsV1();
+
+    await inspectReproducibleSourceV1(ports);
+
+    expect(ports.runCommand.mock.calls[0]?.[0].env).toMatchObject({
+      XDG_CACHE_HOME: "/materialized/cache",
+      XDG_CONFIG_HOME: "/materialized/config",
+      XDG_DATA_HOME: "/materialized/data",
+    });
   });
 
   it.each([
@@ -604,6 +640,20 @@ describe("inspectReproducibleSourceV1", () => {
 
     await expect(inspectReproducibleSourceV1(stalePorts)).rejects.toThrow(
       /release\.repro_materialization_stale/u,
+    );
+  });
+
+  it("reports a materialization failure written only to stdout", async () => {
+    const ports = createInspectionPortsV1();
+    ports.runCommand.mockImplementationOnce(async () =>
+      commandResultV1(
+        "[ERR_PNPM_NO_OFFLINE_TARBALL] materialized store object is unavailable\n",
+        1,
+      ),
+    );
+
+    await expect(inspectReproducibleSourceV1(ports)).rejects.toThrow(
+      /release\.repro_materialization_invalid: pnpm exited 1: stdout: \[ERR_PNPM_NO_OFFLINE_TARBALL\]/u,
     );
   });
 });

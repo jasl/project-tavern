@@ -232,22 +232,25 @@ function assertSafeRelativePathV1(path: string, code: string): void {
   }
 }
 
-function closedEnvironmentV1(cwd: string, isolated: boolean): Readonly<Record<string, string>> {
+type ReproducibleEnvironmentProfileV1 = "archive" | "host_attestation" | "source";
+
+function closedEnvironmentV1(
+  cwd: string,
+  profile: ReproducibleEnvironmentProfileV1,
+): Readonly<Record<string, string>> {
   const path = process.env.PATH;
   if (path === undefined || path.length === 0) {
     failV1("release.invalid_repro_command", "PATH is unavailable");
   }
+  const isolated = profile === "archive";
   const home = isolated
     ? resolve(cwd, ".project-tavern/repro-home")
     : (process.env.HOME ?? tmpdir());
   const temporary = isolated
     ? resolve(cwd, ".project-tavern/repro-tmp")
     : (process.env.TMPDIR ?? tmpdir());
-  return Object.freeze({
+  const environment: Record<string, string> = {
     CI: "1",
-    GIT_CONFIG_GLOBAL: "/dev/null",
-    GIT_CONFIG_NOSYSTEM: "1",
-    GIT_CONFIG_SYSTEM: "/dev/null",
     GIT_NO_LAZY_FETCH: "1",
     GIT_NO_REPLACE_OBJECTS: "1",
     GIT_OPTIONAL_LOCKS: "0",
@@ -259,11 +262,24 @@ function closedEnvironmentV1(cwd: string, isolated: boolean): Readonly<Record<st
     PNPM_CONFIG_OFFLINE: "true",
     TMPDIR: temporary,
     TZ: "UTC",
-    XDG_CACHE_HOME: resolve(home, ".cache"),
-    XDG_CONFIG_HOME: resolve(home, ".config"),
-    XDG_DATA_HOME: resolve(home, ".local/share"),
     npm_config_offline: "true",
-  });
+  };
+  if (profile !== "host_attestation") {
+    environment.GIT_CONFIG_GLOBAL = "/dev/null";
+    environment.GIT_CONFIG_NOSYSTEM = "1";
+    environment.GIT_CONFIG_SYSTEM = "/dev/null";
+  }
+  if (isolated) {
+    environment.XDG_CACHE_HOME = resolve(home, ".cache");
+    environment.XDG_CONFIG_HOME = resolve(home, ".config");
+    environment.XDG_DATA_HOME = resolve(home, ".local/share");
+  } else {
+    for (const key of ["XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"] as const) {
+      const value = process.env[key];
+      if (value !== undefined && value.length > 0) environment[key] = value;
+    }
+  }
+  return Object.freeze(environment);
 }
 
 function commandV1(input: {
@@ -271,12 +287,12 @@ function commandV1(input: {
   readonly cwd: string;
   readonly executable: string;
   readonly input?: Uint8Array;
-  readonly isolated?: boolean;
+  readonly profile?: ReproducibleEnvironmentProfileV1;
 }): ReproducibleCommandV1 {
   const base = {
     args: Object.freeze([...input.args]),
     cwd: resolve(input.cwd),
-    env: closedEnvironmentV1(input.cwd, input.isolated === true),
+    env: closedEnvironmentV1(input.cwd, input.profile ?? "source"),
     executable: input.executable,
     shell: false as const,
   };
@@ -362,15 +378,21 @@ async function requireCommandV1(
 ): Promise<Uint8Array> {
   const result = await ports.runCommand(command);
   if (result.exitCode !== 0) {
-    let stderr = "";
-    try {
-      stderr = decoderV1.decode(result.stderr).trim();
-    } catch {
-      stderr = "non-UTF-8 stderr";
-    }
+    const output = (["stdout", "stderr"] as const)
+      .map((stream) => {
+        if (result[stream].byteLength === 0) return "";
+        try {
+          const decoded = decoderV1.decode(result[stream]).trim();
+          return decoded.length === 0 ? "" : `${stream}: ${decoded}`;
+        } catch {
+          return `${stream}: non-UTF-8 output`;
+        }
+      })
+      .filter((value) => value.length > 0)
+      .join("; ");
     failV1(
       code,
-      `${command.executable} exited ${String(result.exitCode)}${stderr.length === 0 ? "" : `: ${stderr}`}`,
+      `${command.executable} exited ${String(result.exitCode)}${output.length === 0 ? "" : `: ${output}`}`,
     );
   }
   return result.stdout;
@@ -403,7 +425,7 @@ export function createArchiveInstallInvocationV1(input: {
     args: ["install", "--offline", "--frozen-lockfile", "--store-dir", record.storeDir],
     cwd: record.cwd,
     executable: "pnpm",
-    isolated: true,
+    profile: "archive",
   });
 }
 
@@ -427,7 +449,7 @@ export function createVerifiedArchiveChildInvocationV1(input: {
     ],
     cwd: record.cwd,
     executable: process.execPath,
-    isolated: true,
+    profile: "archive",
   });
 }
 
@@ -636,7 +658,12 @@ export async function inspectReproducibleSourceV1(
   const root = resolve(ports.repositoryRoot);
   await requireCommandV1(
     ports,
-    commandV1({ args: ["verify:materialization"], cwd: root, executable: "pnpm" }),
+    commandV1({
+      args: ["verify:materialization"],
+      cwd: root,
+      executable: "pnpm",
+      profile: "host_attestation",
+    }),
     "release.repro_materialization_invalid",
   );
   const authority = await ports.readSourceAuthority();
@@ -946,7 +973,7 @@ async function reconstructExtractedTreeV1(
         args: ["init", "--quiet", "--object-format=sha1"],
         cwd: sourceRoot,
         executable: "git",
-        isolated: true,
+        profile: "archive",
       }),
       "release.repro_tree_mismatch",
     );
@@ -956,14 +983,14 @@ async function reconstructExtractedTreeV1(
         args: ["-c", "core.autocrlf=false", "-c", "core.filemode=true", "add", "-f", "--all"],
         cwd: sourceRoot,
         executable: "git",
-        isolated: true,
+        profile: "archive",
       }),
       "release.repro_tree_mismatch",
     );
     const actualTree = decodeOneLineV1(
       await requireCommandV1(
         ports,
-        commandV1({ args: ["write-tree"], cwd: sourceRoot, executable: "git", isolated: true }),
+        commandV1({ args: ["write-tree"], cwd: sourceRoot, executable: "git", profile: "archive" }),
         "release.repro_tree_mismatch",
       ),
       "release.repro_tree_mismatch",
