@@ -128,6 +128,23 @@ export interface ArtifactBuildOptionsV1 {
   readonly requireClean?: boolean;
 }
 
+/** Closed provenance projected only after an outer process proves an exact Git archive. */
+export interface VerifiedArchiveBuildInputV1 {
+  readonly materializationDigest: DigestV1;
+  readonly schemaRevision: 1;
+  readonly sourceCommit: string;
+  readonly sourceTree: string;
+  readonly tools: ArtifactToolVersionsV1;
+}
+
+export interface VerifiedArchiveAuthorityPortsV1 {
+  readonly assertArchiveBoundary: (repositoryRoot: string) => Promise<void>;
+  readonly readMaterialization: (
+    repositoryRoot: string,
+  ) => Promise<{ readonly materializationDigest: DigestV1 }>;
+  readonly readToolVersions: (repositoryRoot: string) => Promise<ArtifactToolVersionsV1>;
+}
+
 interface BaseReleaseFunctionsV1 {
   readonly canonicalJsonBytes: (value: unknown) => Uint8Array;
   readonly digestBytes: (bytes: Uint8Array) => DigestV1;
@@ -141,6 +158,13 @@ const objectIdPatternV1 = /^[0-9a-f]{40}$/u;
 const digestPatternV1 = /^sha256:[0-9a-f]{64}$/u;
 const decoderV1 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const commandOutputLimitV1 = 128 * 1024 * 1024;
+const ambientProvenanceOverridesV1 = Object.freeze([
+  "PROJECT_TAVERN_MATERIALIZATION_DIGEST",
+  "PROJECT_TAVERN_PROVENANCE_MODE",
+  "PROJECT_TAVERN_SOURCE_COMMIT",
+  "PROJECT_TAVERN_SOURCE_TREE",
+  "PROJECT_TAVERN_VERIFIED_ARCHIVE_INPUT",
+]);
 
 function loadBaseReleaseFunctionsV1(): BaseReleaseFunctionsV1 {
   const hooks = registerHooks({
@@ -313,6 +337,71 @@ function normalizeToolVersionsV1(value: ArtifactToolVersionsV1): ArtifactToolVer
     typescript: tools.typescript as string,
     vite: tools.vite as string,
   });
+}
+
+function assertNoAmbientProvenanceOverridesV1(): void {
+  const override = ambientProvenanceOverridesV1.find((name) => process.env[name] !== undefined);
+  if (override !== undefined) {
+    failV1("release.invalid_build_request", `${override} is not a supported provenance input`);
+  }
+}
+
+function normalizeVerifiedArchiveBuildInputV1(value: unknown): VerifiedArchiveBuildInputV1 {
+  const input = inspectDataRecordV1(
+    value,
+    ["materializationDigest", "schemaRevision", "sourceCommit", "sourceTree", "tools"],
+    "verifiedArchiveInput",
+    "release.invalid_verified_archive_input",
+  );
+  if (
+    input.schemaRevision !== 1 ||
+    typeof input.sourceCommit !== "string" ||
+    !objectIdPatternV1.test(input.sourceCommit) ||
+    typeof input.sourceTree !== "string" ||
+    !objectIdPatternV1.test(input.sourceTree) ||
+    typeof input.materializationDigest !== "string" ||
+    !digestPatternV1.test(input.materializationDigest)
+  ) {
+    failV1(
+      "release.invalid_verified_archive_input",
+      "schema, source, tree, or materialization identity is invalid",
+    );
+  }
+  const tools = inspectDataRecordV1(
+    input.tools,
+    ["node", "pnpm", "typescript", "vite"],
+    "verifiedArchiveInput/tools",
+    "release.invalid_verified_archive_input",
+  );
+  for (const name of ["node", "pnpm", "typescript", "vite"] as const) {
+    if (typeof tools[name] !== "string" || tools[name].length === 0) {
+      failV1(
+        "release.invalid_verified_archive_input",
+        `verifiedArchiveInput/tools/${name} must be non-empty`,
+      );
+    }
+  }
+  return Object.freeze({
+    materializationDigest: input.materializationDigest as DigestV1,
+    schemaRevision: 1,
+    sourceCommit: input.sourceCommit,
+    sourceTree: input.sourceTree,
+    tools: Object.freeze({
+      node: tools.node as string,
+      pnpm: tools.pnpm as string,
+      typescript: tools.typescript as string,
+      vite: tools.vite as string,
+    }),
+  });
+}
+
+function sameToolVersionsV1(left: ArtifactToolVersionsV1, right: ArtifactToolVersionsV1): boolean {
+  return (
+    left.node === right.node &&
+    left.pnpm === right.pnpm &&
+    left.typescript === right.typescript &&
+    left.vite === right.vite
+  );
 }
 
 export function createArtifactBuildInputV1(input: {
@@ -1447,6 +1536,43 @@ async function finalizePocArtifactV1(input: {
   await assertPinnedDirectoryV1(candidate, "Artifact candidate");
 }
 
+async function finalizeVerifiedArchivePocArtifactV1(input: {
+  readonly buildInput: ArtifactBuildInputV1;
+  readonly config: ArtifactBuildConfigV1;
+  readonly outputRoot: string;
+  readonly repositoryRoot: string;
+}): Promise<void> {
+  if (
+    input.config.story !== "poc" ||
+    input.buildInput.provenanceMode !== "clean_commit" ||
+    input.buildInput.sourceTree === null
+  ) {
+    failV1(
+      "release.invalid_verified_archive_input",
+      "verified archive postprocessing requires clean PoC provenance",
+    );
+  }
+  assertRepositoryChildV1(input.repositoryRoot, input.outputRoot, "Artifact candidate");
+  const candidate = expectNodeWorkspaceAuthorityAtPathV1(input.outputRoot).candidate;
+  const [prepareModule, verifierModule] = await Promise.all([
+    import(new URL("../prepare-artifact.mjs", import.meta.url).href) as Promise<unknown>,
+    import(new URL("./verify-poc-artifact.mts", import.meta.url).href) as Promise<
+      typeof import("./verify-poc-artifact.mjs")
+    >,
+  ]);
+  const prepareArtifactDirectory = Reflect.get(Object(prepareModule), "prepareArtifactDirectoryV1");
+  if (typeof prepareArtifactDirectory !== "function") {
+    failV1("release.artifact_preparation_unavailable", "Artifact preparer is unavailable");
+  }
+  await prepareArtifactDirectory(input.repositoryRoot, candidate.path, {
+    dev: candidate.dev,
+    ino: candidate.ino,
+  });
+  await assertPinnedDirectoryV1(candidate, "Artifact candidate");
+  await verifierModule.inspectPocArtifactStructureV1(candidate.path);
+  await assertPinnedDirectoryV1(candidate, "Artifact candidate");
+}
+
 function createNodeArtifactBuildPortsV1(): ArtifactBuildPortsV1 {
   return Object.freeze({
     repositoryRoot: repositoryRootV1,
@@ -1465,11 +1591,112 @@ function createNodeArtifactBuildPortsV1(): ArtifactBuildPortsV1 {
   });
 }
 
+async function assertVerifiedArchiveBoundaryV1(repositoryRoot: string): Promise<void> {
+  const root = resolve(repositoryRoot);
+  const [rootMetadata, actualRoot] = await Promise.all([lstat(root), realpath(root)]);
+  if (rootMetadata.isSymbolicLink() || !rootMetadata.isDirectory() || actualRoot !== root) {
+    failV1("release.invalid_verified_archive_input", "archive root must be a real directory");
+  }
+  for (const forbidden of [".git", ".project-tavern/goal-materialization.json"] as const) {
+    const path = resolve(root, forbidden);
+    const metadata = await lstat(path).catch((error) => {
+      if (isMissingPathV1(error)) return undefined;
+      throw error;
+    });
+    if (metadata !== undefined) {
+      failV1(
+        "release.invalid_verified_archive_input",
+        `verified archive contains forbidden authority: ${forbidden}`,
+      );
+    }
+  }
+}
+
+async function readTrackedArchiveMaterializationV1(
+  repositoryRoot: string,
+): Promise<{ readonly materializationDigest: DigestV1 }> {
+  const contractModule = (await import(
+    new URL("../preflight/materialization-contract.mts", import.meta.url).href
+  )) as typeof import("../preflight/materialization-contract.mjs");
+  const contract = await contractModule.readMaterializationContractV1(repositoryRoot);
+  assertDigestV1(contract.materializationDigest, "materializationDigest");
+  return Object.freeze({ materializationDigest: contract.materializationDigest });
+}
+
+function createNodeVerifiedArchiveAuthorityPortsV1(): VerifiedArchiveAuthorityPortsV1 {
+  return Object.freeze({
+    assertArchiveBoundary: assertVerifiedArchiveBoundaryV1,
+    readMaterialization: readTrackedArchiveMaterializationV1,
+    readToolVersions: readToolVersionsV1,
+  });
+}
+
+/**
+ * Builds the PoC from an already proven Git archive. This source export is deliberately absent
+ * from every package/public command surface; build-reproducibly.mts owns its only production call.
+ */
+export async function buildArtifactFromVerifiedArchiveV1(
+  verifiedInput: VerifiedArchiveBuildInputV1,
+  artifactPorts?: ArtifactBuildPortsV1,
+  authorityPorts?: VerifiedArchiveAuthorityPortsV1,
+): Promise<ArtifactBuildInputV1> {
+  assertNoAmbientProvenanceOverridesV1();
+  const input = normalizeVerifiedArchiveBuildInputV1(verifiedInput);
+  const resolvedArtifactPorts = artifactPorts ?? createNodeArtifactBuildPortsV1();
+  const resolvedAuthorityPorts = authorityPorts ?? createNodeVerifiedArchiveAuthorityPortsV1();
+  const root = resolvedArtifactPorts.repositoryRoot;
+  await resolvedAuthorityPorts.assertArchiveBoundary(root);
+  const [materialization, tools] = await Promise.all([
+    resolvedAuthorityPorts.readMaterialization(root),
+    resolvedAuthorityPorts.readToolVersions(root),
+  ]);
+  if (materialization.materializationDigest !== input.materializationDigest) {
+    failV1(
+      "release.verified_archive_materialization_mismatch",
+      "tracked materialization contract differs from the frozen outer input",
+    );
+  }
+  if (!sameToolVersionsV1(tools, input.tools)) {
+    failV1(
+      "release.verified_archive_toolchain_mismatch",
+      "tracked or active tool identities differ from the frozen outer input",
+    );
+  }
+  const source = Object.freeze({
+    provenanceMode: "clean_commit" as const,
+    sourceCommit: input.sourceCommit,
+    sourceTree: input.sourceTree,
+  });
+  const inspectFrozenSourceV1 = async (): Promise<ArtifactSourceIdentityV1> => {
+    await resolvedAuthorityPorts.assertArchiveBoundary(root);
+    return source;
+  };
+  const archiveFinalizer =
+    artifactPorts === undefined
+      ? finalizeVerifiedArchivePocArtifactV1
+      : resolvedArtifactPorts.finalizePocArtifact;
+  const verifiedPorts: ArtifactBuildPortsV1 = Object.freeze({
+    ...resolvedArtifactPorts,
+    ...(archiveFinalizer === undefined ? {} : { finalizePocArtifact: archiveFinalizer }),
+    inspectSource: inspectFrozenSourceV1,
+    readMaterialization: async () => materialization,
+    readToolVersions: async () => tools,
+  });
+  const result = await buildArtifactV1(
+    { host: "web", outDir: "dist/poc", story: "poc" },
+    verifiedPorts,
+    { requireClean: true },
+  );
+  await resolvedAuthorityPorts.assertArchiveBoundary(root);
+  return result;
+}
+
 export async function buildArtifactV1(
   request: ArtifactBuildRequestV1,
   ports: ArtifactBuildPortsV1 = createNodeArtifactBuildPortsV1(),
   options: ArtifactBuildOptionsV1 = {},
 ): Promise<ArtifactBuildInputV1> {
+  assertNoAmbientProvenanceOverridesV1();
   if (
     !isPlainObjectV1(options) ||
     !exactOwnKeysV1(options, options.requireClean === undefined ? [] : ["requireClean"]) ||

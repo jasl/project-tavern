@@ -63,6 +63,8 @@
     "verify:application-graphs": "node --experimental-strip-types scripts/ui/verify-application-graphs.mts",
     "artifact:manifest": "node --experimental-strip-types scripts/release/create-artifact-manifest.mts dist/poc",
     "release:prepare": "node --experimental-strip-types scripts/release/build-artifact.mts --story poc --host web --out-dir dist/poc --require-clean",
+    "release:repro": "node --experimental-strip-types scripts/release/build-reproducibly.mts",
+    "test:e2e:prebuilt": "playwright test --config engine/packages/web/playwright.prebuilt.config.ts",
     "regenerate:fixtures": "pnpm --filter @project-tavern/story-e2e regenerate:fixtures",
     "update:golden": "pnpm --filter @project-tavern/story-e2e update:golden",
     "verify": "node scripts/verify.mjs"
