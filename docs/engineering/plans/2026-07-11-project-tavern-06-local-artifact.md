@@ -1096,6 +1096,7 @@ may upload, share, inspect, replay, anchor or request DebugTools/Cheats.
 - Modify: `engine/packages/ui/type-tests/diagnostics-public.test-d.ts`
 - Modify: `engine/packages/web/src/application/create-player-ui-ports.ts`
 - Modify: `engine/packages/web/src/application/create-player-ui-ports.test.ts`
+- Modify: `game/stories/e2e/src/application/create-e2e-presentation-runtime.test.ts`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
 - Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
 - Modify: `game/stories/poc/src/application/poc-application-root.tsx`
