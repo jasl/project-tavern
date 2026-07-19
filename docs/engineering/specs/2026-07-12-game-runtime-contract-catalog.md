@@ -2938,12 +2938,43 @@ type SimulationPatchSymbolKindV1 = "rule" | "value";
 type PresentationPatchSymbolKindV1 = "value" | "text" | "asset";
 type PatchSymbolKindV1 = SimulationPatchSymbolKindV1 | PresentationPatchSymbolKindV1;
 
-interface PatchSlotDescriptorV1<TKind extends PatchSymbolKindV1> {
-  readonly symbolId: PatchSymbolId;
+interface PatchSlotDescriptorV1<
+  TKind extends PatchSymbolKindV1,
+  TValue,
+  TSymbolId extends PatchSymbolId = PatchSymbolId,
+> {
+  readonly symbolId: TSymbolId;
   readonly kind: TKind;
   readonly replaceable: true;
   readonly contractRevision: PositiveSafeInteger;
   readonly defaultProviderSourceDigest: Digest;
+  readonly defaultValue: TValue;
+}
+
+type PatchReplacementValuesV1<TPatchSurface> =
+  TPatchSurface extends Readonly<{ readonly slots: infer TSlots }>
+    ? TSlots extends Readonly<Record<string, unknown>>
+      ? {
+          readonly [
+            TKey in keyof TSlots as TSlots[TKey] extends Readonly<{
+              readonly symbolId: infer TSymbolId extends string;
+            }>
+              ? TSymbolId
+              : never
+          ]: TSlots[TKey] extends Readonly<{ readonly defaultValue: infer TValue }>
+            ? TValue
+            : never;
+        }
+      : Readonly<Record<string, unknown>>
+    : Readonly<Record<string, unknown>>;
+
+interface PatchReplacementPortV1<
+  TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
+> {
+  replace<TSymbolId extends Extract<keyof TValues, string>>(
+    symbolId: TSymbolId,
+    value: TValues[TSymbolId],
+  ): void;
 }
 
 interface PatchReplacementTraceV1 {
@@ -3151,15 +3182,21 @@ interface StoryToolingEntryV1<TToolingSupport> {
   defineToolingSupport(): TToolingSupport;
 }
 
-interface HotfixInstallContextV1<TSimulationPatchSurface, TPresentationPatchSurface> {
-  readonly simulation: TSimulationPatchSurface;
-  readonly presentation: TPresentationPatchSurface;
+interface HotfixInstallContextV1<
+  TSimulationPatchSurface = unknown,
+  TPresentationPatchSurface = unknown,
+> {
+  readonly simulation: PatchReplacementPortV1<PatchReplacementValuesV1<TSimulationPatchSurface>>;
+  readonly presentation: PatchReplacementPortV1<
+    PatchReplacementValuesV1<TPresentationPatchSurface>
+  >;
 }
 
-interface HotfixEntryV1<TSimulationPatchSurface, TPresentationPatchSurface> {
+interface HotfixEntryV1<TSimulationPatchSurface = unknown, TPresentationPatchSurface = unknown> {
   readonly manifest: HotfixManifestV1;
+  readonly sourceDigest: Digest;
   install(
-    surfaces: HotfixInstallContextV1<TSimulationPatchSurface, TPresentationPatchSurface>,
+    context: HotfixInstallContextV1<TSimulationPatchSurface, TPresentationPatchSurface>,
   ): void;
 }
 
@@ -3210,7 +3247,7 @@ Hotfix 脚本暴露 `HotfixEntryV1`；`install()` 可以执行普通同步 JavaS
 
 每个实际替换必须在 `manifest.targets` 中恰有一项且 surface 相同，赋值前当前 provider digest 必须等于 `expectedProviderDigest`；未实际替换的 target 同样是验证错误，防止补丁在新 Story 上“看似成功但什么也没做”。两个 Hotfix 触碰同一 Symbol 时，后者必须在 `supersedes` 中明确列出当前 provider；否则整组解析失败。
 
-provider digest 的规范输入冻结如下：默认 provider 使用构建生成的 slot-local source/import-closure digest；Hotfix rule 使用 `hotfixResolvedDigest + surface + symbolId + replacementOrdinal`；serializable value/text/asset 再加入替换值的 Canonical JSON digest。provider digest 的 domain 是 `sillymaker:patch-provider:v1`，不序列化函数对象或使用 `Function#toString()`。PatchSet 使用 `sillymaker:patch-set:v1` 分别摘要完整 `AppliedHotfixV1[]`、只保留 simulation traces 且丢弃空 Hotfix 项的投影，以及只保留 presentation traces 且丢弃空项的投影；空数组也各有稳定 digest。额外的纯 presentation Hotfix 不改变 `PatchSetIdentityV1.simulationDigest`。同一 Hotfix contract suite 必须在两个全新 candidate registries 中安装两次，比较 replacement trace、serializable values 和所有 rule vectors，防止受管补丁依赖隐式环境。
+provider digest 的规范输入冻结如下：默认 provider 使用构建生成的 slot-local source/import-closure digest；Hotfix 替换使用构建生成的 `HotfixEntryV1.sourceDigest` 作为规范投影字段 `hotfixDigest`，并加入 `surface + symbolId + replacementOrdinal`；serializable value/text/asset 还把替换值本身作为 `value` 加入同一 Canonical JSON 投影。provider digest 的 domain 是 `sillymaker:patch-provider:v1`，不序列化函数对象或使用 `Function#toString()`。`AppliedHotfixV1.identity.digest` 另以 `sillymaker:hotfix:v1` 对完整 manifest 与 `sourceDigest` 求值；该 resolved identity digest 不作为 provider 投影输入。PatchSet 使用 `sillymaker:patch-set:v1` 分别摘要完整 `AppliedHotfixV1[]`、只保留 simulation traces 且丢弃空 Hotfix 项的投影，以及只保留 presentation traces 且丢弃空项的投影；空数组也各有稳定 digest。额外的纯 presentation Hotfix 不改变 `PatchSetIdentityV1.simulationDigest`。同一 Hotfix contract suite 必须在两个全新 candidate registries 中安装两次，比较 replacement trace、serializable values 和所有 rule vectors，防止受管补丁依赖隐式环境。
 
 Loader 输入列表就是唯一顺序：ID 深值唯一，`ordinal` 从 1 连续递增；`requires` 只能引用更早条目；任一条目的 `conflicts` 命中集合中其他 ID 即失败；Loader 不按文件名排序或自动拓扑重排。全部 Hotfix 作为一个 bootstrap candidate 原子解析、校验和冻结，任何失败都不产生部分 `ResolvedGame`。
 
