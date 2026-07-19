@@ -916,7 +916,7 @@ Prebuilt tests cover new game, initial VN, first action, Save/refresh/continue, 
 
 - [ ] **Step 4: Run development-safe nested-base acceptance**
 
-Run: `pnpm exec vitest run scripts/release/build-reproducibly.test.ts scripts/release/build-artifact.test.ts scripts/release/smoke-poc.test.ts && pnpm build:poc && pnpm test:e2e:prebuilt -- --project=chromium && pnpm verify`
+Run: `pnpm exec vitest run scripts/release/build-reproducibly.test.ts scripts/release/build-artifact.test.ts scripts/release/smoke-poc.test.ts && pnpm build:poc && pnpm test:e2e:prebuilt --project=chromium && pnpm verify`
 
 Expected: PASS; injected archive tests prove the closed reproducibility path without mislabeling the dirty task tree, while the current browser build is marked development and supplies normal/debug/automation behavior at the nested prefix. Bare `release:repro` is intentionally not run until the task implementation is committed and the outer clean-HEAD precondition can be true.
 
@@ -930,7 +930,7 @@ git commit -m "test(release): prove reproducible poc artifact"
 
 - [ ] **Step 6: Re-run clean reproducibility for the new task commit**
 
-Run: `pnpm release:prepare && pnpm release:repro && pnpm test:e2e:prebuilt -- --project=chromium`
+Run: `pnpm release:prepare && pnpm release:repro && pnpm test:e2e:prebuilt --project=chromium`
 
 Expected: both isolated builds and the exact served `dist/poc` identify the new clean commit/tree/materialization digest and have identical detached manifest digests.
 
@@ -1148,7 +1148,7 @@ pnpm build:e2e
 pnpm verify
 pnpm verify:release
 pnpm release:repro
-pnpm test:e2e:prebuilt -- --project=chromium
+pnpm test:e2e:prebuilt --project=chromium
 pnpm verify:docs
 git diff --check
 git status --short --branch
