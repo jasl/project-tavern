@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import assert from "node:assert/strict";
-import { lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import test from "node:test";
 import {
   discoverScriptTestsV1,
@@ -59,6 +59,32 @@ async function productionToolFilesV1(directory) {
     }
   }
   return files.sort();
+}
+
+const playwrightConfigNameV1 = /^playwright(?:\..+)?\.config\.(?:[cm]?[jt]s)$/u;
+
+async function discoverPlaywrightConfigsV1(root, directory = root) {
+  const paths = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (
+      entry.isDirectory() &&
+      [".git", ".project-tavern", "dist", "node_modules", "references"].includes(entry.name)
+    ) {
+      continue;
+    }
+    const path = join(directory, entry.name);
+    if ((await lstat(path)).isSymbolicLink()) {
+      if (playwrightConfigNameV1.test(entry.name)) {
+        throw new TypeError(`Playwright config symlink is forbidden: ${path}`);
+      }
+      continue;
+    }
+    if (entry.isDirectory()) paths.push(...(await discoverPlaywrightConfigsV1(root, path)));
+    else if (entry.isFile() && playwrightConfigNameV1.test(entry.name)) {
+      paths.push(relative(root, path).split(sep).join("/"));
+    }
+  }
+  return paths.sort();
 }
 
 test("discovers every nested script test exactly once", async (t) => {
@@ -177,6 +203,59 @@ test("registers every Phase 5A runtime asset and UI gate test exactly once", asy
   const uiGateTest = "scripts/ui/verify-ui.test.mjs";
   assert.equal(discovered.node.filter((candidate) => candidate === uiGateTest).length, 1);
   assert.equal(discovered.vitest.filter((candidate) => candidate === uiGateTest).length, 0);
+});
+
+test("freezes the explicit Playwright config and public browser-script inventory", async () => {
+  const root = join(import.meta.dirname, "..");
+  assert.deepEqual(await discoverPlaywrightConfigsV1(root), [
+    "engine/packages/web/playwright.interaction.config.ts",
+    "engine/packages/web/playwright.prebuilt.config.ts",
+    "engine/packages/web/playwright.ui.config.ts",
+  ]);
+
+  const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(packageJson.scripts).filter(([, command]) =>
+        command.includes("playwright test"),
+      ),
+    ),
+    {
+      "test:e2e:smoke":
+        "playwright test --config engine/packages/web/playwright.ui.config.ts --project=chromium --grep @smoke",
+      "test:e2e:full":
+        "playwright test --config engine/packages/web/playwright.ui.config.ts --project=chromium --project=webkit --grep-invert @visual",
+      "test:e2e:interaction":
+        "playwright test --config engine/packages/web/playwright.interaction.config.ts",
+      "test:e2e:ui": "playwright test --config engine/packages/web/playwright.ui.config.ts",
+      "test:e2e:prebuilt":
+        "playwright test --config engine/packages/web/playwright.prebuilt.config.ts",
+    },
+  );
+});
+
+test("discovers every supported Playwright config variant and rejects config symlinks", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "tavern-playwright-configs-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, "nested"), { recursive: true });
+  const expected = [
+    "nested/playwright.config.cjs",
+    "nested/playwright.config.cts",
+    "nested/playwright.config.js",
+    "nested/playwright.config.mjs",
+    "nested/playwright.config.mts",
+    "nested/playwright.config.ts",
+    "nested/playwright.story.config.ts",
+  ];
+  for (const path of expected) await writeFile(join(root, path), "export default {};\n");
+
+  assert.deepEqual(await discoverPlaywrightConfigsV1(root), expected);
+
+  await symlink(join(root, "nested/playwright.config.ts"), join(root, "playwright.config.ts"));
+  await assert.rejects(
+    discoverPlaywrightConfigsV1(root),
+    /Playwright config symlink is forbidden/u,
+  );
 });
 
 test("freezes Goal materialization root mappings and writer reachability", async () => {

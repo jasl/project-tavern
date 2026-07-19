@@ -66,6 +66,44 @@ const forbiddenWorkflowTokensV1 = Object.freeze([
   "subagent-driven-development",
   "executing-plans",
 ]);
+const expectedPublicVerificationScriptsV1 = Object.freeze({
+  verify: "node scripts/verify.mjs",
+  "verify:balance:freeze":
+    "node --experimental-strip-types scripts/release/verify-balance-freeze.mts",
+  "verify:docs": "node scripts/docs/verify-docs.mjs",
+  "verify:release": "node scripts/verify-release.mjs",
+});
+const operatorCommandDocumentsV1 = Object.freeze(["README.md", "CONTRIBUTING.md"]);
+const publicVerificationDocumentationFragmentsV1 = Object.freeze([
+  "`pnpm verify`",
+  "ordinary non-release",
+  "`pnpm verify:release`",
+  "clean-worktree",
+  "`pnpm verify:balance:freeze`",
+  "frozen-evidence admission only",
+  "full balance corpus",
+  "network",
+  "push",
+  "deploy",
+]);
+const pnpmBuiltinsV1 = new Set([
+  "add",
+  "config",
+  "dlx",
+  "exec",
+  "fetch",
+  "import",
+  "install",
+  "list",
+  "outdated",
+  "patch",
+  "publish",
+  "remove",
+  "run",
+  "store",
+  "update",
+  "why",
+]);
 
 function diagnostic(code, path, line, message) {
   return `plan.${code} ${path}:${line} ${message}`;
@@ -87,6 +125,36 @@ function withoutFencedCode(text) {
       return fenced ? "" : line;
     })
     .join("\n");
+}
+
+export function extractRootPnpmScriptsV1(text) {
+  const commands = new Set();
+  for (const match of text.matchAll(/\bpnpm[ \t]+(?:run[ \t]+)?([^\s`"'|;&()[\]{}<>]+)/gu)) {
+    const token = match[1].replace(/[,.!?]+$/gu, "");
+    if (
+      token.startsWith("-") ||
+      pnpmBuiltinsV1.has(token) ||
+      !/^[a-z0-9][a-z0-9:_-]*$/u.test(token)
+    ) {
+      continue;
+    }
+    commands.add(token);
+  }
+  return [...commands].sort();
+}
+
+export async function readRootPackageScriptsV1(root) {
+  const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+  if (
+    packageJson === null ||
+    typeof packageJson !== "object" ||
+    packageJson.scripts === null ||
+    typeof packageJson.scripts !== "object" ||
+    Array.isArray(packageJson.scripts)
+  ) {
+    throw new TypeError("package.json scripts must be an object");
+  }
+  return packageJson.scripts;
 }
 
 async function existsWithoutSymlink(root, path) {
@@ -380,6 +448,52 @@ export async function verifyGoalDocumentsV1(root) {
     errors.push(
       diagnostic("entrypoint_count", manifest.operatorEntrypoint, 1, String(markerCount)),
     );
+  }
+
+  let packageScripts;
+  try {
+    packageScripts = await readRootPackageScriptsV1(root);
+  } catch (error) {
+    errors.push(diagnostic("package_scripts_invalid", "package.json", 1, String(error)));
+  }
+  if (packageScripts !== undefined) {
+    for (const [name, expected] of Object.entries(expectedPublicVerificationScriptsV1)) {
+      if (packageScripts[name] !== expected) {
+        errors.push(
+          diagnostic(
+            "public_command",
+            "package.json",
+            1,
+            `${name}: ${String(packageScripts[name])}`,
+          ),
+        );
+      }
+    }
+
+    const commandDocuments = [
+      ...operatorCommandDocumentsV1,
+      ...allMarkdown.filter((path) => path.startsWith("docs/runbooks/")),
+    ];
+    for (const path of commandDocuments) {
+      const text = await readFile(join(root, path), "utf8");
+      for (const command of extractRootPnpmScriptsV1(text)) {
+        if (!Object.hasOwn(packageScripts, command)) {
+          errors.push(diagnostic("command_unknown", path, 1, command));
+        }
+      }
+    }
+  }
+
+  for (const path of operatorCommandDocumentsV1) {
+    const text = await readFile(join(root, path), "utf8");
+    const missing = publicVerificationDocumentationFragmentsV1.filter(
+      (fragment) => !text.includes(fragment),
+    );
+    if (missing.length > 0) {
+      errors.push(
+        diagnostic("public_command_documentation", path, 1, `missing ${missing.join(", ")}`),
+      );
+    }
   }
 
   for (const path of [

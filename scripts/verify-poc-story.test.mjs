@@ -118,17 +118,33 @@ function reachesPnpmScriptV1(scripts, start, target, visiting = new Set()) {
   return reaches;
 }
 
-test("keeps Phase 4 transitively owned separately from semantic", async () => {
+test("keeps final verification on direct Phase 4 leaves", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
-  const { coreVerificationCommandsV1 } = await import("./verify.mjs");
+  const { coreVerificationCommandsV1, verificationStepsV1 } = await import("./verify.mjs");
   const names = coreVerificationCommandsV1.map(([, args]) => args[0]);
   const phaseOwners = names.filter((name) =>
     reachesPnpmScriptV1(packageJson.scripts, name, "verify:phase4"),
   );
-  assert.equal(phaseOwners.length, 1);
+  assert.deepEqual(phaseOwners, []);
+  assert.deepEqual(
+    verificationStepsV1
+      .filter(({ id }) =>
+        [
+          "stories",
+          "runtime-fixtures",
+          "poc-commands",
+          "fixtures",
+          "golden",
+          "determinism",
+          "balance",
+        ].includes(id),
+      )
+      .map(({ id }) => id),
+    ["stories", "runtime-fixtures", "poc-commands", "fixtures", "golden", "determinism", "balance"],
+  );
   assert.equal(names.filter((name) => name === "verify:semantic").length, 1);
-  assert(names.indexOf(phaseOwners[0]) < names.indexOf("verify:semantic"));
+  assert(names.indexOf("verify:determinism") < names.indexOf("verify:semantic"));
   assert(!names.includes("verify"));
 });

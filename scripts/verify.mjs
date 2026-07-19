@@ -7,34 +7,52 @@ import { fileURLToPath } from "node:url";
 import { classifyVitestProjectV1 } from "./classify-vitest-project.mjs";
 import { workspacePackages } from "./workspace-policy.mjs";
 
-export const coreVerificationCommandsV1 = Object.freeze([
-  ["pnpm", ["verify:materialization"]],
-  ["pnpm", ["test:scripts"]],
-  ["pnpm", ["format:check"]],
-  ["pnpm", ["verify:docs"]],
-  ["pnpm", ["lint"]],
-  ["pnpm", ["verify:cycles"]],
-  ["pnpm", ["verify:public-exports"]],
-  ["pnpm", ["verify:stories"]],
-  ["pnpm", ["verify:fixtures"]],
-  ["pnpm", ["verify:golden"]],
-  ["pnpm", ["verify:determinism"]],
-  ["pnpm", ["build:poc"]],
-  ["pnpm", ["verify:phase4"]],
-  ["pnpm", ["typecheck"]],
-  ["pnpm", ["test:unit"]],
-  ["pnpm", ["test:contract"]],
-  ["pnpm", ["test:property"]],
-  ["pnpm", ["build"]],
-  ["pnpm", ["build:e2e"]],
-  ["pnpm", ["verify:semantic"]],
-  ["pnpm", ["verify:ui"]],
-  ["pnpm", ["verify:assets"]],
-  ["pnpm", ["verify:boundaries"]],
-  ["pnpm", ["verify:bundle"]],
-  ["pnpm", ["verify:artifact", "--", "--allow-development"]],
-  ["pnpm", ["test:e2e:smoke"]],
+function frozenVerificationStepV1(id, command, args) {
+  return Object.freeze({
+    args: Object.freeze([...args]),
+    command,
+    id,
+  });
+}
+
+export const verificationStepsV1 = Object.freeze([
+  frozenVerificationStepV1("materialization", "pnpm", ["verify:materialization"]),
+  frozenVerificationStepV1("format", "pnpm", ["format:check"]),
+  frozenVerificationStepV1("lint", "pnpm", ["lint"]),
+  frozenVerificationStepV1("lint-styles", "pnpm", ["lint:styles"]),
+  frozenVerificationStepV1("boundaries", "pnpm", ["verify:boundaries"]),
+  frozenVerificationStepV1("cycles", "pnpm", ["verify:cycles"]),
+  frozenVerificationStepV1("typecheck", "pnpm", ["typecheck"]),
+  frozenVerificationStepV1("public-exports", "pnpm", ["verify:public-exports"]),
+  frozenVerificationStepV1("unit", "pnpm", ["test:unit"]),
+  frozenVerificationStepV1("contract", "pnpm", ["test:contract"]),
+  frozenVerificationStepV1("property", "pnpm", ["test:property"]),
+  frozenVerificationStepV1("scripts", "pnpm", ["test:scripts"]),
+  frozenVerificationStepV1("stories", "pnpm", ["verify:stories"]),
+  frozenVerificationStepV1("runtime-fixtures", "pnpm", ["verify:runtime-fixtures"]),
+  frozenVerificationStepV1("poc-commands", "pnpm", [
+    "--filter",
+    "@project-tavern/story-poc",
+    "verify:commands",
+  ]),
+  frozenVerificationStepV1("fixtures", "pnpm", ["verify:fixtures"]),
+  frozenVerificationStepV1("golden", "pnpm", ["verify:golden"]),
+  frozenVerificationStepV1("determinism", "pnpm", ["verify:determinism"]),
+  frozenVerificationStepV1("balance", "pnpm", ["verify:balance:freeze"]),
+  frozenVerificationStepV1("assets", "pnpm", ["verify:assets"]),
+  frozenVerificationStepV1("build-poc", "pnpm", ["build:poc"]),
+  frozenVerificationStepV1("build-e2e", "pnpm", ["build:e2e"]),
+  frozenVerificationStepV1("semantic", "pnpm", ["verify:semantic"]),
+  frozenVerificationStepV1("ui", "pnpm", ["verify:ui"]),
+  frozenVerificationStepV1("bundle", "pnpm", ["verify:bundle"]),
+  frozenVerificationStepV1("e2e-smoke", "pnpm", ["test:e2e:smoke"]),
+  frozenVerificationStepV1("artifact", "pnpm", ["verify:artifact", "--", "--allow-development"]),
+  frozenVerificationStepV1("docs", "pnpm", ["verify:docs"]),
 ]);
+
+export const coreVerificationCommandsV1 = Object.freeze(
+  verificationStepsV1.map(({ args, command }) => Object.freeze([command, args])),
+);
 
 export function snapshotTrackedPathsV1(root, paths) {
   return new Map(
@@ -56,6 +74,13 @@ function trackedSnapshot(root) {
     .filter(Boolean)
     .sort();
   return snapshotTrackedPathsV1(root, paths);
+}
+
+function worktreeStatus(root) {
+  return execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    cwd: root,
+    encoding: "utf8",
+  });
 }
 
 export function changedTrackedPathsV1(before, after) {
@@ -136,7 +161,7 @@ export function runCoreCommandSequenceV1(
   verifyDiscovery = verifyVitestDiscovery,
   afterMaterialization = () => {},
 ) {
-  for (const [index, [command, args]] of coreVerificationCommandsV1.entries()) {
+  for (const { args, command, id } of verificationStepsV1) {
     const result = spawn(command, args, {
       cwd: root,
       shell: false,
@@ -145,8 +170,8 @@ export function runCoreCommandSequenceV1(
     if (result.status !== 0 || result.signal !== null) {
       throw new TypeError(`${command} ${args.join(" ")} failed`);
     }
-    if (index === 0) afterMaterialization();
-    if (index === 1) verifyDiscovery(root);
+    if (id === "materialization") afterMaterialization();
+    if (id === "scripts") verifyDiscovery(root);
   }
 }
 
@@ -154,21 +179,34 @@ export function runCoreVerificationV1(root, ports = {}) {
   const {
     snapshot = trackedSnapshot,
     spawn = spawnSync,
+    status = worktreeStatus,
     verifyDiscovery = verifyVitestDiscovery,
   } = ports;
   let before = null;
+  let beforeStatus = null;
   let failure = null;
   try {
     runCoreCommandSequenceV1(root, spawn, verifyDiscovery, () => {
       before = snapshot(root);
+      beforeStatus = status(root);
+      if (beforeStatus !== "") {
+        throw new TypeError(
+          `verification started with dirty worktree: ${JSON.stringify(beforeStatus)}`,
+        );
+      }
     });
   } catch (error) {
     failure = error instanceof Error ? error.message : String(error);
   } finally {
     if (before !== null) {
       const mutations = changedTrackedPathsV1(before, snapshot(root));
-      if (mutations.length > 0)
+      const afterStatus = status(root);
+      if (beforeStatus !== null && afterStatus !== beforeStatus) {
+        failure = `verification changed worktree status: ${JSON.stringify(afterStatus)}`;
+      }
+      if (mutations.length > 0) {
         failure = `verification changed tracked files: ${mutations.join(", ")}`;
+      }
     }
   }
   if (failure !== null) throw new TypeError(failure);

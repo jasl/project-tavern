@@ -96,18 +96,26 @@ test("maps the cumulative phase exactly once", async () => {
   );
 });
 
-test("keeps the final root free of cumulative Phase 5 children", async () => {
+test("keeps the final root on direct presentation leaves", async () => {
   const verifyModuleUrl = new URL("../verify.mjs", import.meta.url).href;
-  const { coreVerificationCommandsV1 } = (await import(verifyModuleUrl)) as {
+  const { coreVerificationCommandsV1, verificationStepsV1 } = (await import(verifyModuleUrl)) as {
     readonly coreVerificationCommandsV1: readonly (readonly [string, readonly string[]])[];
+    readonly verificationStepsV1: readonly {
+      readonly id: string;
+      readonly command: string;
+      readonly args: readonly string[];
+    }[];
   };
   const names = coreVerificationCommandsV1.map(([, args]) => args[0]);
+  expect(verificationStepsV1.map(({ id }) => id)).toContain("ui");
   expect(names).not.toContain("verify:phase5b");
   expect(names).not.toContain("verify:phase5c");
   expect(names).not.toContain("verify:phase5a");
-  expect(names.filter((name) => name === "verify:phase4")).toHaveLength(1);
+  expect(names).not.toContain("verify:phase4");
   expect(names.filter((name) => name === "verify:ui")).toHaveLength(1);
   expect(names.filter((name) => name === "verify:semantic")).toHaveLength(1);
+  expect(names.indexOf("build:e2e")).toBeLessThan(names.indexOf("verify:semantic"));
+  expect(names.indexOf("verify:semantic")).toBeLessThan(names.indexOf("verify:ui"));
 });
 
 async function createPrebuiltStoryRootsV1(): Promise<string> {

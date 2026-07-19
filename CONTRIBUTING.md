@@ -26,6 +26,12 @@ AI-assisted contributions must disclose the service, model, generation date, pro
 
 ## Before submitting
 
-Review project legal files and package metadata directly when the contribution changes their scope. Run `pnpm verify` for software behavior and artifact checks.
+Review project legal files and package metadata directly when the contribution changes their scope.
+
+- Run `pnpm verify` as the ordinary non-release gate for software behavior and development-safe Artifact structural admission; it does not establish release eligibility.
+- Use `pnpm verify:release` only as the clean-worktree release-evidence gate for an exact committed `HEAD`; it does not turn a dirty development build into release evidence.
+- Treat `pnpm verify:balance:freeze` as frozen-evidence admission only. It validates the already accepted A/B report, attestation, trailer, and provenance; missing evidence is a failed prerequisite and never authorizes a new `pnpm verify:balance` or full balance corpus run.
+
+These local verification commands are offline: they do not access the network, push, deploy, publish, or modify tracked baselines. Human playtesting and remote distribution remain separate owner-authorized work.
 
 New npm dependencies do not require a `THIRD_PARTY_NOTICES.md` entry. Third-party files copied into Git belong under `vendor/**`; project-owned assets continue to follow their project scope and provenance rules.
