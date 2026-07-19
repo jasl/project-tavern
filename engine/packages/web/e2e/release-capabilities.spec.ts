@@ -144,7 +144,7 @@ async function proveCapabilityContextV1(
   }
 }
 
-test.describe("@phase6 prebuilt PoC capability identity", () => {
+test.describe("prebuilt PoC capability identity", () => {
   test.setTimeout(90_000);
 
   test("uses one manifest for normal, Automation, Debug, and Debug+Cheats with fresh default-off stores", async ({

@@ -54,7 +54,7 @@
 - 推进过程中发生错误仍可能设置最终时间，存在部分提交风险；
 - 许多业务规则依赖隐式全局对象。
 
-项目自有规范见 [`../poc/simulation-rules.md`](../poc/simulation-rules.md) 的时间模型。本研究笔记不规定实现。
+Project Tavern 的下一版时间模型仍在重设计，见[玩法重设计状态](../game/README.md)。本研究笔记不规定实现。
 
 ## 4. 事件、条件与随机选择
 
@@ -79,7 +79,7 @@
 - 用特殊权重同时表达优先级和概率；
 - 任意条件树难以静态验证。
 
-项目自有规范见 [`../engineering/specs/2026-07-12-game-runtime-design.md`](../engineering/specs/2026-07-12-game-runtime-design.md) 的 Story/Narrative/Hotfix 边界与 [`../engineering/specs/2026-07-12-game-runtime-contract-catalog.md`](../engineering/specs/2026-07-12-game-runtime-contract-catalog.md) 第 7 节字段合同。本研究笔记不规定接口形状。
+当前 Story/Narrative/Hotfix 边界见 [SillyMaker architecture](../engine/architecture.md) 与 [Story authoring](../engine/story-authoring.md)。本研究笔记不规定接口形状。
 
 ## 5. 状态与数据组织
 
@@ -106,7 +106,7 @@
 - 数字文件名前缀承担隐式加载依赖；
 - 字符串 key 与数组位置混用，位置变化会污染存档。
 
-项目自有规范见 [`../poc/simulation-rules.md`](../poc/simulation-rules.md)、[`../engineering/specs/2026-07-12-game-runtime-design.md`](../engineering/specs/2026-07-12-game-runtime-design.md) 与 [`../engineering/specs/2026-07-12-game-runtime-contract-catalog.md`](../engineering/specs/2026-07-12-game-runtime-contract-catalog.md)。
+当前 State 所有权、查询和 Story 组合模型见 [SillyMaker architecture](../engine/architecture.md) 与 [Story authoring](../engine/story-authoring.md)。
 
 ## 6. 存档与迁移
 
@@ -135,7 +135,7 @@
 - metadata 与主状态分开更新导致不同步风险；
 - 新旧迁移体系长期并存。
 
-项目自有存档合同见 [`../engineering/specs/2026-07-12-game-runtime-design.md`](../engineering/specs/2026-07-12-game-runtime-design.md) 第 15 节与 [`../engineering/specs/2026-07-12-game-runtime-contract-catalog.md`](../engineering/specs/2026-07-12-game-runtime-contract-catalog.md) 第 9 节。
+当前存档责任和兼容性原则见 [SillyMaker architecture](../engine/architecture.md) 与 [Story authoring](../engine/story-authoring.md)。
 
 ## 7. 构建与内容检查
 
@@ -191,8 +191,8 @@
 - 调试状态混入正常存档；
 - 手工测试房间替代自动化规则测试。
 
-项目自有调试和测试合同见 [`../engineering/specs/2026-07-12-game-runtime-design.md`](../engineering/specs/2026-07-12-game-runtime-design.md) 第 15、18、21 节。
+当前调试能力见 [Engine features](../engine/features.md)，测试维护原则见 [Development guide](../engine/development.md)。
 
 ## 9. 使用边界
 
-一句话：这份笔记只说明一个长期内容项目最终会需要哪些能力，以及哪些历史包袱不应复制。实现顺序、接口、数值和验收只由本项目自己的 `docs/poc/`、架构文档、后续实施计划与测试决定；不得从上列参考文件反推或移植代码结构。
+一句话：这份笔记只说明一个长期内容项目最终会需要哪些能力，以及哪些历史包袱不应复制。当前接口与产品决策只由活动文档、live implementation 和维护中的行为测试决定；不得从上列参考文件反推或移植代码结构。

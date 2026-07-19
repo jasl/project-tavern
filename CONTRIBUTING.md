@@ -10,28 +10,29 @@ By submitting such a contribution, you represent that you have the right to lice
 
 ## Restricted game and content areas
 
-The project does not currently accept external contributions to PolyForm-covered game software or CC BY-NC-SA-covered original content. This includes shared or Story-local Gameplay software, `game/stories/**`, project narrative, localization, art, audio, game-design documents, Story Hotfixes, fixtures, and game-specific tests.
+The project does not currently accept external contributions to PolyForm-covered game software or CC BY-NC-SA-covered original content. This includes `game/stories/**`, project narrative, localization, art, audio, game-design documents, Story Hotfixes, and game-specific tests.
 
-Restricted-area contributions may be accepted only after Jun Jiang has approved a written Contributor License Agreement or copyright assignment that permits copying, modification, distribution, sublicensing, and commercial use while preserving reasonable contributor attribution. No such general CLA is currently offered.
+Restricted-area contributions may be accepted only after Jun Jiang has approved a written Contributor License Agreement or copyright assignment that permits copying, modification, distribution, sublicensing, and commercial use while preserving reasonable contributor attribution. No general CLA is currently offered.
 
 Opening a pull request, issue, or discussion does not create that agreement. Do not attach substantial restricted-area code or content to an issue as a workaround.
 
 ## Third-party and AI-assisted material
 
-Place third-party code, text, data, images, fonts, models, audio, translations, purchased assets, and other intentionally copied third-party material under `vendor/**`. Such material retains its own license, contract, notice, or public-domain status and is not covered by the repository's MIT, PolyForm, or CC grants.
+Place intentionally copied third-party code, text, data, images, fonts, models, audio, translations, purchased assets, and similar material under `vendor/**`. It retains its own license, contract, notice, or public-domain status and is not covered by the repository's MIT, PolyForm, or CC grants. You must have the right to submit it and preserve required notices; the absence of an automated scanner is not approval.
 
-The project does not run automated license or copyright classification over `vendor/**`. Contributors remain responsible for material they submit and should preserve any notices already supplied with it.
+For an external AI-assisted contribution, disclose the service and model, generation date, prompt and inputs, output hash, and the terms relied on. Commercial material and local `references/` content may not be used as generation inputs. This contribution disclosure is separate from the maintainer's internal AIGC source-archive layout, which is described in `docs/policies/assets-and-references.md`.
 
-AI-assisted contributions must disclose the service, model, generation date, prompt, all inputs, output hash, and terms in effect. Commercial material and local `references/` content may not be used as generation inputs. An output with uncertain redistribution or relicensing rights is not accepted.
+## Preparing a change
 
-## Before submitting
+Use Node.js >= 22.12.0 and pnpm >= 11.0.0. No exact patch version or host attestation is required.
 
-Review project legal files and package metadata directly when the contribution changes their scope.
+```sh
+pnpm install
+pnpm check
+```
 
-- Run `pnpm verify` as the ordinary non-release gate for software behavior and development-safe Artifact structural admission; it does not establish release eligibility.
-- Use `pnpm verify:release` only as the clean-worktree release-evidence gate for an exact committed `HEAD`; it does not turn a dirty development build into release evidence.
-- Treat `pnpm verify:balance:freeze` as frozen-evidence admission only. It validates the already accepted A/B report, attestation, trailer, and provenance; missing evidence is a failed prerequisite and never authorizes a new `pnpm verify:balance` or full balance corpus run.
+Run `pnpm test:e2e` when changing browser behavior. For changes to the built Player or Artifact, also use the relevant commands in `docs/engine/build-and-release.md`.
 
-These local verification commands are offline: they do not access the network, push, deploy, publish, or modify tracked baselines. Human playtesting and remote distribution remain separate owner-authorized work.
+Tests should cover real engine contracts, game behavior, maintained data formats, or user flows. Avoid adding plan/checkpoint enforcement, exact-host checks, Git-state checks, or frozen provisional-balance fixtures. Update active documentation when a public API, package role, workflow, or compatibility promise changes.
 
-New npm dependencies do not require a `THIRD_PARTY_NOTICES.md` entry. Third-party files copied into Git belong under `vendor/**`; project-owned assets continue to follow their project scope and provenance rules.
+Review [LICENSE.md](LICENSE.md), [NOTICE](NOTICE), package metadata, and [the active licensing policy](docs/policies/licensing.md) whenever a change affects legal scope. New npm dependencies do not require a `THIRD_PARTY_NOTICES.md` inventory entry; deliberately copied third-party files still belong under `vendor/**`.

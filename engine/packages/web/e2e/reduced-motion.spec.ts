@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { expect, test, type Locator } from "@playwright/test";
 
-import { uiHarnessMetadataKeyV1, uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
+import { uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
 
-const e2eDebugUrlV1 = `${uiTargetUrlV1(uiTargetsV1.e2e)}/?capability=debug_tools#/play`;
+const pocDebugUrlV1 = `${uiTargetUrlV1(uiTargetsV1.poc)}/?capability=debug_tools#/play`;
 
 function parseCssTimesV1(value: string): readonly number[] {
   return value.split(",").map((entry) => {
@@ -49,19 +49,10 @@ async function expectNonessentialMotionDisabledV1(
   }
 }
 
-test.describe("@phase5c @motion reduced motion", () => {
-  test.beforeEach(({ browserName }, testInfo) => {
-    test.skip(
-      testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
-      `requires the prebuilt two-root UI harness for ${browserName}`,
-    );
-  });
-
-  test("@motion reduced motion removes nonessential Stage, Overlay, and DevDock transitions", async ({
-    page,
-  }) => {
+test.describe("PoC reduced motion", () => {
+  test("removes nonessential Stage, Overlay, and DevDock transitions", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(e2eDebugUrlV1);
+    await page.goto(pocDebugUrlV1);
 
     const stageVariant = page.getByTestId("stage-scene-variant");
     await expect(page.getByTestId("stage-scene-background")).toHaveAttribute(
@@ -69,8 +60,8 @@ test.describe("@phase5c @motion reduced motion", () => {
       "none",
     );
 
-    await page.getByRole("button", { name: "打开测试面板" }).click();
-    const overlay = page.getByRole("dialog", { name: "测试面板" });
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    const overlay = page.getByRole("dialog", { name: "保存" });
     await expect(overlay).toBeVisible();
     const launcher = overlay.getByRole("button", { name: "打开左侧开发工具" });
     await launcher.focus();

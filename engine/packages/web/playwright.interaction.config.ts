@@ -1,4 +1,9 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { defineConfig } from "@playwright/test";
+
+import { uiTargetsV1, uiTargetUrlV1 } from "./e2e/ui-targets.js";
+
+const pocTargetV1 = uiTargetsV1.poc;
 
 export default defineConfig({
   testDir: "./e2e/interaction",
@@ -7,24 +12,16 @@ export default defineConfig({
   retries: 0,
   reporter: "line",
   use: {
+    baseURL: uiTargetUrlV1(pocTargetV1),
     trace: "retain-on-failure",
   },
-  webServer: [
-    {
-      command: "node --experimental-strip-types scripts/ui/serve-story-roots.mts --target e2e",
-      cwd: "../../..",
-      url: "http://127.0.0.1:41731",
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-    {
-      command: "node --experimental-strip-types scripts/ui/serve-story-roots.mts --target poc",
-      cwd: "../../..",
-      url: "http://127.0.0.1:41732",
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
-  ],
+  webServer: {
+    command: `pnpm exec vite --mode poc-web --host ${pocTargetV1.host} --port ${String(pocTargetV1.port)} --strictPort`,
+    cwd: "../../..",
+    reuseExistingServer: false,
+    timeout: 120_000,
+    url: uiTargetUrlV1(pocTargetV1),
+  },
   projects: [
     {
       name: "chromium",

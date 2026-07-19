@@ -1,23 +1,14 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import {
-  uiHarnessMetadataKeyV1,
-  uiTargetUrlV1,
-  uiTargetsV1,
-  type UiTargetV1,
-} from "./ui-targets.js";
+import { uiTargetUrlV1, uiTargetsV1, type UiTargetV1 } from "./ui-targets.js";
 
 interface StoryTargetV1 {
-  readonly applicationName: "Project Tavern 七日原型" | "SillyMaker 引擎测试";
+  readonly applicationName: "Project Tavern 七日原型";
   readonly target: UiTargetV1;
 }
 
 const storyTargetsV1 = Object.freeze([
-  Object.freeze({
-    applicationName: "SillyMaker 引擎测试",
-    target: uiTargetsV1.e2e,
-  }),
   Object.freeze({
     applicationName: "Project Tavern 七日原型",
     target: uiTargetsV1.poc,
@@ -109,15 +100,8 @@ async function expectFreshContextDefaultsV1(browser: Browser, story: StoryTarget
   }
 }
 
-test.describe("@phase5c @infrastructure", () => {
-  test.beforeEach(({ browserName }, testInfo) => {
-    test.skip(
-      testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
-      `requires the prebuilt two-root UI harness for ${browserName}`,
-    );
-  });
-
-  test("@smoke normal PoC and E2E URLs keep runtime capabilities off", async ({ page }) => {
+test.describe("PoC runtime capabilities", () => {
+  test("normal URLs keep runtime capabilities off", async ({ page }) => {
     for (const story of storyTargetsV1) {
       await test.step(story.target.applicationId, async () => {
         await page.goto(storyUrlV1(story.target));
@@ -142,14 +126,6 @@ test.describe("@phase5c @infrastructure", () => {
         await page.getByRole("button", { name: "打开右侧开发工具" }).click();
         await expect(page.getByRole("complementary", { name: "右侧开发工具" })).toBeVisible();
         await expect(page.getByRole("button", { name: "调试命令" })).toBeDisabled();
-
-        const fixtureAnchors = page.getByRole("button", { name: /^载入夹具 /u });
-        await expect(fixtureAnchors.first()).toBeVisible();
-        const fixtureAnchorCount = await fixtureAnchors.count();
-        expect(fixtureAnchorCount).toBeGreaterThan(0);
-        for (let index = 0; index < fixtureAnchorCount; index += 1) {
-          await expect(fixtureAnchors.nth(index)).toBeDisabled();
-        }
       });
 
       await expectFreshContextDefaultsV1(browser, story);
@@ -170,19 +146,19 @@ test.describe("@phase5c @infrastructure", () => {
     await expect(commandsTab).toBeEnabled();
     await commandsTab.click();
 
-    const command = page.getByRole("region", { name: "debug.e2e.counter.add" });
-    const confirmation = command.getByRole("checkbox", { name: "确认执行此调试命令" });
+    const command = page.getByRole("region", { name: "PoC 调试命令：调整现金" });
+    const confirmation = command.getByRole("checkbox", { name: "我确认执行调整现金" });
     const submit = command.getByRole("button", { name: "执行调试命令" });
     await expect(submit).toBeDisabled();
     await confirmation.check();
     await expect(submit).toBeEnabled();
     await submit.click();
-    await expect(command.getByText("调试命令已提交（序列 1）")).toBeVisible();
+    await expect(page.getByRole("region", { name: "旅店的一周" })).toContainText("现金 75");
 
     await expectFreshContextDefaultsV1(browser, story);
   });
 
-  test("@smoke automation_bridge exposes exactly the six public facade members", async ({
+  test("automation_bridge exposes exactly the six public facade members", async ({
     browser,
     page,
   }) => {

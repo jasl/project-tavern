@@ -1,9 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "./packages/assets" },
-    { "path": "./stories/e2e" },
-    { "path": "./stories/e2e/tsconfig.application.json" },
-    { "path": "./stories/poc" }
-  ]
+  "references": [{ "path": "./stories/poc" }]
 }

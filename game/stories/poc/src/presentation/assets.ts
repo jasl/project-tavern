@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { approvedPocAssetPacksV1 } from "@project-tavern/assets";
 import type { AssetPackV1, StageSceneVariantId } from "@sillymaker/base";
 
 import { assetIdsV1 } from "../content/asset-ids.js";
@@ -189,7 +188,8 @@ export const pocAssetSlotsV1 = deepFreezePresentationDataV1([
   },
 ] as const);
 
-export const pocAssetPacksV1: readonly AssetPackV1[] = approvedPocAssetPacksV1;
+/** Runtime Asset Packs promoted for this Story. The current code-native presentation needs none. */
+export const pocAssetPacksV1: readonly AssetPackV1[] = Object.freeze([]);
 
 export const pocHeroineStandardAppearanceV1 = deepFreezePresentationDataV1([
   {

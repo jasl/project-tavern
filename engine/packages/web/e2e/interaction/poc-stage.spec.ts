@@ -1,6 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const pocWebUrlV1 = "http://127.0.0.1:41732";
+import { uiTargetsV1, uiTargetUrlV1 } from "../ui-targets.js";
+
+const pocWebUrlV1 = uiTargetUrlV1(uiTargetsV1.poc);
 
 function tavernHeroineEntryV1(page: Page): Locator {
   return page.locator(

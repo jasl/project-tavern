@@ -28,7 +28,7 @@ export type SaveUiImportResultV1 =
 
 /**
  * The UI consumes the existing player-safe persistence port. The sync-or-Promise status return
- * is the only structural compatibility allowance: Phase 3 currently exposes an asynchronous
+ * is the only structural compatibility allowance: the runtime exposes an asynchronous
  * read, while application shells may already hold the same immutable status value.
  */
 export interface SaveOverlayPortV1 {

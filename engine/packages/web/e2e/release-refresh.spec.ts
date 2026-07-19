@@ -83,7 +83,7 @@ async function loadManualV1(page: Page, dialog: Locator): Promise<void> {
   await expect(dialog.getByTestId("save-operation-result")).toHaveText("已载入存档");
 }
 
-test.describe("@phase6 prebuilt PoC refresh continuity", () => {
+test.describe("prebuilt PoC refresh continuity", () => {
   test("runs new game, initial VN, first action, Save, refresh, and continue from the shipped bytes", async ({
     page,
   }) => {

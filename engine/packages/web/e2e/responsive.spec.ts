@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { uiHarnessMetadataKeyV1, uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
+import { uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
 
 interface ViewportV1 {
   readonly width: number;
@@ -136,14 +136,7 @@ async function expectPortraitDevDockSheetV1(page: Page, rail: Locator): Promise<
   await expect(first, "Tab must wrap to the first sheet control").toBeFocused();
 }
 
-test.describe("@phase5c @responsive global shell", () => {
-  test.beforeEach(({ browserName }, testInfo) => {
-    test.skip(
-      testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
-      `requires the prebuilt two-root UI harness for ${browserName}`,
-    );
-  });
-
+test.describe("PoC responsive shell", () => {
   for (const viewport of responsiveViewportsV1) {
     test(`@responsive complete shell at ${viewport.width}x${viewport.height}`, async ({
       page,

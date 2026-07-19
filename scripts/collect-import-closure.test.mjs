@@ -31,14 +31,8 @@ async function assertNodeSafeStoryClosure(entry) {
   }
 }
 
-test("collects exactly the E2E and PoC production application closures", async () => {
+test("collects the PoC production application closure", async () => {
   const cases = [
-    {
-      entry: "game/stories/e2e/src/application/entry.tsx",
-      tooling: "game/stories/e2e/src/tooling.ts",
-      toolingUi: "game/stories/e2e/src/tooling-ui/index.ts",
-      virtualSpecifier: "virtual:project-tavern/e2e-build-identity",
-    },
     {
       entry: "game/stories/poc/src/application/entry.tsx",
       tooling: "game/stories/poc/src/tooling/index.ts",
@@ -113,7 +107,7 @@ test("maps both public PoC package specifiers to production source", async () =>
   }
 });
 
-test("maps fixed Story tooling UI and declared UI package subpaths to production source", async () => {
+test("maps PoC tooling UI and declared UI package subpaths to production source", async () => {
   const fixture = "scripts/collect-import-closure-ui-package-fixture.mjs";
   const absoluteFixture = join(root, fixture);
   await writeFile(
@@ -122,7 +116,6 @@ test("maps fixed Story tooling UI and declared UI package subpaths to production
       'import "@sillymaker/ui/assets";',
       'import "@sillymaker/ui/debug";',
       'import "@sillymaker/ui/diagnostics";',
-      'await import("@project-tavern/story-e2e/tooling-ui");',
       'await import("@project-tavern/story-poc/tooling-ui");',
       "",
     ].join("\n"),
@@ -134,7 +127,6 @@ test("maps fixed Story tooling UI and declared UI package subpaths to production
       "engine/packages/ui/src/assets/index.ts",
       "engine/packages/ui/src/debug/index.ts",
       "engine/packages/ui/src/diagnostics/index.ts",
-      "game/stories/e2e/src/tooling-ui/index.ts",
       "game/stories/poc/src/tooling-ui/index.ts",
     ]) {
       assert(closure.paths.includes(path), path);
@@ -174,10 +166,8 @@ test("rejects unknown internal workspace package subpaths instead of treating th
   }
 });
 
-test("keeps default Story and SceneGraph closures free of tooling and Web renderers", async () => {
+test("keeps the default Story and SceneGraph closures free of tooling and Web renderers", async () => {
   for (const entry of [
-    "game/stories/e2e/src/index.ts",
-    "game/stories/e2e/src/presentation/scene-graph.ts",
     "game/stories/poc/src/index.ts",
     "game/stories/poc/src/presentation/scene-graph.ts",
   ]) {
@@ -195,13 +185,8 @@ test("keeps default Story and SceneGraph closures free of tooling and Web render
   }
 });
 
-test("keeps default Story and Node-safe tooling closures free of TSX, React, and DOM", async () => {
-  for (const entry of [
-    "game/stories/e2e/src/index.ts",
-    "game/stories/e2e/src/tooling.ts",
-    "game/stories/poc/src/index.ts",
-    "game/stories/poc/src/tooling/index.ts",
-  ]) {
+test("keeps the default Story and Node-safe tooling closures free of TSX, React, and DOM", async () => {
+  for (const entry of ["game/stories/poc/src/index.ts", "game/stories/poc/src/tooling/index.ts"]) {
     await assertNodeSafeStoryClosure(entry);
   }
 });

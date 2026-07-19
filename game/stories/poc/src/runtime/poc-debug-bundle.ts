@@ -43,7 +43,7 @@ import type {
   ReplayLoggedCommandV1,
 } from "@sillymaker/base/runtime";
 
-import { pocReferenceRunIdsV1, pocStoryIdentityV1 } from "../content/identity.js";
+import { pocStoryIdentityV1 } from "../content/identity.js";
 import {
   deepFreezePocValueV1,
   parseFixtureId,
@@ -67,7 +67,7 @@ import type {
   StoryRuleSlotV1,
 } from "../gameplay/index.js";
 import type { PocResolvedGameV1 } from "../story-definition.js";
-import type { PocStoryToolingFixtureV1 } from "../tooling-fixtures.js";
+import type { PocStoryToolingFixtureV1 } from "../tooling/fixtures.js";
 
 type PocSessionV1 = GameSessionCompositionV1<PocGameSimulationTypesV1>;
 type PersistenceFaultCodeV1 = Extract<
@@ -1150,23 +1150,12 @@ export function createPocReplayInputV1(
   });
 }
 
-const runIdByFixtureIdV1 = Object.freeze({
-  "fixture.poc_cash_first": pocReferenceRunIdsV1["strategy.cash_first"],
-  "fixture.poc_d5_relationship": pocReferenceRunIdsV1["strategy.relationship_first"],
-  "fixture.poc_d5_investigation": pocReferenceRunIdsV1["strategy.investigation_first"],
-  "fixture.poc_full_delegation": pocReferenceRunIdsV1["strategy.full_delegation"],
-  "fixture.poc_two_closures_recovery": pocReferenceRunIdsV1["strategy.two_closures_recovery"],
-  "fixture.poc_explicit_failure": pocReferenceRunIdsV1["strategy.explicit_failure"],
-});
-
 /** Replays one active-Story tooling fixture into a fully validated isolated Snapshot anchor. */
 export async function replayPocToolingFixtureV1(
   resolved: PocResolvedGameV1,
   fixture: DeepReadonly<PocStoryToolingFixtureV1>,
 ): Promise<PocGameSnapshotV1> {
-  const runId =
-    runIdByFixtureIdV1[fixture.fixtureId as keyof typeof runIdByFixtureIdV1] ??
-    parseRunId("00000000-0000-4000-8000-000000000199");
+  const runId = parseRunId("00000000-0000-4000-8000-000000000199");
   const bootstrap = Object.freeze({ rngSeed: fixture.seed, runId });
   const isolated = createGameSessionV1<PocGameSimulationTypesV1>({
     initialSnapshot: snapshotSchemaV1.parse({

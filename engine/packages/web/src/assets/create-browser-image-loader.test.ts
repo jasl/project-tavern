@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createBrowserImageLoaderV1 } from "./create-browser-image-loader.js";
 
-const runtimePathV1 = "game/packages/assets/e2e/scene.png";
+const runtimePathV1 = "game/stories/poc/assets/scene.png";
 const runtimeUrlV1 = `https://game.example.test/runtime/${runtimePathV1}`;
 const runtimeRequestV1 = Object.freeze({
   runtimePath: runtimePathV1,

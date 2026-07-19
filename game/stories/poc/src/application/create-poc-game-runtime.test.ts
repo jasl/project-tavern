@@ -2,15 +2,23 @@
 import { access, readFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 
-import { createDebugUiContextSchemaV1, digestCanonical } from "@sillymaker/base";
+import {
+  createDebugUiContextSchemaV1,
+  digestCanonical,
+  parseNonZeroUint32,
+} from "@sillymaker/base";
 import type { DebugUiContextV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import { createWebHostV1 } from "@sillymaker/web";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import { pocDebugCommandSchemaV1, type PocGameSnapshotV1 } from "../gameplay/index.js";
+import {
+  parseFixtureId,
+  pocDebugCommandSchemaV1,
+  type PocGameSnapshotV1,
+} from "../gameplay/index.js";
 import { pocStoryEntryV1 } from "../story-definition.js";
-import { pocFixtureIdsV1, pocStoryToolingEntryV1 } from "../tooling/index.js";
+import { pocStoryToolingEntryV1 } from "../tooling/index.js";
 import type { PocGameApplicationPortV1 } from "./create-poc-game-application.js";
 import { createPocGameRuntimeV1 } from "./create-poc-game-runtime.js";
 
@@ -243,7 +251,7 @@ describe("createPocGameRuntimeV1", () => {
     });
     await expect(application.debugTools.listFixtures()).resolves.toEqual({
       kind: "listed",
-      fixtureIds: pocFixtureIdsV1,
+      fixtureIds: [],
     });
     await expect(application.debugTools.listFixtures()).resolves.toMatchObject({ kind: "listed" });
     expect(loadTooling).toHaveBeenCalledTimes(1);
@@ -321,7 +329,7 @@ describe("createPocGameRuntimeV1", () => {
     expect(await records.read("settings", "runtime-capabilities.v1" as never)).toBeNull();
     await expect(application.debugTools.listFixtures()).resolves.toEqual({
       kind: "listed",
-      fixtureIds: pocFixtureIdsV1,
+      fixtureIds: [],
     });
     await expect(
       application.debugTools.executeDebugCommand(
@@ -360,10 +368,9 @@ describe("createPocGameRuntimeV1", () => {
   it("exports fixture-aware anchoring failure evidence after replay faults", async () => {
     const resolved = resolveStoryForTestV1(pocStoryEntryV1);
     const support = pocStoryToolingEntryV1.defineToolingSupport();
-    const sourceFixture = support.fixtures[0];
-    if (sourceFixture === undefined) throw new TypeError("missing PoC tooling fixture");
     const invalidFixture = Object.freeze({
-      ...sourceFixture,
+      fixtureId: parseFixtureId("fixture.test.invalid_command"),
+      seed: parseNonZeroUint32(initialSeedV1),
       commands: Object.freeze([Object.freeze({ kind: "invalid.fixture.command" }) as never]),
     });
     const faultingToolingEntry = Object.freeze({
@@ -390,7 +397,7 @@ describe("createPocGameRuntimeV1", () => {
     await application.capabilities.setEnabled("cheats", true);
 
     await expect(
-      application.debugTools.anchorFixture(sourceFixture.fixtureId),
+      application.debugTools.anchorFixture(invalidFixture.fixtureId),
     ).resolves.toMatchObject({ kind: "faulted", fault: { code: "command.handler_threw" } });
     const bundle = decodeJsonV1<PocRuntimeBundleWitnessV1>(
       (await application.diagnostics.exportDebugBundle()).bytes,
@@ -400,8 +407,8 @@ describe("createPocGameRuntimeV1", () => {
         source: "debug_anchor",
         command: {
           kind: "debug.fixture.load",
-          fixtureId: sourceFixture.fixtureId,
-          seed: sourceFixture.seed,
+          fixtureId: invalidFixture.fixtureId,
+          seed: invalidFixture.seed,
         },
       },
       fault: expect.objectContaining({

@@ -40,7 +40,7 @@ type Application = GameApplicationPortV1<
   typeof persistence,
   { exportDebugBundle(): Promise<unknown> },
   { readonly kind: "unavailable" },
-  { readonly kind: "unavailable"; readonly code: "phase3_not_installed" }
+  { readonly kind: "unavailable"; readonly code: "debug_tools_not_installed" }
 >;
 declare const application: Application;
 declare const presentation: PresentationReadPortV1<string, string, string, string, string>;

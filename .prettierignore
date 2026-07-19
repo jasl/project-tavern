@@ -7,10 +7,4 @@ test-results/
 art-source/aigc/**/*.png
 art-source/aigc/**/*.webp
 references/
-engine/packages/web/e2e/__screenshots__/chromium/environment.v1.json
-game/stories/e2e/fixtures/session-zero.json
-game/stories/e2e/golden/semantic-flow.json
-game/stories/e2e/src/test/fixtures/runtime/*.json
-game/stories/poc/src/test/fixtures/golden/*.json
-game/stories/poc/src/test/fixtures/saves/*.json
 *.tsbuildinfo

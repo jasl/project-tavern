@@ -187,7 +187,7 @@ function createEnvironmentV1(
 
 describe("runtime asset manifest validation", () => {
   it("reads only exact runtime providers in manifest order and never enumerates source archives", async () => {
-    const firstPath = "game/packages/assets/e2e/scene.png";
+    const firstPath = "game/stories/poc/assets/scene.png";
     const secondPath = "game/stories/poc/assets/menu.png";
     const reads: string[] = [];
     const realpathReads: string[] = [];
@@ -212,13 +212,7 @@ describe("runtime asset manifest validation", () => {
     );
 
     expect(result.errors).toEqual([]);
-    expect(realpathReads).toEqual([
-      ".",
-      "game/packages/assets",
-      firstPath,
-      "game/stories/poc/assets",
-      secondPath,
-    ]);
+    expect(realpathReads).toEqual([".", "game/stories/poc/assets", firstPath, secondPath]);
     expect(reads).toEqual([firstPath, secondPath]);
     expect(
       reads.every((path) => !path.startsWith("art-source/") && !path.startsWith("references/")),
@@ -255,7 +249,7 @@ describe("runtime asset manifest validation", () => {
     "game/packages/assets/%255C..%255Cscene.png",
     "game/packages/assets%2F..%2Fscene.png",
     "game/packages/assets",
-    "game/stories/other/assets/scene.png",
+    "game/stories/Other/assets/scene.png",
     "art-source/aigc/scene.png",
     "references/scene.png",
   ])("rejects unsafe path %j before any filesystem read", async (runtimePath) => {
@@ -263,7 +257,7 @@ describe("runtime asset manifest validation", () => {
     const realpathReads: string[] = [];
     const manifest = overrideRuntimeProviderV1(
       createManifestV1([
-        { assetId: "scene.unsafe", runtimePath: "game/packages/assets/scene.png" },
+        { assetId: "scene.unsafe", runtimePath: "game/stories/poc/assets/scene.png" },
       ]),
       "scene.unsafe",
       { runtimePath },
@@ -279,24 +273,23 @@ describe("runtime asset manifest validation", () => {
     expect(reads).toEqual([]);
   });
 
-  it.each([
-    "game/packages/assets/scene.png",
-    "game/stories/e2e/assets/scene.png",
-    "game/stories/poc/assets/scene.png",
-  ])("accepts the exact runtime root for %s", async (runtimePath) => {
-    const result = await validateRuntimeAssetManifestV1(
-      createManifestV1([{ assetId: "scene.safe", runtimePath }]),
-      createEnvironmentV1({ files: new Map([[runtimePath, validPngV1]]) }),
-    );
+  it.each(["game/stories/poc/assets/scene.png", "game/stories/sandbox/assets/scene.png"])(
+    "accepts a Story-local runtime root for %s",
+    async (runtimePath) => {
+      const result = await validateRuntimeAssetManifestV1(
+        createManifestV1([{ assetId: "scene.safe", runtimePath }]),
+        createEnvironmentV1({ files: new Map([[runtimePath, validPngV1]]) }),
+      );
 
-    expect(result.errors).toEqual([]);
-  });
+      expect(result.errors).toEqual([]);
+    },
+  );
 
   it("accepts a contained runtime file when the checkout root is reached through a symlink", async () => {
-    const runtimePath = "game/packages/assets/scene.png";
+    const runtimePath = "game/stories/poc/assets/scene.png";
     const checkoutRoot = "/repo/project-tavern-link";
     const realRepositoryRoot = "/repo/project-tavern";
-    const realAllowedRoot = `${realRepositoryRoot}/game/packages/assets`;
+    const realAllowedRoot = `${realRepositoryRoot}/game/stories/poc/assets`;
     const realpathReads: string[] = [];
     const reads: string[] = [];
     const manifest = createManifestV1([{ assetId: "scene.symlinked-checkout", runtimePath }]);
@@ -306,7 +299,7 @@ describe("runtime asset manifest validation", () => {
       async realpath(path) {
         realpathReads.push(path);
         if (path === ".") return realRepositoryRoot;
-        if (path === "game/packages/assets") return realAllowedRoot;
+        if (path === "game/stories/poc/assets") return realAllowedRoot;
         if (path === runtimePath) return `${realAllowedRoot}/scene.png`;
         throw new Error(`unexpected realpath: ${path}`);
       },
@@ -318,13 +311,13 @@ describe("runtime asset manifest validation", () => {
     });
 
     expect(result.errors).toEqual([]);
-    expect(realpathReads).toEqual([".", "game/packages/assets", runtimePath]);
+    expect(realpathReads).toEqual([".", "game/stories/poc/assets", runtimePath]);
     expect(reads).toEqual([runtimePath]);
   });
 
   it("canonicalizes a shared allowed root once while resolving each exact file once", async () => {
-    const firstPath = "game/packages/assets/first.png";
-    const secondPath = "game/packages/assets/second.png";
+    const firstPath = "game/stories/poc/assets/first.png";
+    const secondPath = "game/stories/poc/assets/second.png";
     const realpathReads: string[] = [];
     const reads: string[] = [];
     const result = await validateRuntimeAssetManifestV1(
@@ -343,12 +336,12 @@ describe("runtime asset manifest validation", () => {
     );
 
     expect(result.errors).toEqual([]);
-    expect(realpathReads).toEqual([".", "game/packages/assets", firstPath, secondPath]);
+    expect(realpathReads).toEqual([".", "game/stories/poc/assets", firstPath, secondPath]);
     expect(reads).toEqual([firstPath, secondPath]);
   });
 
   it("rejects an allowed-root symlink outside the canonical repository before resolving a file", async () => {
-    const runtimePath = "game/packages/assets/scene.png";
+    const runtimePath = "game/stories/poc/assets/scene.png";
     const realpathReads: string[] = [];
     const reads: string[] = [];
     const result = await validateRuntimeAssetManifestV1(
@@ -358,7 +351,7 @@ describe("runtime asset manifest validation", () => {
         async realpath(path) {
           realpathReads.push(path);
           if (path === ".") return "/repo/project-tavern";
-          if (path === "game/packages/assets") return "/outside/assets";
+          if (path === "game/stories/poc/assets") return "/outside/assets";
           throw new Error(`must not resolve file after root escape: ${path}`);
         },
         async readFile(path) {
@@ -371,18 +364,20 @@ describe("runtime asset manifest validation", () => {
     expect(result.errors).toEqual([
       { assetId: "scene.root-escape", code: "asset.runtime_path_escape" },
     ]);
-    expect(realpathReads).toEqual([".", "game/packages/assets"]);
+    expect(realpathReads).toEqual([".", "game/stories/poc/assets"]);
     expect(reads).toEqual([]);
   });
 
   it("rejects a realpath escape before reading file bytes", async () => {
-    const runtimePath = "game/packages/assets/scene.png";
+    const runtimePath = "game/stories/poc/assets/scene.png";
     const reads: string[] = [];
     const result = await validateRuntimeAssetManifestV1(
       createManifestV1([{ assetId: "scene.escape", runtimePath }]),
       createEnvironmentV1({
         files: new Map([[runtimePath, validPngV1]]),
-        realpaths: new Map([[runtimePath, "/repo/project-tavern/game/packages/assets-escape/x"]]),
+        realpaths: new Map([
+          [runtimePath, "/repo/project-tavern/game/stories/poc/assets-escape/x"],
+        ]),
         reads,
       }),
     );
@@ -392,7 +387,7 @@ describe("runtime asset manifest validation", () => {
   });
 
   it("treats realpath and read failures as a missing runtime file", async () => {
-    const runtimePath = "game/packages/assets/missing.png";
+    const runtimePath = "game/stories/poc/assets/missing.png";
     const manifest = createManifestV1([{ assetId: "scene.missing", runtimePath }]);
 
     const realpathFailure = await validateRuntimeAssetManifestV1(manifest, {
@@ -420,11 +415,11 @@ describe("runtime asset manifest validation", () => {
       manifest: createManifestV1([
         {
           assetId: "scene.media",
-          runtimePath: "game/packages/assets/scene.svg",
+          runtimePath: "game/stories/poc/assets/scene.svg",
           mediaType: "image/svg+xml",
         },
       ]),
-      path: "game/packages/assets/scene.svg",
+      path: "game/stories/poc/assets/scene.svg",
       bytes: validPngV1,
       code: "asset.runtime_media_mismatch",
     },
@@ -433,11 +428,11 @@ describe("runtime asset manifest validation", () => {
       manifest: createManifestV1([
         {
           assetId: "scene.bytes",
-          runtimePath: "game/packages/assets/scene.png",
+          runtimePath: "game/stories/poc/assets/scene.png",
           byteLength: validPngV1.byteLength + 1,
         },
       ]),
-      path: "game/packages/assets/scene.png",
+      path: "game/stories/poc/assets/scene.png",
       bytes: validPngV1,
       code: "asset.runtime_byte_length_mismatch",
     },
@@ -446,11 +441,11 @@ describe("runtime asset manifest validation", () => {
       manifest: createManifestV1([
         {
           assetId: "scene.hash",
-          runtimePath: "game/packages/assets/scene.png",
+          runtimePath: "game/stories/poc/assets/scene.png",
           sha256: digestBytes(Uint8Array.of(0)),
         },
       ]),
-      path: "game/packages/assets/scene.png",
+      path: "game/stories/poc/assets/scene.png",
       bytes: validPngV1,
       code: "asset.runtime_hash_mismatch",
     },
@@ -459,11 +454,11 @@ describe("runtime asset manifest validation", () => {
       manifest: createManifestV1([
         {
           assetId: "scene.dimensions",
-          runtimePath: "game/packages/assets/scene.png",
+          runtimePath: "game/stories/poc/assets/scene.png",
           width: 2,
         },
       ]),
-      path: "game/packages/assets/scene.png",
+      path: "game/stories/poc/assets/scene.png",
       bytes: validPngV1,
       code: "asset.runtime_dimensions_mismatch",
     },
@@ -477,12 +472,12 @@ describe("runtime asset manifest validation", () => {
   });
 
   it("keeps validating later manifest entries after an unsafe provider", async () => {
-    const safePath = "game/stories/e2e/assets/scene.png";
+    const safePath = "game/stories/poc/assets/scene.png";
     const reads: string[] = [];
     const result = await validateRuntimeAssetManifestV1(
       overrideRuntimeProviderV1(
         createManifestV1([
-          { assetId: "scene.unsafe", runtimePath: "game/packages/assets/unsafe.png" },
+          { assetId: "scene.unsafe", runtimePath: "game/stories/poc/assets/unsafe.png" },
           { assetId: "scene.safe", runtimePath: safePath },
         ]),
         "scene.unsafe",

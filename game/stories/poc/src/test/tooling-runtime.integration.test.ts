@@ -2,14 +2,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { canonicalJsonBytes, digestCanonical } from "@sillymaker/base";
+import { canonicalJsonBytes, digestCanonical, parseNonZeroUint32 } from "@sillymaker/base";
 
-import { pocDebugCommandKindsV1 } from "../gameplay/index.js";
 import {
-  pocFixtureIdsV1,
-  pocStoryToolingEntryV1,
-  pocStoryToolingFixtureByIdV1,
-} from "../tooling/index.js";
+  parseFixtureId,
+  pocDebugCommandKindsV1,
+  pocGameCommandSchemaV1,
+} from "../gameplay/index.js";
+import { pocStoryToolingEntryV1 } from "../tooling/index.js";
 import {
   createPocRuntimeTestFixtureV1,
   pocReplayableDebugIntegrationVectorsV1,
@@ -18,7 +18,7 @@ import {
 } from "../testing/poc-runtime-test-fixture.js";
 
 describe("PoC actual-Story DebugTools integration", () => {
-  it("retries a rejected fixed tooling load and memoizes the first success", async () => {
+  it("retries a rejected tooling load and memoizes the first success", async () => {
     let attempts = 0;
     const fixture = createPocRuntimeTestFixtureV1({
       debugTools: true,
@@ -36,17 +36,17 @@ describe("PoC actual-Story DebugTools integration", () => {
     );
     await expect(fixture.application.debugTools.listFixtures()).resolves.toMatchObject({
       kind: "listed",
-      fixtureIds: pocFixtureIdsV1,
+      fixtureIds: [],
     });
     await expect(fixture.application.debugTools.listFixtures()).resolves.toMatchObject({
       kind: "listed",
-      fixtureIds: pocFixtureIdsV1,
+      fixtureIds: [],
     });
     expect(attempts).toBe(2);
     expect(fixture.toolingLoads()).toBe(2);
   });
 
-  it("deduplicates concurrent fixed tooling loads", async () => {
+  it("deduplicates concurrent tooling loads", async () => {
     let attempts = 0;
     let resolveLoad:
       | ((module: { readonly pocStoryToolingEntryV1: typeof pocStoryToolingEntryV1 }) => void)
@@ -70,34 +70,50 @@ describe("PoC actual-Story DebugTools integration", () => {
     expect(attempts).toBe(1);
     resolveLoad?.(Object.freeze({ pocStoryToolingEntryV1 }));
     await expect(Promise.all([first, second])).resolves.toEqual([
-      { kind: "listed", fixtureIds: pocFixtureIdsV1 },
-      { kind: "listed", fixtureIds: pocFixtureIdsV1 },
+      { kind: "listed", fixtureIds: [] },
+      { kind: "listed", fixtureIds: [] },
     ]);
     expect(attempts).toBe(1);
     expect(fixture.toolingLoads()).toBe(1);
   });
 
-  it("loads one fixed tooling export and persists a successful anchor mark", async () => {
-    const fixture = createPocRuntimeTestFixtureV1({ debugTools: true, cheats: true });
+  it("loads an ephemeral tooling fixture and persists a successful anchor mark", async () => {
+    const anchorFixture = Object.freeze({
+      fixtureId: parseFixtureId("fixture.test.start"),
+      seed: parseNonZeroUint32(0x0002_3049),
+      commands: Object.freeze([pocGameCommandSchemaV1.parse({ kind: "run.start" })]),
+    });
+    const toolingEntry = Object.freeze({
+      ...pocStoryToolingEntryV1,
+      defineToolingSupport() {
+        return Object.freeze({
+          fixtures: Object.freeze([anchorFixture]),
+          notes: Object.freeze([]),
+        });
+      },
+    }) as typeof pocStoryToolingEntryV1;
+    const fixture = createPocRuntimeTestFixtureV1({
+      debugTools: true,
+      cheats: true,
+      loadTooling: async () => Object.freeze({ pocStoryToolingEntryV1: toolingEntry }),
+    });
     expect(fixture.toolingLoads()).toBe(0);
     await expect(fixture.application.debugTools.listFixtures()).resolves.toEqual({
       kind: "listed",
-      fixtureIds: pocFixtureIdsV1,
+      fixtureIds: [anchorFixture.fixtureId],
     });
     await expect(fixture.application.debugTools.listFixtures()).resolves.toEqual({
       kind: "listed",
-      fixtureIds: pocFixtureIdsV1,
+      fixtureIds: [anchorFixture.fixtureId],
     });
     expect(fixture.toolingLoads()).toBe(1);
     expect(fixture.loadedSpecifier()).toBe("@project-tavern/story-poc/tooling");
 
     const beforeRevision = fixture.application.semantic.observe().revision;
     const publication = fixture.nextSemanticPublication();
-    const anchorFixture = pocStoryToolingFixtureByIdV1["fixture.poc_d5_relationship"];
-    if (anchorFixture === undefined) throw new TypeError("missing relationship tooling fixture");
     const expectedAnchorSequence = anchorFixture.commands.length;
     await expect(
-      fixture.application.debugTools.anchorFixture("fixture.poc_d5_relationship"),
+      fixture.application.debugTools.anchorFixture(anchorFixture.fixtureId),
     ).resolves.toEqual({
       kind: "anchor_established",
       commandSequence: expectedAnchorSequence,

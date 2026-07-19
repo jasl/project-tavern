@@ -25,11 +25,8 @@ function emptyManifestV1(): ResolvedAssetManifestV1 {
 }
 
 describe("closed runtime asset verification", () => {
-  it("freezes exactly the default E2E and PoC Story checks", () => {
-    expect(runtimeAssetStoryChecksV1.map(({ storyId }) => storyId)).toEqual([
-      "story.e2e",
-      "week.poc_001",
-    ]);
+  it("freezes the maintained PoC Story check", () => {
+    expect(runtimeAssetStoryChecksV1.map(({ storyId }) => storyId)).toEqual(["week.poc_001"]);
     expect(Object.isFrozen(runtimeAssetStoryChecksV1)).toBe(true);
     for (const check of runtimeAssetStoryChecksV1) expect(Object.isFrozen(check)).toBe(true);
   });
@@ -72,7 +69,7 @@ describe("closed runtime asset verification", () => {
     expect(Object.isFrozen(verified)).toBe(true);
   });
 
-  it("resolves the two live fallback-only manifests without any runtime file access", async () => {
+  it("resolves the live fallback-only manifest without any runtime file access", async () => {
     const reads: string[] = [];
     const realpaths: string[] = [];
     const root = resolve(import.meta.dirname, "../..");
@@ -88,10 +85,7 @@ describe("closed runtime asset verification", () => {
       },
     });
 
-    await expect(verifyRuntimeAssetsV1(root, { environment })).resolves.toEqual([
-      "story.e2e",
-      "week.poc_001",
-    ]);
+    await expect(verifyRuntimeAssetsV1(root, { environment })).resolves.toEqual(["week.poc_001"]);
     expect(reads).toEqual([]);
     expect(realpaths).toEqual([]);
   }, 30_000);
@@ -137,7 +131,7 @@ describe("closed runtime asset verification", () => {
     expect(resolutionCalls).toEqual(["story.test.first", "story.test.second"]);
   });
 
-  it("imports only the Base resolver, validator, and two Node-only default Story entries", async () => {
+  it("imports only the Base resolver, validator, and Node-only PoC Story entry", async () => {
     const source = await readFile(new URL("./verify-runtime-assets.mts", import.meta.url), "utf8");
     const dynamicSpecifiers = [...source.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/gu)].flatMap(
       (match) => (match[1] === undefined ? [] : [match[1]]),
@@ -145,7 +139,6 @@ describe("closed runtime asset verification", () => {
 
     expect(dynamicSpecifiers).toEqual([
       "../../engine/packages/base/src/index.js",
-      "../../game/stories/e2e/src/story-entry.js",
       "../../game/stories/poc/src/story-definition.js",
       "./validate-runtime.mjs",
     ]);

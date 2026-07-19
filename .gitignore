@@ -15,7 +15,6 @@
 /art-source/**/candidates/
 /art-source/**/work/
 /.superpowers/
-/.project-tavern/
 
 # Dependencies and package-manager caches.
 node_modules/
@@ -41,11 +40,6 @@ test-results/
 vite.config.*.timestamp-*
 storybook-static/
 *.tsbuildinfo
-
-# Recoverable E2E runtime-fixture directory transactions.
-/game/stories/e2e/src/test/fixtures/.runtime-fixtures.next-*
-/game/stories/e2e/src/test/fixtures/.runtime-fixtures.previous
-/game/stories/e2e/src/test/fixtures/.runtime-fixtures.transaction.v1.json
 
 # Local environment and secrets. Keep documented examples in version control.
 .env

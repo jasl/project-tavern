@@ -12,7 +12,6 @@
   "references": [
     { "path": "../../../engine/packages/base" },
     { "path": "../../../engine/packages/ui" },
-    { "path": "../../packages/assets" },
     { "path": "../../../engine/packages/web" }
   ]
 }

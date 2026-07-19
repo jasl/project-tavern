@@ -3,4 +3,3 @@ packages:
   - "game/packages/*"
   - "game/stories/*"
   - "game/apps/*"
-onlyBuiltDependencies: []

@@ -34,7 +34,6 @@ async function loadRuntimeAssetModulesV1() {
   try {
     return await Promise.all([
       import("../../engine/packages/base/src/index.js"),
-      import("../../game/stories/e2e/src/story-entry.js"),
       import("../../game/stories/poc/src/story-definition.js"),
       import("./validate-runtime.mjs"),
     ]);
@@ -43,11 +42,9 @@ async function loadRuntimeAssetModulesV1() {
   }
 }
 
-const [baseModuleV1, e2eStoryModuleV1, pocStoryModuleV1, validatorModuleV1] =
-  await loadRuntimeAssetModulesV1();
+const [baseModuleV1, pocStoryModuleV1, validatorModuleV1] = await loadRuntimeAssetModulesV1();
 
 const { resolveGamePackageV1 } = baseModuleV1;
-const { e2eStoryEntryV1 } = e2eStoryModuleV1;
 const { pocStoryEntryV1 } = pocStoryModuleV1;
 const { validateRuntimeAssetManifestV1 } = validatorModuleV1;
 
@@ -76,20 +73,6 @@ function resolutionFailureMessageV1(
 }
 
 export const runtimeAssetStoryChecksV1: readonly RuntimeAssetStoryCheckV1[] = Object.freeze([
-  Object.freeze({
-    storyId: e2eStoryEntryV1.identity.id,
-    resolveAssets(): ResolvedAssetManifestV1 {
-      const result = resolveGamePackageV1(
-        e2eStoryEntryV1,
-        emptyRuntimeAssetHotfixSetV1,
-        runtimeAssetVerificationBuildIdentityV1,
-      );
-      if (result.kind === "failed") {
-        throw new TypeError(resolutionFailureMessageV1(this.storyId, result));
-      }
-      return result.resolved.assets;
-    },
-  }),
   Object.freeze({
     storyId: pocStoryEntryV1.identity.id,
     resolveAssets(): ResolvedAssetManifestV1 {
@@ -150,7 +133,7 @@ export async function verifyRuntimeAssetStoryChecksV1(
   return Object.freeze(verifiedStoryIds);
 }
 
-/** Resolves the fixed Story set and validates each resolved manifest without discovering files. */
+/** Resolves each maintained Story and validates its manifest without discovering asset files. */
 export async function verifyRuntimeAssetsV1(
   root: string,
   options: RuntimeAssetVerificationOptionsV1 = {},

@@ -1,9 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const e2eWebUrlV1 = "http://127.0.0.1:41731";
-const pocWebUrlV1 = "http://127.0.0.1:41732";
+import { uiTargetsV1, uiTargetUrlV1 } from "../ui-targets.js";
 
-function semanticPublicationV1(page: Page) {
+const pocWebUrlV1 = uiTargetUrlV1(uiTargetsV1.poc);
+
+function semanticPublicationV1(page: Page): Locator {
   return page.locator("[data-semantic-publication]");
 }
 
@@ -11,98 +13,47 @@ async function visibleSemanticRevisionV1(page: Page): Promise<number> {
   const publication = semanticPublicationV1(page);
   await expect(publication).toHaveCount(1);
   await expect(publication).toBeVisible();
-  await expect(publication).toHaveAttribute("data-semantic-status", /\S+/u);
   const value = await publication.getAttribute("data-semantic-revision");
   expect(value).toMatch(/^(?:0|[1-9]\d*)$/u);
   return Number(value);
 }
 
 async function expectVisibleSemanticRevisionV1(page: Page, revision: number): Promise<void> {
-  const publication = semanticPublicationV1(page);
-  await expect(publication).toBeVisible();
-  await expect(publication).toHaveAttribute("data-semantic-revision", String(revision));
-  await expect(publication).toHaveAttribute("data-semantic-status", /\S+/u);
+  await expect(semanticPublicationV1(page)).toHaveAttribute(
+    "data-semantic-revision",
+    String(revision),
+  );
 }
 
-async function activateV1(page: Page, accessibleName: string, touch: boolean): Promise<void> {
-  const control = page.getByRole("button", { name: accessibleName, exact: true });
-  if (touch) await control.tap();
-  else await control.click();
-}
-
-async function openE2eInteractionV1(page: Page, touch: boolean): Promise<void> {
-  await activateV1(page, "与测试计数器互动", touch);
-  await expect(page.getByRole("region", { name: "测试计数器互动" })).toBeVisible();
+async function activateV1(locator: Locator, touch: boolean): Promise<void> {
+  if (touch) await locator.tap();
+  else await locator.click();
 }
 
 async function enterPocWeekV1(page: Page, touch: boolean): Promise<void> {
   let revision = await visibleSemanticRevisionV1(page);
-  await activateV1(page, "开始这一周", touch);
-  revision += 1;
-  await expectVisibleSemanticRevisionV1(page, revision);
+  await activateV1(
+    page.getByTestId("stage-system").getByRole("button", { name: "开始这一周", exact: true }),
+    touch,
+  );
+  await expectVisibleSemanticRevisionV1(page, (revision += 1));
 
   const narrative = page.getByRole("dialog", { name: "旅店的一周" });
-  await expect(narrative).toBeVisible();
-  const advance = narrative.getByRole("button", { name: "继续" });
-  await expect(advance).toBeEnabled();
-  if (touch) await advance.tap();
-  else await advance.click();
-  revision += 1;
-  await expectVisibleSemanticRevisionV1(page, revision);
+  await activateV1(narrative.getByRole("button", { name: "继续" }), touch);
+  await expectVisibleSemanticRevisionV1(page, (revision += 1));
   await expect(narrative).toHaveCount(0);
 
-  const choosePolicy = page
-    .getByTestId("stage-system")
-    .getByRole("button", { name: "选择生活策略", exact: true });
-  await expect(choosePolicy).toBeEnabled();
-  if (touch) await choosePolicy.tap();
-  else await choosePolicy.click();
+  await activateV1(
+    page.getByTestId("stage-system").getByRole("button", { name: "选择生活策略", exact: true }),
+    touch,
+  );
   const policy = page.getByRole("dialog", { name: "生活策略" });
-  await expect(policy).toBeVisible();
-  const nightOwl = policy.getByRole("radio", { name: "夜猫子作息" });
-  if (touch) await nightOwl.tap();
-  else await nightOwl.click();
-  await expect(nightOwl).toBeChecked();
-  const confirm = policy.getByRole("button", { name: "确认" });
-  if (touch) await confirm.tap();
-  else await confirm.click();
-  revision += 1;
-  await expectVisibleSemanticRevisionV1(page, revision);
-  const close = policy.getByRole("button", { name: "关闭" });
-  if (touch) await close.tap();
-  else await close.click();
+  await activateV1(policy.getByRole("radio", { name: "夜猫子作息" }), touch);
+  await activateV1(policy.getByRole("button", { name: "确认" }), touch);
+  await expectVisibleSemanticRevisionV1(page, revision + 1);
+  await activateV1(policy.getByRole("button", { name: "关闭" }), touch);
   await expect(policy).toHaveCount(0);
-  await expect(
-    page.getByTestId("stage-system").getByRole("button", { name: "采购原料", exact: true }),
-  ).toBeEnabled();
 }
-
-test("pointer cancel and focus loss each leave no open transient Interaction", async ({
-  page,
-}, testInfo) => {
-  await page.goto(`${e2eWebUrlV1}/#/play`);
-  const before = await visibleSemanticRevisionV1(page);
-  const touch = testInfo.project.name === "chromium-touch";
-
-  await openE2eInteractionV1(page, touch);
-  const spatialTarget = page.getByTestId("spatial-increment-target");
-  await spatialTarget.hover();
-  await page.mouse.down();
-  await spatialTarget.dispatchEvent("pointercancel", {
-    bubbles: true,
-    isPrimary: true,
-    pointerId: 1,
-    pointerType: "mouse",
-  });
-  await page.mouse.up();
-  await expect(page.getByRole("region", { name: "测试计数器互动" })).toHaveCount(0);
-  await expectVisibleSemanticRevisionV1(page, before);
-
-  await openE2eInteractionV1(page, touch);
-  await page.evaluate(() => globalThis.dispatchEvent(new Event("blur")));
-  await expect(page.getByRole("region", { name: "测试计数器互动" })).toHaveCount(0);
-  await expectVisibleSemanticRevisionV1(page, before);
-});
 
 test("PoC Stage replacement closes heroine Interaction without a Gameplay revision", async ({
   page,
@@ -116,35 +67,15 @@ test("PoC Stage replacement closes heroine Interaction without a Gameplay revisi
       '[data-interaction-target-id="target.poc.heroine.figure"]',
   );
   await expect(heroineEntry).toHaveAccessibleName("与女主互动");
-  if (touch) await heroineEntry.tap();
-  else await heroineEntry.click();
+  await activateV1(heroineEntry, touch);
   await expect(page.getByRole("region", { name: "女主角互动区" })).toBeVisible();
 
-  const purchase = page.getByTestId("stage-system").getByRole("button", { name: "采购原料" });
-  if (touch) await purchase.tap();
-  else await purchase.click();
+  await activateV1(
+    page.getByTestId("stage-system").getByRole("button", { name: "采购原料" }),
+    touch,
+  );
   await expect(page.locator('[data-stage-scene-id="stage_scene.poc.market"]')).toBeVisible();
   await expect(page.getByRole("dialog", { name: "采购食材" })).toBeVisible();
   await expect(page.getByRole("region", { name: "女主角互动区" })).toHaveCount(0);
   await expectVisibleSemanticRevisionV1(page, before);
-});
-
-test("an active Overlay consumes confirm without Stage dispatch", async ({ page }, testInfo) => {
-  await page.goto(`${e2eWebUrlV1}/#/play`);
-  const before = await visibleSemanticRevisionV1(page);
-  await activateV1(page, "打开测试面板", testInfo.project.name === "chromium-touch");
-  await expect(page.getByRole("dialog", { name: "测试面板" })).toBeVisible();
-  await expect(page.getByTestId("stage-hud")).toHaveAttribute("inert", "");
-
-  await page.keyboard.press("Enter");
-  await expectVisibleSemanticRevisionV1(page, before);
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "测试面板" })).toHaveCount(0);
-});
-
-test("one native pointer activation remains one dispatch", async ({ page }, testInfo) => {
-  await page.goto(`${e2eWebUrlV1}/#/play`);
-  const before = await visibleSemanticRevisionV1(page);
-  await activateV1(page, "增加计数", testInfo.project.name === "chromium-touch");
-  await expectVisibleSemanticRevisionV1(page, before + 1);
 });

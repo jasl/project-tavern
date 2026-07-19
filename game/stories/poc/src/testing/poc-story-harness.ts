@@ -5,6 +5,8 @@ import {
   createPristineRunIntegrityV1,
   createTransactionalRngV1,
   parseNonNegativeSafeInteger,
+  parseNonZeroUint32,
+  parseRunId,
   rngStateV1Schema,
 } from "@sillymaker/base";
 import type { DeepReadonly, IsoUtcInstant } from "@sillymaker/base";
@@ -16,7 +18,6 @@ import {
 import type { GameSessionCompositionV1, GameSessionV1 } from "@sillymaker/base/runtime";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 
-import { pocReferenceRunIdsV1, pocReferenceSeedV1 } from "../content/identity.js";
 import { pocRejectionReasonSchemaV1 } from "../gameplay/contracts/schemas.js";
 import { parseIngredientId, parsePolicyId } from "../gameplay/contracts/ids.js";
 import { parseQuantity } from "../gameplay/contracts/values.js";
@@ -180,8 +181,8 @@ async function enterNightOwlRunV1(semantic: PocSemanticGamePortV1): Promise<void
 
 export function fixedPocBootstrapV1(): PocGameBootstrapInputV1 {
   return Object.freeze({
-    rngSeed: pocReferenceSeedV1,
-    runId: pocReferenceRunIdsV1["strategy.cash_first"],
+    rngSeed: parseNonZeroUint32(0x0002_3049),
+    runId: parseRunId("00000000-0000-4000-8000-000000000101"),
   });
 }
 

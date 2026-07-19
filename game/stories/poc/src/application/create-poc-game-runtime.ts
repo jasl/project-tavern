@@ -70,7 +70,7 @@ import {
   validatePocStateReferencesV1,
 } from "../runtime/poc-state-validation.js";
 import type { PocResolvedGameV1 } from "../story-definition.js";
-import type { PocStoryToolingFixtureV1 } from "../tooling-fixtures.js";
+import type { PocStoryToolingFixtureV1 } from "../tooling/fixtures.js";
 import {
   createPocGameApplicationV1,
   type PocGameApplicationPortV1,

@@ -3,7 +3,7 @@ import { Buffer } from "node:buffer";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { uiHarnessMetadataKeyV1, uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
+import { uiTargetsV1, uiTargetUrlV1 } from "./ui-targets.js";
 
 type PocCapabilityV1 = "automation_bridge" | "cheats" | "debug_tools";
 
@@ -52,7 +52,6 @@ async function expectPocApplicationV1(page: Page): Promise<Locator> {
   const application = page.getByRole("application", { name: pocApplicationNameV1 });
   await expect(application).toHaveCount(1);
   await expect(application).toHaveAttribute("data-application-id", uiTargetsV1.poc.applicationId);
-  await expect(page.locator('[data-application-id="e2e-web"]')).toHaveCount(0);
   return application;
 }
 
@@ -221,14 +220,7 @@ async function expectAutomationHasNoDebugAuthorityV1(page: Page): Promise<void> 
   expect(keys).not.toEqual(expect.arrayContaining(["debugTools", "executeDebugCommand"]));
 }
 
-test.describe("@phase5c @primary-flow", () => {
-  test.beforeEach(({ browserName }, testInfo) => {
-    test.skip(
-      testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
-      `requires the prebuilt two-root UI harness for ${browserName}`,
-    );
-  });
-
+test.describe("PoC primary flow", () => {
   test("@smoke @primary-flow PoC completes its first ordinary action", async ({ page }) => {
     await page.goto(pocUrlV1());
     await expectPocApplicationV1(page);

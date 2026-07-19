@@ -234,7 +234,7 @@ describe("SaveOverlayV1", () => {
     expect(screen.getByRole("button", { name: "手动保存" })).toBeEnabled();
   });
 
-  it("accepts the live Phase 3 asynchronous status port without creating another authority", async () => {
+  it("accepts the asynchronous status port without creating another authority", async () => {
     const fixture = fixtureV1({ status: Promise.resolve(statusV1({ busy: true })) });
     renderFixtureV1(fixture);
 

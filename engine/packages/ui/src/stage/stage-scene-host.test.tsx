@@ -481,14 +481,13 @@ describe("StageSceneHostV1", () => {
     );
   });
 
-  it.each([
-    "game/stories/e2e/src/story-entry.ts",
-    "game/stories/poc/src/index.ts",
-    "game/stories/e2e/src/runtime/headless-runner.ts",
-  ] as const)("keeps %s free of the React Stage host", async (entry) => {
-    const closure = await collectNodeImportClosureV1(entry);
-    expect(closure).not.toMatch(/stage-scene-host|PocGameQueries|GameSession|\.tsx|react/u);
-  });
+  it.each(["game/stories/poc/src/index.ts", "game/stories/poc/src/story-definition.ts"] as const)(
+    "keeps %s free of the React Stage host",
+    async (entry) => {
+      const closure = await collectNodeImportClosureV1(entry);
+      expect(closure).not.toMatch(/stage-scene-host|PocGameQueries|GameSession|\.tsx|react/u);
+    },
+  );
 
   it("keeps Stage production imports free of Story, Session, Query, and simulation owners", async () => {
     const sources = await Promise.all(

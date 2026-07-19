@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { approvedPocAssetPacksV1 } from "@project-tavern/assets";
 import {
   createPristineRunIntegrityV1,
   createTransactionalRngV1,
@@ -20,7 +19,6 @@ import {
   parseInteractionTargetId,
   parsePresentationProviderId,
   parsePositiveSafeInteger,
-  parseRunId,
   parseStageSceneId,
   parseStageSceneVariantId,
   parseTextId,
@@ -41,12 +39,7 @@ import type {
 
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import {
-  pocReferenceRunIdsV1,
-  pocReferenceSeedV1,
-  pocStateContractRevisionV1,
-  pocStoryIdentityV1,
-} from "../content/identity.js";
+import { pocStateContractRevisionV1, pocStoryIdentityV1 } from "../content/identity.js";
 import {
   actionIdsV1,
   actorIdsV1,
@@ -287,7 +280,7 @@ function syntheticProviderForSlotV1(
   const bytes = new TextEncoder().encode(`synthetic:${slot.assetId}`);
   return Object.freeze({
     assetId: slot.assetId,
-    runtimePath: `game/packages/assets/runtime/poc/synthetic-${String(slot.assetId).replaceAll(".", "-")}.png`,
+    runtimePath: `game/stories/poc/assets/synthetic-${String(slot.assetId).replaceAll(".", "-")}.png`,
     mediaType: "image/png",
     byteLength: parsePositiveSafeInteger(bytes.byteLength),
     width: parsePositiveSafeInteger(slot.width),
@@ -403,14 +396,14 @@ function createProductionEndingInputV1(): EndingInputV1 {
 describe("complete Story composition", () => {
   it("resolves one frozen game with one simulation and the resolved SceneGraph", () => {
     const resolved = resolveStoryForTestV1(pocStoryEntryV1);
-    const approvedPackIdentities = approvedPocAssetPacksV1.map((pack) => ({
+    const approvedPackIdentities = pocAssetPacksV1.map((pack) => ({
       ...pack.identity,
       digest: digestCanonical("sillymaker:asset-pack:v1", {
         identity: pack.identity,
         providers: pack.providers,
       }),
     }));
-    const approvedProviderAssetIds = approvedPocAssetPacksV1.flatMap((pack) =>
+    const approvedProviderAssetIds = pocAssetPacksV1.flatMap((pack) =>
       pack.providers.map(({ assetId }) => assetId),
     );
 
@@ -543,7 +536,8 @@ describe("complete Story composition", () => {
   });
 
   it("binds exact fallback-complete asset metadata and one ordered per-variant demand", () => {
-    expect(pocAssetPacksV1).toBe(approvedPocAssetPacksV1);
+    expect(pocAssetPacksV1).toEqual([]);
+    expect(Object.isFrozen(pocAssetPacksV1)).toBe(true);
     expect(pocAssetSlotsV1.map(({ assetId }) => assetId)).toEqual(assetIdsV1);
     expect(pocAssetSlotsV1.every(({ overridePolicy }) => overridePolicy === "replaceable")).toBe(
       true,
@@ -746,7 +740,7 @@ describe("PoC resolved Asset provider contract", () => {
       candidate.assetId === slot.assetId ? { ...candidate, overridePolicy: "sealed" } : candidate,
     );
     const secondProvider = syntheticProviderForSlotV1(slot, {
-      runtimePath: "game/packages/assets/runtime/poc/synthetic-second.png",
+      runtimePath: "game/stories/poc/assets/synthetic-second.png",
       sha256: digestBytes(new TextEncoder().encode("synthetic-second")),
     });
     expect(() =>
@@ -1642,24 +1636,10 @@ describe("PoC Semantic action contract", () => {
 });
 
 describe("week.poc_001 identity", () => {
-  it("freezes the Story and six deterministic runs", () => {
+  it("defines the current Story identity and state contract", () => {
     expect(pocStoryIdentityV1).toEqual({ id: "week.poc_001", revision: 1 });
     expect(pocStateContractRevisionV1).toBe(1);
-    expect(pocReferenceSeedV1).toBe(0x00023049);
-    expect(pocReferenceRunIdsV1).toEqual({
-      "strategy.cash_first": "00000000-0000-4000-8000-000000000101",
-      "strategy.relationship_first": "00000000-0000-4000-8000-000000000102",
-      "strategy.investigation_first": "00000000-0000-4000-8000-000000000103",
-      "strategy.full_delegation": "00000000-0000-4000-8000-000000000104",
-      "strategy.two_closures_recovery": "00000000-0000-4000-8000-000000000105",
-      "strategy.explicit_failure": "00000000-0000-4000-8000-000000000106",
-    });
-    expect(new Set(Object.values(pocReferenceRunIdsV1)).size).toBe(6);
-    expect(Object.values(pocReferenceRunIdsV1).map(parseRunId)).toEqual(
-      Object.values(pocReferenceRunIdsV1),
-    );
     expectDeeplyFrozenV1(pocStoryIdentityV1);
-    expectDeeplyFrozenV1(pocReferenceRunIdsV1);
   });
 
   it("keeps Event and player Action namespaces distinct", () => {

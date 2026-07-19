@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import { createTransactionalRngV1 } from "@sillymaker/base";
+import { createTransactionalRngV1, parseNonZeroUint32, parseRunId } from "@sillymaker/base";
 import { describe, expect, it } from "vitest";
 
 import { pocActionDefinitionsV1 } from "../content/actions.js";
 import { pocCheckDefinitionsV1, pocWorldActionDefinitionsV1 } from "../content/checks-endings.js";
 import { customerSegmentIdsV1 } from "../content/ids.js";
-import { pocReferenceRunIdsV1, pocReferenceSeedV1 } from "../content/identity.js";
 import { pocInvestigationNarrativeV1 } from "../content/narrative/investigation.js";
 import {
   createPocCheckResolverV1,
@@ -107,8 +106,8 @@ function resolveReferenceInvestigationCheckV1(preparationBonus: number) {
     },
   });
   const resolver = createPocCheckResolverV1(data);
-  const rng = createTransactionalRngV1(pocReferenceSeedV1);
-  const runId = pocReferenceRunIdsV1["strategy.investigation_first"];
+  const rng = createTransactionalRngV1(parseNonZeroUint32(0x0002_3049));
+  const runId = parseRunId("00000000-0000-4000-8000-000000000103");
   for (let day = 1; day <= 6; day += 1) {
     for (const segmentId of customerSegmentIdsV1) {
       expect(

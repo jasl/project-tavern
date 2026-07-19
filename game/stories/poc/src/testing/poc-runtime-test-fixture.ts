@@ -6,7 +6,9 @@ import {
   createTransactionalRngV1,
   digestCanonical,
   parseNonNegativeSafeInteger,
+  parseNonZeroUint32,
   parsePositiveSafeInteger,
+  parseRunId,
   rngStateV1Schema,
 } from "@sillymaker/base";
 import type {
@@ -46,11 +48,7 @@ import {
   createPocSemanticGamePortV1,
   type PocSemanticGamePortV1,
 } from "../application/create-poc-semantic-port.js";
-import {
-  pocReferenceRunIdsV1,
-  pocReferenceSeedV1,
-  pocStoryIdentityV1,
-} from "../content/identity.js";
+import { pocStoryIdentityV1 } from "../content/identity.js";
 import {
   createPocGameDebugCommandExecutorV1,
   createPocGameplayModuleTupleV1,
@@ -259,8 +257,8 @@ function createInitialSnapshotV1(
   mode: "default" | "debug_matrix",
 ): PocGameSnapshotV1 {
   const bootstrap = Object.freeze({
-    rngSeed: pocReferenceSeedV1,
-    runId: pocReferenceRunIdsV1["strategy.cash_first"],
+    rngSeed: parseNonZeroUint32(0x0002_3049),
+    runId: parseRunId("00000000-0000-4000-8000-000000000101"),
   });
   const initial = snapshotSchemaV1.parse({
     state: resolved.gameSimulation.createInitialState(bootstrap),

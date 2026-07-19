@@ -96,7 +96,7 @@ async function loadQuickV1(page: Page, dialog: Locator): Promise<void> {
   await expect(dialog.getByTestId("save-operation-result")).toHaveText("已载入存档");
 }
 
-test.describe("@phase6 prebuilt PoC RunIntegrity", () => {
+test.describe("prebuilt PoC RunIntegrity", () => {
   test("keeps legal semantic Automation player-only and integrity-normal", async ({ page }) => {
     await page.goto(releaseUrlV1(["debug_tools", "automation_bridge"]));
     await expectApplicationV1(page);

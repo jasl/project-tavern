@@ -19,7 +19,7 @@ import {
 afterEach(cleanup);
 
 describe("PoC world symbols", () => {
-  it("registers the exact frozen Phase 4B tuple outside renderer namespaces", () => {
+  it("registers the stable Story symbol tuple outside renderer namespaces", () => {
     expect(pocGameSymbolIdsV1).toHaveLength(14);
     expect(pocGameSymbolProvidersV1.map(({ symbolId }) => symbolId)).toEqual(pocGameSymbolIdsV1);
     expect(Object.isFrozen(pocGameSymbolIdsByRoleV1)).toBe(true);

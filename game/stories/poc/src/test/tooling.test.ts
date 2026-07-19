@@ -3,12 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { pocStoryIdentityV1 } from "../content/identity.js";
-import { pocStoryToolingFixturesV1 } from "../tooling-fixtures.js";
-import {
-  pocFixtureIdsV1,
-  pocStoryToolingEntryV1,
-  pocStoryToolingFixtureByIdV1,
-} from "../tooling/index.js";
+import { pocStoryToolingEntryV1, pocStoryToolingFixturesV1 } from "../tooling/index.js";
 import { createPocRuntimeTestFixtureV1 } from "../testing/poc-runtime-test-fixture.js";
 
 describe("PoC same-Artifact Story tooling", () => {
@@ -23,13 +18,10 @@ describe("PoC same-Artifact Story tooling", () => {
     expect(fixture.toolingLoads()).toBe(0);
   });
 
-  it("re-exports the sole fixture authority by exact reference", () => {
+  it("ships no frozen fixture presets", () => {
     const support = pocStoryToolingEntryV1.defineToolingSupport();
     expect(support.fixtures).toBe(pocStoryToolingFixturesV1);
-    expect(pocFixtureIdsV1).toEqual(pocStoryToolingFixturesV1.map(({ fixtureId }) => fixtureId));
-    expect(Object.keys(pocStoryToolingFixtureByIdV1)).toEqual(pocFixtureIdsV1);
-    for (const fixture of pocStoryToolingFixturesV1) {
-      expect(pocStoryToolingFixtureByIdV1[fixture.fixtureId]).toBe(fixture);
-    }
+    expect(pocStoryToolingFixturesV1).toEqual([]);
+    expect(Object.isFrozen(pocStoryToolingFixturesV1)).toBe(true);
   });
 });

@@ -9,13 +9,7 @@ import {
 
 import { readRuntimeImageMetadataV1 } from "./runtime-image-metadata.mjs";
 
-const allowedRuntimeRootsV1 = Object.freeze([
-  "game/packages/assets/",
-  "game/stories/e2e/assets/",
-  "game/stories/poc/assets/",
-] as const);
-
-type AllowedRuntimeRootV1 = (typeof allowedRuntimeRootsV1)[number];
+type AllowedRuntimeRootV1 = `game/stories/${string}/assets/`;
 
 type CanonicalRootResultV1 =
   | { readonly kind: "valid"; readonly path: string }
@@ -41,7 +35,19 @@ export interface RuntimeAssetValidationErrorV1 {
 }
 
 function declaredRuntimeRootV1(runtimePath: string): AllowedRuntimeRootV1 | undefined {
-  return allowedRuntimeRootsV1.find((root) => runtimePath.startsWith(root));
+  const segments = runtimePath.split("/");
+  const [game, stories, story, assets] = segments;
+  if (
+    segments.length < 5 ||
+    game !== "game" ||
+    stories !== "stories" ||
+    assets !== "assets" ||
+    story === undefined ||
+    !/^[a-z0-9][a-z0-9-]*$/u.test(story)
+  ) {
+    return undefined;
+  }
+  return `game/stories/${story}/assets/`;
 }
 
 function safeRuntimePathV1(runtimePath: string): AllowedRuntimeRootV1 | undefined {

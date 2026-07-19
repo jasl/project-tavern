@@ -127,38 +127,8 @@ importers:
         specifier: 6.2.5
         version: 6.2.5
 
-  game/packages/assets:
-    dependencies:
-      "@sillymaker/base":
-        specifier: workspace:*
-        version: link:../../../engine/packages/base
-
-  game/stories/e2e:
-    dependencies:
-      "@project-tavern/assets":
-        specifier: workspace:*
-        version: link:../../packages/assets
-      "@sillymaker/base":
-        specifier: workspace:*
-        version: link:../../../engine/packages/base
-      "@sillymaker/ui":
-        specifier: workspace:*
-        version: link:../../../engine/packages/ui
-      "@sillymaker/web":
-        specifier: workspace:*
-        version: link:../../../engine/packages/web
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-
   game/stories/poc:
     dependencies:
-      "@project-tavern/assets":
-        specifier: workspace:*
-        version: link:../../packages/assets
       "@sillymaker/base":
         specifier: workspace:*
         version: link:../../../engine/packages/base

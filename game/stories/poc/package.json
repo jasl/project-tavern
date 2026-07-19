@@ -14,22 +14,11 @@
     "test:gameplay": "vitest run src/test/gameplay-contract.test.ts src/test/run-calendar.test.ts src/test/actors-status.test.ts src/test/inventory.test.ts src/test/facilities-tavern.test.ts src/test/workflow-progression.test.ts src/test/narrative.test.ts src/test/rules-resolvers.test.ts src/test/transaction.test.ts src/test/command-executor-core.test.ts src/test/command-executor-workflows.test.ts src/test/game-command-evaluation.test.ts src/test/game-debug-command-executor.test.ts src/test/game-queries.test.ts src/test/game-simulation.test.ts src/test/game-session-integration.test.ts",
     "test:story": "vitest run src/test/story-validation.test.ts src/test/daily-gates.test.ts src/test/relationship-content.test.ts src/test/investigation-content.test.ts src/test/ending-forecast.test.ts src/test/story-data.test.ts src/test/semantic-flow.integration.test.ts src/test/relationship-route.integration.test.ts src/test/investigation-route.integration.test.ts src/test/terminal-route.integration.test.ts src/test/tooling.test.ts src/test/tooling-runtime.integration.test.ts",
     "verify:semantic": "vitest run src/test/semantic-flow.integration.test.ts src/test/relationship-route.integration.test.ts src/test/investigation-route.integration.test.ts src/test/terminal-route.integration.test.ts",
-    "update:commands": "node --experimental-strip-types scripts/update-command-fixtures.mjs",
-    "verify:commands": "vitest run src/test/reference-strategies.test.ts",
-    "update:golden": "node --experimental-strip-types scripts/update-golden.mjs",
-    "verify:golden": "vitest run src/test/golden-week.test.ts",
-    "update:fixtures": "node --experimental-strip-types scripts/update-save-fixtures.mjs",
-    "verify:fixtures": "vitest run src/test/tooling.test.ts src/test/tooling-runtime.integration.test.ts src/test/save-fixtures.test.ts",
-    "verify:balance": "node ../../../scripts/verify-poc-balance.mjs",
-    "verify:balance:smoke": "vitest run src/test/balance-1000-seeds.test.ts",
-    "calibrate:balance": "node ../../../scripts/verify-poc-balance.mjs --calibrate",
-    "calibrate:balance:remote": "node ../../../scripts/run-poc-balance-remote.mjs",
     "update:rule-source-digests": "node --experimental-strip-types scripts/update-rule-source-digests.mts"
   },
   "dependencies": {
     "@sillymaker/base": "workspace:*",
     "@sillymaker/ui": "workspace:*",
-    "@project-tavern/assets": "workspace:*",
     "@sillymaker/web": "workspace:*",
     "react": "19.2.7",
     "zod": "4.4.3"

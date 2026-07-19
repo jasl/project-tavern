@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { parseNonNegativeSafeInteger } from "@sillymaker/base";
+import { parseNonNegativeSafeInteger, parseNonZeroUint32, parseRunId } from "@sillymaker/base";
 import { resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import { describe, expect, it } from "vitest";
 
-import { pocReferenceRunIdsV1, pocReferenceSeedV1 } from "../content/identity.js";
 import { parseRecipeId } from "../gameplay/index.js";
 import { pocStoryEntryV1 } from "../story-definition.js";
 import {
@@ -15,8 +14,8 @@ function createInitialValidationFixtureV1() {
   const resolved = resolveStoryForTestV1(pocStoryEntryV1);
   const state = resolved.gameSimulation.createInitialState(
     Object.freeze({
-      rngSeed: pocReferenceSeedV1,
-      runId: pocReferenceRunIdsV1["strategy.cash_first"],
+      rngSeed: parseNonZeroUint32(0x0002_3049),
+      runId: parseRunId("00000000-0000-4000-8000-000000000101"),
     }),
   );
   return Object.freeze({ resolved, state });

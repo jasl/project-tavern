@@ -36,7 +36,7 @@ async function readManifestWitnessV1(page: Page): Promise<ManifestWitnessV1> {
   });
 }
 
-test.describe("@phase6 prebuilt PoC nested base", () => {
+test.describe("prebuilt PoC nested base", () => {
   test("boots the exact prebuilt Artifact and keeps every emitted browser URL under the nested prefix", async ({
     page,
   }) => {

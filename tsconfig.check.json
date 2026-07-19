@@ -16,8 +16,8 @@
     "game/**/*.ts",
     "game/**/*.tsx",
     "game/**/*.test-d.ts",
-    "scripts/**/*.test.ts",
-    "scripts/**/*.d.mts",
+    "scripts/**/*.ts",
+    "scripts/**/*.mts",
     "vitest.config.ts",
     "vite.config.ts",
     "playwright.config.ts"

@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
-import {
-  uiHarnessMetadataKeyV1,
-  uiTargetsV1,
-  uiTargetUrlV1,
-  type UiTargetV1,
-} from "./ui-targets.js";
+import { uiTargetsV1, uiTargetUrlV1, type UiTargetV1 } from "./ui-targets.js";
 
 interface AutomationActionV1 {
   readonly actionId: string;
@@ -25,7 +20,7 @@ interface AutomationPublicationV1 {
 }
 
 interface StoryCaseV1 {
-  readonly applicationName: "Project Tavern 七日原型" | "SillyMaker 引擎测试";
+  readonly applicationName: "Project Tavern 七日原型";
   readonly target: UiTargetV1;
 }
 
@@ -41,10 +36,6 @@ interface DomActionV1 {
 }
 
 const storyCasesV1 = Object.freeze([
-  Object.freeze({
-    applicationName: "SillyMaker 引擎测试",
-    target: uiTargetsV1.e2e,
-  }),
   Object.freeze({
     applicationName: "Project Tavern 七日原型",
     target: uiTargetsV1.poc,
@@ -174,15 +165,8 @@ async function previewEnabledInvocationsV1(page: Page): Promise<readonly unknown
   });
 }
 
-test.describe("@phase5c @semantic-parity", () => {
-  test.beforeEach(({ browserName }, testInfo) => {
-    test.skip(
-      testInfo.config.metadata[uiHarnessMetadataKeyV1] !== true,
-      `requires the prebuilt two-root UI harness for ${browserName}`,
-    );
-  });
-
-  test("one publication stamps both Story roots and every Gameplay action witness", async ({
+test.describe("PoC semantic publication", () => {
+  test("one publication stamps the Story root and every Gameplay action witness", async ({
     page,
   }) => {
     for (const story of storyCasesV1) {
@@ -252,15 +236,13 @@ test.describe("@phase5c @semantic-parity", () => {
           }
         }
 
-        if (story.target.applicationId === "poc-web") {
-          const fixture = await openStoryV1(browser, story, ["automation_bridge"]);
-          try {
-            await fixture.page.getByRole("button", { name: "设置" }).click();
-            await expect(fixture.page.locator("[data-content-flag-id]")).toHaveCount(0);
-            await expect(fixture.page.locator("[data-content-preset-id]")).toHaveCount(0);
-          } finally {
-            await fixture.context.close();
-          }
+        const fixture = await openStoryV1(browser, story, ["automation_bridge"]);
+        try {
+          await fixture.page.getByRole("button", { name: "设置" }).click();
+          await expect(fixture.page.locator("[data-content-flag-id]")).toHaveCount(0);
+          await expect(fixture.page.locator("[data-content-preset-id]")).toHaveCount(0);
+        } finally {
+          await fixture.context.close();
         }
       });
     }
