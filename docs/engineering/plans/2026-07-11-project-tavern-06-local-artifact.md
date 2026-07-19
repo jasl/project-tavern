@@ -1066,6 +1066,52 @@ Run: `pnpm verify:release`
 
 Expected: PASS from the exact new HEAD; both reproducibility archives and final Artifact use clean-commit provenance.
 
+### Authorized pre-Task 5 repair: align Hotfix authoring authority and DebugBundle privacy preview
+
+Task 5's required source-grounded runbook audit found two accepted-tree drifts that must be repaired before
+operator prose can truthfully describe the runtime:
+
+1. the Contract Catalog's Hotfix sketches omit the public implementation's typed replacement values,
+   `defaultValue`, replacement ports and build-generated `sourceDigest`, while its provider projection names an
+   obsolete resolved-digest input;
+2. the runtime design requires validated DebugBundle content categories and encoded size to be visible before an
+   explicit local save, but the existing player-safe UI immediately downloads after its first activation.
+
+This is a bounded conformance repair, not a new Mod system, sharing/upload feature or capability. First align the
+Catalog mechanically with the already accepted Base contract/resolver and commit that authority repair alone.
+Then use TDD to split the generic diagnostic UI port into prepare/review/save/discard operations: trusted Base
+export still creates and validates the exact bytes; Web retains at most one detached prepared file; UI receives only
+filename/media/digest/encoded-size and closed content-category IDs; a separate activation saves locally; cancel,
+unmount and successful save discard the prepared bytes; failure remains bounded and retryable. Both Stories provide
+code-native labels, and browser acceptance must prove the preview precedes download for keyboard and touch. No path
+may upload, share, inspect, replay, anchor or request DebugTools/Cheats.
+
+**Repair files:**
+
+- Modify: `docs/engineering/specs/2026-07-12-game-runtime-contract-catalog.md`
+- Modify: `engine/packages/ui/src/diagnostics/diagnostic-export-button.tsx`
+- Modify: `engine/packages/ui/src/diagnostics/diagnostic-export-button.test.tsx`
+- Modify: `engine/packages/ui/src/diagnostics/index.ts`
+- Modify: `engine/packages/ui/src/index.ts`
+- Modify: `engine/packages/ui/type-tests/diagnostics-public.test-d.ts`
+- Modify: `engine/packages/web/src/application/create-player-ui-ports.ts`
+- Modify: `engine/packages/web/src/application/create-player-ui-ports.test.ts`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.tsx`
+- Modify: `game/stories/e2e/src/application/e2e-application-root.test.tsx`
+- Modify: `game/stories/poc/src/application/poc-application-root.tsx`
+- Modify: `game/stories/poc/src/application/poc-application-root.test.tsx`
+- Modify: `engine/packages/web/e2e/accessibility.spec.ts`
+- Modify: `engine/packages/web/e2e/automation-bridge.spec.ts`
+- Modify: `engine/packages/web/e2e/poc-primary-flow.spec.ts`
+- Modify: `engine/packages/web/e2e/release-integrity.spec.ts`
+
+Expected red is the focused UI/Web test proving the first activation prepares but does not call Host download and
+that filename, digest, closed categories and encoded byte size appear before a separate save activation. After the
+two exact commits `docs(runtime): align hotfix contract catalog` and
+`fix(ui): review debug bundle before saving`, run focused UI/Web/Story/browser tests, `pnpm typecheck`,
+`pnpm verify`, `git diff --check` and clean status. The repair does not authorize any balance corpus or change
+Artifact, Save, DebugBundle, capability, RunIntegrity or Hotfix semantics.
+
 ### Task 5: Write local release, capability, Automation, and privacy runbooks
 
 **Files:**
