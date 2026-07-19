@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import "@testing-library/jest-dom/vitest";
-import { digestCanonical, resolveGamePackageV1 } from "@sillymaker/base";
+import { digestCanonical, resolveGamePackageV1, type HostFilePortV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1 } from "@sillymaker/base/testkit";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
 import { createDevDockContributionSetV1 } from "@sillymaker/ui/debug";
@@ -33,13 +33,15 @@ async function createRuntimeV1(
   options: Pick<
     Parameters<typeof createPocPresentationRuntimeV1>[0],
     "capabilitySearch" | "loadToolingUi"
-  > = {},
+  > & { readonly files?: HostFilePortV1 } = {},
 ) {
+  const { files, ...presentationOptions } = options;
   const host = createWebHostV1({
     records: createMemoryHostRecordStoreV1(),
     seeds: [0x0002_3049],
     uuids: ["00000000-0000-4000-8000-000000000001"],
     now: () => "2026-07-12T00:00:00.000Z",
+    ...(files === undefined ? {} : { files }),
   });
   let hash = initialHash;
   return await createPocPresentationRuntimeV1({
@@ -59,7 +61,7 @@ async function createRuntimeV1(
     pointerWindow: window,
     pointerDocument: document,
     assetLoader: assetLoaderV1,
-    ...options,
+    ...presentationOptions,
   });
 }
 
@@ -216,6 +218,36 @@ describe("PocApplicationRootV1", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "导出调试包" })).toBeEnabled();
 
+    runtime.dispose();
+  });
+
+  it("reviews, cancels, and explicitly saves the player-safe Debug Bundle", async () => {
+    const download = vi.fn(async () => undefined);
+    const runtime = await createRuntimeV1("#/play", {
+      files: Object.freeze({
+        selectOne: vi.fn(async () => Object.freeze({ kind: "cancelled" as const })),
+        download,
+      }),
+    });
+    const rendered = render(<PocApplicationRootV1 runtime={runtime} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "导出调试包" }));
+    expect(download).not.toHaveBeenCalled();
+    const firstReview = await screen.findByRole("region", { name: "检查调试包内容" });
+    expect(within(firstReview).getByText("完整游戏状态与命令历史")).toBeVisible();
+    expect(within(firstReview).getByText("界面上下文")).toBeVisible();
+    expect(within(firstReview).getByText(/ B$/u)).toBeVisible();
+    await user.click(within(firstReview).getByRole("button", { name: "取消" }));
+    expect(download).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "导出调试包" }));
+    const secondReview = await screen.findByRole("region", { name: "检查调试包内容" });
+    await user.click(within(secondReview).getByRole("button", { name: "保存调试包" }));
+    await waitFor(() => expect(download).toHaveBeenCalledOnce());
+    expect(await screen.findByText("调试包已保存")).toBeVisible();
+
+    rendered.unmount();
     runtime.dispose();
   });
 

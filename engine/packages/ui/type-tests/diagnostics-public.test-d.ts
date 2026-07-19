@@ -12,6 +12,7 @@ import type {
 import {
   classifyDebugUiContextUseV1 as classifyRootDebugUiContextUseV1,
   createDebugUiContextV1 as createRootDebugUiContextV1,
+  diagnosticExportContentCategoryIdsV1 as rootDiagnosticExportContentCategoryIdsV1,
   type RuntimeCharacterPresentationV1,
   type RuntimeInteractionSurfaceV1,
   type RuntimePresentationPublicationV1,
@@ -20,7 +21,11 @@ import {
 import {
   classifyDebugUiContextUseV1,
   createDebugUiContextV1,
+  diagnosticExportContentCategoryIdsV1,
   type DebugUiSessionProjectionInputV1,
+  type DiagnosticExportContentCategoryIdV1,
+  type DiagnosticExportPortV1,
+  type DiagnosticExportPreviewV1,
 } from "@sillymaker/ui/diagnostics";
 
 type EqualV1<TLeft, TRight> =
@@ -42,7 +47,44 @@ type PublicationV1 = RuntimePresentationPublicationV1<SemanticV1, PresentationVi
 type DiagnosticsRuntimeKeysV1 = ExpectV1<
   EqualV1<
     keyof typeof import("@sillymaker/ui/diagnostics"),
-    "DiagnosticExportButtonV1" | "classifyDebugUiContextUseV1" | "createDebugUiContextV1"
+    | "DiagnosticExportButtonV1"
+    | "classifyDebugUiContextUseV1"
+    | "createDebugUiContextV1"
+    | "diagnosticExportContentCategoryIdsV1"
+  >
+>;
+type DiagnosticCategoryIdsV1 = ExpectV1<
+  EqualV1<
+    typeof diagnosticExportContentCategoryIdsV1,
+    readonly [
+      "provenance",
+      "capabilities_and_integrity",
+      "replay_evidence",
+      "diagnostics_and_runtime_failures",
+      "failure_context",
+      "ui_context",
+    ]
+  >
+>;
+type DiagnosticPreviewKeysV1 = ExpectV1<
+  EqualV1<
+    keyof DiagnosticExportPreviewV1,
+    "filename" | "mediaType" | "digest" | "encodedByteLength" | "categories"
+  >
+>;
+type DiagnosticPreviewForbiddenKeysV1 = ExpectV1<
+  EqualV1<
+    Extract<
+      keyof DiagnosticExportPreviewV1,
+      "bytes" | "snapshot" | "commandLog" | "session" | "debugTools"
+    >,
+    never
+  >
+>;
+type DiagnosticPortKeysV1 = ExpectV1<
+  EqualV1<
+    keyof DiagnosticExportPortV1,
+    "prepareDebugBundle" | "savePreparedDebugBundle" | "discardPreparedDebugBundle"
   >
 >;
 type SessionProjectionInputKeysV1 = ExpectV1<
@@ -144,6 +186,13 @@ contextV1 satisfies DebugUiContextV1;
 
 const rootProjectorV1: typeof createDebugUiContextV1 = createRootDebugUiContextV1;
 const rootClassifierV1: typeof classifyDebugUiContextUseV1 = classifyRootDebugUiContextUseV1;
+const rootDiagnosticCategoryIdsV1: typeof diagnosticExportContentCategoryIdsV1 =
+  rootDiagnosticExportContentCategoryIdsV1;
+
+declare const diagnosticCategoryIdV1: DiagnosticExportContentCategoryIdV1;
+declare const diagnosticPreviewV1: DiagnosticExportPreviewV1;
+diagnosticExportContentCategoryIdsV1.includes(diagnosticCategoryIdV1);
+diagnosticPreviewV1.categories.includes(diagnosticCategoryIdV1);
 
 declare const recordedIdentityV1: Parameters<typeof classifyDebugUiContextUseV1>[0];
 declare const currentIdentityV1: Parameters<typeof classifyDebugUiContextUseV1>[1];
@@ -151,6 +200,7 @@ classifyDebugUiContextUseV1(recordedIdentityV1, currentIdentityV1);
 
 rootProjectorV1;
 rootClassifierV1;
+rootDiagnosticCategoryIdsV1;
 
 // @ts-expect-error Story identity is not part of the player-safe diagnostics subpath
 export type { StoryId as ForbiddenStoryIdV1 } from "@sillymaker/ui/diagnostics";
@@ -171,6 +221,10 @@ export type { CharacterRendererContributionV1 as ForbiddenRendererV1 } from "@si
 
 export type {
   ContextKeysV1,
+  DiagnosticCategoryIdsV1,
+  DiagnosticPortKeysV1,
+  DiagnosticPreviewForbiddenKeysV1,
+  DiagnosticPreviewKeysV1,
   DiagnosticsRuntimeKeysV1,
   PresentationForbiddenKeysV1,
   PresentationKeysV1,

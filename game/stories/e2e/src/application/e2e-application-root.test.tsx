@@ -346,6 +346,13 @@ describe("E2eApplicationRootV1", () => {
       ).toBe(failureDialog);
 
       await user.click(within(failureDialog).getByRole("button", { name: "导出调试包" }));
+      expect(fixture.download).not.toHaveBeenCalled();
+      const review = await screen.findByRole("region", { name: "检查调试包内容" });
+      expect(within(review).getByText("失败现场")).toBeVisible();
+      expect(within(review).getByText("界面上下文")).toBeVisible();
+      expect(within(review).getByText(/ B$/u)).toBeVisible();
+
+      await user.click(within(review).getByRole("button", { name: "保存调试包" }));
       await waitFor(() => expect(fixture.download).toHaveBeenCalledOnce());
       const downloaded = fixture.download.mock.calls[0]?.[0];
       if (downloaded === undefined) throw new TypeError("missing player-safe diagnostic download");

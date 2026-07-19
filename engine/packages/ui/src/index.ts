@@ -44,11 +44,14 @@ export {
   DiagnosticExportButtonV1,
   classifyDebugUiContextUseV1,
   createDebugUiContextV1,
+  diagnosticExportContentCategoryIdsV1,
 } from "./diagnostics/index.js";
 export type {
   DebugUiSessionProjectionInputV1,
   DiagnosticExportButtonPropsV1,
+  DiagnosticExportContentCategoryIdV1,
   DiagnosticExportPortV1,
+  DiagnosticExportPreviewV1,
 } from "./diagnostics/index.js";
 export { RootErrorBoundaryV1, RuntimeFailureDialogV1 } from "./errors/index.js";
 export type {

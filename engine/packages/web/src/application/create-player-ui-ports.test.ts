@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import {
+  canonicalJsonBytes,
   digestBytes,
   parseNonNegativeSafeInteger,
   saveJsonLimitsV1,
@@ -29,8 +30,26 @@ function exportedSaveV1(filename = "save.json"): ExportedSaveV1 {
   });
 }
 
-function exportedDebugBundleV1(): ExportedDebugBundleV1 {
-  const bytes = Uint8Array.of(4, 5, 6);
+function exportedDebugBundleV1(input?: {
+  readonly failure?: boolean;
+  readonly uiContext?: boolean;
+}): ExportedDebugBundleV1 {
+  const bytes = canonicalJsonBytes({
+    formatRevision: 1,
+    provenance: { storyId: "story.synthetic" },
+    capabilities: { debugTools: false },
+    simulationLineage: [],
+    generatedAt: "2026-07-18T00:00:00Z",
+    replayBase: { commandSequence: 0 },
+    replayBaseStateDigest: digestBytes(Uint8Array.of(1)),
+    commandLog: [],
+    currentSnapshot: { commandSequence: 0 },
+    currentStateDigest: digestBytes(Uint8Array.of(1)),
+    diagnostics: {},
+    runtimeFailures: [],
+    ...(input?.failure === true ? { failure: { code: "runtime.synthetic" } } : {}),
+    ...(input?.uiContext === true ? { uiContext: { routeId: "route.synthetic" } } : {}),
+  });
   return Object.freeze({
     filename: "diagnostics.json",
     mediaType: "application/json",
@@ -39,9 +58,20 @@ function exportedDebugBundleV1(): ExportedDebugBundleV1 {
   });
 }
 
+function deferredV1<TValue>() {
+  let resolve!: (value: TValue) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<TValue>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return Object.freeze({ promise, resolve, reject });
+}
+
 function fixtureV1(input?: {
   readonly selection?: Awaited<ReturnType<HostFilePortV1["selectOne"]>>;
   readonly exportSaveResult?: SaveExportOperationResultV1;
+  readonly exportedDiagnostics?: ExportedDebugBundleV1;
   readonly importResult?: PersistenceOperationResultV1;
 }) {
   const selection = input?.selection ?? Object.freeze({ kind: "cancelled" as const });
@@ -53,7 +83,7 @@ function fixtureV1(input?: {
     Object.freeze({ kind: "rejected" as const, code: "incompatible" as const });
   const files = Object.freeze({
     selectOne: vi.fn(async () => selection),
-    download: vi.fn(async () => undefined),
+    download: vi.fn(async (_request: Parameters<HostFilePortV1["download"]>[0]) => undefined),
   }) satisfies HostFilePortV1;
   const persistence = Object.freeze({
     getStatus: vi.fn(async () => readyStatusV1),
@@ -71,7 +101,7 @@ function fixtureV1(input?: {
     exportSave: vi.fn(async () => exportSaveResult),
     exportCurrentSave: vi.fn(async () => exportedSaveV1("current.json")),
   });
-  const exportedDiagnostics = exportedDebugBundleV1();
+  const exportedDiagnostics = input?.exportedDiagnostics ?? exportedDebugBundleV1();
   const diagnostics = Object.freeze({
     exportDebugBundle: vi.fn(async () => exportedDiagnostics),
   });
@@ -162,22 +192,134 @@ describe("createPlayerUiPortsV1", () => {
     expect(fixture.files.download).not.toHaveBeenCalled();
   });
 
-  it("downloads current Save and player-safe diagnostics exports without changing their results", async () => {
+  it("prepares a byte-free diagnostics review and downloads only after explicit save", async () => {
     const fixture = fixtureV1();
 
     const current = await fixture.ports.save.exportCurrentSave();
-    const diagnostics = await fixture.ports.diagnostics.exportDebugBundle();
+    const preview = await fixture.ports.diagnostics.prepareDebugBundle();
 
     expect(fixture.files.download).toHaveBeenNthCalledWith(1, {
       filename: current.filename,
       mediaType: current.mediaType,
       bytes: current.bytes,
     });
+    expect(fixture.files.download).toHaveBeenCalledTimes(1);
+    expect(preview).toEqual({
+      filename: fixture.exportedDiagnostics.filename,
+      mediaType: fixture.exportedDiagnostics.mediaType,
+      digest: fixture.exportedDiagnostics.digest,
+      encodedByteLength: fixture.exportedDiagnostics.bytes.byteLength,
+      categories: [
+        "provenance",
+        "capabilities_and_integrity",
+        "replay_evidence",
+        "diagnostics_and_runtime_failures",
+      ],
+    });
+    expect(preview).not.toHaveProperty("bytes");
+
+    await fixture.ports.diagnostics.savePreparedDebugBundle();
+
     expect(fixture.files.download).toHaveBeenNthCalledWith(2, {
       filename: fixture.exportedDiagnostics.filename,
       mediaType: fixture.exportedDiagnostics.mediaType,
       bytes: fixture.exportedDiagnostics.bytes,
     });
-    expect(diagnostics).toBe(fixture.exportedDiagnostics);
+    await expect(fixture.ports.diagnostics.savePreparedDebugBundle()).rejects.toThrow(TypeError);
   });
+
+  it("classifies optional failure and UI context only when present", async () => {
+    const fixture = fixtureV1({
+      exportedDiagnostics: exportedDebugBundleV1({ failure: true, uiContext: true }),
+    });
+
+    await expect(fixture.ports.diagnostics.prepareDebugBundle()).resolves.toMatchObject({
+      categories: [
+        "provenance",
+        "capabilities_and_integrity",
+        "replay_evidence",
+        "diagnostics_and_runtime_failures",
+        "failure_context",
+        "ui_context",
+      ],
+    });
+
+    expect(fixture.files.download).not.toHaveBeenCalled();
+  });
+
+  it("retains the same detached bytes after a download failure and clears them after retry", async () => {
+    const fixture = fixtureV1();
+    const expectedBytes = Uint8Array.from(fixture.exportedDiagnostics.bytes);
+    fixture.files.download.mockRejectedValueOnce(new Error("download failed"));
+
+    await fixture.ports.diagnostics.prepareDebugBundle();
+    fixture.exportedDiagnostics.bytes.fill(0);
+    await expect(fixture.ports.diagnostics.savePreparedDebugBundle()).rejects.toThrow(
+      "download failed",
+    );
+    await expect(fixture.ports.diagnostics.savePreparedDebugBundle()).resolves.toBeUndefined();
+
+    expect(fixture.diagnostics.exportDebugBundle).toHaveBeenCalledOnce();
+    expect(fixture.files.download).toHaveBeenCalledTimes(2);
+    for (const call of fixture.files.download.mock.calls) {
+      expect(call[0]?.bytes).toEqual(expectedBytes);
+      expect(call[0]?.bytes).not.toBe(fixture.exportedDiagnostics.bytes);
+    }
+    await expect(fixture.ports.diagnostics.savePreparedDebugBundle()).rejects.toThrow(TypeError);
+  });
+
+  it("discards a pending prepare without allowing late bytes to revive", async () => {
+    const fixture = fixtureV1();
+    const pending = deferredV1<ExportedDebugBundleV1>();
+    fixture.diagnostics.exportDebugBundle.mockImplementationOnce(() => pending.promise);
+
+    const prepare = fixture.ports.diagnostics.prepareDebugBundle();
+    fixture.ports.diagnostics.discardPreparedDebugBundle();
+    fixture.ports.diagnostics.discardPreparedDebugBundle();
+    pending.resolve(fixture.exportedDiagnostics);
+
+    await expect(prepare).rejects.toThrow("prepared Debug Bundle was discarded");
+    await expect(fixture.ports.diagnostics.savePreparedDebugBundle()).rejects.toThrow(TypeError);
+    expect(fixture.files.download).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    (() => {
+      const bytes = Uint8Array.of(0x7b);
+      return Object.freeze({
+        filename: "diagnostics.json",
+        mediaType: "application/json" as const,
+        digest: digestBytes(bytes),
+        bytes,
+      });
+    })(),
+    (() => {
+      const valid = exportedDebugBundleV1();
+      return Object.freeze({ ...valid, digest: digestBytes(Uint8Array.of(9)) });
+    })(),
+    (() => {
+      const bytes = canonicalJsonBytes({ formatRevision: 1, unknown: true });
+      return Object.freeze({
+        filename: "diagnostics.json",
+        mediaType: "application/json" as const,
+        digest: digestBytes(bytes),
+        bytes,
+      });
+    })(),
+    (() => {
+      const valid = exportedDebugBundleV1();
+      const invalid = { ...valid };
+      Object.defineProperty(invalid, Symbol("hidden"), { value: "unexpected" });
+      return invalid;
+    })(),
+  ])(
+    "rejects invalid Debug Bundle bytes without retaining or downloading them",
+    async (invalid) => {
+      const fixture = fixtureV1({ exportedDiagnostics: invalid });
+
+      await expect(fixture.ports.diagnostics.prepareDebugBundle()).rejects.toThrow(TypeError);
+      await expect(fixture.ports.diagnostics.savePreparedDebugBundle()).rejects.toThrow(TypeError);
+      expect(fixture.files.download).not.toHaveBeenCalled();
+    },
+  );
 });

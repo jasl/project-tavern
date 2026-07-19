@@ -189,11 +189,18 @@ async function loadSlotV1(page: Page, dialog: Locator, slotName: string): Promis
 async function exportDebugBundleV1(page: Page): Promise<PocDebugBundleWitnessV1> {
   const exportButton = page.getByRole("button", { name: "导出调试包" });
   await expect(exportButton).toBeEnabled();
-  const [download] = await Promise.all([page.waitForEvent("download"), exportButton.click()]);
+  await exportButton.click();
+  const review = page.getByRole("region", { name: "检查调试包内容" });
+  await expect(review).toBeVisible();
+  await expect(review.getByText("完整游戏状态与命令历史")).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    review.getByRole("button", { name: "保存调试包" }).click(),
+  ]);
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-  await expect(page.getByText("调试包已导出")).toBeVisible();
+  await expect(page.getByText("调试包已保存")).toBeVisible();
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as PocDebugBundleWitnessV1;
 }
 

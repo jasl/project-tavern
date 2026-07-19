@@ -300,11 +300,30 @@ async function exportDiagnosticBundleV1(
 ): Promise<{ readonly bundle: Record<string, unknown>; readonly text: string }> {
   const exportControl = page.getByRole("button", { name: "导出调试包" });
   await expect(exportControl).toBeEnabled();
-  const downloadPromise = page.waitForEvent("download");
+  const prematureDownloads: unknown[] = [];
+  const recordPrematureDownload = (download: unknown): void => {
+    prematureDownloads.push(download);
+  };
+  page.on("download", recordPrematureDownload);
   if (activation === "touch") {
     await exportControl.tap();
   } else {
     await exportControl.focus();
+    await page.keyboard.press("Space");
+  }
+  const review = page.getByRole("region", { name: "检查调试包内容" });
+  await expect(review).toBeVisible();
+  await expect(review.getByText("完整游戏状态与命令历史")).toBeVisible();
+  await expect(review.getByText(/ B$/u)).toBeVisible();
+  expect(prematureDownloads).toHaveLength(0);
+  page.off("download", recordPrematureDownload);
+
+  const downloadPromise = page.waitForEvent("download");
+  const saveControl = review.getByRole("button", { name: "保存调试包" });
+  if (activation === "touch") {
+    await saveControl.tap();
+  } else {
+    await saveControl.focus();
     await page.keyboard.press("Space");
   }
   const download = await downloadPromise;

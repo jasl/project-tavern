@@ -253,8 +253,12 @@ function projectedActionStatesV1(publication: SemanticPublicationV1): readonly D
 }
 
 async function exportDiagnosticBundleV1(page: Page): Promise<Record<string, unknown>> {
-  const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出调试包" }).click();
+  const review = page.getByRole("region", { name: "检查调试包内容" });
+  await expect(review).toBeVisible();
+  await expect(review.getByText("完整游戏状态与命令历史")).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await review.getByRole("button", { name: "保存调试包" }).click();
   const download = await downloadPromise;
   const path = await download.path();
   if (path === null) throw new TypeError("diagnostic download has no local path");

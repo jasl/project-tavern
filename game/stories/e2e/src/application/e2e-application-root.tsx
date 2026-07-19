@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { parseTextId } from "@sillymaker/base";
-import type { DeepReadonly } from "@sillymaker/base";
+import type { DeepReadonly, RuntimeSessionStatusV1 } from "@sillymaker/base";
 import {
   Button,
   CharacterHostV1,
@@ -54,6 +54,15 @@ const closedDevDockStateV1 = Object.freeze({
   rightOpen: false,
 }) satisfies DevDockOpenStateV1;
 const emptyDevDockContributionsV1 = createDevDockContributionSetV1({ panels: [] });
+
+const e2eDiagnosticCategoryLabelsV1 = Object.freeze({
+  provenance: "构建与来源信息",
+  capabilities_and_integrity: "运行能力与完整性状态",
+  replay_evidence: "完整游戏状态与命令历史",
+  diagnostics_and_runtime_failures: "诊断与运行时故障",
+  failure_context: "失败现场",
+  ui_context: "界面上下文",
+});
 
 const e2eInteractionEntryIdV1 = "e2e-interaction-entry";
 
@@ -322,6 +331,7 @@ function createInteractionEntryV1(
 function createSystemLayerV1(
   runtime: E2ePresentationRuntimeV1,
   publication: E2eRuntimePresentationPublicationV1,
+  stableSessionStatus: Exclude<RuntimeSessionStatusV1, "busy">,
 ): ReactElement {
   const applicationTextV1 = (
     textId: (typeof e2eApplicationTextIdsV1)[keyof typeof e2eApplicationTextIdsV1],
@@ -331,12 +341,21 @@ function createSystemLayerV1(
       diagnostics={runtime.playerUi.diagnostics}
       sessionStatus={publication.semantic.status}
       label={applicationTextV1(e2eApplicationTextIdsV1.exportDebugBundle)}
-      pendingText={applicationTextV1(e2eApplicationTextIdsV1.exportingDebugBundle)}
-      completedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExported)}
-      failedText={applicationTextV1(e2eApplicationTextIdsV1.debugBundleExportFailed)}
+      preparingText="正在准备调试包…"
+      reviewTitle="检查调试包内容"
+      filenameLabel="文件名"
+      digestLabel="SHA-256"
+      encodedByteLengthLabel="编码后大小"
+      categoriesLabel="包含内容"
+      categoryLabels={e2eDiagnosticCategoryLabelsV1}
+      saveLabel="保存调试包"
+      cancelLabel="取消"
+      savingText="正在保存调试包…"
+      completedText="调试包已保存"
+      failedText="调试包操作失败"
     />
   );
-  if (publication.semantic.status === "fault_paused") {
+  if (stableSessionStatus === "fault_paused") {
     return (
       <RuntimeFailureDialogV1
         title="界面暂时无法继续"
@@ -419,6 +438,7 @@ function createSystemLayerV1(
 function createFixedLayersV1(
   runtime: E2ePresentationRuntimeV1,
   publication: E2eRuntimePresentationPublicationV1,
+  stableSessionStatus: Exclude<RuntimeSessionStatusV1, "busy">,
 ): GameStageLayersV1 {
   const HudRenderer = requireRendererV1(runtime.contributions, "hud", e2eUiRendererIdsV1.hud);
   const NarrativeRenderer = requireRendererV1(
@@ -463,7 +483,7 @@ function createFixedLayersV1(
       />
     ),
     narrative: <NarrativeRenderer {...flowContext} />,
-    system: createSystemLayerV1(runtime, publication),
+    system: createSystemLayerV1(runtime, publication, stableSessionStatus),
   });
 }
 
@@ -520,7 +540,13 @@ export function E2eApplicationRootV1(props: E2eApplicationRootPropsV1): ReactEle
       ? loadedTooling.contributions
       : emptyDevDockContributionsV1;
   const publication = useRuntimePresentationV1(props.runtime.presentation);
-  const layers = createFixedLayersV1(props.runtime, publication);
+  const stableSessionStatusRef = useRef<Exclude<RuntimeSessionStatusV1, "busy">>(
+    publication.semantic.status === "busy" ? "ready" : publication.semantic.status,
+  );
+  if (publication.semantic.status !== "busy") {
+    stableSessionStatusRef.current = publication.semantic.status;
+  }
+  const layers = createFixedLayersV1(props.runtime, publication, stableSessionStatusRef.current);
   const accessibleName = props.runtime.presentationRead.text(
     publication.view.stage.background.accessibleNameTextId,
   ).text;

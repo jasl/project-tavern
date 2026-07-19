@@ -59,6 +59,15 @@ const closedDevDockStateV1 = Object.freeze({
 }) satisfies DevDockOpenStateV1;
 const emptyDevDockContributionsV1 = createDevDockContributionSetV1({ panels: [] });
 
+const pocDiagnosticCategoryLabelsV1 = Object.freeze({
+  provenance: "构建与来源信息",
+  capabilities_and_integrity: "运行能力与完整性状态",
+  replay_evidence: "完整游戏状态与命令历史",
+  diagnostics_and_runtime_failures: "诊断与运行时故障",
+  failure_context: "失败现场",
+  ui_context: "界面上下文",
+});
+
 const pocSaveOverlayLabelsV1 = Object.freeze({
   accessibleName: "保存",
   title: "保存",
@@ -698,9 +707,18 @@ export function PocApplicationRootV1({ runtime }: PocApplicationRootPropsV1): Re
           diagnostics={runtime.playerUi.diagnostics}
           sessionStatus={publication.semantic.status}
           label="导出调试包"
-          pendingText="正在导出调试包…"
-          completedText="调试包已导出"
-          failedText="调试包导出失败"
+          preparingText="正在准备调试包…"
+          reviewTitle="检查调试包内容"
+          filenameLabel="文件名"
+          digestLabel="SHA-256"
+          encodedByteLengthLabel="编码后大小"
+          categoriesLabel="包含内容"
+          categoryLabels={pocDiagnosticCategoryLabelsV1}
+          saveLabel="保存调试包"
+          cancelLabel="取消"
+          savingText="正在保存调试包…"
+          completedText="调试包已保存"
+          failedText="调试包操作失败"
         />
       </SystemDialogHostV1>
     ),

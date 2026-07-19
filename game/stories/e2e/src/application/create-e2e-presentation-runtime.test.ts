@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import type { HostAtomicRecordStoreV1, HostFilePortV1 } from "@sillymaker/base";
+import { digestBytes, type HostAtomicRecordStoreV1, type HostFilePortV1 } from "@sillymaker/base";
 import { createMemoryHostRecordStoreV1, resolveStoryForTestV1 } from "@sillymaker/base/testkit";
 import type { PersistenceRebootstrapDisposalV1 } from "@sillymaker/base/runtime";
 import type { RuntimeAssetLoaderV1, RuntimeAssetLoadRequestV1 } from "@sillymaker/ui";
@@ -664,12 +664,20 @@ describe("createE2ePresentationRuntimeV1", () => {
         await runtime.playerUi.save.getStatus(),
       );
 
-      const debugBundle = await runtime.playerUi.diagnostics.exportDebugBundle();
+      const debugBundle = await runtime.playerUi.diagnostics.prepareDebugBundle();
+      expect(debugBundle).not.toHaveProperty("bytes");
+      expect(download).not.toHaveBeenCalled();
+
+      await runtime.playerUi.diagnostics.savePreparedDebugBundle();
+      const downloaded = download.mock.calls[0]?.[0];
+      if (downloaded === undefined) throw new TypeError("missing saved Debug Bundle");
       expect(download).toHaveBeenCalledExactlyOnceWith({
         filename: debugBundle.filename,
         mediaType: debugBundle.mediaType,
-        bytes: debugBundle.bytes,
+        bytes: downloaded.bytes,
       });
+      expect(downloaded.bytes.byteLength).toBe(debugBundle.encodedByteLength);
+      expect(digestBytes(downloaded.bytes)).toBe(debugBundle.digest);
 
       const initialOverlay = runtime.overlaySession.getSnapshot();
       expect(initialOverlay).toEqual({ primaryId: null, detailIds: [] });
